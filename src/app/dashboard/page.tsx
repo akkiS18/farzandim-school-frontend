@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -294,7 +296,7 @@ export default function TenantDashboard() {
 
   const fetchClassesData = async (authToken: string) => {
     try {
-      const response = await fetch("http://localhost:6560/api/schools/classes", {
+      const response = await fetch(`${API_URL}/api/schools/classes`, {
         headers: { "Authorization": `Bearer ${authToken}` },
       });
       const data = await response.json();
@@ -306,7 +308,7 @@ export default function TenantDashboard() {
 
   const fetchTeachersData = async (authToken: string) => {
     try {
-      const response = await fetch("http://localhost:6560/api/schools/teachers", {
+      const response = await fetch(`${API_URL}/api/schools/teachers`, {
         headers: { "Authorization": `Bearer ${authToken}` },
       });
       const data = await response.json();
@@ -318,7 +320,7 @@ export default function TenantDashboard() {
 
   const fetchGradingSystemsData = async (authToken: string) => {
     try {
-      const response = await fetch("http://localhost:6560/api/schools/grading-systems", {
+      const response = await fetch(`${API_URL}/api/schools/grading-systems`, {
         headers: { "Authorization": `Bearer ${authToken}` },
       });
       const data = await response.json();
@@ -330,7 +332,7 @@ export default function TenantDashboard() {
 
   const fetchActiveGSData = async (authToken: string) => {
     try {
-      const response = await fetch("http://localhost:6560/api/schools/grading-systems/active", {
+      const response = await fetch(`${API_URL}/api/schools/grading-systems/active`, {
         headers: { "Authorization": `Bearer ${authToken}` },
       });
       const data = await response.json();
@@ -342,7 +344,7 @@ export default function TenantDashboard() {
 
   const fetchSubjectsData = async (authToken: string) => {
     try {
-      const response = await fetch("http://localhost:6560/api/schools/subjects", {
+      const response = await fetch(`${API_URL}/api/schools/subjects`, {
         headers: { "Authorization": `Bearer ${authToken}` },
       });
       const data = await response.json();
@@ -356,7 +358,7 @@ export default function TenantDashboard() {
     if (!selectedClass) return;
     setClassStudentsLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/users?role=STUDENT&class_id=${selectedClass.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClass.id}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -372,7 +374,7 @@ export default function TenantDashboard() {
     if (!selectedClass) return;
     setClassTeachersLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/teachers`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/teachers`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -388,7 +390,7 @@ export default function TenantDashboard() {
     if (!selectedClass) return;
     setClassParentsLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/users?role=PARENT&class_id=${selectedClass.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/users?role=PARENT&class_id=${selectedClass.id}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -405,7 +407,7 @@ export default function TenantDashboard() {
     setClassScheduleLoading(true);
     const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/schedule?date=${dateQuery}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule?date=${dateQuery}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -427,7 +429,7 @@ export default function TenantDashboard() {
     if (!selectedClass) return;
     setScheduleExceptionsLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/schedule-exceptions`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -454,7 +456,7 @@ export default function TenantDashboard() {
     };
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/schedule-exceptions`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -491,7 +493,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/schedule-exceptions/${exceptionId}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions/${exceptionId}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -529,7 +531,7 @@ export default function TenantDashboard() {
       });
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/schedule`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -564,7 +566,7 @@ export default function TenantDashboard() {
   const fetchLinkedParents = async (studentId: number) => {
     setLinkedParentsLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/students/${studentId}/parents`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${studentId}/parents`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -593,7 +595,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/students/${selectedStudentForParents.id}/parents`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id}/parents`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -636,7 +638,7 @@ export default function TenantDashboard() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/students/${selectedStudentForParents.id}/parents/${parentId}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id}/parents/${parentId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -663,7 +665,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/classes", {
+      const response = await fetch(`${API_URL}/api/schools/classes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -692,7 +694,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -720,7 +722,7 @@ export default function TenantDashboard() {
     setActionLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -748,7 +750,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/students`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/students`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -791,7 +793,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/students/${editingStudent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -833,7 +835,7 @@ export default function TenantDashboard() {
     setActionLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/students/${editingStudent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -863,7 +865,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/parents/${editingParent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/parents/${editingParent.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -905,7 +907,7 @@ export default function TenantDashboard() {
     setActionLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/students/${unlinkStudentId}/parents/${editingParent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${unlinkStudentId}/parents/${editingParent.id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -935,7 +937,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/teachers", {
+      const response = await fetch(`${API_URL}/api/schools/teachers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -980,7 +982,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/subjects", {
+      const response = await fetch(`${API_URL}/api/schools/subjects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1006,7 +1008,7 @@ export default function TenantDashboard() {
   const handleActivateGS = async (id: number) => {
     setActionLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/grading-systems/${id}/activate`, {
+      const response = await fetch(`${API_URL}/api/schools/grading-systems/${id}/activate`, {
         method: "PUT",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -1028,7 +1030,7 @@ export default function TenantDashboard() {
     if (!confirm("Haqiqatan ham ushbu baholash tizimini o'chirmoqchisiz?")) return;
     setActionLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/grading-systems/${id}`, {
+      const response = await fetch(`${API_URL}/api/schools/grading-systems/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -1070,7 +1072,7 @@ export default function TenantDashboard() {
     }
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/grading-systems", {
+      const response = await fetch(`${API_URL}/api/schools/grading-systems`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1101,7 +1103,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/teachers`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/teachers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1143,7 +1145,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClass.id}/teachers/${unassignClassTeacherId}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/teachers/${unassignClassTeacherId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -1166,7 +1168,7 @@ export default function TenantDashboard() {
   // Template Downloads
   const downloadTemplate = async (type: "students" | "teachers" | "parents") => {
     try {
-      let url = `http://localhost:6560/api/schools/import/template/${type}`;
+      let url = `${API_URL}/api/schools/import/template/${type}`;
       if (type === "parents" && selectedClass) {
         url += `?class_id=${selectedClass.id}`;
       }
@@ -1200,7 +1202,7 @@ export default function TenantDashboard() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/import/${type}`, {
+      const response = await fetch(`${API_URL}/api/schools/import/${type}`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
         body: formData,
@@ -1239,7 +1241,7 @@ export default function TenantDashboard() {
     setChangePasswordSuccess("");
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/settings/change-password", {
+      const response = await fetch(`${API_URL}/api/schools/settings/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

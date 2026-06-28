@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -38,7 +40,7 @@ export default function TenantLoginPage() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/login", {
+      const response = await fetch(`${API_URL}/api/schools/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

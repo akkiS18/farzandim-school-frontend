@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -180,28 +182,28 @@ export default function TeacherDashboard() {
     setLoading(true);
     try {
       // Load classes
-      const clsRes = await fetch("http://localhost:6560/api/schools/classes", {
+      const clsRes = await fetch(`${API_URL}/api/schools/classes`, {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const clsData = await clsRes.json();
       if (clsRes.ok) setClasses(Array.isArray(clsData) ? clsData : []);
 
       // Load subjects
-      const subRes = await fetch("http://localhost:6560/api/schools/subjects", {
+      const subRes = await fetch(`${API_URL}/api/schools/subjects`, {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const subData = await subRes.json();
       if (subRes.ok) setSubjects(Array.isArray(subData) ? subData : []);
 
       // Load active grading system
-      const gsRes = await fetch("http://localhost:6560/api/schools/grading-systems/active", {
+      const gsRes = await fetch(`${API_URL}/api/schools/grading-systems/active`, {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const gsData = await gsRes.json();
       if (gsRes.ok) setActiveGS(gsData);
 
       // Load all grading systems
-      const gsListRes = await fetch("http://localhost:6560/api/schools/grading-systems", {
+      const gsListRes = await fetch(`${API_URL}/api/schools/grading-systems`, {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const gsListData = await gsListRes.json();
@@ -275,7 +277,7 @@ export default function TeacherDashboard() {
     if (!selectedClassId) return;
     setClassTeachersLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/teachers`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/teachers`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -294,7 +296,7 @@ export default function TeacherDashboard() {
     setClassScheduleLoading(true);
     const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/schedule?date=${dateQuery}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule?date=${dateQuery}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -316,7 +318,7 @@ export default function TeacherDashboard() {
     if (!selectedClassId) return;
     setScheduleExceptionsLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/schedule-exceptions`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -334,7 +336,7 @@ export default function TeacherDashboard() {
     if (!selectedClassId) return;
     setSchedulePeriodsLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/schedule-periods`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-periods`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -361,7 +363,7 @@ export default function TeacherDashboard() {
     };
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/schedule-exceptions`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -396,7 +398,7 @@ export default function TeacherDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/schedule-exceptions/${exceptionId}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions/${exceptionId}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -434,7 +436,7 @@ export default function TeacherDashboard() {
       });
 
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/schedule`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -465,7 +467,7 @@ export default function TeacherDashboard() {
     setDataLoading(true);
     try {
       // Fetch students
-      const studRes = await fetch(`http://localhost:6560/api/schools/users?role=STUDENT&class_id=${selectedClassId}`, {
+      const studRes = await fetch(`${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const studData = await studRes.json();
@@ -479,7 +481,7 @@ export default function TeacherDashboard() {
       setStudents(studentsList);
 
       // Fetch grades
-      const gradeRes = await fetch(`http://localhost:6560/api/schools/grades?class_id=${selectedClassId}&subject_id=${selectedSubjectId}`, {
+      const gradeRes = await fetch(`${API_URL}/api/schools/grades?class_id=${selectedClassId}&subject_id=${selectedSubjectId}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const gradeData = await gradeRes.json();
@@ -518,7 +520,7 @@ export default function TeacherDashboard() {
     try {
       // 1. Schedule for that date's week → determine subjects of the day
       const schedRes = await fetch(
-        `http://localhost:6560/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`,
+        `${API_URL}/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const schedData = await schedRes.json();
@@ -549,7 +551,7 @@ export default function TeacherDashboard() {
 
       // 2. Students for this class
       const studRes = await fetch(
-        `http://localhost:6560/api/schools/users?role=STUDENT&class_id=${selectedClassId}&date=${targetDate}`,
+        `${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}&date=${targetDate}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const studData = await studRes.json();
@@ -564,7 +566,7 @@ export default function TeacherDashboard() {
 
       // 3. All grades for this class
       const gradesRes = await fetch(
-        `http://localhost:6560/api/schools/grades?class_id=${selectedClassId}`,
+        `${API_URL}/api/schools/grades?class_id=${selectedClassId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const gradesData = await gradesRes.json();
@@ -639,7 +641,7 @@ export default function TeacherDashboard() {
       if (value === '') {
         // DELETE existing grade
         if (!existingGrade) return;
-        const res = await fetch(`http://localhost:6560/api/schools/grades/${existingGrade.id}`, {
+        const res = await fetch(`${API_URL}/api/schools/grades/${existingGrade.id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -655,7 +657,7 @@ export default function TeacherDashboard() {
         let res;
         if (existingGrade) {
           // PUT update
-          res = await fetch(`http://localhost:6560/api/schools/grades/${existingGrade.id}`, {
+          res = await fetch(`${API_URL}/api/schools/grades/${existingGrade.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
@@ -668,7 +670,7 @@ export default function TeacherDashboard() {
           });
         } else {
           // POST create
-          res = await fetch('http://localhost:6560/api/schools/grades', {
+          res = await fetch(`${API_URL}/api/schools/grades`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
@@ -706,7 +708,7 @@ export default function TeacherDashboard() {
     if (!selectedClassId || !token) return;
     setUnapprovedLoading(true);
     try {
-      const res = await fetch(`http://localhost:6560/api/schools/grades?class_id=${selectedClassId}&status=marked`, {
+      const res = await fetch(`${API_URL}/api/schools/grades?class_id=${selectedClassId}&status=marked`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -733,7 +735,7 @@ export default function TeacherDashboard() {
     if (!selectedClassId || !token) return;
     setStudentsTabLoading(true);
     try {
-      const res = await fetch(`http://localhost:6560/api/schools/users?role=STUDENT&class_id=${selectedClassId}`, {
+      const res = await fetch(`${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -761,7 +763,7 @@ export default function TeacherDashboard() {
       let res;
       if (studentModalMode === "create") {
         body.password = studentForm.password.trim() || "123456";
-        res = await fetch(`http://localhost:6560/api/schools/classes/${selectedClassId}/students`, {
+        res = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/students`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(body)
@@ -770,7 +772,7 @@ export default function TeacherDashboard() {
         if (studentForm.password.trim()) {
           body.password = studentForm.password.trim();
         }
-        res = await fetch(`http://localhost:6560/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
+        res = await fetch(`${API_URL}/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(body)
@@ -793,7 +795,7 @@ export default function TeacherDashboard() {
   const handleDeleteStudent = async (studentId: number) => {
     if (!window.confirm("Haqiqatan ham bu o'quvchini o'chirmoqchimisiz?")) return;
     try {
-      const res = await fetch(`http://localhost:6560/api/schools/students/${studentId}`, {
+      const res = await fetch(`${API_URL}/api/schools/students/${studentId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -830,7 +832,7 @@ export default function TeacherDashboard() {
     }
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/grades/batch", {
+      const response = await fetch(`${API_URL}/api/schools/grades/batch`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -860,7 +862,7 @@ export default function TeacherDashboard() {
     }
     setApproveLoading(true);
     try {
-      const response = await fetch("http://localhost:6560/api/schools/grades/change-status", {
+      const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -902,7 +904,7 @@ export default function TeacherDashboard() {
 
     setApproveLoading(true);
     try {
-      const response = await fetch("http://localhost:6560/api/schools/grades/change-status", {
+      const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -928,7 +930,7 @@ export default function TeacherDashboard() {
   // 4. Download Excel Template
   const handleDownloadTemplate = () => {
     if (!selectedClassId || !selectedSubjectId) return;
-    window.open(`http://localhost:6560/api/schools/import/template/grades?class_id=${selectedClassId}&subject_id=${selectedSubjectId}&token=${token}`);
+    window.open(`${API_URL}/api/schools/import/template/grades?class_id=${selectedClassId}&subject_id=${selectedSubjectId}&token=${token}`);
   };
 
   // 5. Excel Import Handler
@@ -943,7 +945,7 @@ export default function TeacherDashboard() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch("http://localhost:6560/api/schools/import/grades", {
+      const response = await fetch(`${API_URL}/api/schools/import/grades`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
         body: formData,
@@ -2135,7 +2137,7 @@ export default function TeacherDashboard() {
                         onClick={async () => {
                           setApproveLoading(true);
                           try {
-                            const response = await fetch("http://localhost:6560/api/schools/grades/change-status", {
+                            const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
                               method: "POST",
                               headers: {
                                 "Content-Type": "application/json",
@@ -2256,7 +2258,7 @@ export default function TeacherDashboard() {
                                     type="button"
                                     onClick={async () => {
                                       try {
-                                        const response = await fetch("http://localhost:6560/api/schools/grades/change-status", {
+                                        const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
                                           method: "POST",
                                           headers: {
                                             "Content-Type": "application/json",
@@ -2285,7 +2287,7 @@ export default function TeacherDashboard() {
                                     onClick={async () => {
                                       if (!window.confirm("Haqiqatan ham bu bahoni o'chirmoqchimisiz?")) return;
                                       try {
-                                        const response = await fetch(`http://localhost:6560/api/schools/grades/${g.id}`, {
+                                        const response = await fetch(`${API_URL}/api/schools/grades/${g.id}`, {
                                           method: "DELETE",
                                           headers: {
                                             "Authorization": `Bearer ${token}`,

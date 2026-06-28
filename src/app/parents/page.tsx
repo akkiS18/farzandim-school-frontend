@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -110,7 +112,7 @@ export default function ParentDashboard() {
       // In the backend, we can query students by parent ID.
       // Let's use the student endpoints or check student parents.
       // Let's call GET /api/schools/users?role=STUDENT
-      const response = await fetch(`http://localhost:6560/api/schools/users?role=STUDENT`, {
+      const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const data = await response.json();
@@ -151,7 +153,7 @@ export default function ParentDashboard() {
   const fetchChildGrades = async () => {
     setGradesLoading(true);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/grades?student_id=${selectedChildId}`, {
+      const response = await fetch(`${API_URL}/api/schools/grades?student_id=${selectedChildId}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -168,7 +170,7 @@ export default function ParentDashboard() {
   const handleParentApprove = async (gradeId: number) => {
     setApproveLoading(gradeId);
     try {
-      const response = await fetch(`http://localhost:6560/api/schools/grades/${gradeId}/parent-approve`, {
+      const response = await fetch(`${API_URL}/api/schools/grades/${gradeId}/parent-approve`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -192,7 +194,7 @@ export default function ParentDashboard() {
     try {
       await Promise.all(
         pending.map(g =>
-          fetch(`http://localhost:6560/api/schools/grades/${g.id}/parent-approve`, {
+          fetch(`${API_URL}/api/schools/grades/${g.id}/parent-approve`, {
             method: "POST",
             headers: { "Authorization": `Bearer ${token}` },
           })
