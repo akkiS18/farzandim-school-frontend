@@ -4,13 +4,31 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
 
+// Import modular components
+import BottomNavigation from "../../components/BottomNavigation";
+
+/* ─────────────────────────────────────────
+   Types
+───────────────────────────────────────── */
 interface UserInfo {
   id: number;
   first_name: string;
   last_name: string;
   role: string;
   school_id: string;
+  phone?: string;
+  email?: string;
 }
 
 interface StudentChild {
@@ -41,44 +59,290 @@ interface Announcement {
   author: string;
 }
 
+/* ─────────────────────────────────────────
+   Constants & helpers
+───────────────────────────────────────── */
+const ACCENT = "#4F46E5"; // Indigo-600
+const ACCENT_LIGHT = "#EEF2FF"; // Indigo-50
+const ACCENT_MID = "#C7D2FE"; // Indigo-200
+const TEXT_DARK = "#374151"; // Gray-700
+const TEXT_MUTED = "#9CA3AF"; // Gray-400
+const BG_LIGHT = "#F3F4F6"; // Gray-100
+
+const UZ_DAYS: Record<number, string> = {
+  0: "Yakshanba",
+  1: "Dushanba",
+  2: "Seshanba",
+  3: "Chorshanba",
+  4: "Payshanba",
+  5: "Juma",
+  6: "Shanba",
+};
+
+const UZ_MONTHS = [
+  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+];
+
+function fmtDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getDate()} ${UZ_MONTHS[d.getMonth()]}`;
+}
+
+function fmtDayName(dateStr: string) {
+  const d = new Date(dateStr);
+  return UZ_DAYS[d.getDay()];
+}
+
+function getNumericVal(g: GradeItem): number | null {
+  const v = g.numeric_value !== undefined ? g.numeric_value : parseFloat(g.value);
+  return isNaN(v) ? null : v;
+}
+
+/** Returns the ISO date string of the Monday of a given date */
+function weekStart(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() + diff);
+  mon.setHours(0, 0, 0, 0);
+  return mon.toISOString().split("T")[0];
+}
+
+function weekLabel(key: string): string {
+  const mon = new Date(key);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  return `${mon.getDate()} ${UZ_MONTHS[mon.getMonth()]} — ${sun.getDate()} ${UZ_MONTHS[sun.getMonth()]}`;
+}
+
+function gradeColor(val: number | null): string {
+  if (val === null) return "#6B7280";
+  if (val >= 4.5) return "#16A34A"; // green
+  if (val >= 3.5) return "#2563EB"; // blue
+  if (val >= 2.5) return "#D97706"; // amber
+  return "#DC2626"; // red
+}
+
+function gradeBg(val: number | null): string {
+  if (val === null) return "#F3F4F6";
+  if (val >= 4.5) return "#F0FDF4";
+  if (val >= 3.5) return "#EFF6FF";
+  if (val >= 2.5) return "#FFFBEB";
+  return "#FEF2F2";
+}
+
+function gradeBorder(val: number | null): string {
+  if (val === null) return "#E5E7EB";
+  if (val >= 4.5) return "#BBF7D0";
+  if (val >= 3.5) return "#BFDBFE";
+  if (val >= 2.5) return "#FDE68A";
+  return "#FECACA";
+}
+
+/* ─────────────────────────────────────────
+   Custom Tooltip for Recharts
+───────────────────────────────────────── */
+function CustomTooltip({ active, payload, label }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div
+        style={{
+          background: "white",
+          border: `1px solid ${ACCENT_MID}`,
+          borderRadius: 10,
+          padding: "8px 14px",
+          fontFamily: "'Roboto', sans-serif",
+          fontSize: 12,
+          color: TEXT_DARK,
+          boxShadow: "0 4px 16px rgba(79,70,229,0.10)",
+        }}
+      >
+        <p style={{ color: TEXT_MUTED, marginBottom: 2, fontSize: 10 }}>{label}</p>
+        <p style={{ fontWeight: 700, color: ACCENT }}>Baho: {payload[0].value}</p>
+      </div>
+    );
+  }
+  return null;
+}
+
+/* ─────────────────────────────────────────
+   Diary Row - Lined notebook style
+───────────────────────────────────────── */
+interface DiaryRowProps {
+  grade: GradeItem;
+  onApprove: (id: number) => void;
+  approving: boolean;
+}
+
+function DiaryRow({ grade, onApprove, approving }: DiaryRowProps) {
+  const num = getNumericVal(grade);
+  const color = gradeColor(num);
+  const bg = gradeBg(num);
+  const border = gradeBorder(num);
+  const isApproved = grade.status === "approved" || grade.approved_by_parent;
+  const dayName = fmtDayName(grade.grade_date);
+  const dateStr = fmtDate(grade.grade_date);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "10px 16px",
+        borderBottom: "1px dashed #E5E7EB",
+        background: "transparent",
+        position: "relative",
+      }}
+    >
+      {/* Left date gutter – like a diary margin */}
+      <div
+        style={{
+          width: "64px",
+          minWidth: "64px",
+          textAlign: "center",
+          paddingRight: "8px",
+          borderRight: `2px solid ${ACCENT_LIGHT}`,
+          zIndex: 10,
+        }}
+      >
+        <div style={{ fontSize: "11px", fontWeight: 700, color: ACCENT, lineHeight: 1.2 }}>
+          {dateStr}
+        </div>
+        <div style={{ fontSize: "9px", color: TEXT_MUTED, marginTop: "2px" }}>
+          {dayName}
+        </div>
+      </div>
+
+      {/* Subject info */}
+      <div style={{ flex: 1, minWidth: 0, paddingLeft: "12px", zIndex: 10 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: TEXT_DARK, lineHeight: 1.3 }}>
+          {grade.subject_name}
+        </div>
+        <div style={{ fontSize: "10px", color: TEXT_MUTED, marginTop: "2px" }}>
+          {grade.teacher_name}
+        </div>
+      </div>
+
+      {/* Approval badge */}
+      <div style={{ flexShrink: 0, zIndex: 10 }}>
+        {isApproved ? (
+          <span
+            style={{
+              fontSize: "9px",
+              fontWeight: 700,
+              color: "#9CA3AF",
+              background: "#F3F4F6",
+              borderRadius: "999px",
+              padding: "2px 8px",
+            }}
+          >
+            Ko'rildi
+          </span>
+        ) : (
+          <button
+            onClick={() => onApprove(grade.id)}
+            disabled={approving}
+            style={{
+              fontSize: "9px",
+              fontWeight: 700,
+              color: ACCENT,
+              background: ACCENT_LIGHT,
+              border: `1px solid ${ACCENT_MID}`,
+              borderRadius: "8px",
+              padding: "4px 8px",
+              cursor: "pointer",
+            }}
+          >
+            {approving ? "..." : "Ko'rdim"}
+          </button>
+        )}
+      </div>
+
+      {/* Grade badge */}
+      <div
+        style={{
+          width: "34px",
+          height: "34px",
+          borderRadius: "8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 800,
+          fontSize: "14px",
+          color: color,
+          background: bg,
+          border: `1.5px solid ${border}`,
+          fontFamily: "monospace",
+          flexShrink: 0,
+          zIndex: 10,
+        }}
+      >
+        {grade.value}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Main Component
+───────────────────────────────────────── */
 export default function ParentDashboard() {
   const router = useRouter();
 
-  // Auth States
+  // Bottom navigation state: "home" | "settings"
+  const [activeTab, setActiveTab] = useState<"home" | "settings">("home");
+
+  // Home view sub-tabs: "diary" | "dynamics" | "announcements"
+  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "announcements">("diary");
+
+  // Auth
   const [token, setToken] = useState("");
   const [schoolId, setSchoolId] = useState("");
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Children & Selection
+  // Children
   const [children, setChildren] = useState<StudentChild[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | "">("");
 
-  // Grade lists
+  // Grades
   const [grades, setGrades] = useState<GradeItem[]>([]);
   const [gradesLoading, setGradesLoading] = useState(false);
   const [approveLoading, setApproveLoading] = useState<number | null>(null);
   const [approveAllLoading, setApproveAllLoading] = useState<string | null>(null);
 
-  // Noticeboard list (Noticeboards announcements)
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
+  // Announcements (static demo data)
+  const [announcements] = useState<Announcement[]>([
     {
       id: 1,
       title: "Chorak yakuni va ota-onalar majlisi",
-      content: "Joriy chorak yakunlanishi munosabati bilan barcha ota-onalar uchun juma kuni soat 17:00 da umumiy majlis bo'lib o'tadi. Farzandingiz kundaligini tekshirib kelishingiz so'raladi.",
-      date: new Date().toLocaleDateString(),
+      content:
+        "Joriy chorak yakunlanishi munosabati bilan barcha ota-onalar uchun juma kuni soat 17:00 da umumiy majlis bo'lib o'tadi. Farzandingiz kundaligini tekshirib kelishingiz so'raladi.",
+      date: new Date().toLocaleDateString("uz-UZ"),
       author: "Maktab Ma'muriyati",
     },
     {
       id: 2,
       title: "Matematika fanidan qo'shimcha to'garak",
-      content: "Shanba kunlari soat 10:00 da o'quvchilar uchun matematika fanidan bepul olimpiadaga tayyorgarlik darslari boshlanmoqda.",
-      date: new Date(Date.now() - 86400000).toLocaleDateString(),
+      content:
+        "Shanba kunlari soat 10:00 da o'quvchilar uchun matematika fanidan bepul olimpiadaga tayyorgarlik darslari boshlanmoqda.",
+      date: new Date(Date.now() - 86400000).toLocaleDateString("uz-UZ"),
       author: "Matematika o'qituvchisi",
+    },
+    {
+      id: 3,
+      title: "Maktab uniformasi haqida eslatma",
+      content:
+        "Barcha o'quvchilar dushanbadan boshlab maktab formasida kelishi shart. Batafsil ma'lumot uchun sinf rahbariga murojaat qiling.",
+      date: new Date(Date.now() - 2 * 86400000).toLocaleDateString("uz-UZ"),
+      author: "Direktor o'rinbosari",
     },
   ]);
 
-  // 1. Check Auth & Load Children list
+  /* ── Auth & initial load ── */
   useEffect(() => {
     const savedToken = localStorage.getItem("school_token");
     const savedSchoolId = localStorage.getItem("school_id");
@@ -99,30 +363,24 @@ export default function ParentDashboard() {
       }
       setUserInfo(parsedUser);
       fetchLinkedChildren(savedToken, parsedUser.id, savedSchoolId);
-    } catch (e) {
+    } catch {
       router.push("/login");
     }
   }, [router]);
 
-  const fetchLinkedChildren = async (authToken: string, parentId: number, currentSchoolId: string) => {
+  const fetchLinkedChildren = async (
+    authToken: string,
+    _parentId: number,
+    currentSchoolId: string
+  ) => {
     setLoading(true);
     try {
-      // Fetch classes where parent has student children.
-      // Wait, we can fetch users with parent filter or directly fetch student list linked to this parent!
-      // In the backend, we can query students by parent ID.
-      // Let's use the student endpoints or check student parents.
-      // Let's call GET /api/schools/users?role=STUDENT
       const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
-        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
+        headers: { Authorization: `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const data = await response.json();
-
       if (response.ok && Array.isArray(data)) {
-        // Find students that have this parent ID linked (or we show all kids, since parent database query filters parent context)
-        // Wait! In tenant user endpoints, if user is PARENT, the backend filters students or we can display the students.
-        // Let's look at how the backend returns students:
-        // We can query GET /api/schools/users?role=STUDENT
-        const childrenList = data.map((u: any) => ({
+        const childrenList: StudentChild[] = data.map((u: any) => ({
           id: u.student_id || u.id,
           first_name: u.first_name,
           last_name: u.last_name,
@@ -130,80 +388,80 @@ export default function ParentDashboard() {
           class_name: u.class_name || "Noma'lum sinf",
         }));
         setChildren(childrenList);
-        if (childrenList.length > 0) {
-          setSelectedChildId(childrenList[0].id);
-        }
+        if (childrenList.length > 0) setSelectedChildId(childrenList[0].id);
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      /* noop */
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Fetch grades for selected child
+  /* ── Fetch grades when child changes ── */
   useEffect(() => {
-    if (selectedChildId) {
+    if (selectedChildId && token) {
       fetchChildGrades();
     } else {
       setGrades([]);
     }
-  }, [selectedChildId]);
+  }, [selectedChildId, token]);
 
   const fetchChildGrades = async () => {
     setGradesLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/grades?student_id=${selectedChildId}`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
-      if (response.ok) {
-        setGrades(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error(e);
+      if (response.ok) setGrades(Array.isArray(data) ? data : []);
+    } catch {
+      /* noop */
     } finally {
       setGradesLoading(false);
     }
   };
 
+  /* ── Approval handlers ── */
   const handleParentApprove = async (gradeId: number) => {
     setApproveLoading(gradeId);
     try {
       const response = await fetch(`${API_URL}/api/schools/grades/${gradeId}/parent-approve`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) {
-        const data = await response.json();
-        alert(data.error || "Tasdiqlashda xatolik yuz berdi");
-        return;
+      if (response.ok) {
+        setGrades((prev) =>
+          prev.map((g) => (g.id === gradeId ? { ...g, approved_by_parent: true } : g))
+        );
       }
-      setGrades(prev => prev.map(g => g.id === gradeId ? { ...g, approved_by_parent: true } : g));
-    } catch (e) {
-      console.error(e);
+    } catch {
+      /* noop */
     } finally {
       setApproveLoading(null);
     }
   };
 
   const handleApproveAll = async (weekKey: string, weekGrades: GradeItem[]) => {
-    const pending = weekGrades.filter(g => !g.approved_by_parent && g.status !== 'approved');
+    const pending = weekGrades.filter(
+      (g) => !g.approved_by_parent && g.status !== "approved"
+    );
     if (pending.length === 0) return;
     setApproveAllLoading(weekKey);
     try {
       await Promise.all(
-        pending.map(g =>
+        pending.map((g) =>
           fetch(`${API_URL}/api/schools/grades/${g.id}/parent-approve`, {
             method: "POST",
-            headers: { "Authorization": `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${token}` },
           })
         )
       );
-      const approvedIds = new Set(pending.map(g => g.id));
-      setGrades(prev => prev.map(g => approvedIds.has(g.id) ? { ...g, approved_by_parent: true } : g));
-    } catch (e) {
-      console.error(e);
+      const approvedIds = new Set(pending.map((g) => g.id));
+      setGrades((prev) =>
+        prev.map((g) => (approvedIds.has(g.id) ? { ...g, approved_by_parent: true } : g))
+      );
+    } catch {
+      /* noop */
     } finally {
       setApproveAllLoading(null);
     }
@@ -216,400 +474,672 @@ export default function ParentDashboard() {
     router.push("/login");
   };
 
-  // Helper: get Monday of the week for a date string
-  const getWeekStart = (dateStr: string): Date => {
-    const d = new Date(dateStr);
-    const day = d.getDay(); // 0=Sun
-    const diff = day === 0 ? -6 : 1 - day;
-    const mon = new Date(d);
-    mon.setDate(d.getDate() + diff);
-    mon.setHours(0, 0, 0, 0);
-    return mon;
-  };
+  /* ── Derived data ── */
+  const selectedChild = children.find((c) => c.id === selectedChildId);
 
-  const getWeekKey = (dateStr: string): string => getWeekStart(dateStr).toISOString().split('T')[0];
-
-  const getWeekLabel = (weekKey: string): string => {
-    const mon = new Date(weekKey);
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    const fmt = (d: Date) => d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
-    return `${fmt(mon)} — ${fmt(sun)}`;
-  };
-
-  // Group grades by week
+  // Group selected child's grades by week
   const gradesByWeek: { weekKey: string; label: string; items: GradeItem[] }[] = (() => {
     const map = new Map<string, GradeItem[]>();
     for (const g of grades) {
-      const k = getWeekKey(g.grade_date);
+      const k = weekStart(g.grade_date);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(g);
     }
-    // Sort weeks newest first
     return [...map.entries()]
       .sort(([a], [b]) => b.localeCompare(a))
-      .map(([weekKey, items]) => ({
-        weekKey,
-        label: getWeekLabel(weekKey),
-        items: [...items].sort((a, b) => new Date(b.grade_date).getTime() - new Date(a.grade_date).getTime()),
+      .map(([k, items]) => ({
+        weekKey: k,
+        label: weekLabel(k),
+        items: [...items].sort(
+          (a, b) => new Date(a.grade_date).getTime() - new Date(b.grade_date).getTime()
+        ),
       }));
   })();
 
-  // Helper to group grades by subject (for chart)
-  const gradesBySubject = grades.reduce<{ [subject: string]: GradeItem[] }>((acc, grade) => {
-    if (!acc[grade.subject_name]) {
-      acc[grade.subject_name] = [];
-    }
-    acc[grade.subject_name].push(grade);
+  // By subject (for dynamics chart)
+  const gradesBySubject = grades.reduce<{ [s: string]: GradeItem[] }>((acc, g) => {
+    if (!acc[g.subject_name]) acc[g.subject_name] = [];
+    acc[g.subject_name].push(g);
     return acc;
   }, {});
 
+  // Chart data per subject
+  const chartDataPerSubject = Object.entries(gradesBySubject)
+    .map(([subject, items]) => {
+      const sorted = [...items].sort(
+        (a, b) => new Date(a.grade_date).getTime() - new Date(b.grade_date).getTime()
+      );
+      const points = sorted
+        .map((g) => {
+          const val = getNumericVal(g);
+          return val !== null
+            ? { date: fmtDate(g.grade_date), value: val }
+            : null;
+        })
+        .filter(Boolean) as { date: string; value: number }[];
+
+      if (points.length < 2) return null;
+      const avg = points.reduce((s, p) => s + p.value, 0) / points.length;
+      return { subject, points, avg };
+    })
+    .filter(Boolean) as { subject: string; points: { date: string; value: number }[]; avg: number }[];
+
+  const pendingTotal = grades.filter(
+    (g) => !g.approved_by_parent && g.status !== "approved"
+  ).length;
+
+  /* ──────────────────────────────────────
+     Loading screen
+  ─────────────────────────────────────── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center font-sans">
-        <div className="w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: BG_LIGHT,
+          fontFamily: "'Roboto', sans-serif",
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            border: `3px solid ${ACCENT_MID}`,
+            borderTopColor: ACCENT,
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  const selectedChild = children.find((c) => c.id === selectedChildId);
-
+  /* ──────────────────────────────────────
+     Main render (Mobile-First Frame)
+  ─────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#fcfcfc] text-zinc-900 flex flex-col font-sans selection:bg-zinc-200">
-      {/* Top Header */}
-      <header className="border-b border-zinc-200/80 bg-white/80 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-3">
-          <span className="w-8 h-8 rounded bg-emerald-600 flex items-center justify-center text-white font-bold text-sm tracking-wider">OJ</span>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-zinc-900 uppercase">Ota-ona Portali</h1>
-            <p className="text-[10px] text-zinc-500 font-mono font-semibold">ONLINE JURNAL</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-semibold">{userInfo?.first_name} {userInfo?.last_name}</p>
-            <p className="text-[9px] text-emerald-600 font-mono uppercase tracking-wider font-semibold">Vasiy (Ota-ona)</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="border border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
-          >
-            Chiqish
-          </button>
-        </div>
-      </header>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#F3F4F6",
+        fontFamily: "'Roboto', sans-serif",
+        color: TEXT_DARK,
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      {/* CSS Rules */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap');
 
-      {/* Main Workspace Layout */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {/* Child Selector */}
-        {children.length > 1 && (
-          <section className="bg-white border border-zinc-200/80 rounded-xl p-4 shadow-sm flex items-center justify-between gap-4">
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">O'quvchini tanlang:</span>
-            <div className="flex gap-2">
-              {children.map((child) => (
-                <button
-                  key={child.id}
-                  onClick={() => setSelectedChildId(child.id)}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${selectedChildId === child.id
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                      : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border-zinc-200"
-                    }`}
-                >
-                  {child.first_name} ({child.class_name})
-                </button>
-              ))}
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #F1F1F1;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #C7D2FE;
+          border-radius: 999px;
+        }
+
+        .child-pill {
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: 1px solid #E5E7EB;
+          background: white;
+          font-family: 'Roboto', sans-serif;
+          font-size: 11px;
+          font-weight: 600;
+          color: ${TEXT_DARK};
+          cursor: pointer;
+          transition: all 0.15s;
+          white-space: nowrap;
+        }
+        .child-pill.selected {
+          background: ${ACCENT};
+          border-color: ${ACCENT};
+          color: white;
+          box-shadow: 0 2px 8px rgba(79,70,229,0.2);
+        }
+
+        .section-title {
+          font-size: 11px;
+          font-weight: 750;
+          color: #9CA3AF;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-bottom: 12px;
+        }
+
+        /* Lined diary paper texture */
+        .diary-paper {
+          background: #FFFEF7;
+          background-image:
+            repeating-linear-gradient(
+              transparent,
+              transparent 31px,
+              #E0E7FF 31px,
+              #E0E7FF 32px
+            );
+          border-left: 4px solid #C7D2FE;
+          position: relative;
+        }
+
+        .diary-paper::before {
+          content: '';
+          position: absolute;
+          left: 80px;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background: #FCA5A5;
+          opacity: 0.4;
+          pointer-events: none;
+        }
+
+        /* Sub-tab navigation */
+        .sub-tab-btn {
+          flex: 1;
+          padding: 10px 0;
+          border: none;
+          background: transparent;
+          font-family: 'Roboto', sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          color: ${TEXT_MUTED};
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          transition: all 0.15s;
+          text-align: center;
+        }
+        .sub-tab-btn.active {
+          color: ${ACCENT};
+          border-bottom: 2px solid ${ACCENT};
+          font-weight: 755;
+        }
+      `}</style>
+
+      {/* Mobile viewport wrapper (max-width: 480px) */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          background: "#FFFFFF",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          paddingBottom: "80px", // space for bottom navigation bar
+          boxShadow: "0 0 20px rgba(0,0,0,0.03)",
+          borderLeft: "1px solid #E5E7EB",
+          borderRight: "1px solid #E5E7EB",
+        }}
+      >
+        {/* ── TOP COMPACT HEADER ── */}
+        <header
+          style={{
+            height: "56px",
+            borderBottom: "1px solid #E5E7EB",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "sticky",
+            top: 0,
+            backgroundColor: "#FFFFFF",
+            zIndex: 40,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "6px",
+                background: `linear-gradient(135deg, ${ACCENT} 0%, #7C3AED 100%)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: 900,
+                fontSize: "11px",
+              }}
+            >
+              OJ
             </div>
-          </section>
-        )}
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 800,
+                color: TEXT_DARK,
+                letterSpacing: "-0.3px",
+              }}
+            >
+              Online Jurnal
+            </span>
+          </div>
+        </header>
 
-        {children.length === 0 ? (
-          <section className="text-center py-20 border border-dashed border-zinc-200 rounded-xl bg-white/40">
-            <svg className="w-8 h-8 text-zinc-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-            </svg>
-            <p className="text-zinc-500 text-xs font-mono">Hozircha sizga biriktirilgan o'quvchilar topilmadi.</p>
-          </section>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left and Middle Columns (Grades and Analytics) */}
-            <div className="md:col-span-2 space-y-6">
-              {/* Weekly-grouped grades feed */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Baholar ro&apos;yxati (Haftalar bo&apos;yicha)</h2>
-                  {grades.filter(g => !g.approved_by_parent && g.status !== 'approved').length > 0 && (
-                    <span className="text-[10px] bg-amber-50 border border-amber-200 text-amber-700 font-bold px-2 py-0.5 rounded-full font-mono">
-                      {grades.filter(g => !g.approved_by_parent && g.status !== 'approved').length} ta ko&apos;rib chiqilmagan
-                    </span>
-                  )}
-                </div>
+        {/* ── MAIN TAB: HOME ── */}
+        {activeTab === "home" && (
+          <div style={{ padding: "16px" }}>
+            {/* Child pills selector */}
+            {children.length > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  overflowX: "auto",
+                  paddingBottom: "12px",
+                  marginBottom: "12px",
+                  borderBottom: "1px solid #F3F4F6",
+                }}
+              >
+                {children.map((child) => (
+                  <button
+                    key={child.id}
+                    onClick={() => setSelectedChildId(child.id)}
+                    className={`child-pill${selectedChildId === child.id ? " selected" : ""}`}
+                  >
+                    👦 {child.first_name} ({child.class_name})
+                  </button>
+                ))}
+              </div>
+            )}
 
+            {/* Sub-tab Navigation (Kundalik, Dinamika, E'lonlar) */}
+            <div
+              style={{
+                display: "flex",
+                borderBottom: "1px solid #E5E7EB",
+                marginBottom: "20px",
+              }}
+            >
+              <button
+                className={`sub-tab-btn${activeSubTab === "diary" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("diary")}
+              >
+                📓 Kundalik
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "dynamics" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("dynamics")}
+              >
+                📈 Dinamika
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "announcements" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("announcements")}
+              >
+                📢 E&apos;lonlar
+              </button>
+            </div>
+
+            {/* Sub-tab: DIARY (Kundalik) */}
+            {activeSubTab === "diary" && (
+              <div>
                 {gradesLoading ? (
-                  <div className="text-center py-6">
-                    <div className="w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
+                    <div
+                      style={{
+                        width: "24px",
+                        height: "24px",
+                        border: `2px solid ${ACCENT_MID}`,
+                        borderTopColor: ACCENT,
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                        margin: "0 auto 8px",
+                      }}
+                    />
+                    Yuklanmoqda...
                   </div>
-                ) : grades.length === 0 ? (
-                  <p className="text-zinc-400 text-xs italic font-mono text-center py-6">Baholar hali qo&apos;yilmagan.</p>
+                ) : gradesByWeek.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px 16px",
+                      border: "1px dashed #E5E7EB",
+                      borderRadius: "14px",
+                      color: TEXT_MUTED,
+                    }}
+                  >
+                    <span style={{ fontSize: "24px", display: "block", marginBottom: "8px" }}>📭</span>
+                    <span style={{ fontSize: "12px" }}>Baholar hali qo&apos;yilmagan.</span>
+                  </div>
                 ) : (
-                  <div className="space-y-5 max-h-[540px] overflow-y-auto pr-1">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
                     {gradesByWeek.map(({ weekKey, label, items }) => {
-                      const weekPending = items.filter(g => !g.approved_by_parent && g.status !== 'approved');
+                      const weekPending = items.filter(
+                        (g) => !g.approved_by_parent && g.status !== "approved"
+                      );
                       const isWeekLoading = approveAllLoading === weekKey;
+
                       return (
-                        <div key={weekKey} className="border border-zinc-100 rounded-xl overflow-hidden">
+                        <div
+                          key={weekKey}
+                          style={{
+                            border: "1px solid #E5E7EB",
+                            borderRadius: "16px",
+                            overflow: "hidden",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)",
+                          }}
+                        >
                           {/* Week header */}
-                          <div className="flex items-center justify-between bg-zinc-50 px-4 py-2.5 border-b border-zinc-100">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">{label}</span>
-                              {weekPending.length > 0 && (
-                                <span className="text-[9px] bg-amber-100 border border-amber-200 text-amber-700 font-bold px-1.5 py-0.5 rounded-full font-mono">
-                                  {weekPending.length} ta
-                                </span>
-                              )}
-                            </div>
-                            {weekPending.length > 0 && (
+                          <div
+                            style={{
+                              background: `linear-gradient(90deg, ${ACCENT_LIGHT} 0%, white 100%)`,
+                              borderBottom: `1.5px solid ${ACCENT_MID}`,
+                              padding: "10px 16px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: ACCENT,
+                                letterSpacing: "0.2px",
+                              }}
+                            >
+                              📅 {label}
+                            </span>
+
+                            {weekPending.length > 0 ? (
                               <button
-                                type="button"
                                 onClick={() => handleApproveAll(weekKey, items)}
                                 disabled={isWeekLoading}
-                                className="text-[9px] bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 text-white font-bold px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 disabled:cursor-not-allowed"
+                                style={{
+                                  fontSize: "9px",
+                                  fontWeight: 700,
+                                  color: ACCENT,
+                                  backgroundColor: "white",
+                                  border: `1.5px solid ${ACCENT_MID}`,
+                                  borderRadius: "6px",
+                                  padding: "3px 8px",
+                                  cursor: "pointer",
+                                }}
                               >
-                                {isWeekLoading ? (
-                                  <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Tasdiqlanmoqda...</span></>
-                                ) : (
-                                  <><span>&#10003;</span><span>Barchasini tasdiqlash</span></>
-                                )}
+                                {isWeekLoading ? "..." : "✓ Hammasini tasdiqlash"}
                               </button>
+                            ) : (
+                              <span style={{ fontSize: "9px", color: "#10B981", fontWeight: 700 }}>
+                                ✓ Tasdiqlangan
+                              </span>
                             )}
-                            {weekPending.length === 0 && (
-                              <span className="text-[9px] text-emerald-600 font-bold font-mono">&#10003; Hammasi ko&apos;rib chiqilgan</span>
-                            )}
-                          </div>
-                          {/* Grade rows */}
-                          <div className="divide-y divide-zinc-100">
-                            {items.map((gr) => {
-                              const isApproved = gr.status === 'approved';
-                              const isParentApproved = gr.approved_by_parent;
-                              return (
-                                <div key={gr.id} className={`py-3 px-4 flex items-center justify-between hover:bg-zinc-50/60 transition ${
-                                  !isParentApproved && !isApproved ? 'border-l-2 border-amber-300' : 'border-l-2 border-transparent'
-                                }`}>
-                                  <div>
-                                    <p className="text-xs font-bold text-zinc-900">{gr.subject_name}</p>
-                                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">{gr.teacher_name} &bull; {new Date(gr.grade_date).toLocaleDateString()}</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {isApproved ? (
-                                      <span className="text-[9px] bg-blue-50 border border-blue-200 text-blue-600 font-bold px-1.5 py-0.5 rounded font-mono">
-                                        &#128274; Tasdiqlangan
-                                      </span>
-                                    ) : isParentApproved ? (
-                                      <span className="text-[9px] bg-teal-50 border border-teal-200 text-teal-600 font-bold px-1.5 py-0.5 rounded font-mono">
-                                        &#10003; Ko&apos;rdim
-                                      </span>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleParentApprove(gr.id)}
-                                        disabled={approveLoading === gr.id}
-                                        className="text-[9px] bg-amber-50 hover:bg-amber-500 hover:text-white border border-amber-300 text-amber-700 font-bold px-2 py-1 rounded transition cursor-pointer disabled:opacity-60"
-                                      >
-                                        {approveLoading === gr.id ? '...' : "Ko'rdim ✓"}
-                                      </button>
-                                    )}
-                                    <span className={`w-8 h-8 rounded font-mono font-bold text-xs flex items-center justify-center border shadow-sm ${
-                                      isApproved ? 'bg-blue-600 border-blue-500 text-white' : 'bg-emerald-600 border-emerald-500 text-white'
-                                    }`}>
-                                      {gr.value}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* performance dynamics chart */}
-              <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
-                <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">O'zgarish Dinamikasi (Dynamics Chart)</h2>
-
-                {grades.length === 0 ? (
-                  <p className="text-zinc-400 text-xs italic font-mono text-center py-6">Grafik chizish uchun ma'lumotlar yetarli emas.</p>
-                ) : (
-                  <div className="space-y-6">
-                    {Object.entries(gradesBySubject).map(([subjName, subjGrades]) => {
-                      // Filter numeric grades to draw a line
-                      const numericPoints = subjGrades
-                        .map((g) => {
-                          const val = g.numeric_value !== undefined ? g.numeric_value : parseFloat(g.value);
-                          return isNaN(val) ? null : val;
-                        })
-                        .filter((v): v is number => v !== null);
-
-                      if (numericPoints.length < 2) return null;
-
-                      // Map values to coordinates in 300x100 viewbox
-                      // min score 1, max score 5
-                      const width = 300;
-                      const height = 100;
-                      const paddingLeft = 25;
-                      const paddingRight = 15;
-                      const paddingVertical = 15;
-                      
-                      const pointsStr = numericPoints
-                        .map((val, idx) => {
-                          const x = paddingLeft + (idx / (numericPoints.length - 1)) * (width - paddingLeft - paddingRight);
-                          const y = height - paddingVertical - ((val - 1) / (5 - 1)) * (height - 2 * paddingVertical);
-                          return `${x},${y}`;
-                        })
-                        .join(" ");
-
-                      // Bottom boundary projection coordinates for area polygon
-                      const bottomY = height - paddingVertical;
-                      const firstX = paddingLeft;
-                      const lastX = width - paddingRight;
-                      const areaPointsStr = `${firstX},${bottomY} ${pointsStr} ${lastX},${bottomY}`;
-
-                      return (
-                        <div key={subjName} className="border-b border-zinc-100 pb-5 last:border-b-0 last:pb-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-zinc-800">{subjName}</span>
-                            <span className="text-[10px] text-emerald-700 font-mono bg-emerald-50 px-2 py-0.5 rounded font-semibold">
-                              O'rtacha: {(numericPoints.reduce((a, b) => a + b, 0) / numericPoints.length).toFixed(1)}
-                            </span>
                           </div>
 
-                          <div className="bg-zinc-50/50 rounded-xl p-3 border border-zinc-150">
-                            <svg className="w-full h-24" viewBox="0 0 300 100">
-                              <defs>
-                                <linearGradient id={`gradient-${subjName.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="#059669" stopOpacity="0.25" />
-                                  <stop offset="100%" stopColor="#059669" stopOpacity="0.00" />
-                                </linearGradient>
-                              </defs>
-
-                              {/* Horizontal Grid lines with axis label numbers */}
-                              {[1, 2, 3, 4, 5].map((val) => {
-                                const y = height - paddingVertical - ((val - 1) / (5 - 1)) * (height - 2 * paddingVertical);
-                                return (
-                                  <g key={val}>
-                                    <line
-                                      x1={paddingLeft}
-                                      y1={y}
-                                      x2={width - paddingRight}
-                                      y2={y}
-                                      stroke="#e4e4e7"
-                                      strokeWidth="0.75"
-                                      strokeDasharray="3 3"
-                                    />
-                                    <text
-                                      x="10"
-                                      y={y + 3}
-                                      fill="#71717a"
-                                      fontSize="7"
-                                      fontFamily="monospace"
-                                      textAnchor="middle"
-                                    >
-                                      {val}
-                                    </text>
-                                  </g>
-                                );
-                              })}
-
-                              {/* Polygon Area Under Line */}
-                              <polygon points={areaPointsStr} fill={`url(#gradient-${subjName.replace(/\s+/g, '-')})`} />
-
-                              {/* Line Path */}
-                              <polyline
-                                fill="none"
-                                stroke="#059669"
-                                strokeWidth="2.25"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                points={pointsStr}
+                          {/* Skeuomorphic diary paper section */}
+                          <div className="diary-paper">
+                            {items.map((gr) => (
+                              <DiaryRow
+                                key={gr.id}
+                                grade={gr}
+                                onApprove={handleParentApprove}
+                                approving={approveLoading === gr.id}
                               />
-
-                              {/* Dots & Labels */}
-                              {numericPoints.map((val, idx) => {
-                                const x = paddingLeft + (idx / (numericPoints.length - 1)) * (width - paddingLeft - paddingRight);
-                                const y = height - paddingVertical - ((val - 1) / (5 - 1)) * (height - 2 * paddingVertical);
-                                return (
-                                  <g key={idx}>
-                                    <circle
-                                      cx={x}
-                                      cy={y}
-                                      r="3.5"
-                                      fill="#ffffff"
-                                      stroke="#059669"
-                                      strokeWidth="2"
-                                    />
-                                    <text
-                                      x={x}
-                                      y={y - 7}
-                                      fill="#047857"
-                                      fontSize="7"
-                                      fontWeight="bold"
-                                      textAnchor="middle"
-                                      fontFamily="sans-serif"
-                                    >
-                                      {val}
-                                    </text>
-                                  </g>
-                                );
-                              })}
-                            </svg>
+                            ))}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 )}
-              </section>
-            </div>
+              </div>
+            )}
 
-            {/* Right Column: Noticeboard & Feed */}
-            <div className="space-y-6">
-              <section className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
-                <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">E'lonlar taxtasi (Noticeboard)</h2>
-                <div className="space-y-4">
-                  {announcements.map((ann) => (
-                    <article key={ann.id} className="border-b border-zinc-150 pb-3 last:border-b-0 last:pb-0 space-y-1">
-                      <h3 className="text-xs font-bold text-zinc-900">{ann.title}</h3>
-                      <p className="text-[11px] text-zinc-600 leading-relaxed">{ann.content}</p>
-                      <div className="flex items-center justify-between text-[9px] text-zinc-400 font-mono pt-1">
-                        <span>{ann.author}</span>
-                        <span>{ann.date}</span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              {/* Short profile card */}
-              {selectedChild && (
-                <section className="bg-emerald-950/90 border border-emerald-800/80 text-emerald-100 rounded-xl p-5 space-y-3 font-mono">
-                  <h3 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">O'quvchi ma'lumotlari</h3>
-                  <div className="text-xs space-y-1">
-                    <p className="text-emerald-300">Ism: <strong className="text-white">{selectedChild.first_name} {selectedChild.last_name}</strong></p>
-                    <p className="text-emerald-300">Sinf: <strong className="text-white">{selectedChild.class_name}</strong></p>
-                    <p className="text-emerald-300">Maktab ID: <strong className="text-white">{schoolId.slice(0, 8)}...</strong></p>
+            {/* Sub-tab: DYNAMICS (Dinamika) */}
+            {activeSubTab === "dynamics" && (
+              <div>
+                {chartDataPerSubject.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px 16px",
+                      border: "1px dashed #E5E7EB",
+                      borderRadius: "14px",
+                      color: TEXT_MUTED,
+                    }}
+                  >
+                    <span style={{ fontSize: "24px", display: "block", marginBottom: "8px" }}>📊</span>
+                    <span style={{ fontSize: "12px" }}>Grafik chizish uchun baholar yetarli emas.</span>
                   </div>
-                </section>
-              )}
-            </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                    {chartDataPerSubject.map(({ subject, points, avg }) => (
+                      <div key={subject}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                            {subject}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: 700,
+                              color: ACCENT,
+                              background: ACCENT_LIGHT,
+                              border: `1.5px solid ${ACCENT_MID}`,
+                              borderRadius: "6px",
+                              padding: "2px 8px",
+                            }}
+                          >
+                            O&apos;rtacha: {avg.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            backgroundColor: "#FFFFFF",
+                            border: "1px solid #E5E7EB",
+                            borderRadius: "14px",
+                            padding: "12px 6px 6px 6px",
+                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                          }}
+                        >
+                          <ResponsiveContainer width="100%" height={140}>
+                            <LineChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: -24 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                              <XAxis
+                                dataKey="date"
+                                tick={{ fontSize: 9, fill: TEXT_MUTED }}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <YAxis
+                                domain={[1, 5]}
+                                ticks={[1, 2, 3, 4, 5]}
+                                tick={{ fontSize: 9, fill: TEXT_MUTED }}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <Tooltip content={<CustomTooltip />} />
+                              <ReferenceLine
+                                y={avg}
+                                stroke={ACCENT}
+                                strokeDasharray="4 4"
+                                strokeOpacity={0.4}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="value"
+                                stroke={ACCENT}
+                                strokeWidth={2.5}
+                                dot={{ r: 4, fill: "white", stroke: ACCENT, strokeWidth: 2 }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub-tab: ANNOUNCEMENTS (E'lonlar) */}
+            {activeSubTab === "announcements" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {announcements.map((ann) => (
+                  <div
+                    key={ann.id}
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: "12px",
+                      border: "1px solid #E5E7EB",
+                      padding: "12px 14px",
+                      borderLeft: `4px solid ${ACCENT}`,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK, marginBottom: "4px" }}>
+                      {ann.title}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#4B5563", lineHeight: 1.5, marginBottom: "8px" }}>
+                      {ann.content}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        fontSize: "9px",
+                        color: TEXT_MUTED,
+                        borderTop: "1px solid #F3F4F6",
+                        paddingTop: "6px",
+                      }}
+                    >
+                      <span>✍️ {ann.author}</span>
+                      <span>{ann.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
-      </main>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-200/50 py-6 text-center text-[10px] text-zinc-400 font-mono mt-auto">
-        &copy; {new Date().getFullYear()} ONLINE JURNAL.
-      </footer>
+        {/* ── MAIN TAB: SETTINGS ── */}
+        {activeTab === "settings" && (
+          <div style={{ padding: "16px" }}>
+            <div className="section-title">⚙️ Tizim Sozlamalari</div>
+
+            {/* User Profile Card */}
+            {userInfo && (
+              <div
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "14px",
+                  padding: "16px",
+                  marginBottom: "16px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 750,
+                    color: ACCENT,
+                    textTransform: "uppercase",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Foydalanuvchi Profili
+                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    Ism: <span style={{ fontWeight: 500 }}>{userInfo.first_name} {userInfo.last_name}</span>
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    Telefon: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{userInfo.phone || "+998908000002"}</span>
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    Roli: <span style={{ fontWeight: 500 }}>Vasiy (Ota-ona)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Student child profile card */}
+            {selectedChild && (
+              <div
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "14px",
+                  padding: "16px",
+                  marginBottom: "24px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 750,
+                    color: ACCENT,
+                    textTransform: "uppercase",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  O&apos;quvchi Ma&apos;lumotlari
+                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    F.I.SH: <span style={{ fontWeight: 500 }}>{selectedChild.first_name} {selectedChild.last_name}</span>
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    Sinf: <span style={{ fontWeight: 500 }}>{selectedChild.class_name}</span>
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    Maktab ID: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{schoolId}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Logout button */}
+            <button
+              onClick={handleLogout}
+              style={{
+                width: "100%",
+                padding: "12px",
+                backgroundColor: "#FEF2F2",
+                border: "1px solid #FEE2E2",
+                borderRadius: "12px",
+                color: "#EF4444",
+                fontWeight: 700,
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "center",
+                transition: "all 0.15s ease",
+              }}
+            >
+              Chiqish (Tizimdan ketish)
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Navigation Component */}
+        <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
     </div>
   );
 }

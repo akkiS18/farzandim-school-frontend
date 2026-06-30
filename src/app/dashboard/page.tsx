@@ -1216,6 +1216,7 @@ export default function TenantDashboard() {
       loadInitialData(token);
       if (selectedClass) {
         if (classDetailsTab === "students") fetchClassStudents();
+        else if (classDetailsTab === "parents") fetchClassParents();
         else fetchClassTeachers();
       }
     } catch (err: any) {
