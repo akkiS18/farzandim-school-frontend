@@ -212,6 +212,8 @@ export default function TenantDashboard() {
 
   // Parent Import State
   const [showImportParentsModal, setShowImportParentsModal] = useState(false);
+  const [showAddParentModal, setShowAddParentModal] = useState(false);
+  const [selectedStudentIdForAdd, setSelectedStudentIdForAdd] = useState<number | "">("");
 
   // Edit/Delete Student States
   const [showEditStudentModal, setShowEditStudentModal] = useState(false);
@@ -257,7 +259,12 @@ export default function TenantDashboard() {
     setToken(savedToken);
     setSchoolId(savedSchoolId);
     try {
-      setUserInfo(JSON.parse(savedUserStr));
+      const parsed = JSON.parse(savedUserStr);
+      if (parsed.role !== "ADMIN") {
+        router.push("/login");
+        return;
+      }
+      setUserInfo(parsed);
     } catch (e) {
       router.push("/login");
       return;
@@ -760,8 +767,6 @@ export default function TenantDashboard() {
           first_name: studentFirstName.trim(),
           last_name: studentLastName.trim(),
           middle_name: studentMiddleName.trim() || undefined,
-          phone: studentPhone.trim() || null,
-          password: studentPassword,
         }),
       });
 
@@ -793,7 +798,7 @@ export default function TenantDashboard() {
     setActionError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -803,8 +808,6 @@ export default function TenantDashboard() {
           first_name: editStudentFirstName.trim(),
           last_name: editStudentLastName.trim(),
           middle_name: editStudentMiddleName.trim() || undefined,
-          phone: editStudentPhone.trim() || null,
-          password: editStudentPassword ? editStudentPassword : undefined,
         }),
       });
 
@@ -835,7 +838,7 @@ export default function TenantDashboard() {
     setActionLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -896,6 +899,60 @@ export default function TenantDashboard() {
       fetchClassParents();
     } catch (err: any) {
       setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCreateAndLinkParent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudentIdForAdd) {
+      alert("O'quvchini tanlang");
+      return;
+    }
+    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
+      alert("Majburiy maydonlarni to'ldiring");
+      return;
+    }
+
+    setActionLoading(true);
+    setActionError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentIdForAdd}/parents`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: parentFirstName.trim(),
+          last_name: parentLastName.trim(),
+          middle_name: parentMiddleName.trim() || undefined,
+          phone: parentPhone.trim(),
+          email: parentEmail.trim() || undefined,
+          password: parentPassword,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Ota-onani yaratib bo'lmadi");
+      }
+
+      setParentFirstName("");
+      setParentLastName("");
+      setParentMiddleName("");
+      setParentPhone("");
+      setParentEmail("");
+      setParentPassword("password123");
+      setSelectedStudentIdForAdd("");
+      setShowAddParentModal(false);
+
+      fetchClassParents();
+      alert("Ota-ona muvaffaqiyatli qo'shildi");
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -1645,14 +1702,7 @@ export default function TenantDashboard() {
                                   Excel orqali yuklash
                                 </button>
                               )}
-                              {isMainTeacherOfClass() && (
-                                <button
-                                  onClick={() => setShowImportParentsModal(true)}
-                                  className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-teal-400 font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
-                                >
-                                  Excel orqali ota-onalarni yuklash
-                                </button>
-                              )}
+
                               {isMainTeacherOfClass() && (
                                 <button
                                   onClick={() => setShowAddStudentModal(true)}
@@ -1834,6 +1884,31 @@ export default function TenantDashboard() {
                         <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
                           <div className="flex items-center justify-between">
                             <h3 className="text-md font-bold text-zinc-300">Sinf Ota-onalari (Vasiylar) ro'yxati</h3>
+                            {isMainTeacherOfClass() && (
+                              <div className="flex space-x-3">
+                                <button
+                                  onClick={() => setShowImportParentsModal(true)}
+                                  className="bg-[#0f0f15]/80 hover:bg-zinc-800/60 border border-zinc-800 text-teal-400 font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                                >
+                                  Excel orqali yuklash
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setParentFirstName("");
+                                    setParentLastName("");
+                                    setParentMiddleName("");
+                                    setParentPhone("");
+                                    setParentEmail("");
+                                    setParentPassword("password123");
+                                    setSelectedStudentIdForAdd("");
+                                    setShowAddParentModal(true);
+                                  }}
+                                  className="bg-blue-650 hover:bg-blue-600 text-white font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                                >
+                                  + Ota-ona qo'shish
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           {classParentsLoading ? (
@@ -2577,27 +2652,7 @@ export default function TenantDashboard() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Telefon raqami (Ixtiyoriy)</label>
-                <input
-                  type="text"
-                  placeholder="+998901234567"
-                  value={studentPhone}
-                  onChange={(e) => setStudentPhone(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
-              </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Parol (Default: password123)</label>
-                <input
-                  type="password"
-                  required
-                  value={studentPassword}
-                  onChange={(e) => setStudentPassword(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
-              </div>
 
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
                 <button
@@ -3602,27 +3657,7 @@ export default function TenantDashboard() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Telefon raqami (Ixtiyoriy)</label>
-                <input
-                  type="text"
-                  placeholder="+998901234567"
-                  value={editStudentPhone}
-                  onChange={(e) => setEditStudentPhone(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
-              </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Yangi parol (Bo'sh qoldirilsa, o'zgarmaydi)</label>
-                <input
-                  type="password"
-                  placeholder="Yangi parol kiritish"
-                  value={editStudentPassword}
-                  onChange={(e) => setEditStudentPassword(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
-              </div>
 
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
                 <button
@@ -4051,6 +4086,139 @@ export default function TenantDashboard() {
         </div>
       )}
       {/* End Modal: Add Schedule Exception Override */}
+
+      {/* Modal: Manual parent creation & linking */}
+      {showAddParentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8 text-zinc-200">
+            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi Ota-ona Qo'shish</h3>
+            <p className="text-[11px] text-zinc-500 mb-6">Ota-onani bittalab manual ravishda kiritish va o'quvchiga bog'lash</p>
+
+            {actionError && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+            )}
+
+            <form onSubmit={handleCreateAndLinkParent} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">O'quvchini tanlang (Farzandi) *</label>
+                <select
+                  required
+                  value={selectedStudentIdForAdd}
+                  onChange={(e) => setSelectedStudentIdForAdd(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3 py-2.5 text-sm outline-none transition cursor-pointer"
+                >
+                  <option value="">O'quvchini tanlang...</option>
+                  {classStudents.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.first_name} {st.last_name} {st.middle_name || ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Ismi *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Masalan: Dilshod"
+                    value={parentFirstName}
+                    onChange={(e) => setParentFirstName(e.target.value)}
+                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Familiyasi *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Masalan: Umarov"
+                    value={parentLastName}
+                    onChange={(e) => setParentLastName(e.target.value)}
+                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Otasining ismi</label>
+                <input
+                  type="text"
+                  placeholder="Sharifi"
+                  value={parentMiddleName}
+                  onChange={(e) => setParentMiddleName(e.target.value)}
+                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Telefon raqami *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+998901234567"
+                  value={parentPhone}
+                  onChange={(e) => setParentPhone(e.target.value)}
+                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Email</label>
+                  <input
+                    type="email"
+                    placeholder="email@test.uz"
+                    value={parentEmail}
+                    onChange={(e) => setParentEmail(e.target.value)}
+                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Parol *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Kamida 6 ta belgi"
+                    value={parentPassword}
+                    onChange={(e) => setParentPassword(e.target.value)}
+                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddParentModal(false);
+                    setParentFirstName("");
+                    setParentLastName("");
+                    setParentMiddleName("");
+                    setParentPhone("");
+                    setParentEmail("");
+                    setParentPassword("password123");
+                    setSelectedStudentIdForAdd("");
+                    setActionError("");
+                  }}
+                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer flex items-center space-x-1"
+                >
+                  {actionLoading && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                  <span>Qo'shish</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </main>
   );

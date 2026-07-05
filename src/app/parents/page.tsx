@@ -17,6 +17,7 @@ import {
 
 // Import modular components
 import BottomNavigation from "../../components/BottomNavigation";
+import DiaryDayCard from "../../components/DiaryDayCard";
 
 /* ─────────────────────────────────────────
    Types
@@ -42,6 +43,7 @@ interface StudentChild {
 interface GradeItem {
   id: number;
   student_id: number;
+  student_name?: string;
   subject_name: string;
   teacher_name: string;
   value: string;
@@ -84,13 +86,25 @@ const UZ_MONTHS = [
   "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
 ];
 
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toLocalDateStr(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function fmtDate(dateStr: string) {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return `${d.getDate()} ${UZ_MONTHS[d.getMonth()]}`;
 }
 
 function fmtDayName(dateStr: string) {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return UZ_DAYS[d.getDay()];
 }
 
@@ -101,20 +115,35 @@ function getNumericVal(g: GradeItem): number | null {
 
 /** Returns the ISO date string of the Monday of a given date */
 function weekStart(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(d);
   mon.setDate(d.getDate() + diff);
-  mon.setHours(0, 0, 0, 0);
-  return mon.toISOString().split("T")[0];
+  return toLocalDateStr(mon);
+}
+
+function getDayDate(mondayStr: string, dayIndex: number): string {
+  const d = parseLocalDate(mondayStr);
+  d.setDate(d.getDate() + dayIndex);
+  return toLocalDateStr(d);
 }
 
 function weekLabel(key: string): string {
-  const mon = new Date(key);
+  const mon = parseLocalDate(key);
   const sun = new Date(mon);
   sun.setDate(mon.getDate() + 6);
   return `${mon.getDate()} ${UZ_MONTHS[mon.getMonth()]} — ${sun.getDate()} ${UZ_MONTHS[sun.getMonth()]}`;
+}
+
+function getDefaultDate(): string {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const schoolStart = new Date(currentYear, 8, 1); // Sept 1st
+  if (now < schoolStart) {
+    return `${currentYear}-09-01`;
+  }
+  return toLocalDateStr(now);
 }
 
 function gradeColor(val: number | null): string {
@@ -168,125 +197,6 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 /* ─────────────────────────────────────────
-   Diary Row - Lined notebook style
-───────────────────────────────────────── */
-interface DiaryRowProps {
-  grade: GradeItem;
-  onApprove: (id: number) => void;
-  approving: boolean;
-}
-
-function DiaryRow({ grade, onApprove, approving }: DiaryRowProps) {
-  const num = getNumericVal(grade);
-  const color = gradeColor(num);
-  const bg = gradeBg(num);
-  const border = gradeBorder(num);
-  const isApproved = grade.status === "approved" || grade.approved_by_parent;
-  const dayName = fmtDayName(grade.grade_date);
-  const dateStr = fmtDate(grade.grade_date);
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-        padding: "10px 16px",
-        borderBottom: "1px dashed #E5E7EB",
-        background: "transparent",
-        position: "relative",
-      }}
-    >
-      {/* Left date gutter – like a diary margin */}
-      <div
-        style={{
-          width: "64px",
-          minWidth: "64px",
-          textAlign: "center",
-          paddingRight: "8px",
-          borderRight: `2px solid ${ACCENT_LIGHT}`,
-          zIndex: 10,
-        }}
-      >
-        <div style={{ fontSize: "11px", fontWeight: 700, color: ACCENT, lineHeight: 1.2 }}>
-          {dateStr}
-        </div>
-        <div style={{ fontSize: "9px", color: TEXT_MUTED, marginTop: "2px" }}>
-          {dayName}
-        </div>
-      </div>
-
-      {/* Subject info */}
-      <div style={{ flex: 1, minWidth: 0, paddingLeft: "12px", zIndex: 10 }}>
-        <div style={{ fontSize: "13px", fontWeight: 600, color: TEXT_DARK, lineHeight: 1.3 }}>
-          {grade.subject_name}
-        </div>
-        <div style={{ fontSize: "10px", color: TEXT_MUTED, marginTop: "2px" }}>
-          {grade.teacher_name}
-        </div>
-      </div>
-
-      {/* Approval badge */}
-      <div style={{ flexShrink: 0, zIndex: 10 }}>
-        {isApproved ? (
-          <span
-            style={{
-              fontSize: "9px",
-              fontWeight: 700,
-              color: "#9CA3AF",
-              background: "#F3F4F6",
-              borderRadius: "999px",
-              padding: "2px 8px",
-            }}
-          >
-            Ko'rildi
-          </span>
-        ) : (
-          <button
-            onClick={() => onApprove(grade.id)}
-            disabled={approving}
-            style={{
-              fontSize: "9px",
-              fontWeight: 700,
-              color: ACCENT,
-              background: ACCENT_LIGHT,
-              border: `1px solid ${ACCENT_MID}`,
-              borderRadius: "8px",
-              padding: "4px 8px",
-              cursor: "pointer",
-            }}
-          >
-            {approving ? "..." : "Ko'rdim"}
-          </button>
-        )}
-      </div>
-
-      {/* Grade badge */}
-      <div
-        style={{
-          width: "34px",
-          height: "34px",
-          borderRadius: "8px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontWeight: 800,
-          fontSize: "14px",
-          color: color,
-          background: bg,
-          border: `1.5px solid ${border}`,
-          fontFamily: "monospace",
-          flexShrink: 0,
-          zIndex: 10,
-        }}
-      >
-        {grade.value}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────
    Main Component
 ───────────────────────────────────────── */
 export default function ParentDashboard() {
@@ -313,6 +223,13 @@ export default function ParentDashboard() {
   const [gradesLoading, setGradesLoading] = useState(false);
   const [approveLoading, setApproveLoading] = useState<number | null>(null);
   const [approveAllLoading, setApproveAllLoading] = useState<string | null>(null);
+
+  // Diary navigation and schedule states
+  const [currentWeekStart, setCurrentWeekStart] = useState<string>(() => {
+    return weekStart(getDefaultDate());
+  });
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
 
   // Announcements (static demo data)
   const [announcements] = useState<Announcement[]>([
@@ -397,14 +314,55 @@ export default function ParentDashboard() {
     }
   };
 
-  /* ── Fetch grades when child changes ── */
+  // Get a representative day of the week (Wednesday) to fetch schedule for that week
+  const getRepresentativeWeekDate = (mondayStr: string): string => {
+    const d = parseLocalDate(mondayStr);
+    d.setDate(d.getDate() + 2); // Wednesday
+    return toLocalDateStr(d);
+  };
+
+  /* ── Fetch grades and schedule when child or week changes ── */
   useEffect(() => {
     if (selectedChildId && token) {
       fetchChildGrades();
+      const child = children.find((c) => c.id === selectedChildId);
+      if (child && child.class_id) {
+        fetchClassSchedule(child.class_id, getRepresentativeWeekDate(currentWeekStart));
+      }
     } else {
       setGrades([]);
+      setSchedule([]);
     }
-  }, [selectedChildId, token]);
+  }, [selectedChildId, currentWeekStart, token, children]);
+
+  const fetchClassSchedule = async (classId: number, dateStr: string) => {
+    setScheduleLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/classes/${classId}/schedule?date=${dateStr}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        setSchedule(data);
+      }
+    } catch {
+      /* noop */
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  const handlePrevWeek = () => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() - 7);
+    setCurrentWeekStart(d.toISOString().split("T")[0]);
+  };
+
+  const handleNextWeek = () => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + 7);
+    setCurrentWeekStart(d.toISOString().split("T")[0]);
+  };
 
   const fetchChildGrades = async () => {
     setGradesLoading(true);
@@ -443,7 +401,7 @@ export default function ParentDashboard() {
 
   const handleApproveAll = async (weekKey: string, weekGrades: GradeItem[]) => {
     const pending = weekGrades.filter(
-      (g) => !g.approved_by_parent && g.status !== "approved"
+      (g) => !g.approved_by_parent
     );
     if (pending.length === 0) return;
     setApproveAllLoading(weekKey);
@@ -477,10 +435,84 @@ export default function ParentDashboard() {
   /* ── Derived data ── */
   const selectedChild = children.find((c) => c.id === selectedChildId);
 
-  // Group selected child's grades by week
+  // Predefined default weekly subjects for school diary fallback
+  const DEFAULT_WEEKLY_SUBJECTS: Record<number, string[]> = {
+    1: ["Ona tili", "Matematika", "Fizika", "Ingliz tili", "Tarix"], // Monday
+    2: ["Kimyo", "Biologiya", "Geografiya", "Adabiyot", "Matematika"], // Tuesday
+    3: ["Fizika", "Ona tili", "Jismoniy tarbiya", "Tarix", "Ingliz tili"], // Wednesday
+    4: ["Matematika", "Kimyo", "Biologiya", "Informatika", "Adabiyot"], // Thursday
+    5: ["Geografiya", "Ona tili", "Tarix", "Ingliz tili", "Tasviriy san'at"], // Friday
+    6: ["Matematika", "Fizika", "Kimyo", "Tarbiya", "Jismoniy tarbiya"], // Saturday
+  };
+
+  // Filter selected child's grades to avoid mixing data
+  const selectedChildGrades = grades.filter((g) => {
+    if (!selectedChild) return false;
+    const childFullName = `${selectedChild.first_name} ${selectedChild.last_name}`.toLowerCase().trim();
+    return g.student_name ? g.student_name.toLowerCase().trim() === childFullName : true;
+  });
+
+  // Calculate day-by-day rows for active week
+  const daysOfWeek = [0, 1, 2, 3, 4, 5].map((dayIdx) => {
+    const dayDateStr = getDayDate(currentWeekStart, dayIdx);
+    const dayName = UZ_DAYS[parseLocalDate(dayDateStr).getDay()];
+    const dayLabel = `${dayName}, ${fmtDate(dayDateStr)}`;
+
+    // 1. Get schedule for this day from backend
+    const daySchedule = schedule.filter((item: any) => item.day_of_week === dayIdx + 1);
+    let subjects = daySchedule.map((item: any) => item.subject_name);
+
+    // If no database schedule, fall back to realistic defaults
+    if (subjects.length === 0) {
+      subjects = [...(DEFAULT_WEEKLY_SUBJECTS[dayIdx + 1] || [])];
+    }
+
+    // 2. Get child's grades for this calendar day
+    const dayGrades = selectedChildGrades.filter(
+      (g) => g.grade_date.split("T")[0] === dayDateStr
+    );
+
+    // 3. Ensure all graded subjects are present in the list (even if not in schedule)
+    const subjectsSet = new Set(subjects);
+    for (const g of dayGrades) {
+      if (!subjectsSet.has(g.subject_name)) {
+        subjects.push(g.subject_name);
+        subjectsSet.add(g.subject_name);
+      }
+    }
+
+    // 4. Map to DiaryDayCard row format
+    const rows = subjects.map((subject) => {
+      const grade = dayGrades.find((g) => g.subject_name === subject);
+      return {
+        subjectName: subject,
+        grade,
+      };
+    });
+
+    return {
+      dayLabel,
+      rows,
+    };
+  });
+
+  // Active week grades for the selected child (used for signature & approve all)
+  const activeWeekGrades = selectedChildGrades.filter(
+    (g) => weekStart(g.grade_date) === currentWeekStart
+  );
+
+  const activeWeekPending = activeWeekGrades.filter(
+    (g) => !g.approved_by_parent
+  );
+
+  const isTeacherSigned = activeWeekGrades.length > 0 && activeWeekGrades.every(g => g.status === 'approved');
+
+  const isWeekLoading = approveAllLoading === currentWeekStart;
+
+  // Group selected child's grades by week (compatibility fallback)
   const gradesByWeek: { weekKey: string; label: string; items: GradeItem[] }[] = (() => {
     const map = new Map<string, GradeItem[]>();
-    for (const g of grades) {
+    for (const g of selectedChildGrades) {
       const k = weekStart(g.grade_date);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(g);
@@ -497,7 +529,7 @@ export default function ParentDashboard() {
   })();
 
   // By subject (for dynamics chart)
-  const gradesBySubject = grades.reduce<{ [s: string]: GradeItem[] }>((acc, g) => {
+  const gradesBySubject = selectedChildGrades.reduce<{ [s: string]: GradeItem[] }>((acc, g) => {
     if (!acc[g.subject_name]) acc[g.subject_name] = [];
     acc[g.subject_name].push(g);
     return acc;
@@ -524,8 +556,8 @@ export default function ParentDashboard() {
     })
     .filter(Boolean) as { subject: string; points: { date: string; value: number }[]; avg: number }[];
 
-  const pendingTotal = grades.filter(
-    (g) => !g.approved_by_parent && g.status !== "approved"
+  const pendingTotal = selectedChildGrades.filter(
+    (g) => !g.approved_by_parent
   ).length;
 
   /* ──────────────────────────────────────
@@ -620,30 +652,28 @@ export default function ParentDashboard() {
           margin-bottom: 12px;
         }
 
-        /* Lined diary paper texture */
-        .diary-paper {
-          background: #FFFEF7;
-          background-image:
-            repeating-linear-gradient(
-              transparent,
-              transparent 31px,
-              #E0E7FF 31px,
-              #E0E7FF 32px
-            );
-          border-left: 4px solid #C7D2FE;
-          position: relative;
+        /* App container expanding on desktop screens */
+        .app-container {
+          max-width: 480px;
+          transition: max-width 0.3s ease;
+        }
+        @media (min-width: 768px) {
+          .app-container {
+            max-width: 960px !important;
+          }
         }
 
-        .diary-paper::before {
-          content: '';
-          position: absolute;
-          left: 80px;
-          top: 0;
-          bottom: 0;
-          width: 1px;
-          background: #FCA5A5;
-          opacity: 0.4;
-          pointer-events: none;
+        /* 3x2 Grid for PC, 2x3 for Android */
+        .diary-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+        @media (min-width: 768px) {
+          .diary-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
         }
 
         /* Sub-tab navigation */
@@ -668,11 +698,11 @@ export default function ParentDashboard() {
         }
       `}</style>
 
-      {/* Mobile viewport wrapper (max-width: 480px) */}
+      {/* Viewport wrapper (max-width: 480px, responsive to 960px on PC) */}
       <div
+        className="app-container"
         style={{
           width: "100%",
-          maxWidth: "480px",
           background: "#FFFFFF",
           minHeight: "100vh",
           display: "flex",
@@ -731,27 +761,83 @@ export default function ParentDashboard() {
         {/* ── MAIN TAB: HOME ── */}
         {activeTab === "home" && (
           <div style={{ padding: "16px" }}>
-            {/* Child pills selector */}
+            {/* Child card selector */}
             {children.length > 1 && (
               <div
                 style={{
-                  display: "flex",
-                  gap: "8px",
-                  overflowX: "auto",
-                  paddingBottom: "12px",
-                  marginBottom: "12px",
-                  borderBottom: "1px solid #F3F4F6",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
+                  marginBottom: "24px",
+                  paddingBottom: "16px",
+                  borderBottom: "1px solid #E5E7EB",
                 }}
               >
-                {children.map((child) => (
-                  <button
-                    key={child.id}
-                    onClick={() => setSelectedChildId(child.id)}
-                    className={`child-pill${selectedChildId === child.id ? " selected" : ""}`}
-                  >
-                    👦 {child.first_name} ({child.class_name})
-                  </button>
-                ))}
+                {children.map((child) => {
+                  const isSelected = selectedChildId === child.id;
+                  return (
+                    <button
+                      key={child.id}
+                      onClick={() => setSelectedChildId(child.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "16px",
+                        borderRadius: "16px",
+                        border: isSelected ? `2px solid ${ACCENT}` : "1px solid #E5E7EB",
+                        backgroundColor: isSelected ? ACCENT_LIGHT : "#FFFFFF",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.2s ease",
+                        boxShadow: isSelected ? "0 4px 12px rgba(79,70,229,0.08)" : "0 1px 3px rgba(0,0,0,0.02)",
+                        outline: "none",
+                        width: "100%",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "12px",
+                          backgroundColor: isSelected ? ACCENT : "#F3F4F6",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "20px",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        👦
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            color: isSelected ? ACCENT : TEXT_DARK,
+                            margin: 0,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {child.first_name} {child.last_name}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            color: isSelected ? "#6366F1" : TEXT_MUTED,
+                            margin: "2px 0 0 0",
+                          }}
+                        >
+                          {child.class_name} sinfi
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -786,7 +872,66 @@ export default function ParentDashboard() {
             {/* Sub-tab: DIARY (Kundalik) */}
             {activeSubTab === "diary" && (
               <div>
-                {gradesLoading ? (
+                {/* Week Navigation Header */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    backgroundColor: "#F4EFE6",
+                    border: "1px solid #D8D3C9",
+                    borderRadius: "10px",
+                    padding: "8px 16px",
+                    marginBottom: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                  }}
+                >
+                  <button
+                    onClick={handlePrevWeek}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: ACCENT,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    ⬅️ Oldingi hafta
+                  </button>
+
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      color: TEXT_DARK,
+                    }}
+                  >
+                    📅 {weekLabel(currentWeekStart)}
+                  </span>
+
+                  <button
+                    onClick={handleNextWeek}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: ACCENT,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    Keyingi hafta ➡️
+                  </button>
+                </div>
+
+                {gradesLoading || scheduleLoading ? (
                   <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
                     <div
                       style={{
@@ -801,97 +946,139 @@ export default function ParentDashboard() {
                     />
                     Yuklanmoqda...
                   </div>
-                ) : gradesByWeek.length === 0 ? (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "40px 16px",
-                      border: "1px dashed #E5E7EB",
-                      borderRadius: "14px",
-                      color: TEXT_MUTED,
-                    }}
-                  >
-                    <span style={{ fontSize: "24px", display: "block", marginBottom: "8px" }}>📭</span>
-                    <span style={{ fontSize: "12px" }}>Baholar hali qo&apos;yilmagan.</span>
-                  </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                    {gradesByWeek.map(({ weekKey, label, items }) => {
-                      const weekPending = items.filter(
-                        (g) => !g.approved_by_parent && g.status !== "approved"
-                      );
-                      const isWeekLoading = approveAllLoading === weekKey;
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {/* The 6-Day Grid: 3x2 on desktop, 2x3 on mobile */}
+                    <div className="diary-grid">
+                      {daysOfWeek.map((dayData, idx) => (
+                        <DiaryDayCard
+                          key={idx}
+                          dayLabel={dayData.dayLabel}
+                          rows={dayData.rows}
+                          onApprove={handleParentApprove}
+                          approvingId={approveLoading}
+                        />
+                      ))}
+                    </div>
 
-                      return (
-                        <div
-                          key={weekKey}
-                          style={{
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "16px",
-                            overflow: "hidden",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)",
-                          }}
-                        >
-                          {/* Week header */}
-                          <div
+                    {/* Skeuomorphic Parent Signature Section */}
+                    <div
+                      style={{
+                        backgroundColor: "#FCFBF7",
+                        border: "1px solid #D8D3C9",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.03)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          color: "#4A3E3D",
+                          borderBottom: "1.5px solid #EAE5DB",
+                          paddingBottom: "8px",
+                          marginBottom: "4px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        ✍️ Kundalikni tasdiqlash (Ota-ona imzosi)
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: "16px",
+                        }}
+                      >
+                        {/* Left Signee */}
+                        <div style={{ flex: 1, minWidth: "150px" }}>
+                          <span style={{ fontSize: "11px", color: TEXT_MUTED, display: "block" }}>
+                            Sinf rahbari imzosi:
+                          </span>
+                          <span
                             style={{
-                              background: `linear-gradient(90deg, ${ACCENT_LIGHT} 0%, white 100%)`,
-                              borderBottom: `1.5px solid ${ACCENT_MID}`,
-                              padding: "10px 16px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              color: isTeacherSigned ? "#10B981" : "#EF4444",
+                              fontFamily: "monospace",
+                              display: "block",
+                              marginTop: "4px",
+                              borderBottom: "1px dashed #D1C7BD",
+                              paddingBottom: "4px",
                             }}
                           >
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: ACCENT,
-                                letterSpacing: "0.2px",
-                              }}
-                            >
-                              📅 {label}
-                            </span>
+                            {isTeacherSigned ? "✓ Imzolangan" : "✗ Imzolanmagan"}
+                          </span>
+                        </div>
 
-                            {weekPending.length > 0 ? (
-                              <button
-                                onClick={() => handleApproveAll(weekKey, items)}
-                                disabled={isWeekLoading}
+                        {/* Right Signee */}
+                        <div style={{ flex: 1, minWidth: "150px" }}>
+                          <span style={{ fontSize: "11px", color: TEXT_MUTED, display: "block" }}>
+                            Ota-ona imzosi:
+                          </span>
+                          <div style={{ marginTop: "4px" }}>
+                            {activeWeekGrades.length === 0 ? (
+                              <span
                                 style={{
-                                  fontSize: "9px",
-                                  fontWeight: 700,
-                                  color: ACCENT,
-                                  backgroundColor: "white",
-                                  border: `1.5px solid ${ACCENT_MID}`,
-                                  borderRadius: "6px",
-                                  padding: "3px 8px",
-                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: 650,
+                                  color: TEXT_MUTED,
+                                  fontFamily: "monospace",
+                                  display: "block",
+                                  borderBottom: "1px dashed #D1C7BD",
+                                  paddingBottom: "4px",
                                 }}
                               >
-                                {isWeekLoading ? "..." : "✓ Hammasini tasdiqlash"}
+                                Baholar kiritilmagan
+                              </span>
+                            ) : activeWeekPending.length > 0 ? (
+                              <button
+                                onClick={() => handleApproveAll(currentWeekStart, activeWeekGrades)}
+                                disabled={isWeekLoading}
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  color: "white",
+                                  backgroundColor: ACCENT,
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  padding: "6px 12px",
+                                  cursor: "pointer",
+                                  width: "100%",
+                                  fontFamily: "'Roboto', sans-serif",
+                                  boxShadow: "0 2px 4px rgba(79,70,229,0.2)",
+                                }}
+                              >
+                                {isWeekLoading ? "..." : "Hammasini ko'rdim (Imzo chekish)"}
                               </button>
                             ) : (
-                              <span style={{ fontSize: "9px", color: "#10B981", fontWeight: 700 }}>
-                                ✓ Tasdiqlangan
+                              <span
+                                style={{
+                                  fontSize: "13px",
+                                  fontWeight: 600,
+                                  color: ACCENT,
+                                  fontFamily: "monospace",
+                                  display: "block",
+                                  borderBottom: "1px dashed #D1C7BD",
+                                  paddingBottom: "4px",
+                                }}
+                              >
+                                ✓ Imzolandi (Hammasi ko'rildi)
                               </span>
                             )}
                           </div>
-
-                          {/* Skeuomorphic diary paper section */}
-                          <div className="diary-paper">
-                            {items.map((gr) => (
-                              <DiaryRow
-                                key={gr.id}
-                                grade={gr}
-                                onApprove={handleParentApprove}
-                                approving={approveLoading === gr.id}
-                              />
-                            ))}
-                          </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1078,7 +1265,7 @@ export default function ParentDashboard() {
             )}
 
             {/* Student child profile card */}
-            {selectedChild && (
+            {children.length > 0 && (
               <div
                 style={{
                   backgroundColor: "#FFFFFF",
@@ -1099,18 +1286,31 @@ export default function ParentDashboard() {
                     marginBottom: "8px",
                   }}
                 >
-                  O&apos;quvchi Ma&apos;lumotlari
+                  O&apos;quvchilar Ma&apos;lumotlari
                 </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    F.I.SH: <span style={{ fontWeight: 500 }}>{selectedChild.first_name} {selectedChild.last_name}</span>
-                  </div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    Sinf: <span style={{ fontWeight: 500 }}>{selectedChild.class_name}</span>
-                  </div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    Maktab ID: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{schoolId}</span>
-                  </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {children.map((child, index) => (
+                    <div
+                      key={child.id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                        borderBottom: index === children.length - 1 ? "none" : "1px solid #F3F4F6",
+                        paddingBottom: index === children.length - 1 ? "0" : "12px"
+                      }}
+                    >
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        F.I.SH: <span style={{ fontWeight: 500 }}>{child.first_name} {child.last_name}</span>
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        Sinf: <span style={{ fontWeight: 500 }}>{child.class_name}</span>
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        Maktab ID: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{schoolId}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

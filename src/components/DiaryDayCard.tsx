@@ -1,8 +1,9 @@
 import React from "react";
 
-interface GradeItem {
+export interface GradeItem {
   id: number;
   student_id: number;
+  student_name?: string;
   subject_name: string;
   teacher_name: string;
   value: string;
@@ -12,71 +13,22 @@ interface GradeItem {
   approved_by_parent: boolean;
 }
 
+export interface DiarySubjectRow {
+  subjectName: string;
+  grade?: GradeItem;
+}
+
 interface DiaryDayCardProps {
   dayLabel: string;
-  grades: GradeItem[];
+  rows: DiarySubjectRow[];
   onApprove: (id: number) => void;
   approvingId: number | null;
 }
 
-function getMockHomework(subjectName: string, id: number): string {
-  const tasks: Record<string, string[]> = {
-    Matematika: [
-      "5.2-mavzu bo'yicha 12-15-misollarni yechish",
-      "Kvadrat tenglamalar mavzusini takrorlash",
-      "Darslikdan 114-118-betlardagi masalalarni bajarish",
-      "O'tilgan mavzuni takrorlash va nazorat ishiga tayyorgarlik"
-    ],
-    Fizika: [
-      "Nyuton qonunlariga doir 3 ta masala yechish",
-      "Laboratoriya ishi hisobotini yozib kelish",
-      "Mavzu: Mexanik harakat. Konspekt tayyorlash",
-      "Elektromagnit maydonlar bo'yicha testlarni yechish"
-    ],
-    Kimyo: [
-      "Mendelyev davriy jadvalining birinchi 20 ta elementini yodlash",
-      "Kimyoviy reaksiyalarni tenglashtirish (darslikdan 4-mashq)",
-      "Mavzu bo'yicha konspekt yozish va tayyorlanish"
-    ],
-    Biologiya: [
-      "O'simliklar hujayrasi tuzilishini rasmda chizib kelish",
-      "Darslikning 82-85-betlarini o'qib, savollarga javob yozish",
-      "Mavzu yuzasidan taqdimot tayyorlash"
-    ],
-    Tarix: [
-      "Amir Temur davlati tuzilishi haqida ma'lumot to'plash",
-      "12-bobni to'liq o'qish va konspekt qilish",
-      "Tarixiy sanalarni takrorlash va eslab qolish"
-    ],
-    Adabiyot: [
-      "Alisher Navoiy g'azallaridan birini yodlash",
-      "O'tilgan asar bo'yicha qisqacha insho yozish",
-      "Darslikdagi 34-betdagi savollarga yozma javob tayyorlash"
-    ],
-    Ingliz: [
-      "Present Perfect Tense mavzusiga 10 ta gap yozish",
-      "Yangi 15 ta so'zni lug'at daftariga yozib yodlash",
-      "Darslikdan Unit 5 matnini o'qib, tarjima qilish"
-    ],
-    "Ona tili": [
-      "124-mashqni daftarga yozib bajarish",
-      "Ega va kesim kelishuvi mavzusini o'qish",
-      "Murakkab gaplar bo'yicha 5 ta misol yozish"
-    ]
-  };
-
-  // Find match
-  const key = Object.keys(tasks).find(k => subjectName.toLowerCase().includes(k.toLowerCase())) || "";
-  const list = tasks[key] || [
-    "Mavzu bo'yicha topshiriqlarni bajarish",
-    "Darslikdagi o'tilgan bobni o'qib kelish",
-    "Konspekt yozish va mavzuni takrorlash"
-  ];
-  return list[id % list.length];
-}
-
-function getNumericVal(g: GradeItem): number | null {
-  const v = g.numeric_value !== undefined ? g.numeric_value : parseFloat(g.value);
+function getNumericVal(value?: string, numericValue?: number): number | null {
+  if (numericValue !== undefined) return numericValue;
+  if (!value) return null;
+  const v = parseFloat(value);
   return isNaN(v) ? null : v;
 }
 
@@ -106,19 +58,27 @@ function gradeBorder(val: number | null): string {
 
 export default function DiaryDayCard({
   dayLabel,
-  grades,
+  rows,
   onApprove,
   approvingId,
 }: DiaryDayCardProps) {
+  // Pad rows to exactly 6 to represent a standard 6-lesson school day layout
+  const paddedRows = [...rows];
+  while (paddedRows.length < 6) {
+    paddedRows.push({ subjectName: "" });
+  }
+
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: "16px",
-        border: "1px solid #E5E7EB",
-        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03)",
+        backgroundColor: "#FCFBF7", // Cream paper background
+        borderRadius: "12px",
+        border: "1px solid #D8D3C9", // Soft vintage border
+        boxShadow: "0 4px 10px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02)",
         overflow: "hidden",
-        marginBottom: "16px",
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       {/* Card Header (Day Label) */}
@@ -127,135 +87,167 @@ export default function DiaryDayCard({
           display: "flex",
           alignItems: "center",
           gap: "10px",
-          padding: "12px 16px",
-          backgroundColor: "#F9FAFB",
-          borderBottom: "1px solid #E5E7EB",
+          padding: "10px 14px",
+          backgroundColor: "#F4EFE6", // Slightly darker warm tone for header
+          borderBottom: "1.5px solid #D8D3C9",
         }}
       >
-        {/* Red page margin indicator */}
+        {/* Little decorative vintage ribbon */}
         <div
           style={{
-            width: "3px",
-            height: "16px",
-            backgroundColor: "#EF4444",
-            borderRadius: "999px",
+            width: "4px",
+            height: "14px",
+            backgroundColor: "#EF4444", // margin red highlight
+            borderRadius: "2px",
           }}
         />
         <span
           style={{
-            fontSize: "13px",
-            fontWeight: 700,
-            color: "#374151",
+            fontSize: "12px",
+            fontWeight: 800,
+            color: "#4A3E3D", // Warm text
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
           }}
         >
           {dayLabel}
         </span>
       </div>
 
-      {/* Card Rows */}
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {grades.map((gr, idx) => {
-          const numVal = getNumericVal(gr);
-          const isApproved = gr.status === "approved" || gr.approved_by_parent;
-          const homework = getMockHomework(gr.subject_name, gr.id);
+      {/* Card Rows (ruled paper texture) */}
+      <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>
+        {/* Red page margin line running vertically */}
+        <div
+          style={{
+            position: "absolute",
+            left: "35px",
+            top: 0,
+            bottom: 0,
+            width: "1.5px",
+            backgroundColor: "#EF4444",
+            opacity: 0.4,
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
+        />
+
+        {paddedRows.map((row, idx) => {
+          const gr = row.grade;
+          const numVal = gr ? getNumericVal(gr.value, gr.numeric_value) : null;
+          const isApproved = gr ? gr.approved_by_parent : false;
 
           return (
             <div
-              key={gr.id}
+              key={idx}
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "12px 16px",
-                borderBottom: idx === grades.length - 1 ? "none" : "1px solid #F3F4F6", // lined diary paper simulation
-                gap: "12px",
+                height: "36px", // Fixed height for lined diary lines
+                borderBottom: idx === paddedRows.length - 1 ? "none" : "1px solid #E0E7FF", // lined paper line
+                position: "relative",
+                backgroundColor: "transparent",
               }}
             >
-              {/* Left Column: Subject & Homework */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span
+              {/* Left Column: Lesson Number & Subject Name */}
+              <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0, height: "100%" }}>
+                {/* Lesson number on the left of red line */}
+                <div
                   style={{
-                    fontSize: "13px",
-                    fontWeight: 650,
-                    color: "#374151",
-                    display: "block",
+                    width: "35px",
+                    textAlign: "center",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#A79E92",
+                    zIndex: 10,
                   }}
                 >
-                  {gr.subject_name}
-                </span>
+                  {idx + 1}
+                </div>
+
+                {/* Subject name on the right of red line */}
                 <span
                   style={{
-                    fontSize: "10px",
-                    color: "#9CA3AF",
-                    display: "block",
-                    marginTop: "3px",
+                    fontSize: "12px",
+                    fontWeight: 650,
+                    color: "#374151",
+                    paddingLeft: "10px",
+                    zIndex: 10,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
                 >
-                  ✏️ Uy vazifasi: {homework}
+                  {row.subjectName}
                 </span>
               </div>
 
-              {/* Right Column: Parent Approval Button & Grade Badge */}
+              {/* Right Column: Grade Cell & Approval Button */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
+                  gap: "6px",
+                  paddingRight: "10px",
+                  zIndex: 10,
                   flexShrink: 0,
                 }}
               >
-                {!isApproved ? (
-                  <button
-                    onClick={() => onApprove(gr.id)}
-                    disabled={approvingId === gr.id}
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      color: "#4F46E5",
-                      backgroundColor: "#EEF2FF",
-                      border: "1px solid #C7D2FE",
-                      borderRadius: "6px",
-                      padding: "4px 8px",
-                      cursor: "pointer",
-                      fontFamily: "'Roboto', sans-serif",
-                    }}
-                  >
-                    {approvingId === gr.id ? "..." : "Ko'rdim"}
-                  </button>
-                ) : (
-                  <span
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: 600,
-                      color: "#9CA3AF",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    Ko'rildi
-                  </span>
+                {gr && (
+                  <>
+                    {!isApproved ? (
+                      <button
+                        onClick={() => onApprove(gr.id)}
+                        disabled={approvingId === gr.id}
+                        style={{
+                          fontSize: "8.5px",
+                          fontWeight: 700,
+                          color: "#4F46E5",
+                          backgroundColor: "#EEF2FF",
+                          border: "1px solid #C7D2FE",
+                          borderRadius: "4px",
+                          padding: "2px 6px",
+                          cursor: "pointer",
+                          fontFamily: "'Roboto', sans-serif",
+                          boxShadow: "0 1px 2px rgba(79,70,229,0.05)",
+                        }}
+                      >
+                        {approvingId === gr.id ? "..." : "Ko'rdim"}
+                      </button>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: "8.5px",
+                          fontWeight: 600,
+                          color: "#9CA3AF",
+                          fontFamily: "sans-serif",
+                        }}
+                      >
+                        Ko'rildi
+                      </span>
+                    )}
+                  </>
                 )}
 
-                {/* Grade Badge */}
+                {/* Square Grade Box (always visible, empty if no grade) */}
                 <div
                   style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "8px",
+                    width: "26px",
+                    height: "26px",
+                    borderRadius: "4px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 800,
-                    fontSize: "13px",
-                    color: gradeColor(numVal),
-                    backgroundColor: gradeBg(numVal),
-                    border: `1.5px solid ${gradeBorder(numVal)}`,
+                    fontSize: "12px",
+                    color: gr ? gradeColor(numVal) : "transparent",
+                    backgroundColor: gr ? gradeBg(numVal) : "transparent",
+                    border: gr ? `1.5px solid ${gradeBorder(numVal)}` : "1px dashed #D1C7BD",
                     fontFamily: "monospace",
+                    boxShadow: gr ? "inset 0 1px 1px rgba(0,0,0,0.02)" : "none",
                   }}
                 >
-                  {gr.value}
+                  {gr ? gr.value : ""}
                 </div>
               </div>
             </div>

@@ -26,7 +26,7 @@ export default function TenantLoginPage() {
         } else if (user.role === "PARENT") {
           router.push("/parents");
         } else {
-          router.push("/dashboard");
+          localStorage.clear();
         }
       } catch (e) {
         localStorage.clear();
@@ -54,20 +54,22 @@ export default function TenantLoginPage() {
         throw new Error(data.error || "Tizimga kirishda xatolik yuz berdi");
       }
 
+      const role = data.user.role;
+      if (role !== "ADMIN" && role !== "MAIN_TEACHER" && role !== "SUBJECT_TEACHER" && role !== "PARENT") {
+        throw new Error("O'quvchilar uchun tizimga kirish taqiqlangan");
+      }
+
       // Save token, user details, and school ID
       localStorage.setItem("school_token", data.token);
       localStorage.setItem("school_id", data.user.school_id);
       localStorage.setItem("school_user", JSON.stringify(data.user));
 
-      const role = data.user.role;
       if (role === "ADMIN") {
         router.push("/dashboard");
       } else if (role === "MAIN_TEACHER" || role === "SUBJECT_TEACHER") {
         router.push("/teacher");
       } else if (role === "PARENT") {
         router.push("/parents");
-      } else {
-        router.push("/dashboard");
       }
     } catch (err: any) {
       setError(err.message || "Ulanishda xatolik. Ma'lumotlarni tekshirib qayta urinib ko'ring.");

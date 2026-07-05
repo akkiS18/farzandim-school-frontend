@@ -11,13 +11,13 @@ export default function BottomNavigation({
 }: BottomNavigationProps) {
   return (
     <nav
+      className="bottom-nav-bar"
       style={{
         position: "fixed",
         bottom: 0,
         left: "50%",
         transform: "translateX(-50%)",
         width: "100%",
-        maxWidth: "480px", // matching mobile container max-width
         height: "64px",
         backgroundColor: "#FFFFFF",
         borderTop: "1px solid #E5E7EB",
@@ -28,6 +28,17 @@ export default function BottomNavigation({
         boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.05)",
       }}
     >
+      <style>{`
+        .bottom-nav-bar {
+          max-width: 480px;
+          transition: max-width 0.3s ease;
+        }
+        @media (min-width: 768px) {
+          .bottom-nav-bar {
+            max-width: 960px !important;
+          }
+        }
+      `}</style>
       {/* Home Button */}
       <button
         onClick={() => setActiveTab("home")}
