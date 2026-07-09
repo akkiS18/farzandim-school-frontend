@@ -4,6 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { GraduationCap, Phone, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 
 export default function TenantLoginPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function TenantLoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     // Redirect if already logged in
@@ -79,63 +81,113 @@ export default function TenantLoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-radial from-[#172554] via-[#09090b] to-[#09090b] px-4">
-      <div className="w-full max-w-md bg-[#09090b]/80 border border-blue-500/20 rounded-2xl p-8 backdrop-blur-xl shadow-2xl shadow-blue-500/5">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+    <main className="min-h-screen flex items-center justify-center bg-[#f5f5f7] px-4 relative overflow-hidden">
+      {/* Ambient background glow — Apple-style soft light, not a gradient card bg */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-blue-200/30 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-indigo-100/40 blur-[100px]" />
+      </div>
+
+      <div className="w-full max-w-[420px] relative">
+        {/* Brand mark */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-14 h-14 rounded-[16px] bg-gradient-to-b from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25 mb-5">
+            <GraduationCap className="w-7 h-7 text-white" strokeWidth={1.75} />
+          </div>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em] text-[#1d1d1f]">
             Online Jurnal
           </h1>
-          <p className="text-sm text-zinc-400 mt-2">
-            Maktab Ma'muriyati va Xodimlari Portali
+          <p className="text-[15px] text-[#6e6e73] mt-1.5 tracking-[-0.01em]">
+            Maktab ma'muriyati va xodimlari portali
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
+        {/* Card */}
+        <div className="bg-white/80 backdrop-blur-xl border border-black/[0.06] rounded-[24px] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.06),0_12px_40px_-12px_rgba(0,0,0,0.08)]">
+          {error && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-600 text-[13px] leading-relaxed p-3.5 rounded-[14px] mb-6">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={2} />
+              <span>{error}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label htmlFor="phone-input" className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Telefon Raqam
-            </label>
-            <input
-              id="phone-input"
-              type="text"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Masalan: +998942551314"
-              className="w-full bg-[#18181b]/50 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-4 py-3 text-sm transition outline-none"
-            />
-          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label
+                htmlFor="phone-input"
+                className="block text-[13px] font-medium text-[#1d1d1f] mb-2 tracking-[-0.01em]"
+              >
+                Telefon raqam
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#a1a1a6]" strokeWidth={1.75} />
+                <input
+                  id="phone-input"
+                  type="text"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+998 90 123 45 67"
+                  className="w-full bg-[#f5f5f7] border border-transparent focus:border-blue-500/40 focus:bg-white focus:ring-4 focus:ring-blue-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-4 py-3.5 text-[15px] transition-all duration-200 outline-none"
+                />
+              </div>
+            </div>
 
-          <div>
-            <label htmlFor="password-input" className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Parol
-            </label>
-            <input
-              id="password-input"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-[#18181b]/50 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-4 py-3 text-sm transition outline-none"
-            />
-          </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label
+                  htmlFor="password-input"
+                  className="text-[13px] font-medium text-[#1d1d1f] tracking-[-0.01em]"
+                >
+                  Parol
+                </label>
+                <a href="#" className="text-[13px] text-blue-600 hover:text-blue-700 tracking-[-0.01em]">
+                  Unutdingizmi?
+                </a>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#a1a1a6]" strokeWidth={1.75} />
+                <input
+                  id="password-input"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[#f5f5f7] border border-transparent focus:border-blue-500/40 focus:bg-white focus:ring-4 focus:ring-blue-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-11 py-3.5 text-[15px] transition-all duration-200 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#a1a1a6] hover:text-[#6e6e73] transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-[18px] h-[18px]" strokeWidth={1.75} /> : <Eye className="w-[18px] h-[18px]" strokeWidth={1.75} />}
+                </button>
+              </div>
+            </div>
 
-          <button
-            id="login-submit-btn"
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium py-3 px-4 rounded-xl transition shadow-lg shadow-blue-600/25 outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-          >
-            {loading ? "Tekshirilmoqda..." : "Tizimga Kirish"}
-          </button>
-        </form>
+            <button
+              id="login-submit-btn"
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-medium text-[15px] py-3.5 px-4 rounded-[14px] transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_-2px_rgba(37,99,235,0.35)] outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 mt-2 tracking-[-0.01em]"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Tekshirilmoqda...
+                </span>
+              ) : (
+                "Tizimga kirish"
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-[12.5px] text-[#a1a1a6] mt-6 tracking-[-0.01em]">
+          Muammo yuzaga kelsa, maktab administratoriga murojaat qiling
+        </p>
       </div>
     </main>
   );

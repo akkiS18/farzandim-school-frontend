@@ -174,6 +174,9 @@ export default function TeacherDashboard() {
     }
   }, [toast]);
 
+  const dateInputRef = React.useRef<HTMLInputElement>(null);
+  const scheduleDateInputRef = React.useRef<HTMLInputElement>(null);
+
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
   };
@@ -181,6 +184,23 @@ export default function TeacherDashboard() {
   // Active Grading System rules (for user guidance)
   const [activeGS, setActiveGS] = useState<any | null>(null);
   const [gradingSystemsList, setGradingSystemsList] = useState<any[]>([]);
+
+  const getGradeColorClasses = (valStr: string, isApproved: boolean, isParentApproved: boolean) => {
+    const val = parseFloat(valStr);
+    if (isNaN(val)) {
+      return 'border-dashed border-zinc-200 hover:border-zinc-300 focus:border-[#5B50EC] text-zinc-800 bg-transparent';
+    }
+    // Value-based styling (green >= 4.5, blue >= 3.5, amber >= 2.5, red < 2.5)
+    if (val >= 4.5) {
+      return 'border-emerald-200 bg-emerald-50/70 text-emerald-700 focus:bg-white focus:border-emerald-500';
+    } else if (val >= 3.5) {
+      return 'border-blue-200 bg-blue-50/70 text-blue-700 focus:bg-white focus:border-blue-500';
+    } else if (val >= 2.5) {
+      return 'border-amber-200 bg-amber-50/70 text-amber-700 focus:bg-white focus:border-amber-500';
+    } else {
+      return 'border-red-200 bg-red-50/70 text-red-700 focus:bg-white focus:border-red-500';
+    }
+  };
 
   // 1. Initial Load & Auth Check
   useEffect(() => {
@@ -628,7 +648,7 @@ export default function TeacherDashboard() {
       // 4. Initialize cell inputs from existing grades
       const inputs: { [key: string]: string } = {};
       studentsList.forEach((st) => {
-        subjectsListToday.forEach((subj) => {
+        subjects.forEach((subj) => {
           const key = `${st.id}_${subj.id}`;
           const grade = gradesList.find((g: any) => {
             const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
@@ -1692,111 +1712,27 @@ export default function TeacherDashboard() {
       </header>
 
       {/* Main Grid Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {/* Step 1: Subject and Class Selection Cards */}
-        <section className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-sm space-y-4">
-          <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Sinf Jurnalini tanlang</h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {classes.map((cls, idx) => {
-              const pastelColors = [
-                { bg: "bg-emerald-50 hover:bg-emerald-100/80 text-emerald-950 border-emerald-200/60" },
-                { bg: "bg-blue-50 hover:bg-blue-100/80 text-blue-950 border-blue-200/60" },
-                { bg: "bg-violet-50 hover:bg-violet-100/80 text-violet-950 border-violet-200/60" },
-                { bg: "bg-amber-50 hover:bg-amber-100/80 text-amber-950 border-amber-200/60" },
-                { bg: "bg-rose-50 hover:bg-rose-100/80 text-rose-950 border-rose-200/60" },
-                { bg: "bg-indigo-50 hover:bg-indigo-100/80 text-indigo-950 border-indigo-200/60" },
-                { bg: "bg-teal-50 hover:bg-teal-100/80 text-teal-950 border-teal-200/60" },
-                { bg: "bg-sky-50 hover:bg-sky-100/80 text-sky-950 border-sky-200/60" },
-              ];
-              const color = pastelColors[idx % pastelColors.length];
-              const isSelected = selectedClassId === cls.id;
-              
-              return (
-                <button
-                  key={cls.id}
-                  type="button"
-                  onClick={() => {
-                    if (isSelected) {
-                      setSelectedClassId("");
-                      setSelectedSubjectId("");
-                    } else {
-                      setSelectedClassId(cls.id);
-                      if (cls.subject_id) {
-                        setSelectedSubjectId(cls.subject_id);
-                      }
-                    }
-                  }}
-                  className={`p-4 rounded-xl border text-left transition cursor-pointer select-none flex flex-col justify-between h-28 shadow-sm ${color.bg} ${
-                    isSelected
-                      ? "ring-2 ring-emerald-600 border-transparent scale-[1.02]"
-                      : "border-zinc-200/80 hover:scale-[1.01]"
-                  }`}
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <span className="text-xl font-extrabold tracking-tight">{cls.name}</span>
-                    <span className="text-[10px] bg-white/70 px-2 py-0.5 rounded font-mono font-bold">Sinf</span>
-                  </div>
-                  <div className="mt-2">
-                    {cls.subject_name ? (
-                      <p className="text-[10px] font-bold tracking-wide uppercase opacity-90">
-                        {cls.subject_name}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] italic opacity-60">Dars tanlash...</p>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* If ADMIN role, and class is selected but has no pre-defined subject, show select dropdown */}
-          {userInfo?.role === "ADMIN" && selectedClassId && !classes.find(c => c.id === selectedClassId)?.subject_id && (
-            <div className="bg-[#fafafa] border border-zinc-200 rounded-xl p-4 space-y-2 mt-4 max-w-sm">
-              <label className="block text-[10px] font-semibold text-zinc-500 uppercase">Fan tanlang (Admin uchun)</label>
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                className="w-full bg-white border border-zinc-200 focus:border-emerald-600 rounded-lg px-3 py-2 text-xs outline-none transition cursor-pointer font-semibold"
-              >
-                <option value="">Fanni tanlang</option>
-                {subjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>{sub.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {activeGS && (
-            <div className="pt-3 border-t border-dashed border-zinc-200 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-              <span>Maktab baholash tizimi: <strong className="text-zinc-700">{activeGS.name} ({activeGS.type})</strong></span>
-              {activeGS.type === "NUMERIC" && <span>Ruxsat etilgan diapazon: {activeGS.min_value} - {activeGS.max_value}</span>}
-              {activeGS.type === "PERCENTAGE" && <span>Ruxsat etilgan foiz: {activeGS.min_value}% - {activeGS.max_value}%</span>}
-              {activeGS.type === "LETTER" && (
-                <span>Ruxsat etilgan harflar: {activeGS.options?.map((o: any) => o.label).join(", ")}</span>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* Step 2: Excel-style Grading Spreadsheet Form */}
-        {/* Step 2: Tab Switcher & Workspace content */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6 pb-28">
         {!selectedClassId ? (
-          <section className="text-center py-20 border border-dashed border-zinc-200 rounded-xl bg-white/40">
-            <svg className="w-8 h-8 text-zinc-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-            </svg>
-            <p className="text-zinc-505 text-xs font-mono">Dars jurnalini yoki jadvalini ko'rish uchun sinf tanlang.</p>
-          </section>
+          <div className="bg-white border border-zinc-200/80 rounded-2xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-sm my-16">
+            <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-650 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <h2 className="text-base font-bold text-zinc-800 tracking-tight mb-2">ONLINE JURNAL — O'QITUVCHI PORTALI</h2>
+            <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
+              Dars jurnali, dars jadvali, o'quvchilar va ota-onalar ma'lumotlarini boshqarish uchun pastdagi panel orqali kerakli sinf va fanni tanlang.
+            </p>
+          </div>
         ) : (
           <div className="space-y-6">
             {/* Tab Navigation */}
-            <div className="flex border-b border-zinc-200/80 mb-6">
+            <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none border-b border-zinc-200/80 mb-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 onClick={() => setTeacherTab("journal")}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer ${
+                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
                   teacherTab === "journal"
                     ? "border-emerald-600 text-emerald-600"
                     : "border-transparent text-zinc-400 hover:text-zinc-650"
@@ -1807,7 +1743,7 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={() => setTeacherTab("schedule")}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer ${
+                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
                   teacherTab === "schedule"
                     ? "border-emerald-600 text-emerald-600"
                     : "border-transparent text-zinc-400 hover:text-zinc-650"
@@ -1819,7 +1755,7 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setTeacherTab("students")}
-                  className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer ${
+                  className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
                     teacherTab === "students"
                       ? "border-emerald-600 text-emerald-600"
                       : "border-transparent text-zinc-400 hover:text-zinc-650"
@@ -1832,7 +1768,7 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setTeacherTab("parents")}
-                  className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer ${
+                  className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
                     teacherTab === "parents"
                       ? "border-emerald-600 text-emerald-600"
                       : "border-transparent text-zinc-400 hover:text-zinc-650"
@@ -1844,7 +1780,7 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={() => setTeacherTab("unapproved")}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer ${
+                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
                   teacherTab === "unapproved"
                     ? "border-emerald-600 text-emerald-600"
                     : "border-transparent text-zinc-400 hover:text-zinc-650"
@@ -1856,91 +1792,28 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Grading Journal — Daily Grid */}
             {teacherTab === "journal" && (
-              <div className="space-y-4">
-                {/* Date Selector Header */}
-                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="space-y-6">
+                {/* Date/Class/Subject Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-900">Kunlik Sinf Jurnali</h3>
-                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                      Sanani tanlang — o'sha kun dars jadvalidagi fanlar column bo'lib chiqadi
+                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900">Kunlik jurnal</h2>
+                    <p className="text-xs text-zinc-500 font-semibold mt-1">
+                      {(() => {
+                        const days = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+                        const dateObj = new Date(journalDate + 'T00:00:00');
+                        const dayName = !isNaN(dateObj.getTime()) ? days[dateObj.getDay()] : "";
+                        const dateParts = journalDate.split("-");
+                        const formattedDate = dateParts.length === 3 ? `${dateParts[0]} M${dateParts[1]} ${Number(dateParts[2])}` : journalDate;
+                        const clsName = classes.find(c => c.id === selectedClassId)?.name || "";
+                        const subjName = selectedSubjectId ? (subjects.find(s => s.id === selectedSubjectId)?.name || "") : "";
+                        
+                        let result = "";
+                        if (formattedDate) result += `${formattedDate}, ${dayName ? dayName.slice(0, 3) : ""}`;
+                        if (clsName) result += ` · ${clsName} sinf`;
+                        if (subjName) result += ` · ${subjName}`;
+                        return result || "Jurnal ma'lumotlari";
+                      })()}
                     </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {/* Prev day */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date(journalDate + 'T00:00:00');
-                        if (isNaN(d.getTime())) return;
-                        d.setDate(d.getDate() - 1);
-                        const nd = d.toISOString().split('T')[0];
-                        setJournalDate(nd);
-                        fetchJournalData(nd);
-                      }}
-                      className="w-8 h-8 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-800 transition cursor-pointer text-sm"
-                    >‹</button>
-                    <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-1.5">
-                      <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <input
-                        type="date"
-                        value={journalDate}
-                        onChange={(e) => {
-                          setJournalDate(e.target.value);
-                          if (e.target.value) {
-                            fetchJournalData(e.target.value);
-                          }
-                        }}
-                        className="bg-transparent text-zinc-700 text-xs outline-none cursor-pointer font-semibold font-mono"
-                      />
-                    </div>
-                    {/* Next day */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date(journalDate + 'T00:00:00');
-                        if (isNaN(d.getTime())) return;
-                        d.setDate(d.getDate() + 1);
-                        const nd = d.toISOString().split('T')[0];
-                        setJournalDate(nd);
-                        fetchJournalData(nd);
-                      }}
-                      className="w-8 h-8 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-800 transition cursor-pointer text-sm"
-                    >›</button>
-                    <button
-                      type="button"
-                      onClick={() => fetchJournalData()}
-                      className="text-xs bg-zinc-900 hover:bg-zinc-700 text-white font-semibold py-1.5 px-4 rounded-lg transition cursor-pointer"
-                    >
-                      Yangilash
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleApproveAllToday}
-                      disabled={approveLoading}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1.5 shadow-sm"
-                    >
-                      {approveLoading ? (
-                        <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <span>Bugungi barcha baholarni tasdiqlash (🔒)</span>
-                      )}
-                    </button>
-                    {selectedGradeIds.size > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleBulkApprove}
-                        disabled={approveLoading}
-                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1.5 shadow-sm"
-                      >
-                        {approveLoading ? (
-                          <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></span>
-                        ) : (
-                          <span>Tanlanganlarni tasdiqlash ({selectedGradeIds.size} ta)</span>
-                        )}
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1954,159 +1827,162 @@ export default function TeacherDashboard() {
                     <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
-                ) : journalSubjectsToday.length === 0 ? (
+                ) : !selectedSubjectId ? (
                   <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl">
-                    <p className="text-sm text-zinc-500 font-semibold mb-1">
-                      {getFormattedJournalDate()}
-                    </p>
-                    <p className="text-xs text-zinc-400 font-mono">Bu kuni dars jadvali bo'yicha hech qanday fan topilmadi.</p>
-                    <p className="text-[10px] text-zinc-300 font-mono mt-1">Dars jadvali "Dars Jadvali" tabida sozlanadi.</p>
+                    <p className="text-sm text-zinc-500 font-semibold mb-1">Fanni tanlang</p>
+                    <p className="text-xs text-zinc-400 font-mono">Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.</p>
                   </div>
                 ) : (
-                  <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+                  <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden animate-fadeIn">
                     {/* Grid legend row */}
-                    <div className="px-5 py-2.5 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
-                        {getFormattedJournalDate()}
-                        {' — '}
-                        {journalSubjectsToday.length} ta fan
-                      </span>
-                      <div className="flex items-center gap-3 text-[9px] font-bold font-mono">
-                        <span className="flex items-center gap-1 text-emerald-600"><span className="w-2 h-2 rounded bg-emerald-600 inline-block"></span>Marked</span>
-                        <span className="flex items-center gap-1 text-teal-600"><span className="w-2 h-2 rounded bg-teal-500 inline-block"></span>Ota-ona ko'rdi</span>
-                        <span className="flex items-center gap-1 text-blue-600"><span className="w-2 h-2 rounded bg-blue-600 inline-block"></span>Tasdiqlangan 🔒</span>
+                    <div className="px-5 py-3 bg-[#fafafa] border-b border-zinc-150 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center space-x-3.5">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                          BAHOLAR
+                        </span>
+                        {selectedSubjectId && (
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Tizim:</span>
+                            <select
+                              value={selectedGradingSystems[selectedSubjectId] || ""}
+                              onChange={(e) => {
+                                const val = e.target.value ? Number(e.target.value) : "";
+                                if (val) {
+                                  setSelectedGradingSystems(prev => ({ ...prev, [selectedSubjectId]: val }));
+                                }
+                              }}
+                              className="bg-zinc-100 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-600 outline-none transition cursor-pointer text-center"
+                            >
+                              {gradingSystemsList.map(gs => (
+                                <option key={gs.id} value={gs.id}>
+                                  {gs.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     </div>
+                    
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-100 text-left">
-                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <table className="min-w-full divide-y divide-zinc-200 text-left">
+                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-450 uppercase tracking-wider">
                           <tr>
-                            <th className="px-4 py-3 w-10 text-center font-mono sticky left-0 bg-[#fafafa] z-10">#</th>
-                            <th className="px-5 py-3 w-52 sticky left-10 bg-[#fafafa] z-10">O'quvchi</th>
-                            {journalSubjectsToday.map(subj => (
-                              <th key={subj.id} className="px-4 py-3 text-center min-w-[120px] text-[9px] border-l border-zinc-100">
-                                <div className="space-y-1 flex flex-col items-center">
-                                  <span className="font-bold text-zinc-700 tracking-tight">{subj.name}</span>
-                                  <select
-                                    value={selectedGradingSystems[subj.id] || ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value ? Number(e.target.value) : "";
-                                      if (val) {
-                                        setSelectedGradingSystems(prev => ({ ...prev, [subj.id]: val }));
-                                      }
-                                    }}
-                                    className="bg-zinc-100 hover:bg-zinc-200 border-none rounded px-1.5 py-0.5 text-[8px] font-bold text-zinc-500 outline-none transition cursor-pointer max-w-[100px] text-center"
-                                  >
-                                    {gradingSystemsList.map(gs => (
-                                      <option key={gs.id} value={gs.id}>
-                                        {gs.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </th>
-                            ))}
+                            <th className="px-6 py-4 w-20 text-center font-mono">№</th>
+                            <th className="px-6 py-4">O'quvchi ismi</th>
+                            <th className="px-6 py-4 w-32 text-center">Baho</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-50 text-xs">
+                        <tbody className="divide-y divide-zinc-100 text-xs bg-white">
                           {students.length === 0 ? (
                             <tr>
-                              <td colSpan={2 + journalSubjectsToday.length} className="px-5 py-10 text-center text-zinc-400 italic font-mono">
+                              <td colSpan={3} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
                                 Bu sinfda o'quvchilar topilmadi.
                               </td>
                             </tr>
                           ) : (
-                            students.map((st, idx) => (
-                              <tr key={st.id} className="hover:bg-zinc-50/60 transition group">
-                                <td className="px-4 py-3 text-center font-mono text-zinc-300 text-[10px] sticky left-0 bg-white group-hover:bg-zinc-50/60">{idx + 1}</td>
-                                <td className="px-5 py-3 font-semibold text-zinc-900 sticky left-10 bg-white group-hover:bg-zinc-50/60 whitespace-nowrap">
-                                  {st.first_name} {st.last_name}
-                                </td>
-                                {journalSubjectsToday.map(subj => {
-                                  const grade = findGradeForDay(st.id, subj.id);
-                                  const key = `${st.id}_${subj.id}`;
-                                  const isApproved = grade?.status === 'approved';
-                                  const isParentApproved = grade?.approved_by_parent;
-                                  const isSaving = cellSaving === key;
+                            students.map((st, idx) => {
+                              const key = `${st.id}_${selectedSubjectId}`;
+                              const grade = findGradeForDay(st.id, Number(selectedSubjectId));
+                              const isApproved = grade?.status === 'approved';
+                              const isParentApproved = grade?.approved_by_parent;
+                              const isSaving = cellSaving === key;
+                              const inputValue = cellInputs[key] || '';
 
-                                  return (
-                                    <td key={subj.id} className="px-2 py-2 text-center">
-                                      <div className="relative inline-block">
-                                        {grade && !isApproved && (
-                                          <input
-                                            type="checkbox"
-                                            checked={selectedGradeIds.has(grade.id)}
-                                            onChange={(e) => {
-                                              const checked = e.target.checked;
-                                              setSelectedGradeIds(prev => {
-                                                const next = new Set(prev);
-                                                if (checked) {
-                                                  next.add(grade.id);
-                                                } else {
-                                                  next.delete(grade.id);
-                                                }
-                                                return next;
-                                              });
-                                            }}
-                                            className="absolute -left-4 top-3 w-3 h-3 text-emerald-600 border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
-                                            title="Tasdiqlash uchun tanlash"
-                                          />
-                                        )}
+                              return (
+                                <tr key={st.id} className="hover:bg-zinc-50/50 transition">
+                                  {/* No. */}
+                                  <td className="px-6 py-5 text-center font-mono text-zinc-400 text-xs font-semibold">
+                                    {String(idx + 1).padStart(2, '0')}
+                                  </td>
+                                  
+                                  {/* Student Name */}
+                                  <td className="px-6 py-5 font-bold text-zinc-800 text-sm whitespace-nowrap">
+                                    {st.first_name} {st.last_name}
+                                  </td>
+                                  
+                                  {/* Grade Input */}
+                                  <td className="px-6 py-3 text-center">
+                                    <div className="relative inline-block">
+                                      {grade && !isApproved && (
                                         <input
-                                          type="text"
-                                          value={cellInputs[key] || ''}
-                                          onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault();
-                                              handleCellSave(st.id, subj.id);
-                                            }
+                                          type="checkbox"
+                                          checked={selectedGradeIds.has(grade.id)}
+                                          onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setSelectedGradeIds(prev => {
+                                              const next = new Set(prev);
+                                              if (checked) {
+                                                next.add(grade.id);
+                                              } else {
+                                                next.delete(grade.id);
+                                              }
+                                              return next;
+                                            });
                                           }}
-                                          onBlur={() => {
-                                            handleCellSave(st.id, subj.id);
-                                          }}
-                                          disabled={isSaving || isApproved}
-                                          placeholder="—"
-                                          className={`w-14 text-center bg-transparent border rounded-lg pl-1 pr-4 py-1.5 text-xs outline-none transition font-mono font-bold text-zinc-800
-                                            ${isSaving
-                                              ? 'border-emerald-400 animate-pulse'
-                                              : isApproved
-                                              ? 'bg-blue-50 border-blue-200 text-blue-700 cursor-not-allowed font-bold'
-                                              : isParentApproved
-                                              ? 'bg-teal-50 border-teal-200 text-teal-700 focus:bg-white focus:border-emerald-500'
-                                              : grade
-                                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:bg-white focus:border-emerald-500'
-                                              : (cellInputs[key] || '').trim()
-                                              ? 'border-emerald-500 bg-emerald-50/50 text-emerald-750'
-                                              : 'border-dashed border-zinc-200 hover:border-zinc-350 focus:border-emerald-500 focus:bg-emerald-50/20'
-                                            }`}
+                                          className="absolute -left-6 top-3.5 w-3 h-3 text-[#5B50EC] border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
+                                          title="Tasdiqlash uchun tanlash"
                                         />
-                                        {isApproved && (
-                                          <span className="absolute right-1.5 top-2 text-[8px]" title="Tasdiqlangan baholash, o'zgartirib bo'lmaydi">🔒</span>
-                                        )}
-                                        {!isApproved && isParentApproved && (
-                                          <span className="absolute right-1.5 top-2 text-[8px] text-teal-600 font-bold" title="Ota-ona ko'rdi">✓</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))
+                                      )}
+                                      
+                                      <input
+                                        type="text"
+                                        value={inputValue}
+                                        onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleCellSave(st.id, Number(selectedSubjectId));
+                                          }
+                                        }}
+                                        onBlur={() => {
+                                          handleCellSave(st.id, Number(selectedSubjectId));
+                                        }}
+                                        disabled={isSaving || isApproved}
+                                        placeholder="—"
+                                        className={`w-10 h-10 rounded-full text-center border font-bold font-mono text-sm outline-none transition-all duration-150
+                                          ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : ''}
+                                          ${!isSaving ? getGradeColorClasses(inputValue, isApproved, !!isParentApproved) : ''}
+                                        `}
+                                      />
+                                      
+                                      {/* Status badges */}
+                                      {isApproved && (
+                                        <span 
+                                          className="absolute -right-1 -top-1 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none"
+                                          title="Tasdiqlangan baholash, o'zgartirib bo'lmaydi"
+                                        >
+                                          🔒
+                                        </span>
+                                      )}
+                                      {!isApproved && isParentApproved && (
+                                        <span 
+                                          className="absolute -right-1 -top-1 bg-white border border-teal-200 text-teal-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-extrabold shadow-sm select-none"
+                                          title="Ota-ona ko'rdi"
+                                        >
+                                          ✓
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>
                     </div>
+                    
                     {/* Footer hint */}
-                    <div className="px-5 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
+                    <div className="px-5 py-3 border-t border-zinc-150 bg-zinc-50 flex items-center justify-between">
                       <p className="text-[10px] text-zinc-400 font-mono">
-                        Bo'sh katakka baho kiriting → <kbd className="bg-white border border-zinc-200 rounded px-1 py-0.5 text-[9px]">Enter</kbd> yoki boshqa katakka o'tish bilan saqlanadi
+                        Katakka baho yozib enter yoki blur orqali saqlang.
                       </p>
                       <p className="text-[10px] text-zinc-400 font-mono">
                         {journalAllGrades.filter(g => {
                           const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-                          return gDate === journalDate;
-                        }).length} ta baho kiritilgan bu kuni
+                          return gDate === journalDate && g.subject_id === Number(selectedSubjectId);
+                        }).length} ta baho kiritilgan
                       </p>
                     </div>
                   </div>
@@ -2126,7 +2002,6 @@ export default function TeacherDashboard() {
                           <p className="text-[11px] text-zinc-500">
                             Faol dars jadvali davri: <span className="text-[#059669] font-bold font-mono">{scheduleStartDate}</span> dan <span className="text-[#059669] font-bold font-mono">{scheduleEndDate}</span> gacha
                           </p>
-                          <span className="text-zinc-300 text-xs">â€¢</span>
                           <button
                             type="button"
                             onClick={() => setShowPeriodsModal(true)}
@@ -2137,44 +2012,6 @@ export default function TeacherDashboard() {
                         </div>
                       ) : (
                         <p className="text-[11px] text-zinc-500 mt-1">Ushbu sinf uchun dars jadvali va kunlik o'zgarishlar.</p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-3 self-end sm:self-auto">
-                      <div className="flex items-center space-x-2 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1">
-                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Sana:</label>
-                        <input
-                          type="date"
-                          value={scheduleViewDate}
-                          onChange={(e) => {
-                            setScheduleViewDate(e.target.value);
-                            fetchClassSchedule(e.target.value);
-                          }}
-                          className="bg-transparent text-zinc-700 text-xs outline-none border-none cursor-pointer w-28 font-semibold animate-pulse"
-                        />
-                      </div>
-                      {isMainTeacherOfClass() && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const initialFormState: { [key: string]: number } = {};
-                            for (let d = 1; d <= 6; d++) {
-                              for (let l = 1; l <= 8; l++) {
-                                initialFormState[`${d}-${l}`] = 0;
-                              }
-                            }
-                            classSchedule.forEach((item) => {
-                              if (item.subject_id > 0) {
-                                initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
-                              }
-                            });
-                            setScheduleFormState(initialFormState);
-                            setActionError("");
-                            setShowEditScheduleModal(true);
-                          }}
-                          className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer"
-                        >
-                          Jadvalni tahrirlash
-                        </button>
                       )}
                     </div>
                   </div>
@@ -2323,18 +2160,7 @@ export default function TeacherDashboard() {
                       Sinf rahbari sifatida o'quvchilarni qo'shishingiz va boshqarishingiz mumkin
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      setImportResult(null);
-                      setImportError("");
-                      setShowImportParentsModal(true);
-                    }}
-                    className="bg-teal-55 hover:bg-teal-100 border border-teal-200 text-teal-800 font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
-                  >
-                    <span>Excel ota-onalarni yuklash</span>
-                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -2438,55 +2264,12 @@ export default function TeacherDashboard() {
             {/* TAB CONTENT: Unapproved Grades List */}
             {teacherTab === "unapproved" && (
               <div className="space-y-4">
-                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-bold text-zinc-900">Tasdiqlanmagan Baholar Ro'yxati</h3>
                     <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
                       Bu oynada tasdiqlanmagan (draft) baholar sanasi bo'yicha kamayish (descending) tartibida ko'rinadi.
                     </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {selectedGradeIds.size > 0 && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setApproveLoading(true);
-                          try {
-                            const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}`,
-                              },
-                              body: JSON.stringify({
-                                mark_uids: Array.from(selectedGradeIds),
-                                status: "approved",
-                              }),
-                            });
-                            const data = await response.json();
-                            if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik yuz berdi");
-
-                            showToast("success", `${data.updated_count} ta baho muvaffaqiyatli tasdiqlandi!`);
-                            setSelectedGradeIds(new Set());
-                            fetchUnapprovedGrades();
-                          } catch (err: any) {
-                            showToast("error", err.message);
-                          } finally {
-                            setApproveLoading(false);
-                          }
-                        }}
-                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1 shadow-sm"
-                      >
-                        <span>Tanlanganlarni tasdiqlash ({selectedGradeIds.size} ta)</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => fetchUnapprovedGrades()}
-                      className="text-xs bg-zinc-900 hover:bg-zinc-700 text-white font-semibold py-1.5 px-4 rounded-lg transition cursor-pointer"
-                    >
-                      Yangilash
-                    </button>
                   </div>
                 </div>
 
@@ -2696,7 +2479,7 @@ export default function TeacherDashboard() {
                             <th className="px-5 py-3 font-mono">Telefon</th>
                             <th className="px-5 py-3">E-mail</th>
                             <th className="px-5 py-3">O'quvchi (Farzand)</th>
-                            <th className="px-5 py-3">Taklif kodi</th>
+
                             <th className="px-5 py-3 text-right">Amallar</th>
                           </tr>
                         </thead>
@@ -2710,9 +2493,7 @@ export default function TeacherDashboard() {
                               <td className="px-5 py-3 font-mono text-zinc-505">{pt.phone || "—"}</td>
                               <td className="px-5 py-3 font-mono text-zinc-550">{pt.email || "—"}</td>
                               <td className="px-5 py-3 text-zinc-700 font-medium">{pt.student_name || "Noma'lum"}</td>
-                              <td className="px-5 py-3 font-mono text-emerald-650 font-bold bg-emerald-50/30 border border-emerald-100 rounded inline-block my-1 px-1.5 py-0.5 text-[10px]">
-                                {pt.parent_code || "Kiritilgan"}
-                              </td>
+
                               <td className="px-5 py-3 text-right">
                                 <button
                                   type="button"
@@ -2766,6 +2547,289 @@ export default function TeacherDashboard() {
           </button>
         </div>
       )}
+      {/* Sticky Bottom Tabbar */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[95vw] w-max">
+        <div className="bg-white/95 backdrop-blur-md border border-zinc-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] rounded-3xl sm:rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-between gap-3 sm:gap-6 transition-all duration-300">
+          
+          {/* Left Part: Class & Subject Selectors */}
+          <div className="flex items-center space-x-4 shrink-0">
+            {/* Sinf Selection */}
+            <div className="flex items-center space-x-2.5 relative hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer">
+              <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-650 shrink-0">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="flex flex-col text-left pr-4">
+                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">SINF</span>
+                <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
+                  {selectedClassId ? classes.find(c => c.id === selectedClassId)?.name : "Tanlang"}
+                  <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
+              </div>
+              <select
+                value={selectedClassId}
+                onChange={(e) => {
+                  const val = e.target.value === "" ? "" : Number(e.target.value);
+                  setSelectedClassId(val);
+                  const cls = classes.find(c => c.id === val);
+                  if (cls && cls.subject_id) {
+                    setSelectedSubjectId(cls.subject_id);
+                  } else {
+                    setSelectedSubjectId("");
+                  }
+                  // Clear grade selection when switching classes
+                  setSelectedGradeIds(new Set());
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                <option value="">Sinfni tanlang</option>
+                {classes.map(cls => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Divider & Fan Selection (Only shown when NOT on schedule tab) */}
+            {teacherTab !== "schedule" && (
+              <>
+                {/* Divider */}
+                <div className="h-8 w-px bg-zinc-200"></div>
+
+                {/* Fan Selection */}
+                {selectedClassId ? (
+                  (() => {
+                    const currentCls = classes.find(c => c.id === selectedClassId);
+                    const hasFixedSubject = currentCls?.subject_id && userInfo?.role !== "ADMIN" && userInfo?.role !== "MAIN_TEACHER";
+                    
+                    return (
+                      <div className="flex items-center space-x-2.5 relative hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-650 shrink-0">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col text-left pr-4">
+                          <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">FAN</span>
+                          <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
+                            {selectedSubjectId ? (subjects.find(s => s.id === selectedSubjectId)?.name || currentCls?.subject_name || "Noma'lum") : "Tanlang"}
+                            {!hasFixedSubject && (
+                              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            )}
+                          </span>
+                        </div>
+                        {!hasFixedSubject && (
+                          <select
+                            value={selectedSubjectId}
+                            onChange={(e) => setSelectedSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          >
+                            <option value="">Fanni tanlang</option>
+                            {subjects.map(sub => (
+                              <option key={sub.id} value={sub.id}>{sub.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="flex items-center space-x-2.5 opacity-50">
+                    <div className="w-8 h-8 rounded-full bg-zinc-105 border border-zinc-200 flex items-center justify-center text-zinc-400 shrink-0">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider">FAN</span>
+                      <span className="text-xs font-bold text-zinc-400 whitespace-nowrap">Sinfni tanlang</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Middle Part: Date Navigation */}
+          {selectedClassId && teacherTab === "journal" && (
+            <div className="flex items-center space-x-2.5">
+              {/* Datepicker */}
+              <div 
+                onClick={() => {
+                  if (dateInputRef.current) {
+                     if (typeof dateInputRef.current.showPicker === 'function') {
+                       dateInputRef.current.showPicker();
+                     } else {
+                       dateInputRef.current.click();
+                     }
+                  }
+                }}
+                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-3.5 py-1.5 transition relative cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs font-bold font-mono text-zinc-700 select-none">
+                  {(() => {
+                    const parts = journalDate.split("-");
+                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    return journalDate;
+                  })()}
+                </span>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={journalDate}
+                  onChange={(e) => {
+                    setJournalDate(e.target.value);
+                    if (e.target.value) {
+                      fetchJournalData(e.target.value);
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Schedule Date picker */}
+          {selectedClassId && teacherTab === "schedule" && (
+            <div className="flex items-center space-x-2.5">
+              <div 
+                onClick={() => {
+                  if (scheduleDateInputRef.current) {
+                     if (typeof scheduleDateInputRef.current.showPicker === 'function') {
+                       scheduleDateInputRef.current.showPicker();
+                     } else {
+                       scheduleDateInputRef.current.click();
+                     }
+                  }
+                }}
+                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-3.5 py-1.5 transition relative cursor-pointer font-bold"
+              >
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs font-bold font-mono text-zinc-700 select-none">
+                  {(() => {
+                    const parts = scheduleViewDate.split("-");
+                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    return scheduleViewDate;
+                  })()}
+                </span>
+                <input
+                  ref={scheduleDateInputRef}
+                  type="date"
+                  value={scheduleViewDate}
+                  onChange={(e) => {
+                    setScheduleViewDate(e.target.value);
+                    if (e.target.value) {
+                      fetchClassSchedule(e.target.value);
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Right Part: Action Buttons */}
+          <div className="flex items-center space-x-2 sm:ml-auto shrink-0">
+            {selectedClassId && (teacherTab === "journal" || teacherTab === "unapproved") ? (
+              <>
+                {teacherTab === "journal" && (
+                  selectedGradeIds.size > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleBulkApprove}
+                      disabled={approveLoading}
+                      className="px-5 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
+                    >
+                      {approveLoading ? (
+                        <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>
+                      ) : (
+                        <svg className="w-3.5 h-3.5 text-white mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      <span>Saqlash ({selectedGradeIds.size} ta)</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleApproveAllToday}
+                      disabled={approveLoading}
+                      className="px-5 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
+                    >
+                      {approveLoading ? (
+                        <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin mr-1.5"></span>
+                      ) : (
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V8l-4-4H8z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 20v-8" />
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 4h6v4H9z" />
+                        </svg>
+                      )}
+                      <span>Saqlash</span>
+                    </button>
+                  )
+                )}
+
+                {teacherTab === "unapproved" && selectedGradeIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBulkApprove}
+                    disabled={approveLoading}
+                    className="px-5 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
+                  >
+                    {approveLoading ? (
+                      <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 text-white mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    <span>Saqlash ({selectedGradeIds.size} ta)</span>
+                  </button>
+                )}
+              </>
+            ) : null}
+
+            {selectedClassId && teacherTab === "schedule" && isMainTeacherOfClass() && (
+              <button
+                type="button"
+                onClick={() => {
+                  const initialFormState: { [key: string]: number } = {};
+                  for (let d = 1; d <= 6; d++) {
+                    for (let l = 1; l <= 8; l++) {
+                      initialFormState[`${d}-${l}`] = 0;
+                    }
+                  }
+                  classSchedule.forEach((item) => {
+                    if (item.subject_id > 0) {
+                      initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
+                    }
+                  });
+                  setScheduleFormState(initialFormState);
+                  setActionError("");
+                  setShowEditScheduleModal(true);
+                }}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(37,99,235,0.3)] cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span>Jadvalni tahrirlash</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {renderEditWeeklyScheduleModal()}
       {renderAddExceptionModal()}
       {renderPeriodsModal()}
