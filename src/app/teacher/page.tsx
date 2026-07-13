@@ -248,16 +248,7 @@ export default function TeacherDashboard() {
       const subjectsList = Array.isArray(subData) ? subData : [];
       if (subRes.ok) setSubjects(subjectsList);
 
-      // Auto-select first class & subject
-      if (classesList.length > 0) {
-        const firstClass = classesList[0];
-        setSelectedClassId(firstClass.id);
-        if (firstClass.subject_id) {
-          setSelectedSubjectId(firstClass.subject_id);
-        } else if (subjectsList.length > 0) {
-          setSelectedSubjectId(subjectsList[0].id);
-        }
-      }
+
 
       // Load active grading system
       const gsRes = await fetch(`${API_URL}/api/schools/grading-systems/active`, {
@@ -293,6 +284,7 @@ export default function TeacherDashboard() {
   // Contextual Class details fetch (for schedules and exceptions)
   useEffect(() => {
     if (selectedClassId && token) {
+      setClassSchedule([]); // Reset schedule list immediately to prevent stale checks
       fetchClassTeachers();
       fetchClassSchedule();
       fetchScheduleExceptions();
@@ -376,6 +368,17 @@ export default function TeacherDashboard() {
         if (data.length > 0 && data[0].start_date && data[0].end_date) {
           setScheduleStartDate(data[0].start_date);
           setScheduleEndDate(data[0].end_date);
+        }
+
+        const isScheduleEmpty = data.length === 0 || data.every((item: any) => item.subject_id === 0 || !item.subject_id);
+        if (isScheduleEmpty) {
+          setSelectedSubjectId("");
+        } else {
+          const currentCls = classes.find(c => c.id === selectedClassId);
+          const hasFixedSubject = currentCls?.subject_id && userInfo?.role !== "ADMIN" && userInfo?.role !== "MAIN_TEACHER";
+          if (hasFixedSubject && currentCls) {
+            setSelectedSubjectId(currentCls.subject_id ?? "");
+          }
         }
       }
     } catch (e) {
@@ -1896,10 +1899,25 @@ export default function TeacherDashboard() {
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : !selectedSubjectId ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl">
-                    <p className="text-sm text-zinc-500 font-semibold mb-1">Fanni tanlang</p>
-                    <p className="text-xs text-zinc-400 font-mono">Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.</p>
-                  </div>
+                  (() => {
+                    const isScheduleEmpty = classSchedule.length === 0 || classSchedule.every(item => item.subject_id === 0 || !item.subject_id);
+                    if (isScheduleEmpty) {
+                      return (
+                        <div className="text-center py-16 bg-white border border-dashed border-red-200 rounded-xl animate-fadeIn">
+                          <p className="text-sm text-red-650 font-bold mb-1">Dars jadvali hali qo'shilmagan</p>
+                          <p className="text-xs text-zinc-400 font-mono">
+                            Dars baholarini ko'rish va kiritish uchun birinchi navbatda haftalik dars jadvalini kiriting.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl">
+                        <p className="text-sm text-zinc-500 font-semibold mb-1">Fanni tanlang</p>
+                        <p className="text-xs text-zinc-400 font-mono">Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.</p>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden animate-fadeIn">
                     {/* Grid legend row */}
@@ -2656,12 +2674,7 @@ export default function TeacherDashboard() {
                 onChange={(e) => {
                   const val = e.target.value === "" ? "" : Number(e.target.value);
                   setSelectedClassId(val);
-                  const cls = classes.find(c => c.id === val);
-                  if (cls && cls.subject_id) {
-                    setSelectedSubjectId(cls.subject_id);
-                  } else {
-                    setSelectedSubjectId("");
-                  }
+                  setSelectedSubjectId("");
                   // Clear grade selection when switching classes
                   setSelectedGradeIds(new Set());
                 }}
@@ -2685,7 +2698,35 @@ export default function TeacherDashboard() {
                   (() => {
                     const currentCls = classes.find(c => c.id === selectedClassId);
                     const hasFixedSubject = currentCls?.subject_id && userInfo?.role !== "ADMIN" && userInfo?.role !== "MAIN_TEACHER";
+                    const isScheduleEmpty = classSchedule.length === 0 || classSchedule.every(item => item.subject_id === 0 || !item.subject_id);
                     
+                    if (isScheduleEmpty) {
+                      return (
+                        <div
+                          onClick={() => {
+                            showToast("error", "Dars jadvali hali qo'shilmagan");
+                            alert("Dars jadvali hali qo'shilmagan");
+                          }}
+                          className="flex items-center space-x-2.5 hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-650 shrink-0">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
+                          <div className="flex flex-col text-left pr-4">
+                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">FAN</span>
+                            <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
+                              Tanlang
+                              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div className="flex items-center space-x-2.5 relative hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer">
                         <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-650 shrink-0">
