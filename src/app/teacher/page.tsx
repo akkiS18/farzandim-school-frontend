@@ -163,6 +163,7 @@ export default function TeacherDashboard() {
   const [parentEmail, setParentEmail] = useState("");
   const [parentPassword, setParentPassword] = useState("password123");
   const [showImportParentsModal, setShowImportParentsModal] = useState(false);
+  const [showImportStudentsModal, setShowImportStudentsModal] = useState(false);
 
   // Toast Notification state
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -236,14 +237,27 @@ export default function TeacherDashboard() {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const clsData = await clsRes.json();
-      if (clsRes.ok) setClasses(Array.isArray(clsData) ? clsData : []);
+      const classesList = Array.isArray(clsData) ? clsData : [];
+      if (clsRes.ok) setClasses(classesList);
 
       // Load subjects
       const subRes = await fetch(`${API_URL}/api/schools/subjects`, {
         headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
       });
       const subData = await subRes.json();
-      if (subRes.ok) setSubjects(Array.isArray(subData) ? subData : []);
+      const subjectsList = Array.isArray(subData) ? subData : [];
+      if (subRes.ok) setSubjects(subjectsList);
+
+      // Auto-select first class & subject
+      if (classesList.length > 0) {
+        const firstClass = classesList[0];
+        setSelectedClassId(firstClass.id);
+        if (firstClass.subject_id) {
+          setSelectedSubjectId(firstClass.subject_id);
+        } else if (subjectsList.length > 0) {
+          setSelectedSubjectId(subjectsList[0].id);
+        }
+      }
 
       // Load active grading system
       const gsRes = await fetch(`${API_URL}/api/schools/grading-systems/active`, {
@@ -1096,6 +1110,60 @@ export default function TeacherDashboard() {
       const a = document.createElement("a");
       a.href = downloadUrl;
       a.download = "ota_ona_template.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      showToast("error", err.message);
+    }
+  };
+
+  const handleStudentsExcelImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !selectedClassId) return;
+    setImportLoading(true);
+    setImportError("");
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/import/students?class_id=${selectedClassId}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Faylni yuklashda xatolik yuz berdi");
+
+      setImportResult(data);
+      setSelectedFile(null);
+      showToast("success", `Excel orqali ${data.imported_count} ta o'quvchi yuklandi!`);
+      fetchStudentsTabList(); // Reload student list
+      fetchJournalData(); // Reload journal data
+    } catch (err: any) {
+      setImportError(err.message || "Yuklashda xatolik");
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const downloadStudentsTemplate = async () => {
+    if (!selectedClassId) return;
+    try {
+      const url = `${API_URL}/api/schools/import/template/students?class_id=${selectedClassId}`;
+      const response = await fetch(url, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Shablonni yuklab bo'lmadi");
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = "oquvchi_template.xlsx";
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -2161,23 +2229,37 @@ export default function TeacherDashboard() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStudentModalMode("create");
-                      setStudentForm({
-                        first_name: "",
-                        last_name: "",
-                        middle_name: "",
-                        phone: "",
-                        password: "123456" // default password
-                      });
-                      setShowStudentModal(true);
-                    }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
-                  >
-                    <span>+ O'quvchi qo'shish</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setImportResult(null);
+                        setImportError("");
+                        setShowImportStudentsModal(true);
+                      }}
+                      className="bg-teal-55 hover:bg-teal-100 border border-teal-205 text-teal-800 font-bold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                    >
+                      <span>Excel orqali yuklash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStudentModalMode("create");
+                        setStudentForm({
+                          first_name: "",
+                          last_name: "",
+                          middle_name: "",
+                          phone: "",
+                          password: "123456" // default password
+                        });
+                        setShowStudentModal(true);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                    >
+                      <span>+ O'quvchi qo'shish</span>
+                    </button>
+                  </div>
                 </div>
 
                 {studentsTabLoading ? (
@@ -2836,6 +2918,7 @@ export default function TeacherDashboard() {
       {renderStudentModal()}
       {renderParentsModal()}
       {renderImportParentsModal()}
+      {renderImportStudentsModal()}
       {renderAddParentModal()}
     </div>
   );
@@ -3112,6 +3195,109 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowImportParentsModal(false)}
+                  className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={importLoading || !selectedFile}
+                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-zinc-800 disabled:opacity-50 flex items-center space-x-1 cursor-pointer"
+                >
+                  {importLoading && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                  <span>Yuklash</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderImportStudentsModal() {
+    if (!showImportStudentsModal) return null;
+    return (
+      <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white border border-zinc-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden transition-all transform scale-100">
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between text-zinc-900">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900">Excel orqali o'quvchilarni yuklash</h3>
+              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                Bir vaqtning o'zida bir nechta o'quvchi hisobini yaratish va sinflarga joylash
+              </p>
+            </div>
+            <button
+              onClick={() => setShowImportStudentsModal(false)}
+              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+            >
+              &times;
+            </button>
+          </div>
+
+          <div className="p-6 space-y-5 text-zinc-900">
+            {/* Step 1: Download Template */}
+            <div className="bg-zinc-50/50 border border-zinc-150 p-4 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-zinc-800">1-bosqich: Shablonni yuklab olish</p>
+                <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                  Ustunlar: ism, familiya, sharif, sinf (namuna bilan birga)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={downloadStudentsTemplate}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3 rounded-lg transition cursor-pointer shrink-0"
+              >
+                Shablonni yuklash
+              </button>
+            </div>
+
+            {/* Step 2: Upload Excel File */}
+            <form onSubmit={handleStudentsExcelImport} className="space-y-4">
+              <div>
+                <p className="text-xs font-bold text-zinc-800 mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
+                <label className="border-2 border-dashed border-zinc-200 rounded-xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50 transition">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setSelectedFile(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <svg className="w-8 h-8 text-zinc-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-xs font-semibold text-zinc-650">
+                    {selectedFile ? selectedFile.name : "Excel faylini tanlang (.xlsx)"}
+                  </p>
+                  <p className="text-[9px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
+                </label>
+              </div>
+
+              {importError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-xs font-semibold">
+                  {importError}
+                </div>
+              )}
+
+              {importResult && (
+                <div className="bg-emerald-50 border border-emerald-250 text-emerald-800 rounded-lg p-3 text-xs space-y-1">
+                  <p className="font-bold">Muvaffaqiyatli yuklandi!</p>
+                  <ul className="list-disc pl-4 font-mono text-[10px] space-y-0.5">
+                    <li>Yuklangan o'quvchilar: {importResult.imported_count} ta</li>
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowImportStudentsModal(false)}
                   className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
                 >
                   Bekor qilish
