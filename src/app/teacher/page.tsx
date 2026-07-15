@@ -41,7 +41,12 @@ interface GradeItem {
   grade_date: string;
   status: string;
   approved_by_parent: boolean;
+  grade_type?: string;
+  grade_category?: string;
+  lesson_number?: number;
+  teacher_name?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 const getInitialDate = (): string => {
@@ -114,6 +119,17 @@ export default function TeacherDashboard() {
   const [journalDate, setJournalDate] = useState(getInitialDate());
   const [journalAllGrades, setJournalAllGrades] = useState<GradeItem[]>([]);
   const [journalSubjectsToday, setJournalSubjectsToday] = useState<{ id: number; name: string }[]>([]);
+  interface JournalLessonItem {
+    subject_id: number;
+    subject_name: string;
+    lesson_number: number;
+  }
+  const [journalLessonsToday, setJournalLessonsToday] = useState<JournalLessonItem[]>([]);
+  const [selectedLessonNumber, setSelectedLessonNumber] = useState<number | "">("");
+  const [selectedGradeType, setSelectedGradeType] = useState<string>("MASTERY");
+  const [selectedGradeCategory, setSelectedGradeCategory] = useState<string>("DAILY");
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [holidaysLoading, setHolidaysLoading] = useState(false);
   const [journalLoading, setJournalLoading] = useState(false);
   const [cellInputs, setCellInputs] = useState<{ [key: string]: string }>({});
   const [cellSaving, setCellSaving] = useState<string | null>(null);
@@ -263,10 +279,30 @@ export default function TeacherDashboard() {
       });
       const gsListData = await gsListRes.json();
       if (gsListRes.ok) setGradingSystemsList(Array.isArray(gsListData) ? gsListData : []);
+
+      // Load holidays
+      await fetchHolidays(authToken, currentSchoolId);
     } catch (e) {
       console.error("Initial load failed", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHolidays = async (authToken: string, currentSchoolId: string) => {
+    setHolidaysLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/schools/holidays`, {
+        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId }
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        setHolidays(data);
+      }
+    } catch (e) {
+      console.error("Holidays load failed", e);
+    } finally {
+      setHolidaysLoading(false);
     }
   };
 
@@ -602,15 +638,26 @@ export default function TeacherDashboard() {
       if (isNaN(d.getTime())) return;
       const dow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon…7=Sun
       
-      const subjectMap = new Map<number, string>();
-      const subjectsListToday: { id: number; name: string }[] = [];
-      
+      const lessonsListToday: JournalLessonItem[] = [];
       (Array.isArray(schedData) ? schedData : []).forEach((item: any) => {
         if (item.day_of_week === dow && item.subject_id > 0 && item.subject_name) {
-          if (!subjectMap.has(item.subject_id)) {
-            subjectMap.set(item.subject_id, item.subject_name);
-            subjectsListToday.push({ id: item.subject_id, name: item.subject_name });
-          }
+          lessonsListToday.push({
+            subject_id: item.subject_id,
+            subject_name: item.subject_name,
+            lesson_number: item.lesson_number,
+          });
+        }
+      });
+      // Sort chronologically by lesson_number
+      lessonsListToday.sort((a, b) => a.lesson_number - b.lesson_number);
+      setJournalLessonsToday(lessonsListToday);
+
+      const subjectMap = new Map<number, string>();
+      const subjectsListToday: { id: number; name: string }[] = [];
+      lessonsListToday.forEach(item => {
+        if (!subjectMap.has(item.subject_id)) {
+          subjectMap.set(item.subject_id, item.subject_name);
+          subjectsListToday.push({ id: item.subject_id, name: item.subject_name });
         }
       });
 
@@ -622,6 +669,21 @@ export default function TeacherDashboard() {
         );
       }
       setJournalSubjectsToday(filteredSubjects);
+
+      // Pre-select first lesson of the day if current selection is invalid
+      let activeLesson = lessonsListToday.find(
+        l => l.subject_id === selectedSubjectId && l.lesson_number === selectedLessonNumber
+      );
+      if (!activeLesson) {
+        if (lessonsListToday.length > 0) {
+          activeLesson = lessonsListToday[0];
+          setSelectedSubjectId(activeLesson.subject_id);
+          setSelectedLessonNumber(activeLesson.lesson_number);
+        } else {
+          setSelectedSubjectId("");
+          setSelectedLessonNumber("");
+        }
+      }
 
       // 2. Students for this class
       const studRes = await fetch(
@@ -665,11 +727,14 @@ export default function TeacherDashboard() {
       // 4. Initialize cell inputs from existing grades
       const inputs: { [key: string]: string } = {};
       studentsList.forEach((st) => {
-        subjects.forEach((subj) => {
-          const key = `${st.id}_${subj.id}`;
+        lessonsListToday.forEach((lesson) => {
+          const key = `${st.id}_${lesson.subject_id}_${lesson.lesson_number}`;
           const grade = gradesList.find((g: any) => {
             const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-            return g.student_id === st.id && g.subject_id === subj.id && gDate === targetDate;
+            return g.student_id === st.id && 
+                   g.subject_id === lesson.subject_id && 
+                   g.lesson_number === lesson.lesson_number && 
+                   gDate === targetDate;
           });
           inputs[key] = grade ? grade.value : "";
         });
@@ -682,23 +747,27 @@ export default function TeacherDashboard() {
     }
   };
 
-  // Find a specific grade for a student+subject on the selected journal date
-  const findGradeForDay = (studentId: number, subjectId: number): GradeItem | undefined => {
+  // Find a specific grade for a student+subject on the selected journal date and lesson number
+  const findGradeForDay = (studentId: number, subjectId: number, lessonNumber?: number): GradeItem | undefined => {
     return journalAllGrades.find(g => {
       const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-      return g.student_id === studentId && g.subject_id === subjectId && gDate === journalDate;
+      const matchLesson = lessonNumber === undefined || g.lesson_number === lessonNumber;
+      return g.student_id === studentId && g.subject_id === subjectId && gDate === journalDate && matchLesson;
     });
   };
 
   // Inline cell save: handles POST (create), PUT (update), or DELETE (delete)
-  const handleCellSave = async (studentId: number, subjectId: number) => {
-    const key = `${studentId}_${subjectId}`;
+  const handleCellSave = async (studentId: number, subjectId: number, lessonNumber: number) => {
+    const key = `${studentId}_${subjectId}_${lessonNumber}`;
     const value = (cellInputs[key] || '').trim();
     
     // Find if there is an existing grade for this cell on the selected day
     const existingGrade = journalAllGrades.find(g => {
       const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-      return g.student_id === studentId && g.subject_id === subjectId && gDate === journalDate;
+      return g.student_id === studentId && 
+             g.subject_id === subjectId && 
+             g.lesson_number === lessonNumber && 
+             gDate === journalDate;
     });
 
     const oldValue = existingGrade ? existingGrade.value : '';
@@ -729,31 +798,30 @@ export default function TeacherDashboard() {
       } else {
         // Create or Update
         let res;
+        const gradePayload = {
+          student_id: studentId,
+          subject_id: subjectId,
+          value: value,
+          grade_date: journalDate,
+          grading_system_id: selectedGradingSystems[subjectId] || undefined,
+          grade_type: selectedGradeType,
+          grade_category: selectedGradeCategory,
+          lesson_number: lessonNumber,
+        };
+
         if (existingGrade) {
           // PUT update
           res = await fetch(`${API_URL}/api/schools/grades/${existingGrade.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              student_id: studentId,
-              subject_id: subjectId,
-              value: value,
-              grade_date: journalDate,
-              grading_system_id: selectedGradingSystems[subjectId] || undefined,
-            })
+            body: JSON.stringify(gradePayload)
           });
         } else {
           // POST create
           res = await fetch(`${API_URL}/api/schools/grades`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              student_id: studentId,
-              subject_id: subjectId,
-              value: value,
-              grade_date: journalDate,
-              grading_system_id: selectedGradingSystems[subjectId] || undefined,
-            })
+            body: JSON.stringify(gradePayload)
           });
         }
 
@@ -1888,6 +1956,26 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
 
+                {/* Holiday Warning Banner */}
+                {(() => {
+                  const activeHoliday = holidays.find(h => {
+                    const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
+                    return hDate === journalDate;
+                  });
+                  if (activeHoliday) {
+                    return (
+                      <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 flex items-center space-x-3 text-xs font-semibold animate-fadeIn mb-4">
+                        <span className="text-lg">⚠️</span>
+                        <div>
+                          <p className="font-bold">Dam olish kuni: {activeHoliday.name}</p>
+                          <p className="text-[10px] text-red-600 mt-0.5">Bugun maktab admini tomonidan dam olish kuni deb belgilangan. Jurnalda baho qo'yish imkoniyati bloklanadi.</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Journal Grid */}
                 {!selectedClassId ? (
                   <section className="text-center py-16 border border-dashed border-zinc-200 rounded-xl bg-white/40">
@@ -1921,10 +2009,10 @@ export default function TeacherDashboard() {
                 ) : (
                   <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden animate-fadeIn">
                     {/* Grid legend row */}
-                    <div className="px-5 py-3 bg-[#fafafa] border-b border-zinc-150 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center space-x-3.5">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
-                          BAHOLAR
+                    <div className="px-5 py-3 bg-[#fafafa] border-b border-zinc-150 flex flex-wrap items-center justify-between gap-3 text-zinc-800">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <span className="text-[10px] font-bold text-[#4F46E5] uppercase tracking-widest font-mono">
+                          {selectedLessonNumber ? `${selectedLessonNumber}-SOAT ` : ""}BAHOLAR
                         </span>
                         {selectedSubjectId && (
                           <div className="flex items-center space-x-1.5">
@@ -1937,7 +2025,7 @@ export default function TeacherDashboard() {
                                   setSelectedGradingSystems(prev => ({ ...prev, [selectedSubjectId]: val }));
                                 }
                               }}
-                              className="bg-zinc-100 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-600 outline-none transition cursor-pointer text-center"
+                              className="bg-zinc-150 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition cursor-pointer text-center"
                             >
                               {gradingSystemsList.map(gs => (
                                 <option key={gs.id} value={gs.id}>
@@ -1947,6 +2035,33 @@ export default function TeacherDashboard() {
                             </select>
                           </div>
                         )}
+
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Turi:</span>
+                          <select
+                            value={selectedGradeType}
+                            onChange={(e) => setSelectedGradeType(e.target.value)}
+                            className="bg-zinc-150 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition cursor-pointer text-center"
+                          >
+                            <option value="MASTERY">✍️ O'zlashtirish</option>
+                            <option value="BEHAVIOR">🧠 Xulq</option>
+                            <option value="ATTENDANCE">📅 Davomat</option>
+                            <option value="HOMEWORK">🏠 Uy vazifasi</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Kategoriya:</span>
+                          <select
+                            value={selectedGradeCategory}
+                            onChange={(e) => setSelectedGradeCategory(e.target.value)}
+                            className="bg-zinc-150 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition cursor-pointer text-center"
+                          >
+                            <option value="DAILY">Kundalik</option>
+                            <option value="QUARTERLY_EXAM">🏆 Choraklik</option>
+                            <option value="SEMESTER_EXAM">🎓 Imtihon</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                     
@@ -1968,12 +2083,18 @@ export default function TeacherDashboard() {
                             </tr>
                           ) : (
                             students.map((st, idx) => {
-                              const key = `${st.id}_${selectedSubjectId}`;
-                              const grade = findGradeForDay(st.id, Number(selectedSubjectId));
+                              const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}`;
+                              const grade = findGradeForDay(st.id, Number(selectedSubjectId), Number(selectedLessonNumber));
                               const isApproved = grade?.status === 'approved';
                               const isParentApproved = grade?.approved_by_parent;
                               const isSaving = cellSaving === key;
                               const inputValue = cellInputs[key] || '';
+                              const isHoliday = holidays.some(h => {
+                                const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
+                                return hDate === journalDate;
+                              });
+
+                              const isQuarterly = grade?.grade_category === 'QUARTERLY_EXAM';
 
                               return (
                                 <tr key={st.id} className="hover:bg-zinc-50/50 transition">
@@ -1989,7 +2110,7 @@ export default function TeacherDashboard() {
                                   
                                   {/* Grade Input */}
                                   <td className="px-6 py-3 text-center">
-                                    <div className="relative inline-block">
+                                    <div className="relative inline-block group">
                                       {grade && !isApproved && (
                                         <input
                                           type="checkbox"
@@ -2018,24 +2139,26 @@ export default function TeacherDashboard() {
                                         onKeyDown={(e) => {
                                           if (e.key === 'Enter') {
                                             e.preventDefault();
-                                            handleCellSave(st.id, Number(selectedSubjectId));
+                                            handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber));
                                           }
                                         }}
                                         onBlur={() => {
-                                          handleCellSave(st.id, Number(selectedSubjectId));
+                                          handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber));
                                         }}
-                                        disabled={isSaving || isApproved}
+                                        disabled={isSaving || isApproved || isHoliday}
                                         placeholder="—"
-                                        className={`w-10 h-10 rounded-full text-center border font-bold font-mono text-sm outline-none transition-all duration-150
+                                        className={`w-10 h-10 rounded-full text-center border font-bold font-mono text-sm outline-none transition-all duration-150 relative z-10
                                           ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : ''}
                                           ${!isSaving ? getGradeColorClasses(inputValue, isApproved, !!isParentApproved) : ''}
+                                          ${isQuarterly ? 'ring-2 ring-amber-400 ring-offset-1 border-amber-400 scale-105 shadow-sm' : ''}
+                                          ${isHoliday ? 'bg-zinc-100 border-zinc-200 cursor-not-allowed opacity-60' : ''}
                                         `}
                                       />
                                       
                                       {/* Status badges */}
                                       {isApproved && (
                                         <span 
-                                          className="absolute -right-1 -top-1 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none"
+                                          className="absolute -right-1 -top-1 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20"
                                           title="Tasdiqlangan baholash, o'zgartirib bo'lmaydi"
                                         >
                                           🔒
@@ -2043,11 +2166,44 @@ export default function TeacherDashboard() {
                                       )}
                                       {!isApproved && isParentApproved && (
                                         <span 
-                                          className="absolute -right-1 -top-1 bg-white border border-teal-200 text-teal-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-extrabold shadow-sm select-none"
+                                          className="absolute -right-1 -top-1 bg-white border border-teal-200 text-teal-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-extrabold shadow-sm select-none z-20"
                                           title="Ota-ona ko'rdi"
                                         >
                                           ✓
                                         </span>
+                                      )}
+
+                                      {/* Hover details tooltip overlay */}
+                                      {grade && (
+                                        <div 
+                                          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2.5 w-52 bg-zinc-950/95 border border-zinc-800 text-left text-zinc-100 text-[10px] p-2.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 font-sans"
+                                          style={{ backdropFilter: "blur(4px)" }}
+                                        >
+                                          <div className="flex items-center justify-between font-bold text-zinc-300 border-b border-zinc-800 pb-1 mb-1">
+                                            <span>Baho tafsilotlari</span>
+                                            {isQuarterly && <span className="text-amber-400 text-[9px]">Choraklik 🏆</span>}
+                                          </div>
+                                          <p className="font-semibold text-zinc-200">Qo'ydi: <span className="font-normal text-zinc-300">{grade.teacher_name || "O'qituvchi"}</span></p>
+                                          <p className="text-[9px] text-zinc-450 mt-0.5">Sana: {new Date(grade.created_at).toLocaleString('uz-UZ')}</p>
+                                          <div className="border-t border-zinc-800/80 mt-1 pt-1.5 flex justify-between">
+                                            <span className="text-zinc-400">Turi:</span>
+                                            <span className="font-semibold text-zinc-300">
+                                              {grade.grade_type === "BEHAVIOR" ? "🧠 Xulq" : 
+                                               grade.grade_type === "ATTENDANCE" ? "📅 Davomat" : 
+                                               grade.grade_type === "HOMEWORK" ? "🏠 Uy vazifasi" : "✍️ O'zlashtirish"}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span className="text-zinc-400">Kategoriya:</span>
+                                            <span className="font-semibold text-zinc-300">
+                                              {grade.grade_category === "QUARTERLY_EXAM" ? "Choraklik" : 
+                                               grade.grade_category === "SEMESTER_EXAM" ? "Imtihon" : "Kundalik"}
+                                            </span>
+                                          </div>
+                                          {grade.updated_at && grade.updated_at !== grade.created_at && (
+                                            <p className="text-[8px] text-zinc-505 italic mt-1">Tahrirlangan: {new Date(grade.updated_at).toLocaleDateString('uz-UZ')}</p>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
                                   </td>
@@ -2058,7 +2214,6 @@ export default function TeacherDashboard() {
                         </tbody>
                       </table>
                     </div>
-                    
                     {/* Footer hint */}
                     <div className="px-5 py-3 border-t border-zinc-150 bg-zinc-50 flex items-center justify-between">
                       <p className="text-[10px] text-zinc-400 font-mono">
@@ -2737,7 +2892,11 @@ export default function TeacherDashboard() {
                         <div className="flex flex-col text-left pr-4">
                           <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">FAN</span>
                           <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
-                            {selectedSubjectId ? (subjects.find(s => s.id === selectedSubjectId)?.name || currentCls?.subject_name || "Noma'lum") : "Tanlang"}
+                            {selectedSubjectId ? (
+                              teacherTab === "journal" && selectedLessonNumber
+                                ? `${selectedLessonNumber}-soat: ${subjects.find(s => s.id === selectedSubjectId)?.name || ""}`
+                                : (subjects.find(s => s.id === selectedSubjectId)?.name || currentCls?.subject_name || "Noma'lum")
+                            ) : "Tanlang"}
                             {!hasFixedSubject && (
                               <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -2746,16 +2905,44 @@ export default function TeacherDashboard() {
                           </span>
                         </div>
                         {!hasFixedSubject && (
-                          <select
-                            value={selectedSubjectId}
-                            onChange={(e) => setSelectedSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          >
-                            <option value="">Fanni tanlang</option>
-                            {subjects.map(sub => (
-                              <option key={sub.id} value={sub.id}>{sub.name}</option>
-                            ))}
-                          </select>
+                          teacherTab === "journal" ? (
+                            <select
+                              value={selectedSubjectId && selectedLessonNumber ? `${selectedSubjectId}_${selectedLessonNumber}` : ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "") {
+                                  setSelectedSubjectId("");
+                                  setSelectedLessonNumber("");
+                                } else {
+                                  const [subId, lessonNum] = val.split("_").map(Number);
+                                  setSelectedSubjectId(subId);
+                                  setSelectedLessonNumber(lessonNum);
+                                }
+                              }}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            >
+                              <option value="">Darsni tanlang</option>
+                              {journalLessonsToday.map((lesson) => (
+                                <option key={`${lesson.subject_id}_${lesson.lesson_number}`} value={`${lesson.subject_id}_${lesson.lesson_number}`}>
+                                  {lesson.lesson_number}-soat: {lesson.subject_name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <select
+                              value={selectedSubjectId}
+                              onChange={(e) => {
+                                setSelectedSubjectId(e.target.value === "" ? "" : Number(e.target.value));
+                                setSelectedLessonNumber("");
+                              }}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            >
+                              <option value="">Fanni tanlang</option>
+                              {subjects.map(sub => (
+                                <option key={sub.id} value={sub.id}>{sub.name}</option>
+                              ))}
+                            </select>
+                          )
                         )}
                       </div>
                     );

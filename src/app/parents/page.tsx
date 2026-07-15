@@ -30,6 +30,7 @@ interface UserInfo {
   school_id: string;
   phone?: string;
   email?: string;
+  passport?: string;
 }
 
 interface StudentChild {
@@ -38,6 +39,10 @@ interface StudentChild {
   last_name: string;
   class_id: number;
   class_name: string;
+  address?: string;
+  birthdate?: string;
+  ina?: string;
+  balance?: number;
 }
 
 interface GradeItem {
@@ -205,8 +210,8 @@ export default function ParentDashboard() {
   // Bottom navigation state: "home" | "settings"
   const [activeTab, setActiveTab] = useState<"home" | "settings">("home");
 
-  // Home view sub-tabs: "diary" | "dynamics" | "announcements"
-  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "announcements">("diary");
+  // Home view sub-tabs: "diary" | "dynamics" | "announcements" | "menu" | "balance"
+  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "announcements" | "menu" | "balance">("diary");
 
   // Auth
   const [token, setToken] = useState("");
@@ -230,6 +235,29 @@ export default function ParentDashboard() {
   });
   const [schedule, setSchedule] = useState<any[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  // Menu states
+  const [selectedMenuDate, setSelectedMenuDate] = useState<string>(() => toLocalDateStr(new Date()));
+  const [menuData, setMenuData] = useState<any>(null);
+  const [menuLoading, setMenuLoading] = useState(false);
+
+  // Balance history states
+  const [balanceHistory, setBalanceHistory] = useState<any[]>([]);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  // Edit profile states
+  const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
+  const [editAddress, setEditAddress] = useState("");
+  const [editBirthDate, setEditBirthDate] = useState("");
+  const [editINA, setEditINA] = useState("");
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const [showEditParentModal, setShowEditParentModal] = useState(false);
+  const [editPassport, setEditPassport] = useState("");
+  const [editParentSaving, setEditParentSaving] = useState(false);
+  const [editParentError, setEditParentError] = useState("");
 
   // Announcements (static demo data)
   const [announcements] = useState<Announcement[]>([
@@ -303,6 +331,10 @@ export default function ParentDashboard() {
           last_name: u.last_name,
           class_id: u.class_id || 0,
           class_name: u.class_name || "Noma'lum sinf",
+          address: u.address || "",
+          birthdate: u.birthdate || "",
+          ina: u.ina || "",
+          balance: u.balance || 0,
         }));
         setChildren(childrenList);
         if (childrenList.length > 0) setSelectedChildId(childrenList[0].id);
@@ -378,6 +410,132 @@ export default function ParentDashboard() {
       setGradesLoading(false);
     }
   };
+
+  const fetchBalanceHistory = async (childId: number) => {
+    setBalanceLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/students/${childId}/balance/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        setBalanceHistory(data);
+      }
+    } catch {
+      /* noop */
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const fetchMenu = async (dateStr: string) => {
+    setMenuLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/menu?date=${dateStr}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setMenuData(data);
+      }
+    } catch {
+      /* noop */
+    } finally {
+      setMenuLoading(false);
+    }
+  };
+
+  const handleUpdateStudentProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudentId) return;
+    setEditSaving(true);
+    setEditError("");
+
+    const child = children.find(c => c.id === editingStudentId);
+    if (!child) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/students/${editingStudentId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: child.first_name,
+          last_name: child.last_name,
+          address: editAddress,
+          birthdate: editBirthDate,
+          ina: editINA,
+        }),
+      });
+
+      const resData = await response.json();
+      if (response.ok) {
+        setChildren(prev =>
+          prev.map(c =>
+            c.id === editingStudentId
+              ? { ...c, address: editAddress, birthdate: editBirthDate, ina: editINA }
+              : c
+          )
+        );
+        setShowEditStudentModal(false);
+      } else {
+        setEditError(resData.error || "Tahrirlashda xatolik yuz berdi");
+      }
+    } catch (err: any) {
+      setEditError(err.message || "Serverga bog'lanishda xatolik");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleUpdateParentProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userInfo) return;
+    setEditParentSaving(true);
+    setEditParentError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/parents/${userInfo.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: userInfo.first_name,
+          last_name: userInfo.last_name,
+          passport: editPassport,
+          phone: userInfo.phone || "",
+        }),
+      });
+
+      const resData = await response.json();
+      if (response.ok) {
+        const updatedUser = { ...userInfo, passport: editPassport };
+        setUserInfo(updatedUser);
+        localStorage.setItem("school_user", JSON.stringify(updatedUser));
+        setShowEditParentModal(false);
+      } else {
+        setEditParentError(resData.error || "Tahrirlashda xatolik yuz berdi");
+      }
+    } catch (err: any) {
+      setEditParentError(err.message || "Serverga bog'lanishda xatolik");
+    } finally {
+      setEditParentSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedChildId && token) {
+      if (activeSubTab === "balance") {
+        fetchBalanceHistory(selectedChildId);
+      } else if (activeSubTab === "menu") {
+        fetchMenu(selectedMenuDate);
+      }
+    }
+  }, [selectedChildId, selectedMenuDate, activeSubTab, token]);
 
   /* ── Approval handlers ── */
   const handleParentApprove = async (gradeId: number) => {
@@ -841,31 +999,168 @@ export default function ParentDashboard() {
               </div>
             )}
 
-            {/* Sub-tab Navigation (Kundalik, Dinamika, E'lonlar) */}
+            {/* Child Profile Summary Card */}
+            {selectedChild && (
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #4F46E5 0%, #312E81 100%)",
+                  borderRadius: "20px",
+                  padding: "20px",
+                  color: "#FFFFFF",
+                  marginBottom: "20px",
+                  boxShadow: "0 10px 25px rgba(79, 70, 229, 0.25)",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                {/* Decorative blob */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "-20%",
+                    right: "-10%",
+                    width: "150px",
+                    height: "150px",
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.08)",
+                  }}
+                />
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <h2 style={{ fontSize: "18px", fontWeight: 800, margin: 0 }}>
+                      {selectedChild.first_name} {selectedChild.last_name}
+                    </h2>
+                    <p style={{ fontSize: "12px", color: "#E0E7FF", margin: "4px 0 0 0", fontWeight: 500 }}>
+                      Sinf: {selectedChild.class_name}
+                    </p>
+                  </div>
+                  
+                  {/* Balance Badge */}
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: "10px", textTransform: "uppercase", color: "#C7D2FE", display: "block" }}>
+                      Balans
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 900,
+                        color: (selectedChild.balance || 0) >= 0 ? "#34D399" : "#F87171",
+                        display: "block",
+                      }}
+                    >
+                      {new Intl.NumberFormat("uz-UZ").format(selectedChild.balance || 0)} UZS
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "12px",
+                    marginTop: "16px",
+                    borderTop: "1px solid rgba(255,255,255,0.15)",
+                    paddingTop: "12px",
+                    fontSize: "11px",
+                  }}
+                >
+                  <div>
+                    <span style={{ color: "#C7D2FE", display: "block" }}>Tug'ilgan kuni:</span>
+                    <span style={{ fontWeight: 600 }}>
+                      {selectedChild.birthdate
+                        ? new Date(selectedChild.birthdate).toLocaleDateString("uz-UZ")
+                        : "Kiritilmagan"}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#C7D2FE", display: "block" }}>Guvohnoma (INA):</span>
+                    <span style={{ fontWeight: 600, fontFamily: "monospace" }}>
+                      {selectedChild.ina || "Kiritilmagan"}
+                    </span>
+                  </div>
+                  <div style={{ gridColumn: "span 2" }}>
+                    <span style={{ color: "#C7D2FE", display: "block" }}>Manzil:</span>
+                    <span style={{ fontWeight: 600 }}>{selectedChild.address || "Kiritilmagan"}</span>
+                  </div>
+                </div>
+
+                {/* Edit profile button */}
+                <button
+                  onClick={() => {
+                    setEditingStudentId(selectedChild.id);
+                    setEditAddress(selectedChild.address || "");
+                    setEditBirthDate(selectedChild.birthdate ? selectedChild.birthdate.split("T")[0] : "");
+                    setEditINA(selectedChild.ina || "");
+                    setShowEditStudentModal(true);
+                  }}
+                  style={{
+                    marginTop: "14px",
+                    width: "100%",
+                    padding: "8px",
+                    backgroundColor: "rgba(255,255,255,0.15)",
+                    border: "none",
+                    borderRadius: "10px",
+                    color: "white",
+                    fontWeight: 700,
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  📝 Ma'lumotlarni tahrirlash
+                </button>
+              </div>
+            )}
+
+            {/* Sub-tab Navigation */}
             <div
+              className="scrollbar-hidden"
               style={{
                 display: "flex",
                 borderBottom: "1px solid #E5E7EB",
                 marginBottom: "20px",
+                overflowX: "auto",
+                whiteSpace: "nowrap",
+                msOverflowStyle: "none",
+                scrollbarWidth: "none",
+                gap: "8px",
               }}
             >
               <button
                 className={`sub-tab-btn${activeSubTab === "diary" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("diary")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
                 📓 Kundalik
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "dynamics" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("dynamics")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
                 📈 Dinamika
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "announcements" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("announcements")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
                 📢 E&apos;lonlar
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "menu" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("menu")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
+              >
+                🍽️ Taomnoma
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "balance" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("balance")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
+              >
+                💳 Balans
               </button>
             </div>
 
@@ -1218,6 +1513,222 @@ export default function ParentDashboard() {
                 ))}
               </div>
             )}
+            {/* Sub-tab: MENU (Taomnoma) */}
+            {activeSubTab === "menu" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Day selector pills for the current week */}
+                <div
+                  style={{
+                    display: "flex",
+                    overflowX: "auto",
+                    gap: "8px",
+                    paddingBottom: "8px",
+                    borderBottom: "1px solid #F3F4F6",
+                    scrollbarWidth: "none",
+                  }}
+                  className="scrollbar-hidden"
+                >
+                  {[0, 1, 2, 3, 4, 5].map((dayOffset) => {
+                    const dateStr = getDayDate(currentWeekStart, dayOffset);
+                    const isSelected = selectedMenuDate === dateStr;
+                    return (
+                      <button
+                        key={dayOffset}
+                        onClick={() => setSelectedMenuDate(dateStr)}
+                        style={{
+                          flexShrink: 0,
+                          padding: "8px 12px",
+                          borderRadius: "10px",
+                          border: isSelected ? `1.5px solid ${ACCENT}` : "1px solid #E5E7EB",
+                          backgroundColor: isSelected ? ACCENT_LIGHT : "white",
+                          color: isSelected ? ACCENT : TEXT_DARK,
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {fmtDayName(dateStr)} ({fmtDate(dateStr)})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {menuLoading ? (
+                  <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
+                    Yuklanmoqda...
+                  </div>
+                ) : menuData && menuData.meals ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div
+                      style={{
+                        backgroundColor: "#FFFBEB",
+                        border: "1px solid #FDE68A",
+                        borderRadius: "14px",
+                        padding: "16px",
+                        boxShadow: "0 2px 8px rgba(245, 158, 11, 0.05)",
+                      }}
+                    >
+                      <h4 style={{ fontSize: "14px", fontWeight: 800, color: "#92400E", marginBottom: "12px" }}>
+                        🍽️ {fmtDayName(selectedMenuDate)} Taomnomasi
+                      </h4>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {Object.entries(menuData.meals).map(([mealType, description]: [string, any]) => {
+                          const emoji = mealType.toLowerCase().includes("breakfast") ? "🍳" :
+                                        mealType.toLowerCase().includes("lunch") ? "🍲" : "🍎";
+                          const label = mealType.toLowerCase().includes("breakfast") ? "Nonushta" :
+                                        mealType.toLowerCase().includes("lunch") ? "Tushlik" : "Meva / Shirinlik";
+                          return (
+                            <div
+                              key={mealType}
+                              style={{
+                                display: "flex",
+                                gap: "12px",
+                                borderBottom: "1px solid #FEF3C7",
+                                paddingBottom: "10px",
+                              }}
+                            >
+                              <div style={{ fontSize: "20px" }}>{emoji}</div>
+                              <div>
+                                <span style={{ fontSize: "11px", fontWeight: 700, color: "#B45309", display: "block" }}>
+                                  {label}
+                                </span>
+                                <span style={{ fontSize: "13px", color: "#78350F", fontWeight: 500 }}>
+                                  {description}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "32px",
+                      backgroundColor: "#F9FAFB",
+                      borderRadius: "14px",
+                      border: "1px dashed #E5E7EB",
+                      color: TEXT_MUTED,
+                      fontSize: "12px",
+                    }}
+                  >
+                    📭 Ushbu kunda taomnoma belgilanmagan.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub-tab: BALANCE (Balans va To'lovlar) */}
+            {activeSubTab === "balance" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Premium Balance Card */}
+                {selectedChild && (
+                  <div
+                    style={{
+                      backgroundColor: (selectedChild.balance || 0) >= 0 ? "#ECFDF5" : "#FEF2F2",
+                      border: `1.5px solid ${(selectedChild.balance || 0) >= 0 ? "#A7F3D0" : "#FEE2E2"}`,
+                      borderRadius: "16px",
+                      padding: "18px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+                    }}
+                  >
+                    <div>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: (selectedChild.balance || 0) >= 0 ? "#047857" : "#B91C1C",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Joriy balans holati
+                      </span>
+                      <h3
+                        style={{
+                          fontSize: "22px",
+                          fontWeight: 900,
+                          color: (selectedChild.balance || 0) >= 0 ? "#065F46" : "#991B1B",
+                          margin: "4px 0 0 0",
+                        }}
+                      >
+                        {new Intl.NumberFormat("uz-UZ").format(selectedChild.balance || 0)} UZS
+                      </h3>
+                    </div>
+                    <div style={{ fontSize: "28px" }}>
+                      {(selectedChild.balance || 0) >= 0 ? "🟢" : "🔴"}
+                    </div>
+                  </div>
+                )}
+
+                <div className="section-title">🕒 To'lovlar va Xarajatlar Tarixi</div>
+
+                {balanceLoading ? (
+                  <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
+                    Tarix yuklanmoqda...
+                  </div>
+                ) : balanceHistory.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {balanceHistory.map((tx) => {
+                      const isPayment = tx.type === "PAYMENT";
+                      return (
+                        <div
+                          key={tx.id}
+                          style={{
+                            backgroundColor: "#FFFFFF",
+                            borderRadius: "12px",
+                            border: "1px solid #E5E7EB",
+                            padding: "12px 14px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK, display: "block" }}>
+                              {tx.description || (isPayment ? "Hisobni to'ldirish" : "Maktab xarajati")}
+                            </span>
+                            <span style={{ fontSize: "10px", color: TEXT_MUTED, display: "block", marginTop: "2px" }}>
+                              {new Date(tx.created_at).toLocaleDateString("uz-UZ")} {new Date(tx.created_at).toLocaleTimeString("uz-UZ", {hour: '2-digit', minute:'2-digit'})}
+                            </span>
+                          </div>
+                          <span
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: 800,
+                              color: isPayment ? "#10B981" : "#EF4444",
+                            }}
+                          >
+                            {isPayment ? "+" : "-"}
+                            {new Intl.NumberFormat("uz-UZ").format(Math.abs(tx.amount))} UZS
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "32px",
+                      backgroundColor: "#F9FAFB",
+                      borderRadius: "14px",
+                      border: "1px dashed #E5E7EB",
+                      color: TEXT_MUTED,
+                      fontSize: "12px",
+                    }}
+                  >
+                    💸 Hali hech qanday to'lovlar amalga oshirilmagan.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1258,9 +1769,33 @@ export default function ParentDashboard() {
                     Telefon: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{userInfo.phone || "+998908000002"}</span>
                   </div>
                   <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                    Pasport: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{userInfo.passport || "Kiritilmagan"}</span>
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
                     Roli: <span style={{ fontWeight: 500 }}>Vasiy (Ota-ona)</span>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => {
+                    setEditPassport(userInfo.passport || "");
+                    setShowEditParentModal(true);
+                  }}
+                  style={{
+                    marginTop: "12px",
+                    width: "100%",
+                    padding: "8px",
+                    backgroundColor: ACCENT_LIGHT,
+                    border: `1px solid ${ACCENT_MID}`,
+                    borderRadius: "10px",
+                    color: ACCENT,
+                    fontWeight: 700,
+                    fontSize: "11px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Pasport ma'lumotini tahrirlash
+                </button>
               </div>
             )}
 
@@ -1307,6 +1842,18 @@ export default function ParentDashboard() {
                         Sinf: <span style={{ fontWeight: 500 }}>{child.class_name}</span>
                       </div>
                       <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        Manzil: <span style={{ fontWeight: 500 }}>{child.address || "Kiritilmagan"}</span>
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        Tug'ilgan sana: <span style={{ fontWeight: 500 }}>{child.birthdate ? new Date(child.birthdate).toLocaleDateString("uz-UZ") : "Kiritilmagan"}</span>
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        Guvohnoma (INA): <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{child.ina || "Kiritilmagan"}</span>
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                        Balans: <span style={{ fontWeight: 600, color: (child.balance || 0) >= 0 ? "#10B981" : "#EF4444" }}>{new Intl.NumberFormat("uz-UZ").format(child.balance || 0)} UZS</span>
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
                         Maktab ID: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{schoolId}</span>
                       </div>
                     </div>
@@ -1339,6 +1886,234 @@ export default function ParentDashboard() {
 
         {/* Bottom Navigation Component */}
         <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        {/* EDIT STUDENT PROFILE MODAL */}
+        {showEditStudentModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100,
+              padding: "16px",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                width: "100%",
+                maxWidth: "400px",
+                boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+              }}
+            >
+              <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_DARK, marginBottom: "16px" }}>
+                O'quvchi ma'lumotlarini yangilash
+              </h3>
+              {editError && (
+                <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
+                  ⚠️ {editError}
+                </div>
+              )}
+              <form onSubmit={handleUpdateStudentProfile}>
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                    Manzil
+                  </label>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #E5E7EB",
+                      fontSize: "13px",
+                      color: TEXT_DARK,
+                    }}
+                    placeholder="Masalan: Toshkent sh., Chilonzor 6-daha"
+                  />
+                </div>
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                    Tug'ilgan sana
+                  </label>
+                  <input
+                    type="date"
+                    value={editBirthDate}
+                    onChange={(e) => setEditBirthDate(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #E5E7EB",
+                      fontSize: "13px",
+                      color: TEXT_DARK,
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                    Guvohnoma (INA)
+                  </label>
+                  <input
+                    type="text"
+                    value={editINA}
+                    onChange={(e) => setEditINA(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #E5E7EB",
+                      fontSize: "13px",
+                      color: TEXT_DARK,
+                      fontFamily: "monospace",
+                    }}
+                    placeholder="Masalan: I-TV No 123456"
+                  />
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditStudentModal(false)}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      backgroundColor: "#F3F4F6",
+                      border: "none",
+                      borderRadius: "8px",
+                      color: TEXT_DARK,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editSaving}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      backgroundColor: ACCENT,
+                      border: "none",
+                      borderRadius: "8px",
+                      color: "white",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {editSaving ? "Saqlanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT PARENT PROFILE MODAL */}
+        {showEditParentModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100,
+              padding: "16px",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                width: "100%",
+                maxWidth: "400px",
+                boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+              }}
+            >
+              <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_DARK, marginBottom: "16px" }}>
+                Pasport ma'lumotlarini yangilash
+              </h3>
+              {editParentError && (
+                <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
+                  ⚠️ {editParentError}
+                </div>
+              )}
+              <form onSubmit={handleUpdateParentProfile}>
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                    Pasport seriyasi va raqami
+                  </label>
+                  <input
+                    type="text"
+                    value={editPassport}
+                    onChange={(e) => setEditPassport(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #E5E7EB",
+                      fontSize: "13px",
+                      color: TEXT_DARK,
+                      textTransform: "uppercase",
+                      fontFamily: "monospace",
+                    }}
+                    placeholder="Masalan: AA1234567"
+                  />
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditParentModal(false)}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      backgroundColor: "#F3F4F6",
+                      border: "none",
+                      borderRadius: "8px",
+                      color: TEXT_DARK,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editParentSaving}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      backgroundColor: ACCENT,
+                      border: "none",
+                      borderRadius: "8px",
+                      color: "white",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {editParentSaving ? "Saqlanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
