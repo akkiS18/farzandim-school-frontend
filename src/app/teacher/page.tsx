@@ -134,6 +134,8 @@ export default function TeacherDashboard() {
   const [cellInputs, setCellInputs] = useState<{ [key: string]: string }>({});
   const [cellSaving, setCellSaving] = useState<string | null>(null);
   const [selectedGradingSystems, setSelectedGradingSystems] = useState<{ [subjectId: number]: number }>({});
+  const [journalColumns, setJournalColumns] = useState<{ id: string; name: string; defaultVal: string }[]>([]);
+  const [columnGradingSystems, setColumnGradingSystems] = useState<{ [colId: string]: number }>({});
 
   // Students tab states
   const [studentsTabList, setStudentsTabList] = useState<any[]>([]);
@@ -148,7 +150,10 @@ export default function TeacherDashboard() {
     last_name: "",
     middle_name: "",
     phone: "",
-    password: ""
+    password: "",
+    address: "",
+    birthdate: "",
+    ina: ""
   });
 
   // Actions states
@@ -177,6 +182,7 @@ export default function TeacherDashboard() {
   const [parentMiddleName, setParentMiddleName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [parentEmail, setParentEmail] = useState("");
+  const [parentPassport, setParentPassport] = useState("");
   const [parentPassword, setParentPassword] = useState("password123");
   const [showImportParentsModal, setShowImportParentsModal] = useState(false);
   const [showImportStudentsModal, setShowImportStudentsModal] = useState(false);
@@ -217,6 +223,91 @@ export default function TeacherDashboard() {
     } else {
       return 'border-red-200 bg-red-50/70 text-red-700 focus:bg-white focus:border-red-500';
     }
+  };
+
+  const getActiveColumnsForSubject = (classId: number | "", subjectId: number | ""): { id: string; name: string; defaultVal: string }[] => {
+    const defaultCols = [
+      { id: "ATTENDANCE", name: "Davomat", defaultVal: "+" },
+      { id: "BEHAVIOR", name: "Xulqi", defaultVal: "0" },
+      { id: "MASTERY", name: "O'zlashtirishi", defaultVal: "" }
+    ];
+    if (!classId || !subjectId) return defaultCols;
+    const key = `school_journal_cols_${classId}_${subjectId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const custom = parsed.filter((c: any) => !["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(c.id));
+          return [...defaultCols, ...custom];
+        }
+      } catch (e) {
+        // Fallback
+      }
+    }
+    return defaultCols;
+  };
+
+  const handleAddJournalColumn = (name: string) => {
+    if (!selectedClassId || !selectedSubjectId) return;
+    const id = name.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    if (!id) return;
+
+    if (["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(id)) {
+      showToast("error", "Tizimning asosiy ustunlari nomini qo'shib bo'lmaydi");
+      return;
+    }
+    
+    // Check if exists
+    if (journalColumns.some(col => col.id === id)) {
+      showToast("error", "Bunday baho turi allaqachon mavjud");
+      return;
+    }
+
+    const newCol = { id, name, defaultVal: "" };
+    const updated = [...journalColumns, newCol];
+    setJournalColumns(updated);
+    
+    const key = `school_journal_cols_${selectedClassId}_${selectedSubjectId}`;
+    localStorage.setItem(key, JSON.stringify(updated));
+    showToast("success", `Yangi baho turi qo'shildi: ${name}`);
+    
+    // Reload data to initialize new inputs
+    fetchJournalData(journalDate);
+  };
+
+  const handleRemoveJournalColumn = (colId: string) => {
+    if (!selectedClassId || !selectedSubjectId) return;
+    if (["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(colId)) {
+      showToast("error", "Tizimning asosiy ustunlarini o'chirib bo'lmaydi");
+      return;
+    }
+    const updated = journalColumns.filter(c => c.id !== colId);
+    setJournalColumns(updated);
+    const key = `school_journal_cols_${selectedClassId}_${selectedSubjectId}`;
+    localStorage.setItem(key, JSON.stringify(updated));
+    showToast("success", "Baholash turi o'chirildi");
+    
+    // Reload data
+    fetchJournalData(journalDate);
+  };
+
+  const handleColumnGradingSystemChange = (colId: string, gsIdVal: string) => {
+    if (!selectedClassId || !selectedSubjectId) return;
+    const gsId = gsIdVal ? Number(gsIdVal) : 0;
+    setColumnGradingSystems(prev => {
+      const updated = { ...prev, [colId]: gsId };
+      const key = `col_gs_${selectedClassId}_${selectedSubjectId}_${colId}`;
+      if (gsId > 0) {
+        localStorage.setItem(key, gsId.toString());
+      } else {
+        localStorage.removeItem(key);
+      }
+      return updated;
+    });
+    showToast("success", "Baholash tizimi o'zgartirildi");
+    // Reload data to re-evaluate colors and input states if necessary
+    fetchJournalData(journalDate);
   };
 
   // 1. Initial Load & Auth Check
@@ -333,12 +424,12 @@ export default function TeacherDashboard() {
     }
   }, [selectedClassId, token]);
 
-  // Journal data: reload when class or active tab changes to "journal"
+  // Journal data: reload when class, subject, lesson, date, or active tab changes to "journal"
   useEffect(() => {
     if (selectedClassId && token && teacherTab === 'journal') {
       fetchJournalData(journalDate);
     }
-  }, [selectedClassId, token, teacherTab, classTeachers, userInfo]);
+  }, [selectedClassId, selectedSubjectId, selectedLessonNumber, journalDate, token, teacherTab, userInfo]);
 
   // Students tab data load: reload when class or active tab changes to "students"
   useEffect(() => {
@@ -365,6 +456,22 @@ export default function TeacherDashboard() {
   useEffect(() => {
     setSelectedGradeIds(new Set());
   }, [teacherTab]);
+
+  // Automatically sync and lock the grade category with existing grades in this lesson
+  useEffect(() => {
+    if (!selectedClassId || !selectedSubjectId || !selectedLessonNumber || !journalDate) return;
+    
+    const existingGrade = journalAllGrades.find(g => {
+      const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+      return g.subject_id === Number(selectedSubjectId) &&
+             g.lesson_number === Number(selectedLessonNumber) &&
+             gDate === journalDate;
+    });
+
+    if (existingGrade && existingGrade.grade_category) {
+      setSelectedGradeCategory(existingGrade.grade_category);
+    }
+  }, [journalAllGrades, selectedSubjectId, selectedLessonNumber, journalDate, selectedClassId]);
 
   const isMainTeacherOfClass = () => {
     if (!userInfo || !selectedClassId) return false;
@@ -628,12 +735,43 @@ export default function TeacherDashboard() {
     const targetDate = date || journalDate;
     setJournalLoading(true);
     try {
-      // 1. Schedule for that date's week → determine subjects of the day
-      const schedRes = await fetch(
-        `${API_URL}/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const schedData = await schedRes.json();
+      // 1. Fetch latest subjects, class teachers, holidays, and schedule in parallel
+      const [schedRes, subRes, teacherRes, holidayRes] = await Promise.all([
+        fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_URL}/api/schools/subjects`, {
+          headers: { "Authorization": `Bearer ${token}`, "X-School-ID": schoolId }
+        }),
+        fetch(`${API_URL}/api/schools/classes/${selectedClassId}/teachers`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        fetch(`${API_URL}/api/schools/holidays`, {
+          headers: { "Authorization": `Bearer ${token}`, "X-School-ID": schoolId }
+        })
+      ]);
+
+      const [schedData, subData, teacherData, holidayData] = await Promise.all([
+        schedRes.json(),
+        subRes.json(),
+        teacherRes.json(),
+        holidayRes.json()
+      ]);
+
+      if (subRes.ok && Array.isArray(subData)) {
+        setSubjects(subData);
+      }
+
+      let latestClassTeachers = classTeachers;
+      if (teacherRes.ok && Array.isArray(teacherData)) {
+        latestClassTeachers = teacherData;
+        setClassTeachers(teacherData);
+      }
+
+      if (holidayRes.ok && Array.isArray(holidayData)) {
+        setHolidays(holidayData);
+      }
+
       const d = new Date(targetDate + 'T00:00:00');
       if (isNaN(d.getTime())) return;
       const dow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon…7=Sun
@@ -661,11 +799,13 @@ export default function TeacherDashboard() {
         }
       });
 
+      const isMainTeacher = userInfo?.role === "ADMIN" || latestClassTeachers.some((ct: any) => ct.teacher_id === userInfo?.id && ct.is_main_teacher);
+
       // Filter subjects: if SUBJECT_TEACHER (and not advisor/admin), only show their assigned subjects
       let filteredSubjects = subjectsListToday;
-      if (userInfo && userInfo.role !== "ADMIN" && !isMainTeacherOfClass()) {
+      if (userInfo && userInfo.role !== "ADMIN" && !isMainTeacher) {
         filteredSubjects = subjectsListToday.filter(sub => 
-          classTeachers.some(ct => ct.teacher_id === userInfo.id && ct.subject_id === sub.id)
+          latestClassTeachers.some(ct => ct.teacher_id === userInfo.id && ct.subject_id === sub.id)
         );
       }
       setJournalSubjectsToday(filteredSubjects);
@@ -677,11 +817,15 @@ export default function TeacherDashboard() {
       if (!activeLesson) {
         if (lessonsListToday.length > 0) {
           activeLesson = lessonsListToday[0];
-          setSelectedSubjectId(activeLesson.subject_id);
-          setSelectedLessonNumber(activeLesson.lesson_number);
+          if (selectedSubjectId !== activeLesson.subject_id || selectedLessonNumber !== activeLesson.lesson_number) {
+            setSelectedSubjectId(activeLesson.subject_id);
+            setSelectedLessonNumber(activeLesson.lesson_number);
+          }
         } else {
-          setSelectedSubjectId("");
-          setSelectedLessonNumber("");
+          if (selectedSubjectId !== "" || selectedLessonNumber !== "") {
+            setSelectedSubjectId("");
+            setSelectedLessonNumber("");
+          }
         }
       }
 
@@ -709,34 +853,75 @@ export default function TeacherDashboard() {
       const gradesList = Array.isArray(gradesData) ? gradesData : [];
       setJournalAllGrades(gradesList);
 
-      // Initialize grading systems mapping
-      const gSysMap: { [key: number]: number } = {};
-      subjectsListToday.forEach(sub => {
-        if (activeGS) {
-          gSysMap[sub.id] = activeGS.id;
-        }
-      });
-      gradesList.forEach((g: any) => {
-        const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-        if (gDate === targetDate && g.grading_system_id) {
-          gSysMap[g.subject_id] = g.grading_system_id;
-        }
-      });
-      setSelectedGradingSystems(gSysMap);
+      // Load active columns
+      const cols = getActiveColumnsForSubject(selectedClassId, selectedSubjectId);
+      setJournalColumns(cols);
 
-      // 4. Initialize cell inputs from existing grades
+      // Initialize grading systems mapping for each column
+      const colSysMap: { [colId: string]: number } = {};
+      cols.forEach(col => {
+        const savedGS = localStorage.getItem(`col_gs_${selectedClassId}_${selectedSubjectId}_${col.id}`);
+        if (savedGS) {
+          colSysMap[col.id] = Number(savedGS);
+        } else {
+          const existingGradeWithGS = gradesList.find(g => g.grade_type === col.id && g.grading_system_id);
+          if (existingGradeWithGS) {
+            colSysMap[col.id] = existingGradeWithGS.grading_system_id;
+          } else if (col.id === "MASTERY" && activeGS) {
+            colSysMap[col.id] = activeGS.id;
+          }
+        }
+      });
+      setColumnGradingSystems(colSysMap);
+
+      // 4. Initialize cell inputs from existing grades and defaults
       const inputs: { [key: string]: string } = {};
+      const sortedLessons = [...lessonsListToday].sort((a, b) => a.lesson_number - b.lesson_number);
+      
       studentsList.forEach((st) => {
-        lessonsListToday.forEach((lesson) => {
-          const key = `${st.id}_${lesson.subject_id}_${lesson.lesson_number}`;
-          const grade = gradesList.find((g: any) => {
-            const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-            return g.student_id === st.id && 
-                   g.subject_id === lesson.subject_id && 
-                   g.lesson_number === lesson.lesson_number && 
-                   gDate === targetDate;
+        sortedLessons.forEach((lesson) => {
+          cols.forEach((col) => {
+            const key = `${st.id}_${lesson.subject_id}_${lesson.lesson_number}_${col.id}`;
+            const grade = gradesList.find((g: any) => {
+              const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+              return g.student_id === st.id && 
+                     g.subject_id === lesson.subject_id && 
+                     g.lesson_number === lesson.lesson_number && 
+                     g.grade_type === col.id &&
+                     gDate === targetDate;
+            });
+            
+            if (grade) {
+              inputs[key] = grade.value;
+            } else {
+              // Calculate default value
+              if (col.id === "ATTENDANCE") {
+                let defaultAtt = "+";
+                for (let prevL = lesson.lesson_number - 1; prevL >= 1; prevL--) {
+                  const prevGrade = gradesList.find((g: any) => {
+                    const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+                    return g.student_id === st.id && 
+                           g.lesson_number === prevL && 
+                           g.grade_type === "ATTENDANCE" &&
+                           gDate === targetDate;
+                  });
+                  if (prevGrade) {
+                    if (prevGrade.value === "-") {
+                      defaultAtt = "-";
+                    } else if (prevGrade.value === "+" || prevGrade.value === "k") {
+                      defaultAtt = "+";
+                    }
+                    break;
+                  }
+                }
+                inputs[key] = defaultAtt;
+              } else if (col.id === "BEHAVIOR") {
+                inputs[key] = "0";
+              } else {
+                inputs[key] = "";
+              }
+            }
           });
-          inputs[key] = grade ? grade.value : "";
         });
       });
       setCellInputs(inputs);
@@ -747,19 +932,21 @@ export default function TeacherDashboard() {
     }
   };
 
-  // Find a specific grade for a student+subject on the selected journal date and lesson number
-  const findGradeForDay = (studentId: number, subjectId: number, lessonNumber?: number): GradeItem | undefined => {
+  const findGradeForDayAndType = (studentId: number, subjectId: number, lessonNumber: number, gradeType: string): GradeItem | undefined => {
     return journalAllGrades.find(g => {
       const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-      const matchLesson = lessonNumber === undefined || g.lesson_number === lessonNumber;
-      return g.student_id === studentId && g.subject_id === subjectId && gDate === journalDate && matchLesson;
+      return g.student_id === studentId && 
+             g.subject_id === subjectId && 
+             gDate === journalDate && 
+             g.lesson_number === lessonNumber &&
+             g.grade_type === gradeType;
     });
   };
 
   // Inline cell save: handles POST (create), PUT (update), or DELETE (delete)
-  const handleCellSave = async (studentId: number, subjectId: number, lessonNumber: number) => {
-    const key = `${studentId}_${subjectId}_${lessonNumber}`;
-    const value = (cellInputs[key] || '').trim();
+  const handleCellSave = async (studentId: number, subjectId: number, lessonNumber: number, gradeType: string, customValue?: string) => {
+    const key = `${studentId}_${subjectId}_${lessonNumber}_${gradeType}`;
+    const value = customValue !== undefined ? customValue.trim() : (cellInputs[key] || '').trim();
     
     // Find if there is an existing grade for this cell on the selected day
     const existingGrade = journalAllGrades.find(g => {
@@ -767,6 +954,7 @@ export default function TeacherDashboard() {
       return g.student_id === studentId && 
              g.subject_id === subjectId && 
              g.lesson_number === lessonNumber && 
+             g.grade_type === gradeType &&
              gDate === journalDate;
     });
 
@@ -794,6 +982,7 @@ export default function TeacherDashboard() {
         }
         // Update local state
         setJournalAllGrades(prev => prev.filter(g => g.id !== existingGrade.id));
+        setCellInputs(prev => ({ ...prev, [key]: '' }));
         showToast('success', 'Baho o\'chirildi');
       } else {
         // Create or Update
@@ -803,8 +992,8 @@ export default function TeacherDashboard() {
           subject_id: subjectId,
           value: value,
           grade_date: journalDate,
-          grading_system_id: selectedGradingSystems[subjectId] || undefined,
-          grade_type: selectedGradeType,
+          grading_system_id: columnGradingSystems[gradeType] || undefined,
+          grade_type: gradeType,
           grade_category: selectedGradeCategory,
           lesson_number: lessonNumber,
         };
@@ -836,6 +1025,32 @@ export default function TeacherDashboard() {
         }
         setCellInputs(prev => ({ ...prev, [key]: data.value }));
         showToast('success', `${data.value} — saqlandi`);
+
+        // If the teacher marked the student absent (-), delete all other marks (behavior, mastery, custom columns)
+        if (gradeType === "ATTENDANCE" && value === "-") {
+          const otherGrades = journalAllGrades.filter(g => {
+            const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+            return g.student_id === studentId &&
+                   g.subject_id === subjectId &&
+                   g.lesson_number === lessonNumber &&
+                   g.grade_type !== "ATTENDANCE" &&
+                   gDate === journalDate &&
+                   g.status !== 'approved';
+          });
+          for (const og of otherGrades) {
+            try {
+              await fetch(`${API_URL}/api/schools/grades/${og.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              setJournalAllGrades(prev => prev.filter(g => g.id !== og.id));
+              const colKey = `${studentId}_${subjectId}_${lessonNumber}_${og.grade_type}`;
+              setCellInputs(prev => ({ ...prev, [colKey]: '' }));
+            } catch (err) {
+              console.error("Failed to delete stale grade", err);
+            }
+          }
+        }
       }
     } catch (e: any) {
       showToast('error', e.message);
@@ -899,6 +1114,9 @@ export default function TeacherDashboard() {
       last_name: studentForm.last_name.trim(),
       middle_name: studentForm.middle_name.trim() || undefined,
       phone: studentForm.phone.trim() ? studentForm.phone.trim() : undefined,
+      address: studentForm.address.trim() || undefined,
+      birthdate: studentForm.birthdate || undefined,
+      ina: studentForm.ina.trim() || undefined,
     };
 
     try {
@@ -1021,7 +1239,7 @@ export default function TeacherDashboard() {
           last_name: parentLastName.trim(),
           middle_name: parentMiddleName.trim() || undefined,
           phone: parentPhone.trim(),
-          email: parentEmail.trim() || undefined,
+          passport: parentPassport.trim() || undefined,
           password: parentPassword,
         }),
       });
@@ -1033,7 +1251,7 @@ export default function TeacherDashboard() {
       setParentLastName("");
       setParentMiddleName("");
       setParentPhone("");
-      setParentEmail("");
+      setParentPassport("");
       setParentPassword("password123");
       setSelectedStudentIdForAdd("");
       setShowAddParentModal(false);
@@ -1086,7 +1304,7 @@ export default function TeacherDashboard() {
           last_name: parentLastName.trim(),
           middle_name: parentMiddleName.trim() || undefined,
           phone: parentPhone.trim(),
-          email: parentEmail.trim() || undefined,
+          passport: parentPassport.trim() || undefined,
           password: parentPassword,
         }),
       });
@@ -1100,7 +1318,7 @@ export default function TeacherDashboard() {
       setParentLastName("");
       setParentMiddleName("");
       setParentPhone("");
-      setParentEmail("");
+      setParentPassport("");
       setParentPassword("password123");
 
       fetchLinkedParents(selectedStudentForParents.id || selectedStudentForParents.user_id);
@@ -1322,37 +1540,99 @@ export default function TeacherDashboard() {
 
   // Approve all grades of the selected journal date
   const handleApproveAllToday = async () => {
-    const gradesToday = journalAllGrades.filter(g => {
-      const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-      return gDate === journalDate && g.status !== 'approved';
-    });
-
-    if (gradesToday.length === 0) {
-      showToast("error", "Bugungi kunda tasdiqlash uchun baholar yo'q");
+    if (!selectedClassId || !selectedSubjectId || !selectedLessonNumber) {
+      showToast("error", "Sinf, fan va dars soatini tanlang");
       return;
     }
 
-    if (!window.confirm(`Haqiqatan ham bugungi ${gradesToday.length} ta bahoni tasdiqlamoqchimisiz? Tasdiqlangandan so'ng ularni o'zgartirib bo'lmaydi.`)) {
+    const gradesToCreate: any[] = [];
+    const gradesToApprove: number[] = [];
+
+    students.forEach((st) => {
+      const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
+      const attendanceVal = cellInputs[attKey] || "+";
+
+      journalColumns.forEach((col) => {
+        if (attendanceVal === "-" && col.id !== "ATTENDANCE") {
+          return;
+        }
+
+        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
+        const cellVal = (cellInputs[key] || "").trim();
+
+        if (cellVal !== "") {
+          const existingGrade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
+          if (existingGrade) {
+            if (existingGrade.status !== "approved") {
+              gradesToApprove.push(existingGrade.id);
+            }
+          } else {
+            gradesToCreate.push({
+              student_id: st.id,
+              subject_id: Number(selectedSubjectId),
+              value: cellVal,
+              grade_date: journalDate,
+              grading_system_id: columnGradingSystems[col.id] || undefined,
+              grade_type: col.id,
+              grade_category: selectedGradeCategory,
+              lesson_number: Number(selectedLessonNumber),
+            });
+          }
+        }
+      });
+    });
+
+    const totalToSave = gradesToCreate.length + gradesToApprove.length;
+    if (totalToSave === 0) {
+      showToast("error", "Saqlanmagan baholar mavjud emas");
+      return;
+    }
+
+    if (!window.confirm(`Haqiqatan ham darsdagi barcha ${totalToSave} ta bahoni saqlamoqchimisiz? Saqlangandan so'ng ularni o'zgartirib bo'lmaydi.`)) {
       return;
     }
 
     setApproveLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mark_uids: gradesToday.map(g => g.id),
-          status: "approved",
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik yuz berdi");
+      if (gradesToCreate.length > 0) {
+        const createRes = await fetch(`${API_URL}/api/schools/grades/batch`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ grades: gradesToCreate }),
+        });
+        const createdData = await createRes.json();
+        if (!createRes.ok) {
+          throw new Error(createdData.error || "Yangi baholarni saqlashda xatolik yuz berdi");
+        }
+        if (Array.isArray(createdData)) {
+          createdData.forEach((g: any) => {
+            gradesToApprove.push(g.id);
+          });
+        }
+      }
 
-      showToast("success", `Bugungi ${data.updated_count} ta baho muvaffaqiyatli tasdiqlandi (🔒 qulflanib saqlandi)!`);
+      if (gradesToApprove.length > 0) {
+        const approveRes = await fetch(`${API_URL}/api/schools/grades/change-status`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            mark_uids: gradesToApprove,
+            status: "approved",
+          }),
+        });
+        const approveData = await approveRes.json();
+        if (!approveRes.ok) {
+          throw new Error(approveData.error || "Baholarni tasdiqlashda xatolik yuz berdi");
+        }
+      }
+
+      showToast("success", `Barcha ${totalToSave} ta baho muvaffaqiyatli saqlandi va tasdiqlandi (🔒 qulflab saqlandi)!`);
       fetchJournalData(journalDate);
     } catch (err: any) {
       showToast("error", err.message);
@@ -1776,6 +2056,37 @@ export default function TeacherDashboard() {
               />
             </div>
             <div>
+              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Manzil</label>
+              <input
+                type="text"
+                value={studentForm.address}
+                onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
+                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                placeholder="Masalan: Toshkent sh., Chilonzor"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Tug'ilgan sana</label>
+                <input
+                  type="date"
+                  value={studentForm.birthdate}
+                  onChange={(e) => setStudentForm(prev => ({ ...prev, birthdate: e.target.value }))}
+                  className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Guvohnoma (INA)</label>
+                <input
+                  type="text"
+                  value={studentForm.ina}
+                  onChange={(e) => setStudentForm(prev => ({ ...prev, ina: e.target.value }))}
+                  className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold font-mono"
+                  placeholder="I-TV No 123456"
+                />
+              </div>
+            </div>
+            <div>
               <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">
                 {studentModalMode === "create" ? "Parol" : "Yangi Parol (Ixtiyoriy)"}
               </label>
@@ -2014,54 +2325,73 @@ export default function TeacherDashboard() {
                         <span className="text-[10px] font-bold text-[#4F46E5] uppercase tracking-widest font-mono">
                           {selectedLessonNumber ? `${selectedLessonNumber}-SOAT ` : ""}BAHOLAR
                         </span>
-                        {selectedSubjectId && (
-                          <div className="flex items-center space-x-1.5">
-                            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Tizim:</span>
-                            <select
-                              value={selectedGradingSystems[selectedSubjectId] || ""}
-                              onChange={(e) => {
-                                const val = e.target.value ? Number(e.target.value) : "";
-                                if (val) {
-                                  setSelectedGradingSystems(prev => ({ ...prev, [selectedSubjectId]: val }));
+
+                        {(() => {
+                          const hasApprovedOrAnyGradesForToday = journalAllGrades.some(g => {
+                            const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+                            return g.subject_id === Number(selectedSubjectId) &&
+                                   g.lesson_number === Number(selectedLessonNumber) &&
+                                   gDate === journalDate;
+                          });
+
+                          return (
+                            <div className="flex items-center space-x-1.5">
+                              <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Kategoriya:</span>
+                              <select
+                                value={selectedGradeCategory}
+                                onChange={(e) => setSelectedGradeCategory(e.target.value)}
+                                disabled={hasApprovedOrAnyGradesForToday}
+                                className={`bg-zinc-150 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition text-center ${
+                                  hasApprovedOrAnyGradesForToday 
+                                    ? 'opacity-65 cursor-not-allowed bg-zinc-200' 
+                                    : 'bg-zinc-150 hover:bg-zinc-200 cursor-pointer'
+                                }`}
+                                title={hasApprovedOrAnyGradesForToday ? "Ushbu darsda baholar kiritilgani sababli kategoriyani o'zgartirib bo'lmaydi" : ""}
+                              >
+                                <option value="DAILY">Kundalik</option>
+                                <option value="QUARTERLY_EXAM">🏆 Choraklik</option>
+                                <option value="SEMESTER_EXAM">🎓 Imtihon</option>
+                              </select>
+                            </div>
+                          );
+                        })()}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = prompt("Yangi baholash turi nomini kiriting (masalan: Uyga vazifa, Mustaqil ish):");
+                            if (name) {
+                              handleAddJournalColumn(name);
+                            }
+                          }}
+                          className="bg-[#5B50EC] hover:bg-indigo-700 text-white font-semibold text-[9px] py-1 px-2.5 rounded-md transition cursor-pointer"
+                        >
+                          + Yangi baho turi
+                        </button>
+
+                        {journalColumns.filter(c => !["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(c.id)).length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const customCols = journalColumns.filter(c => !["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(c.id));
+                              const names = customCols.map(c => c.name).join(", ");
+                              const toRemove = prompt(`O'chirmoqchi bo'lgan baholash turi nomini kiriting (${names}):`);
+                              if (toRemove) {
+                                const found = customCols.find(c => c.name.toLowerCase() === toRemove.trim().toLowerCase());
+                                if (found) {
+                                  if (confirm(`Haqiqatan ham "${found.name}" ustunini o'chirmoqchimisiz?`)) {
+                                    handleRemoveJournalColumn(found.id);
+                                  }
+                                } else {
+                                  alert("Bunday baholash turi topilmadi.");
                                 }
-                              }}
-                              className="bg-zinc-150 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition cursor-pointer text-center"
-                            >
-                              {gradingSystemsList.map(gs => (
-                                <option key={gs.id} value={gs.id}>
-                                  {gs.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                              }
+                            }}
+                            className="bg-red-50 hover:bg-red-105 border border-red-200 text-red-600 font-semibold text-[9px] py-1 px-2.5 rounded-md transition cursor-pointer"
+                          >
+                            O'chirish
+                          </button>
                         )}
-
-                        <div className="flex items-center space-x-1.5">
-                          <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Turi:</span>
-                          <select
-                            value={selectedGradeType}
-                            onChange={(e) => setSelectedGradeType(e.target.value)}
-                            className="bg-zinc-150 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition cursor-pointer text-center"
-                          >
-                            <option value="MASTERY">✍️ O'zlashtirish</option>
-                            <option value="BEHAVIOR">🧠 Xulq</option>
-                            <option value="ATTENDANCE">📅 Davomat</option>
-                            <option value="HOMEWORK">🏠 Uy vazifasi</option>
-                          </select>
-                        </div>
-
-                        <div className="flex items-center space-x-1.5">
-                          <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Kategoriya:</span>
-                          <select
-                            value={selectedGradeCategory}
-                            onChange={(e) => setSelectedGradeCategory(e.target.value)}
-                            className="bg-zinc-150 hover:bg-zinc-200 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition cursor-pointer text-center"
-                          >
-                            <option value="DAILY">Kundalik</option>
-                            <option value="QUARTERLY_EXAM">🏆 Choraklik</option>
-                            <option value="SEMESTER_EXAM">🎓 Imtihon</option>
-                          </select>
-                        </div>
                       </div>
                     </div>
                     
@@ -2069,144 +2399,276 @@ export default function TeacherDashboard() {
                       <table className="min-w-full divide-y divide-zinc-200 text-left">
                         <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-450 uppercase tracking-wider">
                           <tr>
-                            <th className="px-6 py-4 w-20 text-center font-mono">№</th>
+                            <th className="px-6 py-4 w-12 text-center font-mono">№</th>
                             <th className="px-6 py-4">O'quvchi ismi</th>
-                            <th className="px-6 py-4 w-32 text-center">Baho</th>
+                            {journalColumns.map((col) => (
+                              <th key={col.id} className="px-6 py-4 text-center">
+                                <div>{col.name}</div>
+                                {col.id !== "ATTENDANCE" && (() => {
+                                  const hasGradesInThisColumn = journalAllGrades.some(g => {
+                                    const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+                                    return g.subject_id === Number(selectedSubjectId) &&
+                                           g.lesson_number === Number(selectedLessonNumber) &&
+                                           g.grade_type === col.id &&
+                                           gDate === journalDate;
+                                  });
+
+                                  return (
+                                    <div className="flex flex-col items-center mt-1">
+                                      <select
+                                        value={columnGradingSystems[col.id] || ""}
+                                        onChange={(e) => handleColumnGradingSystemChange(col.id, e.target.value)}
+                                        disabled={hasGradesInThisColumn}
+                                        className={`border border-zinc-200 rounded-md px-1.5 py-0.5 text-[8px] font-bold text-zinc-650 outline-none transition text-center max-w-[100px] ${
+                                          hasGradesInThisColumn 
+                                            ? 'opacity-65 cursor-not-allowed bg-zinc-200' 
+                                            : 'bg-zinc-100 hover:bg-zinc-150 cursor-pointer'
+                                        }`}
+                                        title={hasGradesInThisColumn ? "Ushbu ustunda baholar kiritilgani sababli baholash tizimini o'zgartirib bo'lmaydi" : ""}
+                                      >
+                                        <option value="">Oddiy tizim</option>
+                                        {gradingSystemsList.map(gs => (
+                                          <option key={gs.id} value={gs.id}>{gs.name}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  );
+                                })()}
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 text-xs bg-white">
                           {students.length === 0 ? (
                             <tr>
-                              <td colSpan={3} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
+                              <td colSpan={2 + journalColumns.length} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
                                 Bu sinfda o'quvchilar topilmadi.
                               </td>
                             </tr>
                           ) : (
                             students.map((st, idx) => {
-                              const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}`;
-                              const grade = findGradeForDay(st.id, Number(selectedSubjectId), Number(selectedLessonNumber));
-                              const isApproved = grade?.status === 'approved';
-                              const isParentApproved = grade?.approved_by_parent;
-                              const isSaving = cellSaving === key;
-                              const inputValue = cellInputs[key] || '';
-                              const isHoliday = holidays.some(h => {
-                                const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
-                                return hDate === journalDate;
-                              });
-
-                              const isQuarterly = grade?.grade_category === 'QUARTERLY_EXAM';
+                              const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
+                              const attendanceVal = cellInputs[attKey] || "+";
 
                               return (
-                                <tr key={st.id} className="hover:bg-zinc-50/50 transition">
+                                <tr key={st.id} className={`hover:bg-zinc-50/50 transition ${attendanceVal === "-" ? "opacity-60 bg-zinc-50/30" : ""}`}>
                                   {/* No. */}
-                                  <td className="px-6 py-5 text-center font-mono text-zinc-400 text-xs font-semibold">
+                                  <td className="px-6 py-4 text-center font-mono text-zinc-400 text-xs font-semibold">
                                     {String(idx + 1).padStart(2, '0')}
                                   </td>
                                   
                                   {/* Student Name */}
-                                  <td className="px-6 py-5 font-bold text-zinc-800 text-sm whitespace-nowrap">
+                                  <td className="px-6 py-4 font-bold text-zinc-800 text-sm whitespace-nowrap">
                                     {st.first_name} {st.last_name}
                                   </td>
                                   
-                                  {/* Grade Input */}
-                                  <td className="px-6 py-3 text-center">
-                                    <div className="relative inline-block group">
-                                      {grade && !isApproved && (
-                                        <input
-                                          type="checkbox"
-                                          checked={selectedGradeIds.has(grade.id)}
-                                          onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            setSelectedGradeIds(prev => {
-                                              const next = new Set(prev);
-                                              if (checked) {
-                                                next.add(grade.id);
-                                              } else {
-                                                next.delete(grade.id);
-                                              }
-                                              return next;
-                                            });
-                                          }}
-                                          className="absolute -left-6 top-3.5 w-3 h-3 text-[#5B50EC] border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
-                                          title="Tasdiqlash uchun tanlash"
-                                        />
-                                      )}
-                                      
-                                      <input
-                                        type="text"
-                                        value={inputValue}
-                                        onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber));
-                                          }
-                                        }}
-                                        onBlur={() => {
-                                          handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber));
-                                        }}
-                                        disabled={isSaving || isApproved || isHoliday}
-                                        placeholder="—"
-                                        className={`w-10 h-10 rounded-full text-center border font-bold font-mono text-sm outline-none transition-all duration-150 relative z-10
-                                          ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : ''}
-                                          ${!isSaving ? getGradeColorClasses(inputValue, isApproved, !!isParentApproved) : ''}
-                                          ${isQuarterly ? 'ring-2 ring-amber-400 ring-offset-1 border-amber-400 scale-105 shadow-sm' : ''}
-                                          ${isHoliday ? 'bg-zinc-100 border-zinc-200 cursor-not-allowed opacity-60' : ''}
-                                        `}
-                                      />
-                                      
-                                      {/* Status badges */}
-                                      {isApproved && (
-                                        <span 
-                                          className="absolute -right-1 -top-1 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20"
-                                          title="Tasdiqlangan baholash, o'zgartirib bo'lmaydi"
-                                        >
-                                          🔒
-                                        </span>
-                                      )}
-                                      {!isApproved && isParentApproved && (
-                                        <span 
-                                          className="absolute -right-1 -top-1 bg-white border border-teal-200 text-teal-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-extrabold shadow-sm select-none z-20"
-                                          title="Ota-ona ko'rdi"
-                                        >
-                                          ✓
-                                        </span>
-                                      )}
+                                  {/* Columns */}
+                                  {journalColumns.map((col) => {
+                                    const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
+                                    const cellVal = cellInputs[key] || "";
+                                    const grade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
+                                    const isApproved = grade?.status === 'approved';
+                                    const isParentApproved = grade?.approved_by_parent;
+                                    const isSaving = cellSaving === key;
+                                    const isHoliday = holidays.some(h => {
+                                      const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
+                                      return hDate === journalDate;
+                                    });
 
-                                      {/* Hover details tooltip overlay */}
-                                      {grade && (
-                                        <div 
-                                          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2.5 w-52 bg-zinc-950/95 border border-zinc-800 text-left text-zinc-100 text-[10px] p-2.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 font-sans"
-                                          style={{ backdropFilter: "blur(4px)" }}
-                                        >
-                                          <div className="flex items-center justify-between font-bold text-zinc-300 border-b border-zinc-800 pb-1 mb-1">
-                                            <span>Baho tafsilotlari</span>
-                                            {isQuarterly && <span className="text-amber-400 text-[9px]">Choraklik 🏆</span>}
-                                          </div>
-                                          <p className="font-semibold text-zinc-200">Qo'ydi: <span className="font-normal text-zinc-300">{grade.teacher_name || "O'qituvchi"}</span></p>
-                                          <p className="text-[9px] text-zinc-450 mt-0.5">Sana: {new Date(grade.created_at).toLocaleString('uz-UZ')}</p>
-                                          <div className="border-t border-zinc-800/80 mt-1 pt-1.5 flex justify-between">
-                                            <span className="text-zinc-400">Turi:</span>
-                                            <span className="font-semibold text-zinc-300">
-                                              {grade.grade_type === "BEHAVIOR" ? "🧠 Xulq" : 
-                                               grade.grade_type === "ATTENDANCE" ? "📅 Davomat" : 
-                                               grade.grade_type === "HOMEWORK" ? "🏠 Uy vazifasi" : "✍️ O'zlashtirish"}
+                                    return (
+                                      <td key={col.id} className="px-6 py-3 text-center">
+                                        <div className="relative inline-block group">
+                                          {grade && !isApproved && (
+                                            <input
+                                              type="checkbox"
+                                              checked={selectedGradeIds.has(grade.id)}
+                                              onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setSelectedGradeIds(prev => {
+                                                  const next = new Set(prev);
+                                                  if (checked) {
+                                                    next.add(grade.id);
+                                                  } else {
+                                                    next.delete(grade.id);
+                                                  }
+                                                  return next;
+                                                });
+                                              }}
+                                              className="absolute -left-6 top-2.5 w-3 h-3 text-[#5B50EC] border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
+                                              title="Tasdiqlash uchun tanlash"
+                                            />
+                                          )}
+
+                                          {col.id === "ATTENDANCE" ? (
+                                            <select
+                                              value={cellVal}
+                                              onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "ATTENDANCE", e.target.value)}
+                                              disabled={isSaving || isApproved || isHoliday}
+                                              className={`w-14 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
+                                                ${cellVal === "+" ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
+                                                  cellVal === "-" ? "bg-red-50 border-red-300 text-red-700" :
+                                                  "bg-amber-50 border-amber-300 text-amber-700"
+                                                }
+                                              `}
+                                            >
+                                              <option value="+">+</option>
+                                              <option value="-">-</option>
+                                              <option value="k">k</option>
+                                            </select>
+                                          ) : (() => {
+                                            const colGSId = columnGradingSystems[col.id];
+                                            const colGS = gradingSystemsList.find(gs => gs.id === colGSId);
+                                            if (colGS) {
+                                              let options: { label: string; numeric_value?: number }[] = [];
+                                              if (colGS.options) {
+                                                try {
+                                                  options = typeof colGS.options === 'string' ? JSON.parse(colGS.options) : colGS.options;
+                                                } catch (e) {
+                                                  console.error("Failed to parse options", e);
+                                                }
+                                              }
+                                              if (Array.isArray(options) && options.length > 0) {
+                                                return (
+                                                  <select
+                                                    value={cellVal}
+                                                    onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, e.target.value)}
+                                                    disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
+                                                    className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer bg-white border-zinc-300 text-zinc-800
+                                                      ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
+                                                    `}
+                                                  >
+                                                    <option value="">—</option>
+                                                    {options.map((opt, oidx) => (
+                                                      <option key={oidx} value={opt.label}>
+                                                        {opt.label}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                );
+                                              }
+                                              
+                                              return (
+                                                <input
+                                                  type="text"
+                                                  value={cellVal}
+                                                  onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                      e.preventDefault();
+                                                      handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
+                                                    }
+                                                  }}
+                                                  onBlur={() => {
+                                                    handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
+                                                  }}
+                                                  disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
+                                                  placeholder={`${colGS.min_value !== undefined && colGS.max_value !== undefined ? `${colGS.min_value}-${colGS.max_value}` : "—"}`}
+                                                  className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500
+                                                    ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : 'bg-white border-zinc-300 text-zinc-800'}
+                                                    ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
+                                                  `}
+                                                />
+                                              );
+                                            }
+
+                                            if (col.id === "BEHAVIOR") {
+                                              return (
+                                                <select
+                                                  value={cellVal || "0"}
+                                                  onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "BEHAVIOR", e.target.value)}
+                                                  disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
+                                                  className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
+                                                    ${(cellVal || "0") === "0" ? "bg-zinc-50 border-zinc-300 text-zinc-700" :
+                                                      Number(cellVal) > 0 ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
+                                                      "bg-red-50 border-red-300 text-red-700"
+                                                    }
+                                                  `}
+                                                >
+                                                  <option value="5">+5</option>
+                                                  <option value="4">+4</option>
+                                                  <option value="3">+3</option>
+                                                  <option value="2">+2</option>
+                                                  <option value="1">+1</option>
+                                                  <option value="0">0</option>
+                                                  <option value="-1">-1</option>
+                                                  <option value="-2">-2</option>
+                                                  <option value="-3">-3</option>
+                                                  <option value="-4">-4</option>
+                                                  <option value="-5">-5</option>
+                                                </select>
+                                              );
+                                            }
+
+                                            if (col.id === "MASTERY") {
+                                              return (
+                                                <select
+                                                  value={cellVal}
+                                                  onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "MASTERY", e.target.value)}
+                                                  disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
+                                                  className={`w-14 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
+                                                    ${cellVal === "" ? "bg-zinc-50 border-zinc-300 text-zinc-400" :
+                                                      cellVal === "5" ? "bg-emerald-100 border-emerald-300 text-emerald-700" :
+                                                      cellVal === "4" ? "bg-blue-100 border-blue-300 text-blue-700" :
+                                                      cellVal === "3" ? "bg-amber-100 border-amber-300 text-amber-700" :
+                                                      "bg-red-100 border-red-300 text-red-700"
+                                                    }
+                                                  `}
+                                                >
+                                                  <option value="">—</option>
+                                                  <option value="5">5</option>
+                                                  <option value="4">4</option>
+                                                  <option value="3">3</option>
+                                                  <option value="2">2</option>
+                                                  <option value="1">1</option>
+                                                </select>
+                                              );
+                                            }
+
+                                            return (
+                                              <input
+                                                type="text"
+                                                value={cellVal}
+                                                onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
+                                                  }
+                                                }}
+                                                onBlur={() => {
+                                                  handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
+                                                }}
+                                                disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
+                                                placeholder="—"
+                                                className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500
+                                                  ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : 'bg-white border-zinc-300 text-zinc-800'}
+                                                  ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
+                                                `}
+                                              />
+                                            );
+                                          })()}
+
+                                          {/* Status badges */}
+                                          {isApproved && (
+                                            <span 
+                                              className="absolute -right-2 -top-2 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20"
+                                              title="Tasdiqlangan baholash, o'zgartirib bo'lmaydi"
+                                            >
+                                              🔒
                                             </span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-zinc-400">Kategoriya:</span>
-                                            <span className="font-semibold text-zinc-300">
-                                              {grade.grade_category === "QUARTERLY_EXAM" ? "Choraklik" : 
-                                               grade.grade_category === "SEMESTER_EXAM" ? "Imtihon" : "Kundalik"}
+                                          )}
+                                          {!isApproved && isParentApproved && (
+                                            <span 
+                                              className="absolute -right-2 -top-2 bg-white border border-teal-200 text-teal-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-extrabold shadow-sm select-none z-20"
+                                              title="Ota-ona ko'rdi"
+                                            >
+                                              ✓
                                             </span>
-                                          </div>
-                                          {grade.updated_at && grade.updated_at !== grade.created_at && (
-                                            <p className="text-[8px] text-zinc-505 italic mt-1">Tahrirlangan: {new Date(grade.updated_at).toLocaleDateString('uz-UZ')}</p>
                                           )}
                                         </div>
-                                      )}
-                                    </div>
-                                  </td>
+                                      </td>
+                                    );
+                                  })}
                                 </tr>
                               );
                             })
@@ -2217,7 +2679,7 @@ export default function TeacherDashboard() {
                     {/* Footer hint */}
                     <div className="px-5 py-3 border-t border-zinc-150 bg-zinc-50 flex items-center justify-between">
                       <p className="text-[10px] text-zinc-400 font-mono">
-                        Katakka baho yozib enter yoki blur orqali saqlang.
+                        O'zgarishlar kiritilganda avtomatik saqlanadi.
                       </p>
                       <p className="text-[10px] text-zinc-400 font-mono">
                         {journalAllGrades.filter(g => {
@@ -2424,7 +2886,10 @@ export default function TeacherDashboard() {
                           last_name: "",
                           middle_name: "",
                           phone: "",
-                          password: "123456" // default password
+                          password: "123456", // default password
+                          address: "",
+                          birthdate: "",
+                          ina: ""
                         });
                         setShowStudentModal(true);
                       }}
@@ -2490,7 +2955,10 @@ export default function TeacherDashboard() {
                                       last_name: st.last_name || "",
                                       middle_name: st.middle_name || "",
                                       phone: st.phone || "",
-                                      password: ""
+                                      password: "",
+                                      address: st.address || "",
+                                      birthdate: st.birthdate ? st.birthdate.split("T")[0] : "",
+                                      ina: st.ina || ""
                                     });
                                     setShowStudentModal(true);
                                   }}
@@ -3290,14 +3758,14 @@ export default function TeacherDashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
-                    E-mail
+                    Pasport
                   </label>
                   <input
-                    type="email"
-                    value={parentEmail}
-                    onChange={(e) => setParentEmail(e.target.value)}
+                    type="text"
+                    value={parentPassport}
+                    onChange={(e) => setParentPassport(e.target.value)}
                     className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
-                    placeholder="Masalan: parent@example.com"
+                    placeholder="Masalan: AA1234567"
                   />
                 </div>
                 <div>
@@ -3648,14 +4116,14 @@ export default function TeacherDashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
-                    E-mail
+                    Pasport
                   </label>
                   <input
-                    type="email"
-                    value={parentEmail}
-                    onChange={(e) => setParentEmail(e.target.value)}
+                    type="text"
+                    value={parentPassport}
+                    onChange={(e) => setParentPassport(e.target.value)}
                     className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
-                    placeholder="Elektron pochtani kiriting"
+                    placeholder="AA1234567"
                   />
                 </div>
                 <div>

@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,6 +20,8 @@ import {
 // Import modular components
 import BottomNavigation from "../../components/BottomNavigation";
 import DiaryDayCard from "../../components/DiaryDayCard";
+import dynamic from "next/dynamic";
+const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
 /* ─────────────────────────────────────────
    Types
@@ -56,6 +60,9 @@ interface GradeItem {
   grade_date: string;
   status: string;
   approved_by_parent: boolean;
+  grade_type?: string;
+  grade_category?: string;
+  grading_system_id?: number;
 }
 
 interface Announcement {
@@ -114,6 +121,12 @@ function fmtDayName(dateStr: string) {
 }
 
 function getNumericVal(g: GradeItem): number | null {
+  if (g.grade_type === "ATTENDANCE") {
+    if (g.value === "+") return 1;
+    if (g.value === "k") return 0.5;
+    if (g.value === "-") return 0;
+    return null;
+  }
   const v = g.numeric_value !== undefined ? g.numeric_value : parseFloat(g.value);
   return isNaN(v) ? null : v;
 }
@@ -175,11 +188,75 @@ function gradeBorder(val: number | null): string {
   return "#FECACA";
 }
 
+function getGradeTypeDisplayName(type: string): string {
+  if (type === "MASTERY") return "📚 O'zlashtirish";
+  if (type === "BEHAVIOR") return "🧠 Xulqi";
+  if (type === "ATTENDANCE") return "⏰ Davomat";
+  return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
+function getYAxisConfig(points: { value: number }[], gradingSystemId: string, gradingSystemsList: any[], gradeType?: string) {
+  if (gradeType === "ATTENDANCE") {
+    return { domain: [0, 1], ticks: [0, 0.5, 1] };
+  }
+  if (gradeType === "BEHAVIOR") {
+    return { domain: [-5, 5], ticks: [-5, -3, 0, 3, 5] };
+  }
+
+  let min = 1;
+  let max = 5;
+  
+  if (gradingSystemId !== "ALL" && gradingSystemId !== "NONE") {
+    const gs = gradingSystemsList.find(sys => sys.id === Number(gradingSystemId));
+    if (gs) {
+      if (gs.min_value !== undefined && gs.min_value !== null) min = gs.min_value;
+      if (gs.max_value !== undefined && gs.max_value !== null) max = gs.max_value;
+    }
+  } else {
+    // Fallback: calculate from points min/max
+    if (points.length > 0) {
+      const values = points.map(p => p.value);
+      const pMin = Math.min(...values);
+      const pMax = Math.max(...values);
+      min = Math.floor(pMin);
+      max = Math.ceil(pMax);
+      if (min === max) {
+        min = Math.max(0, min - 1);
+        max = max + 1;
+      }
+    }
+  }
+
+  // Generate ticks
+  const ticks: number[] = [];
+  if (max - min <= 10) {
+    for (let i = min; i <= max; i++) {
+      ticks.push(i);
+    }
+  } else {
+    const step = Math.ceil((max - min) / 5);
+    for (let i = min; i <= max; i += step) {
+      ticks.push(i);
+    }
+    if (ticks.length === 0 || ticks[ticks.length - 1] < max) {
+      ticks.push(max);
+    }
+  }
+
+  return { domain: [min, max], ticks };
+}
+
 /* ─────────────────────────────────────────
    Custom Tooltip for Recharts
-───────────────────────────────────────── */
-function CustomTooltip({ active, payload, label }: any) {
+ ───────────────────────────────────────── */
+function CustomTooltip({ active, payload, label, gradeType }: any) {
   if (active && payload && payload.length) {
+    let displayVal = payload[0].value;
+    if (gradeType === "ATTENDANCE") {
+      if (payload[0].value === 1) displayVal = "Bor (+)";
+      else if (payload[0].value === 0.5) displayVal = "Kechikdi (k)";
+      else if (payload[0].value === 0) displayVal = "Kelmagan (-)";
+    }
     return (
       <div
         style={{
@@ -194,7 +271,9 @@ function CustomTooltip({ active, payload, label }: any) {
         }}
       >
         <p style={{ color: TEXT_MUTED, marginBottom: 2, fontSize: 10 }}>{label}</p>
-        <p style={{ fontWeight: 700, color: ACCENT }}>Baho: {payload[0].value}</p>
+        <p style={{ fontWeight: 700, color: ACCENT }}>
+          {gradeType === "ATTENDANCE" ? "Davomat" : "Baho"}: {displayVal}
+        </p>
       </div>
     );
   }
@@ -228,6 +307,14 @@ export default function ParentDashboard() {
   const [gradesLoading, setGradesLoading] = useState(false);
   const [approveLoading, setApproveLoading] = useState<number | null>(null);
   const [approveAllLoading, setApproveAllLoading] = useState<string | null>(null);
+  const [gradingSystemsList, setGradingSystemsList] = useState<any[]>([]);
+  const [chartFilters, setChartFilters] = useState<{
+    [subject: string]: {
+      type: string;
+      category: string;
+      gradingSystemId: string;
+    }
+  }>({});
 
   // Diary navigation and schedule states
   const [currentWeekStart, setCurrentWeekStart] = useState<string>(() => {
@@ -244,9 +331,34 @@ export default function ParentDashboard() {
   // Balance history states
   const [balanceHistory, setBalanceHistory] = useState<any[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [nextChargeData, setNextChargeData] = useState<{ amount: number; charge_date: string } | null>(null);
+  const [nextChargeLoading, setNextChargeLoading] = useState(false);
+
+  const fetchNextCharge = async (childId: number) => {
+    setNextChargeLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/students/${childId}/next-charge`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok && data) {
+        setNextChargeData({
+          amount: parseFloat(data.amount || 0),
+          charge_date: data.charge_date,
+        });
+      } else {
+        setNextChargeData(null);
+      }
+    } catch {
+      setNextChargeData(null);
+    } finally {
+      setNextChargeLoading(false);
+    }
+  };
 
   // Edit profile states
   const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
   const [editAddress, setEditAddress] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
@@ -307,11 +419,46 @@ export default function ParentDashboard() {
         return;
       }
       setUserInfo(parsedUser);
+      fetchParentInfo(savedToken, parsedUser.id, savedSchoolId);
       fetchLinkedChildren(savedToken, parsedUser.id, savedSchoolId);
+      fetchGradingSystems(savedToken, savedSchoolId);
     } catch {
       router.push("/login");
     }
   }, [router]);
+
+  const fetchGradingSystems = async (authToken: string, currentSchoolId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/grading-systems`, {
+        headers: { Authorization: `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        setGradingSystemsList(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch grading systems:", err);
+    }
+  };
+
+  const fetchParentInfo = async (
+    authToken: string,
+    parentId: number,
+    currentSchoolId: string
+  ) => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/parents/${parentId}`, {
+        headers: { Authorization: `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserInfo(data);
+        localStorage.setItem("school_user", JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error("Failed to fetch parent info:", err);
+    }
+  };
 
   const fetchLinkedChildren = async (
     authToken: string,
@@ -361,9 +508,11 @@ export default function ParentDashboard() {
       if (child && child.class_id) {
         fetchClassSchedule(child.class_id, getRepresentativeWeekDate(currentWeekStart));
       }
+      fetchNextCharge(Number(selectedChildId));
     } else {
       setGrades([]);
       setSchedule([]);
+      setNextChargeData(null);
     }
   }, [selectedChildId, currentWeekStart, token, children]);
 
@@ -593,15 +742,7 @@ export default function ParentDashboard() {
   /* ── Derived data ── */
   const selectedChild = children.find((c) => c.id === selectedChildId);
 
-  // Predefined default weekly subjects for school diary fallback
-  const DEFAULT_WEEKLY_SUBJECTS: Record<number, string[]> = {
-    1: ["Ona tili", "Matematika", "Fizika", "Ingliz tili", "Tarix"], // Monday
-    2: ["Kimyo", "Biologiya", "Geografiya", "Adabiyot", "Matematika"], // Tuesday
-    3: ["Fizika", "Ona tili", "Jismoniy tarbiya", "Tarix", "Ingliz tili"], // Wednesday
-    4: ["Matematika", "Kimyo", "Biologiya", "Informatika", "Adabiyot"], // Thursday
-    5: ["Geografiya", "Ona tili", "Tarix", "Ingliz tili", "Tasviriy san'at"], // Friday
-    6: ["Matematika", "Fizika", "Kimyo", "Tarbiya", "Jismoniy tarbiya"], // Saturday
-  };
+
 
   // Filter selected child's grades to avoid mixing data
   const selectedChildGrades = grades.filter((g) => {
@@ -620,10 +761,7 @@ export default function ParentDashboard() {
     const daySchedule = schedule.filter((item: any) => item.day_of_week === dayIdx + 1);
     let subjects = daySchedule.map((item: any) => item.subject_name);
 
-    // If no database schedule, fall back to realistic defaults
-    if (subjects.length === 0) {
-      subjects = [...(DEFAULT_WEEKLY_SUBJECTS[dayIdx + 1] || [])];
-    }
+
 
     // 2. Get child's grades for this calendar day
     const dayGrades = selectedChildGrades.filter(
@@ -693,26 +831,7 @@ export default function ParentDashboard() {
     return acc;
   }, {});
 
-  // Chart data per subject
-  const chartDataPerSubject = Object.entries(gradesBySubject)
-    .map(([subject, items]) => {
-      const sorted = [...items].sort(
-        (a, b) => new Date(a.grade_date).getTime() - new Date(b.grade_date).getTime()
-      );
-      const points = sorted
-        .map((g) => {
-          const val = getNumericVal(g);
-          return val !== null
-            ? { date: fmtDate(g.grade_date), value: val }
-            : null;
-        })
-        .filter(Boolean) as { date: string; value: number }[];
 
-      if (points.length < 2) return null;
-      const avg = points.reduce((s, p) => s + p.value, 0) / points.length;
-      return { subject, points, avg };
-    })
-    .filter(Boolean) as { subject: string; points: { date: string; value: number }[]; avg: number }[];
 
   const pendingTotal = selectedChildGrades.filter(
     (g) => !g.approved_by_parent
@@ -747,6 +866,85 @@ export default function ParentDashboard() {
       </div>
     );
   }
+
+  // Helper to determine active alerts
+  const renderWarningAlerts = () => {
+    if (!selectedChild) return null;
+
+    const balance = selectedChild.balance || 0;
+
+    // Check RED alert first (balance < 0)
+    if (balance < 0) {
+      return (
+        <div
+          style={{
+            backgroundColor: "#FEF2F2",
+            border: "1px solid #FCA5A5",
+            borderRadius: "16px",
+            padding: "16px",
+            marginBottom: "20px",
+            color: "#B91C1C",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+          }}
+        >
+          <span style={{ fontSize: "24px" }}>⚠️</span>
+          <div>
+            <h4 style={{ margin: 0, fontWeight: 700, fontSize: "13px" }}>To'lov bo'yicha qarzdorlik!</h4>
+            <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
+              Diqqat! Farzandingiz balansida qarzdorlik mavjud ({new Intl.NumberFormat("uz-UZ").format(balance)} UZS). Iltimos, balansni to'ldiring.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Check YELLOW alert
+    if (nextChargeData && nextChargeData.amount > 0) {
+      try {
+        const nextChargeDate = parseLocalDate(nextChargeData.charge_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        nextChargeDate.setHours(0, 0, 0, 0);
+
+        const diffTime = nextChargeDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (balance < nextChargeData.amount && diffDays >= 0 && diffDays <= 5) {
+          return (
+            <div
+              style={{
+                backgroundColor: "#FFFBEB",
+                border: "1px solid #FCD34D",
+                borderRadius: "16px",
+                padding: "16px",
+                marginBottom: "20px",
+                color: "#B45309",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+              }}
+            >
+              <span style={{ fontSize: "24px" }}>🔔</span>
+              <div>
+                <h4 style={{ margin: 0, fontWeight: 700, fontSize: "13px" }}>Kutilayotgan to'lov eslatmasi</h4>
+                <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
+                  Eslatma: Yaqin kunlarda ({nextChargeDate.toLocaleDateString("uz-UZ")}) farzandingiz uchun {new Intl.NumberFormat("uz-UZ").format(nextChargeData.amount)} UZS miqdorida to'lov rejalashtirilgan. Balansni to'ldirib qo'yishingizni tavsiya etamiz.
+                </p>
+              </div>
+            </div>
+          );
+        }
+      } catch (e) {
+        console.error("Alert calculation error", e);
+      }
+    }
+
+    return null;
+  };
 
   /* ──────────────────────────────────────
      Main render (Mobile-First Frame)
@@ -1051,6 +1249,20 @@ export default function ParentDashboard() {
                     >
                       {new Intl.NumberFormat("uz-UZ").format(selectedChild.balance || 0)} UZS
                     </span>
+                    {nextChargeData && (
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          color: "#C7D2FE",
+                          display: "block",
+                          marginTop: "4px",
+                          opacity: 0.9,
+                          fontWeight: 500,
+                        }}
+                      >
+                        To'lov: {new Date(nextChargeData.charge_date).toLocaleDateString("uz-UZ")} ({new Intl.NumberFormat("uz-UZ").format(nextChargeData.amount)} UZS)
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1112,6 +1324,8 @@ export default function ParentDashboard() {
                 </button>
               </div>
             )}
+
+            {renderWarningAlerts()}
 
             {/* Sub-tab Navigation */}
             <div
@@ -1382,7 +1596,7 @@ export default function ParentDashboard() {
             {/* Sub-tab: DYNAMICS (Dinamika) */}
             {activeSubTab === "dynamics" && (
               <div>
-                {chartDataPerSubject.length === 0 ? (
+                {Object.keys(gradesBySubject).length === 0 ? (
                   <div
                     style={{
                       textAlign: "center",
@@ -1397,78 +1611,264 @@ export default function ParentDashboard() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                    {chartDataPerSubject.map(({ subject, points, avg }) => (
-                      <div key={subject}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <span style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                            {subject}
-                          </span>
-                          <span
+                    {Object.entries(gradesBySubject).map(([subject, allGrades]) => {
+                      const filter = chartFilters[subject] || { type: "MASTERY", category: "DAILY", gradingSystemId: "ALL" };
+                      const safeSubjectId = subject.replace(/[^a-zA-Z0-9]/g, "_");
+                      
+                      // 1. Sort grades chronologically
+                      const sorted = [...allGrades].sort(
+                        (a, b) => new Date(a.grade_date).getTime() - new Date(b.grade_date).getTime()
+                      );
+
+                      // 2. Filter grades based on type, category, and grading system
+                      const filteredGrades = sorted.filter(g => {
+                        // Grade Type Filter
+                        if (g.grade_type !== filter.type) return false;
+
+                        // Mastery extra filters
+                        if (filter.type === "MASTERY") {
+                          if (g.grade_category !== filter.category) return false;
+                          if (filter.gradingSystemId !== "ALL") {
+                            if (filter.gradingSystemId === "NONE") {
+                              if (g.grading_system_id !== null && g.grading_system_id !== undefined) return false;
+                            } else {
+                              if (g.grading_system_id !== Number(filter.gradingSystemId)) return false;
+                            }
+                          }
+                        }
+                        return true;
+                      });
+
+                      // 3. Map to chart points
+                      const points = filteredGrades
+                        .map((g) => {
+                          const val = getNumericVal(g);
+                          return val !== null
+                            ? { date: fmtDate(g.grade_date), value: val }
+                            : null;
+                        })
+                        .filter(Boolean) as { date: string; value: number }[];
+
+                      // 4. Calculate average of filtered points
+                      const hasPoints = points.length > 0;
+                      const avg = hasPoints ? points.reduce((s, p) => s + p.value, 0) / points.length : 0;
+
+                      // 5. Get dynamic Y-axis bounds and ticks
+                      const yAxisConfig = getYAxisConfig(points, filter.gradingSystemId, gradingSystemsList, filter.type);
+
+                      // 6. Get unique grading systems and types used
+                      const uniqueGsIds = Array.from(new Set(allGrades.map(g => g.grading_system_id).filter(Boolean)));
+                      const hasNoneGradingSystem = allGrades.some(g => !g.grading_system_id);
+                      
+                      const uniqueGradeTypes = Array.from(new Set([
+                        "MASTERY",
+                        "BEHAVIOR",
+                        "ATTENDANCE",
+                        ...allGrades.map(g => g.grade_type).filter((x): x is string => !!x)
+                      ]));
+
+                      return (
+                        <div key={subject}>
+                          {/* Subject Header with Dropdowns */}
+                          <div
                             style={{
-                              fontSize: "10px",
-                              fontWeight: 700,
-                              color: ACCENT,
-                              background: ACCENT_LIGHT,
-                              border: `1.5px solid ${ACCENT_MID}`,
-                              borderRadius: "6px",
-                              padding: "2px 8px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "6px",
+                              marginBottom: "8px",
                             }}
                           >
-                            O&apos;rtacha: {avg.toFixed(2)}
-                          </span>
-                        </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                              }}
+                            >
+                              <span style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                                {subject}
+                              </span>
+                              {hasPoints && (
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 700,
+                                    color: ACCENT,
+                                    background: ACCENT_LIGHT,
+                                    border: `1.5px solid ${ACCENT_MID}`,
+                                    borderRadius: "6px",
+                                    padding: "2px 8px",
+                                  }}
+                                >
+                                  {filter.type === "ATTENDANCE" 
+                                    ? `Ishtirok: ${(avg * 100).toFixed(0)}%` 
+                                    : `O'rtacha: ${avg.toFixed(2)}`}
+                                </span>
+                              )}
+                            </div>
 
-                        <div
-                          style={{
-                            backgroundColor: "#FFFFFF",
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "14px",
-                            padding: "12px 6px 6px 6px",
-                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
-                          }}
-                        >
-                          <ResponsiveContainer width="100%" height={140}>
-                            <LineChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: -24 }}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                              <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 9, fill: TEXT_MUTED }}
-                                axisLine={false}
-                                tickLine={false}
-                              />
-                              <YAxis
-                                domain={[1, 5]}
-                                ticks={[1, 2, 3, 4, 5]}
-                                tick={{ fontSize: 9, fill: TEXT_MUTED }}
-                                axisLine={false}
-                                tickLine={false}
-                              />
-                              <Tooltip content={<CustomTooltip />} />
-                              <ReferenceLine
-                                y={avg}
-                                stroke={ACCENT}
-                                strokeDasharray="4 4"
-                                strokeOpacity={0.4}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke={ACCENT}
-                                strokeWidth={2.5}
-                                dot={{ r: 4, fill: "white", stroke: ACCENT, strokeWidth: 2 }}
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
+                            {/* Dropdowns Row */}
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                              {/* Grade Type Select */}
+                              <select
+                                value={filter.type}
+                                onChange={(e) => setChartFilters(prev => ({
+                                  ...prev,
+                                  [subject]: { ...filter, type: e.target.value }
+                                }))}
+                                style={{
+                                  fontSize: "9px",
+                                  fontWeight: 600,
+                                  color: TEXT_DARK,
+                                  backgroundColor: "#F3F4F6",
+                                  border: "1px solid #E5E7EB",
+                                  borderRadius: "6px",
+                                  padding: "3px 6px",
+                                  outline: "none",
+                                  cursor: "pointer"
+                                }}
+                              >
+                                {uniqueGradeTypes.map(t => (
+                                  <option key={t} value={t}>{getGradeTypeDisplayName(t)}</option>
+                                ))}
+                              </select>
+
+                              {/* Category Select - only shown for MASTERY */}
+                              {filter.type === "MASTERY" && (
+                                <select
+                                  value={filter.category}
+                                  onChange={(e) => setChartFilters(prev => ({
+                                    ...prev,
+                                    [subject]: { ...filter, category: e.target.value }
+                                  }))}
+                                  style={{
+                                    fontSize: "9px",
+                                    fontWeight: 600,
+                                    color: TEXT_DARK,
+                                    backgroundColor: "#F3F4F6",
+                                    border: "1px solid #E5E7EB",
+                                    borderRadius: "6px",
+                                    padding: "3px 6px",
+                                    outline: "none",
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  <option value="DAILY">📅 Kundalik</option>
+                                  <option value="QUARTERLY_EXAM">🏆 Choraklik</option>
+                                  <option value="SEMESTER_EXAM">🎓 Imtihon</option>
+                                </select>
+                              )}
+
+                              {/* Grading System Select - only shown for MASTERY */}
+                              {filter.type === "MASTERY" && (
+                                <select
+                                  value={filter.gradingSystemId}
+                                  onChange={(e) => setChartFilters(prev => ({
+                                    ...prev,
+                                    [subject]: { ...filter, gradingSystemId: e.target.value }
+                                  }))}
+                                  style={{
+                                    fontSize: "9px",
+                                    fontWeight: 600,
+                                    color: TEXT_DARK,
+                                    backgroundColor: "#F3F4F6",
+                                    border: "1px solid #E5E7EB",
+                                    borderRadius: "6px",
+                                    padding: "3px 6px",
+                                    outline: "none",
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  <option value="ALL">📐 Barcha tizimlar</option>
+                                  {uniqueGsIds.map(gsId => {
+                                    const gsName = gradingSystemsList.find(gs => gs.id === gsId)?.name || `Tizim #${gsId}`;
+                                    return (
+                                      <option key={gsId} value={gsId}>{gsName}</option>
+                                    );
+                                  })}
+                                  {hasNoneGradingSystem && (
+                                    <option value="NONE">Tizimsiz baholar</option>
+                                  )}
+                                </select>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Chart Container */}
+                          <div
+                            style={{
+                              backgroundColor: "#FFFFFF",
+                              border: "1px solid #E5E7EB",
+                              borderRadius: "14px",
+                              padding: "12px 6px 6px 6px",
+                              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                              minHeight: "140px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center"
+                            }}
+                          >
+                            {points.length >= 2 ? (
+                              <ResponsiveContainer width="100%" height={140}>
+                                <AreaChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: -24 }}>
+                                  <defs>
+                                    <linearGradient id={`colorGrad-${safeSubjectId}`} x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor={ACCENT} stopOpacity={0.4}/>
+                                      <stop offset="95%" stopColor={ACCENT} stopOpacity={0.0}/>
+                                    </linearGradient>
+                                  </defs>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                  <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 9, fill: TEXT_MUTED }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                  />
+                                  <YAxis
+                                    domain={yAxisConfig.domain}
+                                    ticks={yAxisConfig.ticks}
+                                    tick={{ fontSize: 9, fill: TEXT_MUTED }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickFormatter={(val) => {
+                                      if (filter.type === "ATTENDANCE") {
+                                        if (val === 1) return "+";
+                                        if (val === 0.5) return "k";
+                                        if (val === 0) return "-";
+                                      }
+                                      return val;
+                                    }}
+                                  />
+                                  <Tooltip content={<CustomTooltip gradeType={filter.type} />} />
+                                  <ReferenceLine
+                                    y={avg}
+                                    stroke={ACCENT}
+                                    strokeDasharray="4 4"
+                                    strokeOpacity={0.4}
+                                  />
+                                  <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke={ACCENT}
+                                    strokeWidth={2.5}
+                                    fillOpacity={1}
+                                    fill={`url(#colorGrad-${safeSubjectId})`}
+                                    dot={{ r: 4, fill: "white", stroke: ACCENT, strokeWidth: 2 }}
+                                    activeDot={{ r: 6, fill: ACCENT, stroke: "white", strokeWidth: 2 }}
+                                  />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                            ) : (
+                              <div style={{ textAlign: "center", padding: "16px", color: TEXT_MUTED, fontSize: "11px" }}>
+                                📊 {points.length === 1 
+                                  ? `${filter.type === "ATTENDANCE" ? (points[0].value === 1 ? "Bor (+)" : points[0].value === 0.5 ? "Kechikdi (k)" : "Kelmagan (-)") : `Baho: ${points[0].value}`} (grafik uchun kamida 2 ta nuqta kerak)` 
+                                  : "Ushbu filtr bo'yicha ma'lumotlar mavjud emas"}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1516,6 +1916,63 @@ export default function ParentDashboard() {
             {/* Sub-tab: MENU (Taomnoma) */}
             {activeSubTab === "menu" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Week Navigation Controls */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <button
+                    onClick={() => {
+                      handlePrevWeek();
+                      const d = new Date(selectedMenuDate);
+                      d.setDate(d.getDate() - 7);
+                      setSelectedMenuDate(d.toISOString().split("T")[0]);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "8px",
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: TEXT_DARK,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      transition: "all 0.15s",
+                    }}
+                    className="hover:bg-gray-50 active:scale-95"
+                  >
+                    ◀ Oldingi hafta
+                  </button>
+                  <span style={{ fontSize: "11px", fontWeight: 850, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    📅 {weekLabel(currentWeekStart)}
+                  </span>
+                  <button
+                    onClick={() => {
+                      handleNextWeek();
+                      const d = new Date(selectedMenuDate);
+                      d.setDate(d.getDate() + 7);
+                      setSelectedMenuDate(d.toISOString().split("T")[0]);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "8px",
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: TEXT_DARK,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      transition: "all 0.15s",
+                    }}
+                    className="hover:bg-gray-50 active:scale-95"
+                  >
+                    Keyingi hafta ▶
+                  </button>
+                </div>
+
                 {/* Day selector pills for the current week */}
                 <div
                   style={{
@@ -1845,7 +2302,7 @@ export default function ParentDashboard() {
                         Manzil: <span style={{ fontWeight: 500 }}>{child.address || "Kiritilmagan"}</span>
                       </div>
                       <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Tug'ilgan sana: <span style={{ fontWeight: 500 }}>{child.birthdate ? new Date(child.birthdate).toLocaleDateString("uz-UZ") : "Kiritilmagan"}</span>
+                        Tug'ilgan sana: <span style={{ fontWeight: 500 }}>{child.birthdate ? child.birthdate.split("T")[0] : "Kiritilmagan"}</span>
                       </div>
                       <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
                         Guvohnoma (INA): <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{child.ina || "Kiritilmagan"}</span>
@@ -1853,9 +2310,33 @@ export default function ParentDashboard() {
                       <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
                         Balans: <span style={{ fontWeight: 600, color: (child.balance || 0) >= 0 ? "#10B981" : "#EF4444" }}>{new Intl.NumberFormat("uz-UZ").format(child.balance || 0)} UZS</span>
                       </div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Maktab ID: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{schoolId}</span>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingStudentId(child.id);
+                          setEditAddress(child.address || "");
+                          setEditBirthDate(child.birthdate ? child.birthdate.split("T")[0] : "");
+                          setEditINA(child.ina || "");
+                          setEditError("");
+                          setShowMapPicker(false);
+                          setShowEditStudentModal(true);
+                        }}
+                        style={{
+                          marginTop: "8px",
+                          width: "100%",
+                          padding: "8px",
+                          backgroundColor: ACCENT_LIGHT,
+                          border: `1px solid ${ACCENT_MID}`,
+                          borderRadius: "10px",
+                          color: ACCENT,
+                          fontWeight: 700,
+                          fontSize: "11px",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        className="active:scale-95"
+                      >
+                        Farzand ma'lumotlarini tahrirlash
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1922,99 +2403,125 @@ export default function ParentDashboard() {
                   ⚠️ {editError}
                 </div>
               )}
-              <form onSubmit={handleUpdateStudentProfile}>
-                <div style={{ marginBottom: "12px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
-                    Manzil
-                  </label>
-                  <input
-                    type="text"
-                    value={editAddress}
-                    onChange={(e) => setEditAddress(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      border: "1px solid #E5E7EB",
-                      fontSize: "13px",
-                      color: TEXT_DARK,
-                    }}
-                    placeholder="Masalan: Toshkent sh., Chilonzor 6-daha"
-                  />
-                </div>
-                <div style={{ marginBottom: "12px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
-                    Tug'ilgan sana
-                  </label>
-                  <input
-                    type="date"
-                    value={editBirthDate}
-                    onChange={(e) => setEditBirthDate(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      border: "1px solid #E5E7EB",
-                      fontSize: "13px",
-                      color: TEXT_DARK,
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: "20px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
-                    Guvohnoma (INA)
-                  </label>
-                  <input
-                    type="text"
-                    value={editINA}
-                    onChange={(e) => setEditINA(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      border: "1px solid #E5E7EB",
-                      fontSize: "13px",
-                      color: TEXT_DARK,
-                      fontFamily: "monospace",
-                    }}
-                    placeholder="Masalan: I-TV No 123456"
-                  />
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowEditStudentModal(false)}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      backgroundColor: "#F3F4F6",
-                      border: "none",
-                      borderRadius: "8px",
-                      color: TEXT_DARK,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Bekor qilish
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editSaving}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      backgroundColor: ACCENT,
-                      border: "none",
-                      borderRadius: "8px",
-                      color: "white",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {editSaving ? "Saqlanmoqda..." : "Saqlash"}
-                  </button>
-                </div>
-              </form>
+              {showMapPicker ? (
+                <MapPicker
+                  initialAddress={editAddress}
+                  onSelectAddress={(addr) => setEditAddress(addr)}
+                  onClose={() => setShowMapPicker(false)}
+                />
+              ) : (
+                <form onSubmit={handleUpdateStudentProfile}>
+                  <div style={{ marginBottom: "12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED }}>
+                        Manzil
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapPicker(true)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: ACCENT,
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          padding: 0
+                        }}
+                      >
+                        🗺️ Xaritadan tanlash
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        borderRadius: "8px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                      }}
+                      placeholder="Masalan: Toshkent sh., Chilonzor 6-daha"
+                    />
+                  </div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                      Tug'ilgan sana
+                    </label>
+                    <input
+                      type="date"
+                      value={editBirthDate}
+                      onChange={(e) => setEditBirthDate(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        borderRadius: "8px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                      }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: "20px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                      Guvohnoma (INA)
+                    </label>
+                    <input
+                      type="text"
+                      value={editINA}
+                      onChange={(e) => setEditINA(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        borderRadius: "8px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                        fontFamily: "monospace",
+                      }}
+                      placeholder="Masalan: I-TV No 123456"
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowEditStudentModal(false)}
+                      style={{
+                        flex: 1,
+                        padding: "10px",
+                        backgroundColor: "#F3F4F6",
+                        border: "none",
+                        borderRadius: "8px",
+                        color: TEXT_DARK,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Bekor qilish
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editSaving}
+                      style={{
+                        flex: 1,
+                        padding: "10px",
+                        backgroundColor: ACCENT,
+                        border: "none",
+                        borderRadius: "8px",
+                        color: "white",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {editSaving ? "Saqlanmoqda..." : "Saqlash"}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
