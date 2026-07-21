@@ -4,6 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 
 interface UserInfo {
   id: number;
@@ -75,8 +76,317 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "journal" | "schedule" | "students" | "parents" | "unapproved"
-  const [teacherTab, setTeacherTab] = useState<"journal" | "schedule" | "students" | "parents" | "unapproved">("journal");
+  // Teacher navigation view tab: "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs"
+  const [teacherTab, setTeacherTab] = useState<"journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs">("journal");
+
+  // Feedback/Comments States
+  const [feedbackFeed, setFeedbackFeed] = useState<any[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSearch, setFeedbackSearch] = useState("");
+
+  const fetchFeedbackFeed = async (authToken: string) => {
+    setTeacherTab("feedback");
+    setFeedbackLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/comments/feed`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setFeedbackFeed(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching feedback:", err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  // All Students state (for teacher targeted announcements)
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const fetchAllStudents = async (authToken: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAllStudents(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    }
+  };
+
+  // Extracurricular Clubs States
+  const [clubs, setClubs] = useState<any[]>([]);
+  const [clubsLoading, setClubsLoading] = useState(false);
+  const [showAddClubModal, setShowAddClubModal] = useState(false);
+  const [newClubName, setNewClubName] = useState("");
+  const [newClubSubjectId, setNewClubSubjectId] = useState<number | "">("");
+  const [newClubAllowedLevels, setNewClubAllowedLevels] = useState<number[]>([]);
+  const [newClubExtraStudentIds, setNewClubExtraStudentIds] = useState<number[]>([]);
+  const [clubsError, setClubsError] = useState("");
+  const [clubsSuccess, setClubsSuccess] = useState("");
+
+  const [showClubStudentsModal, setShowClubStudentsModal] = useState(false);
+  const [selectedClubForStudents, setSelectedClubForStudents] = useState<any>(null);
+  const [clubStudents, setClubStudents] = useState<any[]>([]);
+  const [clubStudentsLoading, setClubStudentsLoading] = useState(false);
+  const [searchStudentTerm, setSearchStudentTerm] = useState("");
+
+  const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
+  const [selectedClubForSchedule, setSelectedClubForSchedule] = useState<any>(null);
+  const [newScheduleDay, setNewScheduleDay] = useState<number>(1);
+  const [newScheduleStartTime, setNewScheduleStartTime] = useState("14:00");
+  const [newScheduleEndTime, setNewScheduleEndTime] = useState("15:30");
+
+  const fetchClubs = async (authToken: string) => {
+    setClubsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setClubs(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching clubs:", err);
+    } finally {
+      setClubsLoading(false);
+    }
+  };
+
+  const handleCreateClub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClubName.trim() || !newClubSubjectId) {
+      setClubsError("To'garak nomi va fanni kiriting");
+      return;
+    }
+    setClubsError("");
+    setClubsSuccess("");
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newClubName.trim(),
+          subject_id: Number(newClubSubjectId),
+          allowed_class_levels: newClubAllowedLevels,
+          extra_student_ids: newClubExtraStudentIds,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setClubsSuccess("To'garak muvaffaqiyatli yaratildi");
+        setNewClubName("");
+        setNewClubSubjectId("");
+        setNewClubAllowedLevels([]);
+        setNewClubExtraStudentIds([]);
+        fetchClubs(token);
+        setTimeout(() => setShowAddClubModal(false), 1500);
+      } else {
+        setClubsError(data.error || "Xatolik yuz berdi");
+      }
+    } catch {
+      setClubsError("Server bilan bog'lanishda xatolik");
+    }
+  };
+
+  const fetchClubStudents = async (clubId: number) => {
+    setClubStudentsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${clubId}/students`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setClubStudents(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setClubStudentsLoading(false);
+    }
+  };
+
+  const handleAddDirectStudent = async (studentId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/add-student`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ student_id: studentId }),
+      });
+      if (response.ok) {
+        fetchClubStudents(selectedClubForStudents.id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleApproveStudent = async (studentId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/approve-student`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ student_id: studentId }),
+      });
+      if (response.ok) {
+        fetchClubStudents(selectedClubForStudents.id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveStudent = async (studentId: number) => {
+    if (!window.confirm("Ushbu o'quvchini to'garakdan chiqarmoqchimisiz?")) return;
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/remove-student`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ student_id: studentId }),
+      });
+      if (response.ok) {
+        fetchClubStudents(selectedClubForStudents.id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForSchedule.id}/schedules`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          day_of_week: Number(newScheduleDay),
+          start_time: newScheduleStartTime,
+          end_time: newScheduleEndTime,
+        }),
+      });
+      if (response.ok) {
+        fetchClubs(token);
+        setShowAddScheduleModal(false);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: number) => {
+    if (!window.confirm("Ushbu dars vaqtini o'chirmoqchimisiz?")) return;
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/schedules/${scheduleId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        fetchClubs(token);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Teacher Chat States
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [selectedChatComment, setSelectedChatComment] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replyError, setReplyError] = useState("");
+  const [replySubmitLoading, setReplySubmitLoading] = useState(false);
+
+  const fetchChatMessages = async (comment: any) => {
+    setChatLoading(true);
+    try {
+      let url = "";
+      if (comment.type === "GRADE") {
+        url = `${API_URL}/api/schools/grades/${comment.grade_id}/comments`;
+      } else {
+        const dateStr = comment.menu_date ? comment.menu_date.split("T")[0] : "";
+        url = `${API_URL}/api/schools/menu/comments?menu_date=${dateStr}&parent_id=${comment.parent_id}`;
+      }
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setChatMessages(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching chat:", err);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleReplySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+
+    setReplySubmitLoading(true);
+    setReplyError("");
+    try {
+      let url = "";
+      let body = {};
+      if (selectedChatComment.type === "GRADE") {
+        url = `${API_URL}/api/schools/grades/${selectedChatComment.grade_id}/comments`;
+        body = { content: replyText.trim() };
+      } else {
+        const dateStr = selectedChatComment.menu_date ? selectedChatComment.menu_date.split("T")[0] : "";
+        url = `${API_URL}/api/schools/menu/comments`;
+        body = {
+          menu_date: dateStr,
+          parent_id: selectedChatComment.parent_id,
+          content: replyText.trim(),
+        };
+      }
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setReplyText("");
+        fetchChatMessages(selectedChatComment);
+      } else {
+        setReplyError(data.error || "Xatolik yuz berdi");
+      }
+    } catch {
+      setReplyError("Server bilan bog'lanishda xatolik");
+    } finally {
+      setReplySubmitLoading(false);
+    }
+  };
 
   // Selection states
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
@@ -456,6 +766,13 @@ export default function TeacherDashboard() {
   useEffect(() => {
     setSelectedGradeIds(new Set());
   }, [teacherTab]);
+
+  // Load clubs when tab is clubs
+  useEffect(() => {
+    if (token && teacherTab === "clubs") {
+      fetchClubs(token);
+    }
+  }, [token, teacherTab]);
 
   // Automatically sync and lock the grade category with existing grades in this lesson
   useEffect(() => {
@@ -2238,6 +2555,48 @@ export default function TeacherDashboard() {
               >
                 Tasdiqlanmagan Baholar
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherTab("feedback");
+                  fetchFeedbackFeed(token);
+                }}
+                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
+                  teacherTab === "feedback"
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-zinc-400 hover:text-zinc-650"
+                }`}
+              >
+                💬 Fikrlar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherTab("announcements");
+                  fetchAllStudents(token);
+                }}
+                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
+                  teacherTab === "announcements"
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-zinc-400 hover:text-zinc-650"
+                }`}
+              >
+                📢 E'lonlar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherTab("clubs");
+                  fetchClubs(token);
+                }}
+                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
+                  teacherTab === "clubs"
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-zinc-400 hover:text-zinc-650"
+                }`}
+              >
+                🎯 To'garaklar
+              </button>
             </div>
 
             {/* TAB CONTENT: Grading Journal — Daily Grid */}
@@ -3139,6 +3498,141 @@ export default function TeacherDashboard() {
               </div>
             )}
 
+            {/* TAB CONTENT: Feedback / Comments Feed */}
+            {teacherTab === "feedback" && (
+              <div className="space-y-4">
+                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm text-zinc-900">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900">Ota-onalardan kelgan Fikr-mulohazalar</h3>
+                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                      Siz dars beradigan fanlar va siz rahbarlik qiladigan sinf ota-onalarining izohlari.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-lg px-3 py-1.5 shrink-0">
+                    <span className="text-zinc-400 text-xs">🔍</span>
+                    <input
+                      type="text"
+                      value={feedbackSearch}
+                      onChange={(e) => setFeedbackSearch(e.target.value)}
+                      placeholder="Qidirish..."
+                      className="bg-transparent border-none text-xs text-zinc-700 outline-none w-32 focus:w-48 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {feedbackLoading ? (
+                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
+                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+                  </div>
+                ) : feedbackFeed.length === 0 ? (
+                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl bg-white/40">
+                    <p className="text-sm font-bold text-zinc-850 mb-1">Fikrlar mavjud emas</p>
+                    <p className="text-xs text-zinc-400 font-mono">Hozircha ota-onalardan hech qanday izoh yoki fikrlar kelmagan.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {feedbackFeed
+                      .filter((f) =>
+                        f.author_name.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+                        f.content.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+                        (f.subject_name && f.subject_name.toLowerCase().includes(feedbackSearch.toLowerCase())) ||
+                        (f.student_name && f.student_name.toLowerCase().includes(feedbackSearch.toLowerCase()))
+                      )
+                      .map((f) => {
+                        const isGrade = f.type === "GRADE";
+                        return (
+                          <div
+                            key={f.id + "-" + f.type}
+                            className="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm hover:border-zinc-300 transition text-zinc-900 space-y-3"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-2">
+                              <div className="flex items-center space-x-2">
+                                {isGrade ? (
+                                  <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                                    📝 Bahoga izoh
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-250 px-2 py-0.5 rounded-md">
+                                    🍽️ Taomnomaga izoh
+                                  </span>
+                                )}
+                                <span className="text-xs font-bold text-zinc-800">{f.author_name}</span>
+                                <span className="text-[10px] text-zinc-450">Ota-ona</span>
+                              </div>
+                              <span className="text-[10px] text-zinc-450 font-mono">
+                                {new Date(f.created_at).toLocaleString("uz-UZ", {
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+
+                            {isGrade ? (
+                              <div className="flex items-center space-x-3 bg-zinc-50 border border-zinc-150 p-2.5 rounded-lg text-xs">
+                                <div className="w-8 h-8 rounded-md bg-emerald-50 border border-emerald-250 text-emerald-700 font-bold flex items-center justify-center font-mono">
+                                  {f.grade_value}
+                                </div>
+                                <div>
+                                  <span className="text-zinc-800 font-bold block">{f.subject_name}</span>
+                                  <span className="text-zinc-500 text-[10px]">
+                                    O&apos;quvchi: <b>{f.student_name}</b> ({f.class_name} sinfi)
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-zinc-50 border border-zinc-150 p-2.5 rounded-lg text-xs font-semibold text-zinc-700">
+                                🍽️ Taomnoma kuni: {new Date(f.menu_date || "").toLocaleDateString("uz-UZ", {
+                                  weekday: "long",
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric"
+                                })}
+                              </div>
+                            )}
+
+                            <div className="text-xs text-zinc-700 bg-zinc-50/50 p-3 rounded-lg border border-zinc-150 font-medium leading-relaxed italic">
+                              &ldquo;{f.content}&rdquo;
+                            </div>
+
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedChatComment(f);
+                                  setReplyText("");
+                                  setReplyError("");
+                                  setChatModalOpen(true);
+                                  fetchChatMessages(f);
+                                }}
+                                className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                              >
+                                💬 Chatni ochish
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB CONTENT: Announcements */}
+            {teacherTab === "announcements" && (
+              <AnnouncementsSection
+                token={token}
+                classes={classes}
+                students={allStudents}
+                apiUrl={API_URL}
+                isTeacher={true}
+                currentUserId={userInfo?.id}
+              />
+            )}
+
             {/* TAB CONTENT: Parents List */}
             {teacherTab === "parents" && (
               <div className="space-y-4">
@@ -3235,6 +3729,126 @@ export default function TeacherDashboard() {
                 )}
               </div>
             )}
+
+            {/* TAB CONTENT: Extracurricular Clubs */}
+            {teacherTab === "clubs" && (
+              <div className="space-y-4">
+                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm text-zinc-900">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900">To'garaklar (To'garak faoliyati)</h3>
+                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                      Foydalanuvchilarga o'z fanlaringizdan to'garaklar tashkil qilish va jadvallarni boshqarish
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClubsError("");
+                        setClubsSuccess("");
+                        setNewClubName("");
+                        setNewClubSubjectId("");
+                        setNewClubAllowedLevels([]);
+                        setNewClubExtraStudentIds([]);
+                        setShowAddClubModal(true);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer"
+                    >
+                      + Yangi to'garak
+                    </button>
+                  </div>
+                </div>
+
+                {clubsLoading ? (
+                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
+                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+                  </div>
+                ) : clubs.length === 0 ? (
+                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl bg-white/40">
+                    <p className="text-sm font-bold text-zinc-800 mb-1">To'garaklar mavjud emas</p>
+                    <p className="text-xs text-zinc-400 font-mono">Siz yaratgan to'garaklar hali yo'q. "+ Yangi to'garak" tugmasi orqali yaratishingiz mumkin.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {clubs.map((club) => (
+                      <div key={club.id} className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-sm space-y-4 text-zinc-900 relative">
+                        <div className="flex items-start justify-between gap-2 border-b border-zinc-100 pb-3">
+                          <div>
+                            <span className="text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md font-mono">
+                              {club.subject_name}
+                            </span>
+                            <h4 className="text-sm font-bold text-zinc-800 mt-1">{club.name}</h4>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">
+                              Ruxsat etilgan sinflar: {club.allowed_class_levels ? club.allowed_class_levels.join(", ") + " - sinflar" : "Barchasi"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedClubForStudents(club);
+                                setSearchStudentTerm("");
+                                setClubStudents([]);
+                                fetchClubStudents(club.id);
+                                setShowClubStudentsModal(true);
+                              }}
+                              className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                            >
+                              A'zolar & So'rovlar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedClubForSchedule(club);
+                                setNewScheduleDay(1);
+                                setNewScheduleStartTime("14:00");
+                                setNewScheduleEndTime("15:30");
+                                setShowAddScheduleModal(true);
+                              }}
+                              className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                            >
+                              + Jadval
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Schedule list for the club */}
+                        <div className="space-y-2">
+                          <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">📅 To'garak Jadvali</h5>
+                          {(!club.schedules || club.schedules.length === 0) ? (
+                            <p className="text-xs text-zinc-400 font-medium italic">Hali dars jadvali belgilanmagan</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {club.schedules.map((sch: any) => {
+                                const days = ["", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"];
+                                return (
+                                  <div key={sch.id} className="flex items-center justify-between bg-zinc-50 border border-zinc-150 p-2 rounded-lg text-xs">
+                                    <div className="font-semibold text-zinc-750">
+                                      <span className="font-bold text-zinc-900">{days[sch.day_of_week]}</span>
+                                      <span className="block text-[10px] text-zinc-400 font-mono mt-0.5">{sch.start_time} - {sch.end_time}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSchedule(sch.id)}
+                                      className="text-red-500 hover:text-red-750 font-bold px-1.5 py-0.5 text-xs transition cursor-pointer"
+                                      title="O'chirish"
+                                    >
+                                      &times;
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
       </main>
@@ -3616,6 +4230,107 @@ export default function TeacherDashboard() {
       {renderImportParentsModal()}
       {renderImportStudentsModal()}
       {renderAddParentModal()}
+      {renderAddClubModal()}
+      {renderAddScheduleModal()}
+      {renderClubStudentsModal()}
+
+      {chatModalOpen && selectedChatComment && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 w-full max-w-[450px] shadow-2xl flex flex-col max-h-[90vh] text-zinc-900">
+            <div className="flex justify-between items-start mb-3 border-b border-zinc-150 pb-2">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900">💬 Muhokama (Chat)</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">
+                  Ota-ona: <b>{selectedChatComment.author_name}</b>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChatModalOpen(false)}
+                className="text-zinc-450 hover:text-zinc-700 text-xl border-none background-none cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Chat messages */}
+            <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-150 rounded-xl p-3 mb-4 bg-zinc-50 flex flex-col gap-2.5 flex-1">
+              {chatLoading && chatMessages.length === 0 ? (
+                <div className="text-center py-6 text-xs text-zinc-400">Yuklanmoqda...</div>
+              ) : chatMessages.length === 0 ? (
+                <div className="text-center py-6 text-xs text-zinc-450 italic">Xabarlar yo'q.</div>
+              ) : (
+                chatMessages.map((msg, idx) => {
+                  const isMyMessage = msg.author_id === userInfo?.id;
+                  return (
+                    <div
+                      key={msg.id || idx}
+                      style={{
+                        alignSelf: isMyMessage ? "flex-end" : "flex-start",
+                        maxWidth: "80%",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      {!isMyMessage && (
+                        <span style={{ fontSize: "9px", color: "#9CA3AF", marginBottom: "2px", fontWeight: 700 }}>
+                          {msg.author_name} ({msg.role === "PARENT" ? "Ota-ona" : "Maktab"})
+                        </span>
+                      )}
+                      <div
+                        style={{
+                          backgroundColor: isMyMessage ? "#10B981" : "#E5E7EB",
+                          color: isMyMessage ? "white" : "#374151",
+                          borderRadius: "12px",
+                          padding: "8px 12px",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          lineHeight: "1.4",
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "8px",
+                          color: "#9CA3AF",
+                          marginTop: "2px",
+                          alignSelf: isMyMessage ? "flex-end" : "flex-start",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {new Date(msg.created_at).toLocaleTimeString("uz-UZ", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {replyError && <div className="text-xs text-red-500 font-semibold mb-2">⚠️ {replyError}</div>}
+
+            <form onSubmit={handleReplySubmit} className="flex gap-2 items-end">
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                rows={2}
+                className="flex-1 p-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 outline-none resize-none focus:border-emerald-600 transition"
+                placeholder="Javobingizni yozing..."
+              />
+              <button
+                type="submit"
+                disabled={replySubmitLoading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition cursor-pointer h-10 flex items-center justify-center shrink-0"
+              >
+                {replySubmitLoading ? "..." : "Yuborish"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -4013,6 +4728,335 @@ export default function TeacherDashboard() {
       </div>
     );
   }
+
+  // 1. Add Club Modal
+  function renderAddClubModal() {
+    if (!showAddClubModal) return null;
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900">Yangi To'garak Yaratish</h3>
+              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">Fan to'garagini tashkil etish</p>
+            </div>
+            <button
+              onClick={() => setShowAddClubModal(false)}
+              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+            >
+              &times;
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateClub} className="p-6 overflow-y-auto space-y-4">
+            {clubsError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs font-semibold rounded-lg">
+                {clubsError}
+              </div>
+            )}
+            {clubsSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-250 text-emerald-800 text-xs font-semibold rounded-lg">
+                {clubsSuccess}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">To'garak nomi *</label>
+              <input
+                type="text"
+                required
+                value={newClubName}
+                onChange={(e) => setNewClubName(e.target.value)}
+                className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                placeholder="Masalan: Yosh Fiziklar"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Fan *</label>
+              <select
+                required
+                value={newClubSubjectId}
+                onChange={(e) => setNewClubSubjectId(Number(e.target.value))}
+                className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold cursor-pointer"
+              >
+                <option value="">-- Fanni tanlang --</option>
+                {subjects.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">Ruxsat etilgan sinflar (Level)*</label>
+              <div className="grid grid-cols-4 gap-2 border border-zinc-150 p-3 rounded-lg bg-zinc-50/30">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => {
+                  const isChecked = newClubAllowedLevels.includes(lvl);
+                  return (
+                    <label key={lvl} className="flex items-center space-x-1.5 text-xs font-semibold text-zinc-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewClubAllowedLevels([...newClubAllowedLevels, lvl]);
+                          } else {
+                            setNewClubAllowedLevels(newClubAllowedLevels.filter((x) => x !== lvl));
+                          }
+                        }}
+                        className="w-3.5 h-3.5 text-emerald-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
+                      />
+                      <span>{lvl}-sinf</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddClubModal(false)}
+                className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+              >
+                Yopish
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Tashkil qilish
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // 2. Add Schedule Modal
+  function renderAddScheduleModal() {
+    if (!showAddScheduleModal || !selectedClubForSchedule) return null;
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900">Jadval qo'shish</h3>
+              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">{selectedClubForSchedule.name} to'garagi uchun</p>
+            </div>
+            <button
+              onClick={() => setShowAddScheduleModal(false)}
+              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+            >
+              &times;
+            </button>
+          </div>
+
+          <form onSubmit={handleAddSchedule} className="p-6 space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Hafta kuni *</label>
+              <select
+                value={newScheduleDay}
+                onChange={(e) => setNewScheduleDay(Number(e.target.value))}
+                className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold cursor-pointer"
+              >
+                <option value={1}>Dushanba</option>
+                <option value={2}>Seshanba</option>
+                <option value={3}>Chorshanba</option>
+                <option value={4}>Payshanba</option>
+                <option value={5}>Juma</option>
+                <option value={6}>Shanba</option>
+                <option value={7}>Yakshanba</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Boshlanish vaqti *</label>
+                <input
+                  type="time"
+                  required
+                  value={newScheduleStartTime}
+                  onChange={(e) => setNewScheduleStartTime(e.target.value)}
+                  className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Tugash vaqti *</label>
+                <input
+                  type="time"
+                  required
+                  value={newScheduleEndTime}
+                  onChange={(e) => setNewScheduleEndTime(e.target.value)}
+                  className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddScheduleModal(false)}
+                className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+              >
+                Yopish
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Saqlash
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // 3. Club Students Modal
+  function renderClubStudentsModal() {
+    if (!showClubStudentsModal || !selectedClubForStudents) return null;
+
+    // Filter students to search in all school students or class students to directly add
+    const filteredToDirectAdd = studentsTabList.filter((st) => {
+      const fullName = `${st.first_name} ${st.last_name}`.toLowerCase();
+      // Already a member?
+      const isMember = clubStudents.some((cs) => cs.student_id === st.id || cs.student_id === st.student_id);
+      return fullName.includes(searchStudentTerm.toLowerCase()) && !isMember;
+    });
+
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900">A'zolar va Qo'shilish So'rovlari</h3>
+              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">{selectedClubForStudents.name} to'garagi</p>
+            </div>
+            <button
+              onClick={() => setShowClubStudentsModal(false)}
+              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+            >
+              &times;
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto space-y-6 flex-1 text-zinc-900">
+            {/* Direct Add Student Section */}
+            <div className="bg-zinc-50 border border-zinc-200/80 rounded-xl p-4 space-y-3">
+              <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wide">To'g'ridan-to'g'ri o'quvchi qo'shish</h4>
+              <div className="flex items-center gap-2 bg-white border border-zinc-200/80 rounded-lg px-3 py-1.5">
+                <span className="text-zinc-400 text-xs">🔍</span>
+                <input
+                  type="text"
+                  value={searchStudentTerm}
+                  onChange={(e) => setSearchStudentTerm(e.target.value)}
+                  placeholder="Ism-familiya bo'yicha qidirish..."
+                  className="bg-transparent border-none text-xs text-zinc-700 outline-none w-full focus:ring-0"
+                />
+              </div>
+
+              {searchStudentTerm.trim() !== "" && (
+                <div className="max-h-32 overflow-y-auto border border-zinc-150 rounded-lg bg-white divide-y divide-zinc-100">
+                  {filteredToDirectAdd.length === 0 ? (
+                    <p className="text-xs text-zinc-450 p-3 italic">O'quvchi topilmadi yoki barchasi a'zo</p>
+                  ) : (
+                    filteredToDirectAdd.map((st) => (
+                      <div key={st.id || st.student_id} className="flex items-center justify-between p-2 text-xs hover:bg-zinc-50/50 transition">
+                        <span className="font-semibold text-zinc-800">{st.first_name} {st.last_name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleAddDirectStudent(st.id || st.student_id)}
+                          className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-[10px] py-1 px-2.5 rounded transition cursor-pointer"
+                        >
+                          Qo'shish
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* List of current requests & members */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wide">To'garakdagilar ro'yxati</h4>
+              {clubStudentsLoading ? (
+                <div className="text-center py-6">
+                  <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
+                  <p className="text-[10px] text-zinc-400 font-mono">Yuklanmoqda...</p>
+                </div>
+              ) : clubStudents.length === 0 ? (
+                <p className="text-xs text-zinc-450 italic text-center py-4 bg-zinc-50 border border-dashed border-zinc-200 rounded-lg">Hozircha a'zolar yoki so'rovlar mavjud emas.</p>
+              ) : (
+                <div className="border border-zinc-150 rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-zinc-150 text-left text-xs bg-white">
+                    <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-2">F.I.SH</th>
+                        <th className="px-4 py-2">Sinfi</th>
+                        <th className="px-4 py-2">Holati</th>
+                        <th className="px-4 py-2 text-right">Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {clubStudents.map((cs) => (
+                        <tr key={cs.id} className="hover:bg-zinc-50/50 transition">
+                          <td className="px-4 py-2.5 font-semibold text-zinc-900">{cs.student_name}</td>
+                          <td className="px-4 py-2.5 font-mono text-zinc-500">{cs.class_name}</td>
+                          <td className="px-4 py-2.5">
+                            {cs.status === "PENDING" ? (
+                              <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                                Kutilmoqda (Ariza)
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                                A'zo ✓
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right space-x-2">
+                            {cs.status === "PENDING" && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveStudent(cs.student_id)}
+                                className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-2 rounded-md transition cursor-pointer"
+                              >
+                                Tasdiqlash
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveStudent(cs.student_id)}
+                              className="text-[10px] bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 font-bold py-1 px-2 rounded-md transition cursor-pointer"
+                            >
+                              {cs.status === "PENDING" ? "Rad etish" : "Chiqarish"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="px-6 py-3 border-t border-zinc-150 bg-zinc-50 text-right">
+            <button
+              onClick={() => setShowClubStudentsModal(false)}
+              className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+            >
+              Yopish
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   function renderAddParentModal() {
     if (!showAddParentModal) return null;

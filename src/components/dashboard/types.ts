@@ -81,3 +81,13 @@ export interface GradingSystem {
   is_active: boolean;
   options?: any;
 }
+
+export interface AnnouncementItem {
+  id: number;
+  title: string;
+  content: string;
+  author_id: number;
+  author_name?: string;
+  class_ids?: number[];
+  created_at: string;
+}

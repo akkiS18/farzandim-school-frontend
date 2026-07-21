@@ -11,6 +11,8 @@ import SubjectsSection from "@/components/dashboard/SubjectsSection";
 import GradingSystemsSection from "@/components/dashboard/GradingSystemsSection";
 import MenuSection from "@/components/dashboard/MenuSection";
 import BalanceSection from "@/components/dashboard/BalanceSection";
+import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
+import FeedbackSection from "@/components/dashboard/FeedbackSection";
 
 // Types
 import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/components/dashboard/types";
@@ -27,7 +29,7 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance">("classes");
+  const [activeMenu, setActiveMenu] = useState<"classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram">("classes");
 
   // Core Data Lists
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -45,6 +47,76 @@ export default function TenantDashboard() {
 
   // Contextual selected class
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
+
+  // Telegram Bot Integration States
+  const [telegramToken, setTelegramToken] = useState("");
+  const [telegramConfig, setTelegramConfig] = useState<any>(null);
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramSaveLoading, setTelegramSaveLoading] = useState(false);
+  const [telegramError, setTelegramError] = useState("");
+  const [telegramSuccess, setTelegramSuccess] = useState("");
+
+  const fetchTelegramConfig = async (authToken: string, sId: string) => {
+    setTelegramLoading(true);
+    setTelegramError("");
+    setTelegramSuccess("");
+    try {
+      const response = await fetch(`${API_URL}/api/schools/telegram/config`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "X-School-ID": sId,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setTelegramConfig(data);
+        if (data.has_token) {
+          setTelegramToken(data.bot_token);
+        } else {
+          setTelegramToken("");
+        }
+      } else {
+        setTelegramError(data.error || "Sozlamalarni yuklashda xatolik");
+      }
+    } catch {
+      setTelegramError("Server bilan bog'lanishda xatolik");
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleSaveTelegramConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!telegramToken.trim()) {
+      setTelegramError("Token kiritish majburiy");
+      return;
+    }
+    setTelegramSaveLoading(true);
+    setTelegramError("");
+    setTelegramSuccess("");
+    try {
+      const response = await fetch(`${API_URL}/api/schools/telegram/config`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": schoolId,
+        },
+        body: JSON.stringify({ bot_token: telegramToken.trim() }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setTelegramSuccess(data.message || "Muvaffaqiyatli saqlandi");
+        fetchTelegramConfig(token, schoolId);
+      } else {
+        setTelegramError(data.error || "Saqlashda xatolik yuz berdi");
+      }
+    } catch {
+      setTelegramError("Serverga bog'lanishda xatolik");
+    } finally {
+      setTelegramSaveLoading(false);
+    }
+  };
 
   // Change Password Modal States
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -82,6 +154,12 @@ export default function TenantDashboard() {
 
     loadInitialData(savedToken);
   }, [router]);
+
+  useEffect(() => {
+    if (activeMenu === "telegram" && token && schoolId) {
+      fetchTelegramConfig(token, schoolId);
+    }
+  }, [activeMenu, token, schoolId]);
 
   const loadInitialData = async (authToken: string) => {
     setLoading(true);
@@ -338,6 +416,101 @@ export default function TenantDashboard() {
               globalTransactionsLoading={globalTransactionsLoading}
               setGlobalTransactionsLoading={setGlobalTransactionsLoading}
             />
+          )}
+
+          {activeMenu === "announcements" && (
+            <AnnouncementsSection
+              token={token}
+              classes={classes}
+              students={studentsBalanceList}
+              apiUrl={API_URL}
+            />
+          )}
+
+          {activeMenu === "feedback" && (
+            <FeedbackSection
+              token={token}
+              apiUrl={API_URL}
+            />
+          )}
+
+          {activeMenu === "telegram" && (
+            <div className="space-y-6 max-w-2xl mx-auto mt-6">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-sm space-y-6 text-zinc-100">
+                <div className="border-b border-zinc-800 pb-4">
+                  <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
+                    <span>🤖 Telegram Bot Integratsiyasi</span>
+                  </h3>
+                  <p className="text-xs text-zinc-405 font-medium mt-1 leading-relaxed">
+                    Maktabingiz ota-onalariga baholar va e'lonlarni shaxsiy Telegram bot orqali yuborishni sozlang. Har bir maktab o'z xususiy botiga ega bo'lishi mumkin.
+                  </p>
+                </div>
+
+                {telegramLoading ? (
+                  <div className="text-center py-12">
+                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-xs text-zinc-500 font-mono">Yuklanmoqda...</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveTelegramConfig} className="space-y-4">
+                    {telegramError && (
+                      <div className="p-3 bg-red-950/20 border border-red-900/30 text-red-400 text-xs font-semibold rounded-lg">
+                        {telegramError}
+                      </div>
+                    )}
+                    {telegramSuccess && (
+                      <div className="p-3 bg-emerald-950/20 border border-emerald-900/30 text-emerald-400 text-xs font-semibold rounded-lg">
+                        {telegramSuccess}
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-extrabold text-zinc-400 uppercase tracking-wide font-mono">
+                        Telegram Bot Token *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={telegramToken}
+                        onChange={(e) => setTelegramToken(e.target.value)}
+                        className="w-full text-xs border border-zinc-800 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-zinc-650 bg-zinc-950/50 font-mono font-bold text-zinc-200"
+                        placeholder="Masalan: 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                      />
+                      <span className="block text-[10px] text-zinc-500 leading-normal">
+                        Bot tokenini olish uchun Telegram-da <b>@BotFather</b> orqali yangi bot yarating va u bergan API Tokenni shu yerga kiriting.
+                      </span>
+                    </div>
+
+                    {telegramConfig?.has_token && (
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-2">
+                        <span className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider block font-mono">
+                          🤖 Ulanish Sozlamalari:
+                        </span>
+                        <div className="text-xs space-y-1.5 text-zinc-300 font-semibold">
+                          <p>
+                            Bot nomi: <a href={`https://t.me/${telegramConfig.bot_username}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@{telegramConfig.bot_username}</a>
+                          </p>
+                          <p>
+                            Ota-onalar uchun taklif havolasi: <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-[10px] select-all font-mono text-emerald-400 border border-zinc-800">https://t.me/{telegramConfig.bot_username}?start=1</code>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-2 border-t border-zinc-800">
+                      <button
+                        type="submit"
+                        disabled={telegramSaveLoading}
+                        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                      >
+                        {telegramSaveLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                        <span>Botni ulash & Saqlash</span>
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
           )}
 
         </div>

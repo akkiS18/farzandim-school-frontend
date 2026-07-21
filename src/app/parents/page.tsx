@@ -35,6 +35,7 @@ interface UserInfo {
   phone?: string;
   email?: string;
   passport?: string;
+  telegram_id?: string;
 }
 
 interface StudentChild {
@@ -189,9 +190,9 @@ function gradeBorder(val: number | null): string {
 }
 
 function getGradeTypeDisplayName(type: string): string {
-  if (type === "MASTERY") return "📚 O'zlashtirish";
-  if (type === "BEHAVIOR") return "🧠 Xulqi";
-  if (type === "ATTENDANCE") return "⏰ Davomat";
+  if (type === "MASTERY") return "O'zlashtirish";
+  if (type === "BEHAVIOR") return "Xulqi";
+  if (type === "ATTENDANCE") return "Davomat";
   return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
@@ -289,12 +290,99 @@ export default function ParentDashboard() {
   // Bottom navigation state: "home" | "settings"
   const [activeTab, setActiveTab] = useState<"home" | "settings">("home");
 
-  // Home view sub-tabs: "diary" | "dynamics" | "announcements" | "menu" | "balance"
-  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "announcements" | "menu" | "balance">("diary");
+  // Home view sub-tabs: "diary" | "dynamics" | "announcements" | "menu" | "balance" | "comments" | "clubs"
+  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "announcements" | "menu" | "balance" | "comments" | "clubs">("diary");
+
+  // Extracurricular Clubs States for parents
+  const [clubs, setClubs] = useState<any[]>([]);
+  const [clubsLoading, setClubsLoading] = useState(false);
+  const [joinRequestLoading, setJoinRequestLoading] = useState<number | null>(null);
+
+  const fetchClubs = async (authToken: string, childId: number) => {
+    setClubsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs?student_id=${childId}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setClubs(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching clubs:", err);
+    } finally {
+      setClubsLoading(false);
+    }
+  };
+
+  const handleRequestJoinClub = async (clubId: number) => {
+    if (!selectedChildId) return;
+    setJoinRequestLoading(clubId);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${clubId}/request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ student_id: Number(selectedChildId) }),
+      });
+      if (response.ok) {
+        fetchClubs(token, Number(selectedChildId));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setJoinRequestLoading(null);
+    }
+  };
+
+  const handleCancelClubRequest = async (clubId: number) => {
+    if (!selectedChildId) return;
+    if (!window.confirm("Haqiqatan ham so'rovni bekor qilmoqchimisiz yoki to'garakdan chiqmoqchimisiz?")) return;
+    setJoinRequestLoading(clubId);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/clubs/${clubId}/cancel-request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ student_id: Number(selectedChildId) }),
+      });
+      if (response.ok) {
+        fetchClubs(token, Number(selectedChildId));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setJoinRequestLoading(null);
+    }
+  };
 
   // Auth
   const [token, setToken] = useState("");
   const [schoolId, setSchoolId] = useState("");
+
+  // Telegram Configuration
+  const [telegramConfig, setTelegramConfig] = useState<{ bot_username: string; has_token: boolean } | null>(null);
+
+  const fetchTelegramConfig = async (authToken: string, sId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/telegram/config`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "X-School-ID": sId,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setTelegramConfig(data);
+      }
+    } catch (err) {
+      console.error("Error fetching telegram config:", err);
+    }
+  };
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -371,33 +459,179 @@ export default function ParentDashboard() {
   const [editParentSaving, setEditParentSaving] = useState(false);
   const [editParentError, setEditParentError] = useState("");
 
-  // Announcements (static demo data)
-  const [announcements] = useState<Announcement[]>([
-    {
-      id: 1,
-      title: "Chorak yakuni va ota-onalar majlisi",
-      content:
-        "Joriy chorak yakunlanishi munosabati bilan barcha ota-onalar uchun juma kuni soat 17:00 da umumiy majlis bo'lib o'tadi. Farzandingiz kundaligini tekshirib kelishingiz so'raladi.",
-      date: new Date().toLocaleDateString("uz-UZ"),
-      author: "Maktab Ma'muriyati",
-    },
-    {
-      id: 2,
-      title: "Matematika fanidan qo'shimcha to'garak",
-      content:
-        "Shanba kunlari soat 10:00 da o'quvchilar uchun matematika fanidan bepul olimpiadaga tayyorgarlik darslari boshlanmoqda.",
-      date: new Date(Date.now() - 86400000).toLocaleDateString("uz-UZ"),
-      author: "Matematika o'qituvchisi",
-    },
-    {
-      id: 3,
-      title: "Maktab uniformasi haqida eslatma",
-      content:
-        "Barcha o'quvchilar dushanbadan boshlab maktab formasida kelishi shart. Batafsil ma'lumot uchun sinf rahbariga murojaat qiling.",
-      date: new Date(Date.now() - 2 * 86400000).toLocaleDateString("uz-UZ"),
-      author: "Direktor o'rinbosari",
-    },
-  ]);
+  // Double-click comments state
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [commentTargetType, setCommentTargetType] = useState<"GRADE" | "MENU" | null>(null);
+  const [selectedCommentGrade, setSelectedCommentGrade] = useState<any>(null);
+  const [selectedCommentMenuDate, setSelectedCommentMenuDate] = useState<string>("");
+  const [selectedCommentMealLabel, setSelectedCommentMealLabel] = useState<string>("");
+  const [commentText, setCommentText] = useState("");
+  const [commentSubmitLoading, setCommentSubmitLoading] = useState(false);
+  const [commentError, setCommentError] = useState("");
+  const [commentSuccess, setCommentSuccess] = useState("");
+
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const fetchChatMessages = async (targetTypeStr: string, targetIdOrDate: any, parentIdVal?: number) => {
+    setChatLoading(true);
+    try {
+      let url = "";
+      if (targetTypeStr === "GRADE") {
+        url = `${API_URL}/api/schools/grades/${targetIdOrDate}/comments`;
+      } else {
+        const parentIdParam = parentIdVal || userInfo?.id || "";
+        url = `${API_URL}/api/schools/menu/comments?menu_date=${targetIdOrDate}&parent_id=${parentIdParam}`;
+      }
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": schoolId || "",
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setChatMessages(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching chat:", err);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const [feedbackFeed, setFeedbackFeed] = useState<any[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  const fetchFeedbackFeed = async () => {
+    setFeedbackLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/comments/feed`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": schoolId || "",
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setFeedbackFeed(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching comments feed:", err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const handleGradeDoubleClick = (grade: any) => {
+    setSelectedCommentGrade(grade);
+    setCommentTargetType("GRADE");
+    setCommentText("");
+    setCommentError("");
+    setCommentSuccess("");
+    setCommentModalOpen(true);
+    fetchChatMessages("GRADE", grade.id);
+  };
+
+  const handleMenuDoubleClick = (dateStr: string, mealLabel: string) => {
+    setSelectedCommentMenuDate(dateStr);
+    setSelectedCommentMealLabel(mealLabel);
+    setCommentTargetType("MENU");
+    setCommentText("");
+    setCommentError("");
+    setCommentSuccess("");
+    setCommentModalOpen(true);
+    fetchChatMessages("MENU", dateStr, userInfo?.id);
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim()) {
+      setCommentError("Komment matni bo'sh bo'lishi mumkin emas");
+      return;
+    }
+
+    setCommentSubmitLoading(true);
+    setCommentError("");
+    setCommentSuccess("");
+
+    try {
+      let url = "";
+      let body = {};
+
+      if (commentTargetType === "GRADE") {
+        url = `${API_URL}/api/schools/grades/${selectedCommentGrade.id}/comments`;
+        body = { content: commentText.trim() };
+      } else {
+        url = `${API_URL}/api/schools/menu/comments`;
+        body = {
+          menu_date: selectedCommentMenuDate,
+          content: commentText.trim(),
+        };
+      }
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": schoolId || "",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setCommentText("");
+        if (commentTargetType === "GRADE") {
+          fetchChatMessages("GRADE", selectedCommentGrade.id);
+        } else {
+          fetchChatMessages("MENU", selectedCommentMenuDate, userInfo?.id);
+        }
+      } else {
+        setCommentError(data.error || "Xatolik yuz berdi");
+      }
+    } catch {
+      setCommentError("Server bilan bog'lanishda xatolik yuz berdi");
+    } finally {
+      setCommentSubmitLoading(false);
+    }
+  };
+
+  // Announcements (dynamic API data)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+
+  const fetchAnnouncements = async (authToken: string, currentSchoolId: string) => {
+    setAnnouncementsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/announcements`, {
+        headers: { 
+          Authorization: `Bearer ${authToken}`,
+          "X-School-ID": currentSchoolId
+        },
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          date: new Date(item.created_at).toLocaleDateString("uz-UZ", {
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+          }),
+          author: item.author_name || "Maktab Ma'muriyati",
+        }));
+        setAnnouncements(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to fetch announcements:", err);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
 
   /* ── Auth & initial load ── */
   useEffect(() => {
@@ -422,6 +656,8 @@ export default function ParentDashboard() {
       fetchParentInfo(savedToken, parsedUser.id, savedSchoolId);
       fetchLinkedChildren(savedToken, parsedUser.id, savedSchoolId);
       fetchGradingSystems(savedToken, savedSchoolId);
+      fetchAnnouncements(savedToken, savedSchoolId);
+      fetchTelegramConfig(savedToken, savedSchoolId);
     } catch {
       router.push("/login");
     }
@@ -682,6 +918,10 @@ export default function ParentDashboard() {
         fetchBalanceHistory(selectedChildId);
       } else if (activeSubTab === "menu") {
         fetchMenu(selectedMenuDate);
+      } else if (activeSubTab === "comments") {
+        fetchFeedbackFeed();
+      } else if (activeSubTab === "clubs") {
+        fetchClubs(token, Number(selectedChildId));
       }
     }
   }, [selectedChildId, selectedMenuDate, activeSubTab, token]);
@@ -1046,6 +1286,10 @@ export default function ParentDashboard() {
           border-bottom: 2px solid transparent;
           transition: all 0.15s;
           text-align: center;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
         }
         .sub-tab-btn.active {
           color: ${ACCENT};
@@ -1346,35 +1590,70 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("diary")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                📓 Kundalik
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+                Kundalik
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "dynamics" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("dynamics")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                📈 Dinamika
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+                </svg>
+                Dinamika
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "announcements" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("announcements")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                📢 E&apos;lonlar
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a9.049 9.049 0 01-5.197-3.093M14.857 17.082a9.049 9.049 0 005.197-3.093M9 18.75a3 3 0 006 0M19.5 10.5a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
+                </svg>
+                E&apos;lonlar
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "menu" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("menu")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                🍽️ Taomnoma
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+                Taomnoma
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "balance" ? " active" : ""}`}
                 onClick={() => setActiveSubTab("balance")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                💳 Balans
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 8.25h15m-15.5-12.75h16.5A2.25 2.25 0 0122 7.5v11.25A2.25 2.25 0 0119.5 21H4.5A2.25 2.25 0 012 18.75V7.5A2.25 2.25 0 014.5 5.25z" />
+                </svg>
+                Balans
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "comments" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("comments")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                </svg>
+                Murojaatlar
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "clubs" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("clubs")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                </svg>
+                To'garaklar
               </button>
             </div>
 
@@ -1400,16 +1679,30 @@ export default function ParentDashboard() {
                     style={{
                       border: "none",
                       background: "transparent",
-                      fontSize: "12px",
-                      fontWeight: 700,
                       color: ACCENT,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: "4px",
+                      justifyContent: "center",
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      backgroundColor: "#EEF2FF",
+                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
+                      transition: "all 0.15s ease",
                     }}
+                    title="Oldingi hafta"
                   >
-                    ⬅️ Oldingi hafta
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={3}
+                      stroke="currentColor"
+                      style={{ width: "14px", height: "14px" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
                   </button>
 
                   <span
@@ -1417,9 +1710,25 @@ export default function ParentDashboard() {
                       fontSize: "12px",
                       fontWeight: 800,
                       color: TEXT_DARK,
+                      display: "flex",
+                      alignItems: "center",
                     }}
                   >
-                    📅 {weekLabel(currentWeekStart)}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                      style={{ width: "14px", height: "14px", marginRight: "4px", color: ACCENT }}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                      />
+                    </svg>
+                    {weekLabel(currentWeekStart)}
                   </span>
 
                   <button
@@ -1427,16 +1736,30 @@ export default function ParentDashboard() {
                     style={{
                       border: "none",
                       background: "transparent",
-                      fontSize: "12px",
-                      fontWeight: 700,
                       color: ACCENT,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: "4px",
+                      justifyContent: "center",
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      backgroundColor: "#EEF2FF",
+                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
+                      transition: "all 0.15s ease",
                     }}
+                    title="Keyingi hafta"
                   >
-                    Keyingi hafta ➡️
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={3}
+                      stroke="currentColor"
+                      style={{ width: "14px", height: "14px" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
                   </button>
                 </div>
 
@@ -1466,6 +1789,7 @@ export default function ParentDashboard() {
                           rows={dayData.rows}
                           onApprove={handleParentApprove}
                           approvingId={approveLoading}
+                          onGradeDoubleClick={handleGradeDoubleClick}
                         />
                       ))}
                     </div>
@@ -1496,7 +1820,10 @@ export default function ParentDashboard() {
                           letterSpacing: "0.5px",
                         }}
                       >
-                        ✍️ Kundalikni tasdiqlash (Ota-ona imzosi)
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px", marginRight: "5px", display: "inline-block", verticalAlign: "middle" }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.83 20.013a4.5 4.5 0 01-1.897 1.13l-3.82.85.85-3.82a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                        </svg>
+                        Kundalikni tasdiqlash (Ota-ona imzosi)
                       </div>
 
                       <div
@@ -1683,6 +2010,7 @@ export default function ParentDashboard() {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
+                                marginBottom: "8px",
                               }}
                             >
                               <span style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
@@ -1708,88 +2036,124 @@ export default function ParentDashboard() {
                             </div>
 
                             {/* Dropdowns Row */}
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                              {/* Grade Type Select */}
-                              <select
-                                value={filter.type}
-                                onChange={(e) => setChartFilters(prev => ({
-                                  ...prev,
-                                  [subject]: { ...filter, type: e.target.value }
-                                }))}
-                                style={{
-                                  fontSize: "9px",
-                                  fontWeight: 600,
-                                  color: TEXT_DARK,
-                                  backgroundColor: "#F3F4F6",
-                                  border: "1px solid #E5E7EB",
-                                  borderRadius: "6px",
-                                  padding: "3px 6px",
-                                  outline: "none",
-                                  cursor: "pointer"
-                                }}
-                              >
-                                {uniqueGradeTypes.map(t => (
-                                  <option key={t} value={t}>{getGradeTypeDisplayName(t)}</option>
-                                ))}
-                              </select>
-
-                              {/* Category Select - only shown for MASTERY */}
-                              {filter.type === "MASTERY" && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                              {/* Grade Type Select Wrapper */}
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: "6px", padding: "1px 6px" }}>
+                                {filter.type === "MASTERY" && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                                  </svg>
+                                )}
+                                {filter.type === "BEHAVIOR" && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
+                                {filter.type === "ATTENDANCE" && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
                                 <select
-                                  value={filter.category}
+                                  value={filter.type}
                                   onChange={(e) => setChartFilters(prev => ({
                                     ...prev,
-                                    [subject]: { ...filter, category: e.target.value }
+                                    [subject]: { ...filter, type: e.target.value }
                                   }))}
                                   style={{
                                     fontSize: "9px",
-                                    fontWeight: 600,
+                                    fontWeight: 650,
                                     color: TEXT_DARK,
-                                    backgroundColor: "#F3F4F6",
-                                    border: "1px solid #E5E7EB",
-                                    borderRadius: "6px",
-                                    padding: "3px 6px",
+                                    backgroundColor: "transparent",
+                                    border: "none",
                                     outline: "none",
-                                    cursor: "pointer"
+                                    cursor: "pointer",
+                                    padding: "2px 0",
                                   }}
                                 >
-                                  <option value="DAILY">📅 Kundalik</option>
-                                  <option value="QUARTERLY_EXAM">🏆 Choraklik</option>
-                                  <option value="SEMESTER_EXAM">🎓 Imtihon</option>
+                                  {uniqueGradeTypes.map(t => (
+                                    <option key={t} value={t}>{getGradeTypeDisplayName(t)}</option>
+                                  ))}
                                 </select>
+                              </div>
+
+                              {/* Category Select - only shown for MASTERY */}
+                              {filter.type === "MASTERY" && (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: "6px", padding: "1px 6px" }}>
+                                  {filter.category === "DAILY" && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                    </svg>
+                                  )}
+                                  {filter.category === "QUARTERLY_EXAM" && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-6.75a1.125 1.125 0 01-1.125-1.125V15m10.125 0V9.75c0-.621-.503-1.125-1.125-1.125h-6.75A1.125 1.125 0 017.5 9.75V15m9-11.25A1.875 1.875 0 1115 5.25m-3-1.875A1.875 1.875 0 119 5.25" />
+                                    </svg>
+                                  )}
+                                  {filter.category === "SEMESTER_EXAM" && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342M22.25 9.375a.375.375 0 100-.75.375.375 0 000 .75z" />
+                                    </svg>
+                                  )}
+                                  <select
+                                    value={filter.category}
+                                    onChange={(e) => setChartFilters(prev => ({
+                                      ...prev,
+                                      [subject]: { ...filter, category: e.target.value }
+                                    }))}
+                                    style={{
+                                      fontSize: "9px",
+                                      fontWeight: 650,
+                                      color: TEXT_DARK,
+                                      backgroundColor: "transparent",
+                                      border: "none",
+                                      outline: "none",
+                                      cursor: "pointer",
+                                      padding: "2px 0",
+                                    }}
+                                  >
+                                    <option value="DAILY">Kundalik</option>
+                                    <option value="QUARTERLY_EXAM">Choraklik</option>
+                                    <option value="SEMESTER_EXAM">Imtihon</option>
+                                  </select>
+                                </div>
                               )}
 
                               {/* Grading System Select - only shown for MASTERY */}
                               {filter.type === "MASTERY" && (
-                                <select
-                                  value={filter.gradingSystemId}
-                                  onChange={(e) => setChartFilters(prev => ({
-                                    ...prev,
-                                    [subject]: { ...filter, gradingSystemId: e.target.value }
-                                  }))}
-                                  style={{
-                                    fontSize: "9px",
-                                    fontWeight: 600,
-                                    color: TEXT_DARK,
-                                    backgroundColor: "#F3F4F6",
-                                    border: "1px solid #E5E7EB",
-                                    borderRadius: "6px",
-                                    padding: "3px 6px",
-                                    outline: "none",
-                                    cursor: "pointer"
-                                  }}
-                                >
-                                  <option value="ALL">📐 Barcha tizimlar</option>
-                                  {uniqueGsIds.map(gsId => {
-                                    const gsName = gradingSystemsList.find(gs => gs.id === gsId)?.name || `Tizim #${gsId}`;
-                                    return (
-                                      <option key={gsId} value={gsId}>{gsName}</option>
-                                    );
-                                  })}
-                                  {hasNoneGradingSystem && (
-                                    <option value="NONE">Tizimsiz baholar</option>
-                                  )}
-                                </select>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: "6px", padding: "1px 6px" }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke={TEXT_MUTED} style={{ width: "11px", height: "11px" }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-1.305-3.579l-1.416-.85a3 3 0 00-4.024 1.042l-.458.765a3 3 0 001.043 4.023l1.416.85a3 3 0 004.024-1.042l.72-1.204zM14.47 7.878a3 3 0 001.305 3.579l1.416.85a3 3 0 004.024-1.042l.458-.765a3 3 0 00-1.043-4.023l-1.416-.85a3 3 0 00-4.024 1.042l-.72 1.204zM14.075 14.075l-4.15-4.15" />
+                                  </svg>
+                                  <select
+                                    value={filter.gradingSystemId}
+                                    onChange={(e) => setChartFilters(prev => ({
+                                      ...prev,
+                                      [subject]: { ...filter, gradingSystemId: e.target.value }
+                                    }))}
+                                    style={{
+                                      fontSize: "9px",
+                                      fontWeight: 650,
+                                      color: TEXT_DARK,
+                                      backgroundColor: "transparent",
+                                      border: "none",
+                                      outline: "none",
+                                      cursor: "pointer",
+                                      padding: "2px 0",
+                                    }}
+                                  >
+                                    <option value="ALL">Barcha tizimlar</option>
+                                    {uniqueGsIds.map(gsId => {
+                                      const gsName = gradingSystemsList.find(gs => gs.id === gsId)?.name || `Tizim #${gsId}`;
+                                      return (
+                                        <option key={gsId} value={gsId}>{gsName}</option>
+                                      );
+                                    })}
+                                    {hasNoneGradingSystem && (
+                                      <option value="NONE">Tizimsiz baholar</option>
+                                    )}
+                                  </select>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1877,40 +2241,65 @@ export default function ParentDashboard() {
             {/* Sub-tab: ANNOUNCEMENTS (E'lonlar) */}
             {activeSubTab === "announcements" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {announcements.map((ann) => (
+                {announcementsLoading ? (
+                  <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED, fontSize: "12px" }}>
+                    🔄 E'lonlar yuklanmoqda...
+                  </div>
+                ) : announcements.length === 0 ? (
                   <div
-                    key={ann.id}
                     style={{
-                      backgroundColor: "#FFFFFF",
-                      borderRadius: "12px",
-                      border: "1px solid #E5E7EB",
-                      padding: "12px 14px",
-                      borderLeft: `4px solid ${ACCENT}`,
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                      textAlign: "center",
+                      padding: "32px",
+                      backgroundColor: "#F9FAFB",
+                      borderRadius: "14px",
+                      border: "1px dashed #E5E7EB",
+                      color: TEXT_MUTED,
+                      fontSize: "12px",
                     }}
                   >
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK, marginBottom: "4px" }}>
-                      {ann.title}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#4B5563", lineHeight: 1.5, marginBottom: "8px" }}>
-                      {ann.content}
-                    </div>
+                    📭 Hali hech qanday e'lonlar chop etilmagan.
+                  </div>
+                ) : (
+                  announcements.map((ann) => (
                     <div
+                      key={ann.id}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        fontSize: "9px",
-                        color: TEXT_MUTED,
-                        borderTop: "1px solid #F3F4F6",
-                        paddingTop: "6px",
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: "12px",
+                        border: "1px solid #E5E7EB",
+                        padding: "12px 14px",
+                        borderLeft: `4px solid ${ACCENT}`,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                       }}
                     >
-                      <span>✍️ {ann.author}</span>
-                      <span>{ann.date}</span>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK, marginBottom: "4px" }}>
+                        {ann.title}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#4B5563", lineHeight: 1.5, marginBottom: "8px" }}>
+                        {ann.content}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          fontSize: "9px",
+                          color: TEXT_MUTED,
+                          borderTop: "1px solid #F3F4F6",
+                          paddingTop: "6px",
+                        }}
+                      >
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "10px", height: "10px" }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                          </svg>
+                          {ann.author}
+                        </span>
+                        <span>{ann.date}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
             {/* Sub-tab: MENU (Taomnoma) */}
@@ -1927,25 +2316,51 @@ export default function ParentDashboard() {
                     }}
                     style={{
                       background: "none",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: "8px",
-                      padding: "6px 12px",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: TEXT_DARK,
+                      border: "none",
+                      color: ACCENT,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: "4px",
-                      transition: "all 0.15s",
+                      justifyContent: "center",
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      backgroundColor: "#EEF2FF",
+                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
+                      transition: "all 0.15s ease",
                     }}
-                    className="hover:bg-gray-50 active:scale-95"
+                    title="Oldingi hafta"
                   >
-                    ◀ Oldingi hafta
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={3}
+                      stroke="currentColor"
+                      style={{ width: "13px", height: "13px" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
                   </button>
-                  <span style={{ fontSize: "11px", fontWeight: 850, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    📅 {weekLabel(currentWeekStart)}
+
+                  <span style={{ fontSize: "11px", fontWeight: 850, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center" }}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                      style={{ width: "13px", height: "13px", marginRight: "4px" }}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                      />
+                    </svg>
+                    {weekLabel(currentWeekStart)}
                   </span>
+
                   <button
                     onClick={() => {
                       handleNextWeek();
@@ -1955,21 +2370,31 @@ export default function ParentDashboard() {
                     }}
                     style={{
                       background: "none",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: "8px",
-                      padding: "6px 12px",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: TEXT_DARK,
+                      border: "none",
+                      color: ACCENT,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: "4px",
-                      transition: "all 0.15s",
+                      justifyContent: "center",
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      backgroundColor: "#EEF2FF",
+                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
+                      transition: "all 0.15s ease",
                     }}
-                    className="hover:bg-gray-50 active:scale-95"
+                    title="Keyingi hafta"
                   >
-                    Keyingi hafta ▶
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={3}
+                      stroke="currentColor"
+                      style={{ width: "13px", height: "13px" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
                   </button>
                 </div>
 
@@ -2038,12 +2463,15 @@ export default function ParentDashboard() {
                           return (
                             <div
                               key={mealType}
+                              onDoubleClick={() => handleMenuDoubleClick(selectedMenuDate, label)}
                               style={{
                                 display: "flex",
                                 gap: "12px",
                                 borderBottom: "1px solid #FEF3C7",
                                 paddingBottom: "10px",
+                                cursor: "pointer",
                               }}
+                              title="Fikr-mulohaza yozish uchun ikki marta bosing"
                             >
                               <div style={{ fontSize: "20px" }}>{emoji}</div>
                               <div>
@@ -2186,13 +2614,452 @@ export default function ParentDashboard() {
                 )}
               </div>
             )}
+
+            {/* Sub-tab: COMMENTS (Murojaatlar / Chatlar) */}
+            {activeSubTab === "comments" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {feedbackLoading ? (
+                  <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED, fontSize: "12px" }}>
+                    🔄 Yuklanmoqda...
+                  </div>
+                ) : feedbackFeed.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "32px",
+                      backgroundColor: "#F9FAFB",
+                      borderRadius: "14px",
+                      border: "1px dashed #E5E7EB",
+                      color: TEXT_MUTED,
+                      fontSize: "12px",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: "24px", height: "24px", color: TEXT_MUTED }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.008 1.24l.885 1.77a2.25 2.25 0 002.007 1.24h1.98a2.25 2.25 0 002.007-1.24l.885-1.77a2.25 2.25 0 012.007-1.24h3.86m-18 0h18a2.25 2.25 0 012.25 2.25v4.5A2.25 2.25 0 0119.5 21h-15a2.25 2.25 0 01-2.25-2.25v-4.5a2.25 2.25 0 012.25-2.25zM13.5 3h.008v.008H13.5V3zm0 3.75h.008v.008H13.5V6.75zM10.5 5.25h.008v.008H10.5V5.25zm6 0h.008v.008H16.5V5.25z" />
+                      </svg>
+                      <span>Hozircha hech qanday fikr-mulohazalar yubormagansiz.</span>
+                    </div>
+                  </div>
+                ) : (
+                  feedbackFeed.map((item, index) => {
+                    const isGrade = item.type === "GRADE";
+                    return (
+                      <div
+                        key={item.id || index}
+                        style={{
+                          backgroundColor: "white",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "16px",
+                          padding: "16px",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            borderBottom: "1px solid #F3F4F6",
+                            paddingBottom: "8px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: 700,
+                              color: isGrade ? "#4F46E5" : "#D97706",
+                              backgroundColor: isGrade ? "#EEF2FF" : "#FEF3C7",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                            }}
+                          >
+                            {isGrade ? "📝 Bahoga izoh" : "🍽️ Taomnomaga izoh"}
+                          </span>
+                          <span style={{ fontSize: "10px", color: TEXT_MUTED, fontFamily: "monospace" }}>
+                            {new Date(item.created_at).toLocaleDateString("uz-UZ")} {new Date(item.created_at).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+
+                        {isGrade ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                              backgroundColor: "#F9FAFB",
+                              padding: "10px",
+                              borderRadius: "8px",
+                              border: "1px solid #F3F4F6",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: "32px",
+                                height: "32px",
+                                borderRadius: "8px",
+                                backgroundColor: "#ECFDF5",
+                                border: "1px solid #A7F3D0",
+                                color: "#065F46",
+                                fontWeight: 800,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontFamily: "monospace",
+                                fontSize: "14px",
+                              }}
+                            >
+                              {item.grade_value}
+                            </div>
+                            <div>
+                              <span style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, display: "block" }}>
+                                {item.subject_name}
+                              </span>
+                              <span style={{ fontSize: "10px", color: TEXT_MUTED }}>
+                                O&apos;quvchi: <b>{item.student_name}</b> ({item.class_name})
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              backgroundColor: "#F9FAFB",
+                              padding: "10px",
+                              borderRadius: "8px",
+                              border: "1px solid #F3F4F6",
+                              fontSize: "11px",
+                              color: TEXT_DARK,
+                              fontWeight: 650,
+                            }}
+                          >
+                            🍽️ Taomnoma kuni: {new Date(item.menu_date || "").toLocaleDateString("uz-UZ", {
+                              weekday: "long",
+                              day: "numeric",
+                              month: "long",
+                            })}
+                          </div>
+                        )}
+
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            color: TEXT_DARK,
+                            backgroundColor: "#F9FAFB",
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: "1px solid #F3F4F6",
+                            fontStyle: "italic",
+                            lineHeight: "1.4",
+                          }}
+                        >
+                          &ldquo;{item.content}&rdquo;
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isGrade) {
+                                setSelectedCommentGrade({ id: item.grade_id, subject_name: item.subject_name, value: item.grade_value });
+                                setCommentTargetType("GRADE");
+                                setCommentText("");
+                                setCommentError("");
+                                setCommentSuccess("");
+                                setCommentModalOpen(true);
+                                fetchChatMessages("GRADE", item.grade_id);
+                              } else {
+                                const dateOnly = item.menu_date ? item.menu_date.split("T")[0] : "";
+                                setSelectedCommentMenuDate(dateOnly);
+                                setSelectedCommentMealLabel("Tushlik");
+                                setCommentTargetType("MENU");
+                                setCommentText("");
+                                setCommentError("");
+                                setCommentSuccess("");
+                                setCommentModalOpen(true);
+                                fetchChatMessages("MENU", dateOnly, userInfo?.id);
+                              }
+                            }}
+                            style={{
+                              border: "none",
+                              backgroundColor: "#EEF2FF",
+                              color: "#4F46E5",
+                              fontWeight: 700,
+                              fontSize: "10px",
+                              padding: "6px 12px",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              transition: "background 0.2s",
+                            }}
+                          >
+                            💬 Chatni ochish
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Sub-tab: CLUBS (To'garaklar) */}
+            {activeSubTab === "clubs" && (() => {
+              // Helper function to check time clash inside render scope
+              const checkTimeClash = (targetClub: any) => {
+                if (!targetClub.schedules || targetClub.schedules.length === 0) return null;
+                
+                // Find all clubs this child is already registered or requested
+                const registeredClubs = clubs.filter(c => 
+                  c.id !== targetClub.id && 
+                  c.students && 
+                  c.students.length > 0 && 
+                  (c.students[0].status === "APPROVED" || c.students[0].status === "PENDING")
+                );
+
+                for (const regClub of registeredClubs) {
+                  if (!regClub.schedules) continue;
+                  for (const targetSch of targetClub.schedules) {
+                    for (const regSch of regClub.schedules) {
+                      if (targetSch.day_of_week === regSch.day_of_week) {
+                        // Check time overlap
+                        if (targetSch.start_time < regSch.end_time && regSch.start_time < targetSch.end_time) {
+                          const days = ["", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"];
+                          return {
+                            clubName: regClub.name,
+                            dayName: days[targetSch.day_of_week],
+                            timeRange: `${regSch.start_time} - ${regSch.end_time}`
+                          };
+                        }
+                      }
+                    }
+                  }
+                }
+                return null;
+              };
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div
+                    style={{
+                      backgroundColor: "white",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "16px",
+                      padding: "16px",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                      color: TEXT_DARK,
+                    }}
+                  >
+                    <h3 style={{ fontSize: "14px", fontWeight: 800, margin: 0, display: "flex", alignItems: "center" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "15px", height: "15px", marginRight: "6px", color: ACCENT }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                      </svg>
+                      Farzandingiz uchun To'garaklar
+                    </h3>
+                    <p style={{ fontSize: "10px", color: TEXT_MUTED, margin: "4px 0 0 0" }}>
+                      Farzandingiz qatnashishi mumkin bo'lgan darsdan tashqari to'garaklar va ularning jadvallari.
+                    </p>
+                  </div>
+
+                  {clubsLoading ? (
+                    <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                      <span style={{ width: "12px", height: "12px", border: "2px solid #4F46E5", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></span>
+                      Yuklanmoqda...
+                    </div>
+                  ) : clubs.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "32px",
+                        backgroundColor: "#F9FAFB",
+                        borderRadius: "14px",
+                        border: "1px dashed #E5E7EB",
+                        color: TEXT_MUTED,
+                        fontSize: "12px",
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: "24px", height: "24px", color: TEXT_MUTED }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707" />
+                        </svg>
+                        <span>Hozircha ushbu sinf uchun to'garaklar tashkil qilinmagan.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {clubs.map((club) => {
+                        const studentEnrollment = club.students && club.students.length > 0 ? club.students[0] : null;
+                        const status = studentEnrollment ? studentEnrollment.status : null;
+                        const clash = checkTimeClash(club);
+
+                        return (
+                          <div
+                            key={club.id}
+                            style={{
+                              backgroundColor: "white",
+                              border: "1px solid #E5E7EB",
+                              borderRadius: "16px",
+                              padding: "16px",
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "12px",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                              <div>
+                                <span
+                                  style={{
+                                    fontSize: "9px",
+                                    fontWeight: 800,
+                                    color: "#4F46E5",
+                                    backgroundColor: "#EEF2FF",
+                                    padding: "2px 8px",
+                                    borderRadius: "6px",
+                                    fontFamily: "monospace",
+                                  }}
+                                >
+                                  {club.subject_name}
+                                </span>
+                                <h4 style={{ fontSize: "13px", fontWeight: 800, color: TEXT_DARK, margin: "6px 0 2px 0" }}>
+                                  {club.name}
+                                </h4>
+                                <p style={{ fontSize: "10px", color: TEXT_MUTED, margin: 0 }}>
+                                  Mas'ul o'qituvchi: <b>{club.teacher_name}</b>
+                                </p>
+                              </div>
+
+                              <div>
+                                {status === "APPROVED" ? (
+                                  <button
+                                    type="button"
+                                    disabled={joinRequestLoading === club.id}
+                                    onClick={() => handleCancelClubRequest(club.id)}
+                                    style={{
+                                      border: "1px solid #A7F3D0",
+                                      backgroundColor: "#ECFDF5",
+                                      color: "#065F46",
+                                      fontWeight: 700,
+                                      fontSize: "10px",
+                                      padding: "6px 12px",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    A'zo ✓ (Chiqish)
+                                  </button>
+                                ) : status === "PENDING" ? (
+                                  <button
+                                    type="button"
+                                    disabled={joinRequestLoading === club.id}
+                                    onClick={() => handleCancelClubRequest(club.id)}
+                                    style={{
+                                      border: "1px solid #FEF3C7",
+                                      backgroundColor: "#FFFBEB",
+                                      color: "#B45309",
+                                      fontWeight: 700,
+                                      fontSize: "10px",
+                                      padding: "6px 12px",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Kutilmoqda (Bekor qilish)
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={joinRequestLoading === club.id}
+                                    onClick={() => handleRequestJoinClub(club.id)}
+                                    style={{
+                                      border: "none",
+                                      backgroundColor: "#4F46E5",
+                                      color: "white",
+                                      fontWeight: 700,
+                                      fontSize: "10px",
+                                      padding: "6px 12px",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Qatnashish so'rovi
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {clash && (
+                              <div
+                                style={{
+                                  backgroundColor: "#FFFBEB",
+                                  border: "1px solid #FDE68A",
+                                  color: "#B45309",
+                                  padding: "8px 12px",
+                                  borderRadius: "10px",
+                                  fontSize: "10px",
+                                  fontWeight: 700,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#B45309" style={{ width: "13px", height: "13px", flexShrink: 0 }}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                </svg>
+                                <span>Diqqat! Ushbu to'garak dars vaqti farzandingiz yozilgan "{clash.clubName}" ({clash.dayName}: {clash.timeRange}) to'garagi dars vaqtiga to'g'ri kelib qoladi (ustma-ust tushadi).</span>
+                              </div>
+                            )}
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <span style={{ fontSize: "9px", fontWeight: 800, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center" }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "10px", height: "10px", marginRight: "4px" }}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                </svg>
+                                Dars Jadvali
+                              </span>
+                              {(!club.schedules || club.schedules.length === 0) ? (
+                                <span style={{ fontSize: "11px", color: TEXT_MUTED, fontStyle: "italic" }}>Dars vaqti belgilanmagan</span>
+                              ) : (
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                                  {club.schedules.map((sch: any) => {
+                                    const days = ["", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"];
+                                    return (
+                                      <div
+                                        key={sch.id}
+                                        style={{
+                                          backgroundColor: "#F9FAFB",
+                                          border: "1px solid #E5E7EB",
+                                          padding: "8px",
+                                          borderRadius: "10px",
+                                          fontSize: "11px",
+                                        }}
+                                      >
+                                        <b style={{ color: TEXT_DARK }}>{days[sch.day_of_week]}</b>
+                                        <span style={{ display: "block", fontSize: "10px", color: TEXT_MUTED, marginTop: "2px" }}>
+                                          {sch.start_time} - {sch.end_time}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {/* ── MAIN TAB: SETTINGS ── */}
         {activeTab === "settings" && (
           <div style={{ padding: "16px" }}>
-            <div className="section-title">⚙️ Tizim Sozlamalari</div>
+            <div className="section-title">Tizim Sozlamalari</div>
 
             {/* User Profile Card */}
             {userInfo && (
@@ -2218,18 +3085,82 @@ export default function ParentDashboard() {
                 >
                   Foydalanuvchi Profili
                 </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    Ism: <span style={{ fontWeight: 500 }}>{userInfo.first_name} {userInfo.last_name}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px", marginTop: "8px" }}>
+                  {/* Ism Field */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EEF2FF", color: ACCENT }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>F.I.SH.</div>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{userInfo.first_name} {userInfo.last_name}</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    Telefon: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{userInfo.phone || "+998908000002"}</span>
+
+                  {/* Telefon Field */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.502-5.127-3.805-6.63-6.63l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Telefon raqam</div>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, fontFamily: "monospace" }}>{userInfo.phone || "+998908000002"}</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    Pasport: <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{userInfo.passport || "Kiritilmagan"}</span>
+
+                  {/* Pasport Field */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Pasport seriya</div>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, fontFamily: "monospace" }}>{userInfo.passport || "Kiritilmagan"}</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                    Roli: <span style={{ fontWeight: 500 }}>Vasiy (Ota-ona)</span>
+
+                  {/* Roli Field */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#F5F3FF", color: "#7C3AED" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Roli</div>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>Vasiy (Ota-ona)</div>
+                    </div>
+                  </div>
+
+                  {/* Telegram Bot Field */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: userInfo.telegram_id ? "#F0FDF4" : "#FEF2F2", color: userInfo.telegram_id ? "#16A34A" : "#DC2626" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 18.661a1 1 0 01-.225-.67c.03-.083.06-.168.086-.254a6.437 6.437 0 00.32-1.921c0-.445-.193-.863-.526-1.156C3.03 13.75 2.25 11.25 2.25 8.25 2.25 5.25 3.03 2.75 5.065 1.761a6.437 6.437 0 00.32-1.921A1 1 0 015.61.51c.026-.086.056-.17.086-.254a5.97 5.97 0 012.87 2.428A9.764 9.764 0 0112 3.75c4.97 0 9 3.694 9 8.25z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Telegram Xabarnoma</div>
+                      <div style={{ fontSize: "12px", fontWeight: 700 }}>
+                        {userInfo.telegram_id ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#16A34A" }}>
+                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16A34A" }}></span>
+                            Ulangan
+                          </span>
+                        ) : (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#DC2626" }}>
+                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#DC2626" }}></span>
+                            Ulanmagan
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -2253,6 +3184,43 @@ export default function ParentDashboard() {
                 >
                   Pasport ma'lumotini tahrirlash
                 </button>
+
+                {!userInfo.telegram_id && (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      backgroundColor: "#EEF2FF",
+                      border: "1px solid #C7D2FE",
+                      borderRadius: "12px",
+                      padding: "14px",
+                      fontSize: "11px",
+                      color: TEXT_DARK,
+                      lineHeight: "1.6",
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "12px", height: "12px", marginRight: "4px", display: "inline-block", verticalAlign: "middle" }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                    </svg>
+                    <b>Telegram Bildirishnomalari:</b><br />
+                    {telegramConfig?.has_token ? (
+                      <>
+                        Farzandlaringiz baholari va maktab e'lonlarini Telegramda olishingiz mumkin. Buning uchun:
+                        <ol style={{ paddingLeft: "16px", marginTop: "6px" }}>
+                          <li>1. Telegramda <a href={`https://t.me/${telegramConfig.bot_username}`} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, fontWeight: 700, textDecoration: "underline" }}>@{telegramConfig.bot_username}</a> botiga kiring.</li>
+                          <li>2. Botga <b>/start</b> buyrug'ini yuboring.</li>
+                          <li>3. Telefon raqamingiz (<b>{userInfo.phone || "tizimdagi telefon raqam"}</b>) va shaxsiy parolingizni kiritib tizimga kiring.</li>
+                        </ol>
+                      </>
+                    ) : (
+                      <span style={{ color: "#B45309", fontWeight: 600 }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#B45309" style={{ width: "12px", height: "12px", marginRight: "4px", display: "inline-block", verticalAlign: "middle" }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        Maktab ma'muriyati shaxsiy Telegram botni hali sozlamagan. Sozlangandan so'ng, bu yerda bot havolasi ko'rinadi.
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2292,23 +3260,85 @@ export default function ParentDashboard() {
                         paddingBottom: index === children.length - 1 ? "0" : "12px"
                       }}
                     >
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        F.I.SH: <span style={{ fontWeight: 500 }}>{child.first_name} {child.last_name}</span>
-                      </div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Sinf: <span style={{ fontWeight: 500 }}>{child.class_name}</span>
-                      </div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Manzil: <span style={{ fontWeight: 500 }}>{child.address || "Kiritilmagan"}</span>
-                      </div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Tug'ilgan sana: <span style={{ fontWeight: 500 }}>{child.birthdate ? child.birthdate.split("T")[0] : "Kiritilmagan"}</span>
-                      </div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Guvohnoma (INA): <span style={{ fontWeight: 500, fontFamily: "monospace" }}>{child.ina || "Kiritilmagan"}</span>
-                      </div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
-                        Balans: <span style={{ fontWeight: 600, color: (child.balance || 0) >= 0 ? "#10B981" : "#EF4444" }}>{new Intl.NumberFormat("uz-UZ").format(child.balance || 0)} UZS</span>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px" }}>
+                        {/* F.I.SH */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EEF2FF", color: ACCENT }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342M22.25 9.375a.375.375 0 100-.75.375.375 0 000 .75z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>F.I.SH.</div>
+                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.first_name} {child.last_name}</div>
+                          </div>
+                        </div>
+
+                        {/* Sinf */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#ECFDF5", color: "#059669" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.68 0-5.302.2-7.862.582V21M3 21h18" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Sinf</div>
+                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.class_name}</div>
+                          </div>
+                        </div>
+
+                        {/* Manzil */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#FFF1F2", color: "#E11D48" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Manzil</div>
+                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.address || "Kiritilmagan"}</div>
+                          </div>
+                        </div>
+
+                        {/* Tug'ilgan sana */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Tug'ilgan sana</div>
+                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.birthdate ? child.birthdate.split("T")[0] : "Kiritilmagan"}</div>
+                          </div>
+                        </div>
+
+                        {/* Guvohnoma */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Guvohnoma (INA)</div>
+                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, fontFamily: "monospace" }}>{child.ina || "Kiritilmagan"}</div>
+                          </div>
+                        </div>
+
+                        {/* Balans */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: (child.balance || 0) >= 0 ? "#F0FDF4" : "#FEF2F2", color: (child.balance || 0) >= 0 ? "#16A34A" : "#DC2626" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.214.172a2.25 2.25 0 003.11-.168L12 15M9 7.818l.214-.172a2.25 2.25 0 013.11.168L12 9" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Balans</div>
+                            <div style={{ fontSize: "12px", fontWeight: 800, color: (child.balance || 0) >= 0 ? "#16A34A" : "#DC2626" }}>{new Intl.NumberFormat("uz-UZ").format(child.balance || 0)} UZS</div>
+                          </div>
+                        </div>
                       </div>
                       <button
                         onClick={() => {
@@ -2617,6 +3647,196 @@ export default function ParentDashboard() {
                     {editParentSaving ? "Saqlanmoqda..." : "Saqlash"}
                   </button>
                 </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Comment Writing Modal */}
+        {commentModalOpen && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100,
+              padding: "16px",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "16px",
+                padding: "20px",
+                width: "100%",
+                maxWidth: "450px",
+                boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+                display: "flex",
+                flexDirection: "column",
+                maxHeight: "90vh",
+              }}
+            >
+              <div style={{ display: "flex", justifySelf: "stretch", justifyContent: "between", alignItems: "start", marginBottom: "8px" }}>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_DARK, marginBottom: "4px" }}>
+                    💬 Muhokama (Chat)
+                  </h3>
+                  <p style={{ fontSize: "11px", color: TEXT_MUTED, lineHeight: "1.4" }}>
+                    {commentTargetType === "GRADE" ? (
+                      <>
+                        <b>{selectedCommentGrade?.subject_name}</b> ({selectedCommentGrade?.value} baho)
+                      </>
+                    ) : (
+                      <>
+                        <b>{selectedCommentMenuDate}</b> ({selectedCommentMealLabel}) taomnomasi
+                      </>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCommentModalOpen(false)}
+                  style={{
+                    border: "none",
+                    background: "none",
+                    fontSize: "20px",
+                    color: TEXT_MUTED,
+                    cursor: "pointer",
+                    padding: "0 4px",
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Chat Messages Section */}
+              <div
+                style={{
+                  maxHeight: "320px",
+                  minHeight: "150px",
+                  overflowY: "auto",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "12px",
+                  padding: "12px",
+                  marginBottom: "16px",
+                  backgroundColor: "#F9FAFB",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  flex: 1,
+                }}
+              >
+                {chatLoading && chatMessages.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px", color: TEXT_MUTED, fontSize: "12px" }}>
+                    <div style={{ width: "20px", height: "20px", border: "2px solid #E5E7EB", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 8px" }} />
+                    Yuklanmoqda...
+                  </div>
+                ) : chatMessages.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px", color: TEXT_MUTED, fontSize: "12px", fontStyle: "italic" }}>
+                    Hozircha xabarlar yo'q. Birinchi bo'lib fikringizni yozing!
+                  </div>
+                ) : (
+                  chatMessages.map((msg, idx) => {
+                    const isMyMessage = msg.author_id === userInfo?.id;
+                    return (
+                      <div
+                        key={msg.id || idx}
+                        style={{
+                          alignSelf: isMyMessage ? "flex-end" : "flex-start",
+                          maxWidth: "80%",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        {!isMyMessage && (
+                          <span style={{ fontSize: "9px", color: TEXT_MUTED, marginBottom: "2px", fontWeight: 700 }}>
+                            {msg.author_name} ({msg.role === "ADMIN" ? "Admin" : "O'qituvchi"})
+                          </span>
+                        )}
+                        <div
+                          style={{
+                            backgroundColor: isMyMessage ? ACCENT : "#E5E7EB",
+                            color: isMyMessage ? "white" : TEXT_DARK,
+                            borderRadius: "12px",
+                            padding: "8px 12px",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            lineHeight: "1.4",
+                            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                          }}
+                        >
+                          {msg.content}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: "8px",
+                            color: TEXT_MUTED,
+                            marginTop: "2px",
+                            alignSelf: isMyMessage ? "flex-end" : "flex-start",
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          {new Date(msg.created_at).toLocaleTimeString("uz-UZ", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {commentError && (
+                <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
+                  ⚠️ {commentError}
+                </div>
+              )}
+
+              <form onSubmit={handleCommentSubmit} style={{ display: "flex", gap: "8px", alignItems: "end" }}>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={2}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "1px solid #E5E7EB",
+                    fontSize: "13px",
+                    color: TEXT_DARK,
+                    resize: "none",
+                    outline: "none",
+                  }}
+                  placeholder="Xabar yozing..."
+                />
+                <button
+                  type="submit"
+                  disabled={commentSubmitLoading}
+                  style={{
+                    padding: "10px 16px",
+                    backgroundColor: ACCENT,
+                    border: "none",
+                    borderRadius: "10px",
+                    color: "white",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    height: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {commentSubmitLoading ? "..." : "Yuborish"}
+                </button>
               </form>
             </div>
           </div>

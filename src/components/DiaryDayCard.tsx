@@ -23,6 +23,7 @@ interface DiaryDayCardProps {
   rows: DiarySubjectRow[];
   onApprove: (id: number) => void;
   approvingId: number | null;
+  onGradeDoubleClick?: (grade: GradeItem) => void;
 }
 
 function getNumericVal(value?: string, numericValue?: number): number | null {
@@ -61,6 +62,7 @@ export default function DiaryDayCard({
   rows,
   onApprove,
   approvingId,
+  onGradeDoubleClick,
 }: DiaryDayCardProps) {
   // Pad rows to exactly 6 to represent a standard 6-lesson school day layout
   const paddedRows = [...rows];
@@ -200,37 +202,74 @@ export default function DiaryDayCard({
                         onClick={() => onApprove(gr.id)}
                         disabled={approvingId === gr.id}
                         style={{
-                          fontSize: "8.5px",
-                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                           color: "#4F46E5",
                           backgroundColor: "#EEF2FF",
                           border: "1px solid #C7D2FE",
-                          borderRadius: "4px",
-                          padding: "2px 6px",
+                          borderRadius: "6px",
+                          width: "22px",
+                          height: "22px",
                           cursor: "pointer",
-                          fontFamily: "'Roboto', sans-serif",
-                          boxShadow: "0 1px 2px rgba(79,70,229,0.05)",
+                          transition: "all 0.15s ease",
                         }}
+                        title="Bahoni tasdiqlash (Ko'rdim)"
                       >
-                        {approvingId === gr.id ? "..." : "Ko'rdim"}
+                        {approvingId === gr.id ? (
+                          <span
+                            style={{
+                              width: "10px",
+                              height: "10px",
+                              border: "2px solid #4F46E5",
+                              borderTopColor: "transparent",
+                              borderRadius: "50%",
+                              animation: "spin 1s linear infinite",
+                            }}
+                          ></span>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={3}
+                            stroke="currentColor"
+                            style={{ width: "12px", height: "12px" }}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
                       </button>
                     ) : (
-                      <span
+                      <div
                         style={{
-                          fontSize: "8.5px",
-                          fontWeight: 600,
-                          color: "#9CA3AF",
-                          fontFamily: "sans-serif",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "22px",
+                          height: "22px",
                         }}
+                        title="Tasdiqlangan (Ota-ona ko'rgan)"
                       >
-                        Ko'rildi
-                      </span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={3}
+                          stroke="#10B981"
+                          style={{ width: "14px", height: "14px" }}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 12l4 4L16 6" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l4 4L21 6" />
+                        </svg>
+                      </div>
                     )}
                   </>
                 )}
 
                 {/* Square Grade Box (always visible, empty if no grade) */}
                 <div
+                  onDoubleClick={() => gr && onGradeDoubleClick && onGradeDoubleClick(gr)}
                   style={{
                     width: "26px",
                     height: "26px",
@@ -245,7 +284,9 @@ export default function DiaryDayCard({
                     border: gr ? `1.5px solid ${gradeBorder(numVal)}` : "1px dashed #D1C7BD",
                     fontFamily: "monospace",
                     boxShadow: gr ? "inset 0 1px 1px rgba(0,0,0,0.02)" : "none",
+                    cursor: gr ? "pointer" : "default",
                   }}
+                  title={gr ? "Komment yozish uchun ikki marta bosing" : ""}
                 >
                   {gr ? gr.value : ""}
                 </div>

@@ -2,8 +2,8 @@ import React from "react";
 import { UserInfo, ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance";
-  setActiveMenu: (menu: "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance") => void;
+  activeMenu: "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram";
+  setActiveMenu: (menu: "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   userInfo: UserInfo | null;
@@ -27,6 +27,9 @@ export default function Sidebar({
     { id: "grading-systems", label: "Baholash Tizimi", icon: "⭐" },
     { id: "menu", label: "Taomnoma", icon: "🍽️" },
     { id: "balance", label: "Balans boshqaruvi", icon: "💳" },
+    { id: "announcements", label: "E'lonlar", icon: "📢" },
+    { id: "feedback", label: "Fikr-mulohazalar", icon: "💬" },
+    { id: "telegram", label: "Telegram Bot", icon: "🤖" },
   ] as const;
 
   return (
