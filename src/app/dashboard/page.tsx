@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 // Sub-components
 import Sidebar from "@/components/dashboard/Sidebar";
+import OverviewSection from "@/components/dashboard/OverviewSection";
 import ClassesSection from "@/components/dashboard/ClassesSection";
 import TeachersSection from "@/components/dashboard/TeachersSection";
 import SubjectsSection from "@/components/dashboard/SubjectsSection";
@@ -29,7 +30,7 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram">("classes");
+  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram">("overview");
 
   // Core Data Lists
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -349,6 +350,14 @@ export default function TenantDashboard() {
       <section className="flex-1 h-screen overflow-y-auto bg-zinc-950/20 px-8 py-6">
         <div className="max-w-7xl mx-auto space-y-8 pb-12">
           
+          {activeMenu === "overview" && (
+            <OverviewSection
+              token={token}
+              API_URL={API_URL}
+              classes={classes}
+            />
+          )}
+
           {activeMenu === "classes" && (
             <ClassesSection
               classes={classes}

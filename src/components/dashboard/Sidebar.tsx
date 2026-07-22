@@ -2,8 +2,8 @@ import React from "react";
 import { UserInfo, ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram";
-  setActiveMenu: (menu: "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
+  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram";
+  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   userInfo: UserInfo | null;
@@ -21,6 +21,7 @@ export default function Sidebar({
   setShowChangePasswordModal,
 }: SidebarProps) {
   const menuItems = [
+    { id: "overview", label: "Dashboard", icon: "📊" },
     { id: "classes", label: "Sinflar", icon: "🏫" },
     { id: "teachers", label: "O'qituvchilar", icon: "👨‍🏫" },
     { id: "subjects", label: "Fanlar", icon: "📚" },
