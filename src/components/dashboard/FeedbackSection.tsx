@@ -46,6 +46,15 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
   const [replyError, setReplyError] = useState("");
   const [replySubmitLoading, setReplySubmitLoading] = useState(false);
 
+  const safeFetchHeaders = () => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+    };
+    if (sId) headers["X-School-ID"] = sId;
+    return headers;
+  };
+
   useEffect(() => {
     fetchFeedback();
   }, []);
@@ -54,7 +63,7 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
     setLoading(true);
     try {
       const response = await fetch(`${apiUrl}/api/schools/comments/feed`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) {
@@ -80,9 +89,7 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
         url = `${apiUrl}/api/schools/menu/comments?menu_date=${dateStr}&parent_id=${comment.parent_id}`;
       }
       const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) {
@@ -117,12 +124,12 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
         };
       }
 
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(body),
       });
 
@@ -141,204 +148,179 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
   };
 
   const getGradeColor = (val?: string) => {
-    if (!val) return "text-zinc-400 bg-zinc-900 border-zinc-800";
+    if (!val) return "text-slate-500 bg-slate-100 border-slate-200";
     const num = parseFloat(val);
-    if (isNaN(num)) return "text-zinc-400 bg-zinc-900 border-zinc-800";
-    if (num >= 4.5) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-    if (num >= 3.5) return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-    if (num >= 2.5) return "text-amber-400 bg-amber-500/10 border-amber-500/20";
-    return "text-red-400 bg-red-500/10 border-red-500/20";
+    if (isNaN(num)) return "text-slate-500 bg-slate-100 border-slate-200";
+    if (num >= 4.5) return "text-[#65A30D] bg-[#ECFCCA] border-lime-200";
+    if (num >= 3.5) return "text-[#0284C7] bg-[#E0F2FE] border-sky-200";
+    if (num >= 2.5) return "text-[#FF7A00] bg-[#FFEADB] border-orange-200";
+    return "text-red-600 bg-red-50 border-red-200";
   };
 
-  const filteredFeed = feed.filter((item) =>
-    item.author_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.subject_name && item.subject_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (item.student_name && item.student_name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredFeed = feed.filter(
+    (item) =>
+      item.author_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.student_name && item.student_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-zinc-100">💬 Ota-onalar Fikr-mulohazalari</h2>
-        <p className="text-xs text-zinc-500 mt-1">
-          Ota-onalarning kundalik baholari va taomnoma bo&apos;yicha yuborgan fikr va e&apos;tirozlari.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {/* Search Bar */}
-        <div className="bg-zinc-950/40 border border-zinc-900 rounded-2xl p-4 flex items-center">
-          <span className="text-zinc-600 text-base mr-3">🔍</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Fikrlar, fanlar yoki ota-onalar ismi bo'yicha qidirish..."
-            className="w-full bg-transparent border-none text-xs text-zinc-200 outline-none"
-          />
+    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-[#1D1E26] tracking-tight">Fikr-mulohazalar va Izohlar</h2>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            Ota-onalar tomonidan baholar hamda taomnomalarga qoldirilgan barcha izohlar lenti va javob berish paneli.
+          </p>
         </div>
 
-        {/* Feedback Feed */}
-        <div className="space-y-3.5">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center p-12 text-zinc-600 space-y-2">
-              <div className="w-6 h-6 border-2 border-zinc-800 border-t-zinc-500 rounded-full animate-spin" />
-              <span className="text-xs">Fikrlar yuklanmoqda...</span>
-            </div>
-          ) : filteredFeed.length === 0 ? (
-            <div className="text-center p-12 bg-zinc-950/20 border border-dashed border-zinc-900 rounded-2xl text-zinc-500 text-xs">
-              📭 Fikr-mulohazalar mavjud emas.
-            </div>
-          ) : (
-            filteredFeed.map((item) => (
-              <div
-                key={item.id + "-" + item.type}
-                className="bg-zinc-950/40 border border-zinc-900 hover:border-zinc-850 rounded-2xl p-5 space-y-3.5 transition duration-200"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-900/60 pb-3">
+        <input
+          type="text"
+          placeholder="Fikr-mulohazalarni izlash..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="bg-white border border-slate-200 text-xs text-slate-700 font-medium px-3.5 py-2.5 rounded-2xl outline-none focus:ring-2 focus:ring-[#D4F562] shadow-xs w-64"
+        />
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center text-slate-400 font-mono text-xs">
+          Izohlar yuklanmoqda...
+        </div>
+      ) : filteredFeed.length === 0 ? (
+        <div className="py-20 text-center text-slate-400 font-medium text-xs italic border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+          Hozircha hech qanday fikr-mulohaza kelib tushmagan.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredFeed.map((item) => (
+            <div
+              key={`${item.type}-${item.id}`}
+              className="bg-white border border-slate-100/80 rounded-3xl p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
-                    {item.type === "GRADE" ? (
-                      <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md">
-                        📝 Bahoga izoh
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">
-                        🍽️ Taomnomaga izoh
-                      </span>
-                    )}
-                    <span className="text-xs font-bold text-zinc-200">{item.author_name}</span>
-                    <span className="text-[10px] text-zinc-500">Vasiy</span>
+                    <div className="w-8 h-8 rounded-full bg-[#1D1E26] text-white flex items-center justify-center text-xs font-black">
+                      {item.author_name ? item.author_name[0] : "P"}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-[#1D1E26]">{item.author_name}</h4>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {new Date(item.created_at).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-[10px] text-zinc-500">
-                    📅 {new Date(item.created_at).toLocaleString("uz-UZ", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+
+                  <span
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase font-mono border ${
+                      item.type === "GRADE"
+                        ? "bg-[#E0F2FE] text-[#0284C7] border-sky-200"
+                        : "bg-[#FFEADB] text-[#FF7A00] border-orange-200"
+                    }`}
+                  >
+                    {item.type === "GRADE" ? "Baho izohi" : "Taomnoma izohi"}
                   </span>
                 </div>
 
+                {/* Content details */}
                 {item.type === "GRADE" ? (
-                  <div className="flex items-center space-x-3 bg-zinc-900/20 border border-zinc-900 p-3 rounded-xl">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm border ${getGradeColor(item.grade_value)}`}>
-                      {item.grade_value}
-                    </div>
-                    <div className="text-xs">
-                      <span className="text-zinc-300 font-bold block">{item.subject_name}</span>
-                      <span className="text-zinc-500 text-[10px]">
-                        O&apos;quvchi: <b>{item.student_name}</b> ({item.class_name} sinfi)
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold text-[#1D1E26]">
+                        {item.student_name} ({item.class_name})
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border ${getGradeColor(item.grade_value)}`}>
+                        Baho: {item.grade_value}
                       </span>
                     </div>
+                    <p className="text-[10px] text-slate-400 font-medium">Fan: {item.subject_name}</p>
                   </div>
                 ) : (
-                  <div className="bg-zinc-900/20 border border-zinc-900 p-3 rounded-xl text-xs">
-                    <span className="text-zinc-300 font-semibold block">🍽️ Taomnoma kuni: {new Date(item.menu_date || "").toLocaleDateString("uz-UZ", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric"
-                    })}</span>
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3">
+                    <p className="text-[11px] font-extrabold text-[#1D1E26]">
+                      Sana: {item.menu_date ? new Date(item.menu_date).toLocaleDateString() : "Bugun"}
+                    </p>
                   </div>
                 )}
 
-                <div className="text-xs text-zinc-300 bg-zinc-900/40 p-3.5 rounded-xl border border-zinc-900 font-medium leading-relaxed italic">
-                  &ldquo;{item.content}&rdquo;
-                </div>
-
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedChatComment(item);
-                      setReplyText("");
-                      setReplyError("");
-                      setChatModalOpen(true);
-                      fetchChatMessages(item);
-                    }}
-                    className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-3.5 py-2 rounded-xl transition cursor-pointer"
-                  >
-                    💬 Chatni ochish
-                  </button>
-                </div>
+                <p className="text-xs text-slate-700 font-medium leading-relaxed bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
+                  "{item.content}"
+                </p>
               </div>
-            ))
-          )}
-        </div>
-      </div>
 
-      {/* Admin Chat Modal */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+                <button
+                  onClick={() => {
+                    setSelectedChatComment(item);
+                    setChatModalOpen(true);
+                    fetchChatMessages(item);
+                  }}
+                  className="bg-[#D4F562] text-[#1D1E26] font-black text-xs px-4 py-2 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                >
+                  Muloqotni ko'rish / Javob berish
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Chat Dialog Modal */}
       {chatModalOpen && selectedChatComment && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 w-full max-w-[450px] shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-start mb-3 border-b border-zinc-900 pb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 text-[#1D1E26] max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-zinc-100">💬 Muhokama (Chat)</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">
-                  Ota-ona: <b>{selectedChatComment.author_name}</b>
+                <h3 className="text-base font-black text-[#1D1E26]">
+                  Muloqot: {selectedChatComment.author_name}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-mono">
+                  {selectedChatComment.type === "GRADE" ? `Baho: ${selectedChatComment.grade_value}` : "Taomnoma"}
                 </p>
               </div>
               <button
-                type="button"
                 onClick={() => setChatModalOpen(false)}
-                className="text-zinc-500 hover:text-zinc-300 text-xl border-none background-none cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1"
               >
-                &times;
+                ✕
               </button>
             </div>
 
-            {/* Chat messages */}
-            <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-900 rounded-xl p-3 mb-4 bg-zinc-950/50 flex flex-col gap-2.5 flex-1">
-              {chatLoading && chatMessages.length === 0 ? (
-                <div className="text-center py-6 text-xs text-zinc-500">Yuklanmoqda...</div>
+            {/* Chat messages scrollable */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-80">
+              {chatLoading ? (
+                <div className="py-8 text-center text-slate-400 text-xs font-mono">
+                  Suhbat ma'lumotlari yuklanmoqda...
+                </div>
               ) : chatMessages.length === 0 ? (
-                <div className="text-center py-6 text-xs text-zinc-500 italic">Xabarlar yo'q.</div>
+                <div className="py-8 text-center text-slate-400 text-xs font-medium italic">
+                  Hali muloqot xabarlari mavjud emas.
+                </div>
               ) : (
-                chatMessages.map((msg, idx) => {
-                  // If role is PARENT, it's the parent, otherwise it's school staff (teacher or admin)
-                  const isParent = msg.role === "PARENT";
+                chatMessages.map((msg) => {
+                  const isAdmin = msg.role === "ADMIN" || msg.role === "TEACHER" || msg.role === "MAIN_TEACHER";
                   return (
                     <div
-                      key={msg.id || idx}
-                      style={{
-                        alignSelf: !isParent ? "flex-end" : "flex-start",
-                        maxWidth: "80%",
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
+                      key={msg.id}
+                      className={`flex flex-col space-y-1 max-w-[80%] ${
+                        isAdmin ? "ml-auto items-end" : "mr-auto items-start"
+                      }`}
                     >
-                      <span style={{ fontSize: "9px", color: "#6B7280", marginBottom: "2px", fontWeight: 700, alignSelf: !isParent ? "flex-end" : "flex-start" }}>
-                        {msg.author_name} ({msg.role === "ADMIN" ? "Admin" : msg.role === "PARENT" ? "Ota-ona" : "O'qituvchi"})
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        {msg.author_name} ({msg.role})
                       </span>
                       <div
-                        style={{
-                          backgroundColor: !isParent ? "#10B981" : "#1F2937",
-                          color: "#F3F4F6",
-                          borderRadius: "12px",
-                          padding: "8px 12px",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          lineHeight: "1.4",
-                          border: !isParent ? "none" : "1px solid #374151",
-                        }}
+                        className={`p-3 rounded-2xl text-xs font-medium shadow-xs ${
+                          isAdmin
+                            ? "bg-[#1D1E26] text-white rounded-br-none"
+                            : "bg-slate-100 text-slate-800 border border-slate-200/60 rounded-bl-none"
+                        }`}
                       >
                         {msg.content}
                       </div>
-                      <span
-                        style={{
-                          fontSize: "8px",
-                          color: "#6B7280",
-                          marginTop: "2px",
-                          alignSelf: !isParent ? "flex-end" : "flex-start",
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {new Date(msg.created_at).toLocaleTimeString("uz-UZ", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   );
@@ -346,23 +328,25 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
               )}
             </div>
 
-            {replyError && <div className="text-xs text-red-500 font-semibold mb-2">⚠️ {replyError}</div>}
-
-            <form onSubmit={handleReplySubmit} className="flex gap-2 items-end">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                rows={2}
-                className="flex-1 p-2 bg-zinc-900 border border-zinc-800 focus:border-zinc-700 rounded-lg text-xs text-zinc-200 outline-none resize-none transition"
-                placeholder="Admin nomidan javob yozing..."
-              />
-              <button
-                type="submit"
-                disabled={replySubmitLoading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition cursor-pointer h-10 flex items-center justify-center shrink-0"
-              >
-                {replySubmitLoading ? "..." : "Yuborish"}
-              </button>
+            {/* Reply Input Form */}
+            <form onSubmit={handleReplySubmit} className="pt-3 border-t border-slate-100 space-y-2">
+              {replyError && <div className="text-xs text-red-500 font-bold">{replyError}</div>}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="Javob xabarini yozing..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-slate-200 text-xs text-slate-800 px-3.5 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-[#D4F562]"
+                />
+                <button
+                  type="submit"
+                  disabled={replySubmitLoading || !replyText.trim()}
+                  className="bg-[#D4F562] text-[#1D1E26] font-black text-xs px-4 py-2.5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                >
+                  {replySubmitLoading ? "..." : "Yuborish"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

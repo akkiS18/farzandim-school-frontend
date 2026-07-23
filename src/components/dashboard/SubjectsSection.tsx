@@ -21,6 +21,15 @@ export default function SubjectsSection({
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
+  const safeFetchHeaders = () => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+    const headers: Record<string, string> = {
+      "Authorization": `Bearer ${token}`,
+    };
+    if (sId) headers["X-School-ID"] = sId;
+    return headers;
+  };
+
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subjectNameInput.trim()) return;
@@ -28,12 +37,12 @@ export default function SubjectsSection({
     setActionError("");
 
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/subjects`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({ name: subjectNameInput.trim() }),
       });
 
@@ -42,7 +51,7 @@ export default function SubjectsSection({
 
       // Refresh list
       const resList = await fetch(`${API_URL}/api/schools/subjects`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const dataList = await resList.json();
       if (resList.ok) setSubjects(Array.isArray(dataList) ? dataList : []);
@@ -61,25 +70,26 @@ export default function SubjectsSection({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Fanlar Ma'lumotnomasi</h1>
-          <p className="text-xs text-zinc-500 mt-1">Maktabdagi dars fanlari ro'yxatini shakllantiring.</p>
+          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Fanlar Ma'lumotnomasi</h1>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">Maktabdagi dars fanlari ro'yxatini shakllantiring.</p>
         </div>
         <button
           onClick={() => setShowAddSubjectModal(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer"
+          className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
         >
           + Yangi Fan Qo'shish
         </button>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar Input */}
       <div className="relative max-w-sm w-full">
-        <span className="absolute inset-y-0 left-3 flex items-center text-zinc-500 pointer-events-none">
+        <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 pointer-events-none">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
           </svg>
         </span>
         <input
@@ -87,28 +97,28 @@ export default function SubjectsSection({
           placeholder="Fanni izlash..."
           value={subjectSearch}
           onChange={(e) => setSubjectSearch(e.target.value)}
-          className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none transition"
+          className="w-full bg-white border border-slate-200 text-slate-800 placeholder-slate-400 pl-10 pr-4 py-2.5 rounded-2xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#D4F562] shadow-xs transition"
         />
       </div>
 
       {filteredSubjects.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-zinc-800/60 rounded-3xl bg-zinc-950/10">
-          <p className="text-zinc-500 text-sm">Fanlar topilmadi.</p>
+        <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+          <p className="text-slate-400 text-xs font-medium">Fanlar topilmadi.</p>
         </div>
       ) : (
-        <div className="max-w-xl overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#0d0d12]/30 backdrop-blur-xl">
-          <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-            <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+        <div className="max-w-2xl overflow-x-auto rounded-3xl border border-slate-100 bg-white shadow-xs">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
               <tr>
-                <th className="px-6 py-4">T/R</th>
+                <th className="px-6 py-4 w-20">T/R</th>
                 <th className="px-6 py-4">Fan Nomi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
+            <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
               {filteredSubjects.map((s, idx) => (
-                <tr key={s.id} className="hover:bg-zinc-900/10 transition">
-                  <td className="px-6 py-4 text-zinc-500 font-mono">{idx + 1}</td>
-                  <td className="px-6 py-4 font-bold text-zinc-200">{s.name}</td>
+                <tr key={s.id} className="hover:bg-slate-50/80 transition">
+                  <td className="px-6 py-4 text-slate-400 font-mono">{idx + 1}</td>
+                  <td className="px-6 py-4 font-bold text-[#1D1E26]">{s.name}</td>
                 </tr>
               ))}
             </tbody>
@@ -118,29 +128,29 @@ export default function SubjectsSection({
 
       {/* Modal: Add Subject */}
       {showAddSubjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi Fan Qo'shish</h3>
-            <p className="text-[11px] text-zinc-500 mb-6">Tizimga yangi fan nomini kiriting (masalan: Matematika, Ona tili).</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
+            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi Fan Qo'shish</h3>
+            <p className="text-xs text-slate-400 font-medium mb-6">Tizimga yangi fan nomini kiriting (masalan: Matematika, Ona tili).</p>
 
             {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-2xl mb-4 font-medium">{actionError}</div>
             )}
 
             <form onSubmit={handleAddSubject} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Fan Nomi</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Fan Nomi</label>
                 <input
                   type="text"
                   required
                   placeholder="Masalan: Matematika"
                   value={subjectNameInput}
                   onChange={(e) => setSubjectNameInput(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -148,14 +158,14 @@ export default function SubjectsSection({
                     setSubjectNameInput("");
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>

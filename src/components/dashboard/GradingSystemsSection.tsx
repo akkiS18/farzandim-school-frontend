@@ -26,20 +26,29 @@ export default function GradingSystemsSection({
 
   const activeGS = gradingSystems.find((gs) => gs.is_active);
 
+  const safeFetchHeaders = () => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+    const headers: Record<string, string> = {
+      "Authorization": `Bearer ${token}`,
+    };
+    if (sId) headers["X-School-ID"] = sId;
+    return headers;
+  };
+
   const handleActivateGS = async (gsId: number) => {
     if (!confirm("Ushbu baholash tizimini faollashtirmoqchimisiz?")) return;
     setActionLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/grading-systems/${gsId}/activate`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Tizimni faollashtirib bo'lmadi");
 
       // Reload
       const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const resData = await res.json();
       if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
@@ -56,14 +65,14 @@ export default function GradingSystemsSection({
     try {
       const response = await fetch(`${API_URL}/api/schools/grading-systems/${gsId}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Tizimni o'chirib bo'lmadi");
 
       // Reload
       const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const resData = await res.json();
       if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
@@ -98,12 +107,12 @@ export default function GradingSystemsSection({
     }
 
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/grading-systems`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -112,7 +121,7 @@ export default function GradingSystemsSection({
 
       // Reload
       const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const resData = await res.json();
       if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
@@ -128,84 +137,84 @@ export default function GradingSystemsSection({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Baholash Tizimlari</h1>
-          <p className="text-xs text-zinc-500 mt-1">Maktab uchun joriy faol baholash tizimini tanlang yoki yangi tizim yarating.</p>
+          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Baholash Tizimlari</h1>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">Maktab uchun joriy faol baholash tizimini tanlang yoki yangi tizim yarating.</p>
         </div>
         <button
           onClick={() => setShowAddGSModal(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition duration-200 cursor-pointer shadow-lg shadow-blue-600/15"
+          className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
         >
           + Yangi Tizim
         </button>
       </div>
 
       {activeGS && (
-        <div className="bg-gradient-to-r from-blue-950/20 to-indigo-950/20 border border-blue-500/20 rounded-2xl p-6 backdrop-blur-md flex items-center justify-between">
+        <div className="bg-[#ECFCCA]/50 border border-lime-200 rounded-3xl p-6 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
+            <span className="text-[10px] bg-[#ECFCCA] text-[#65A30D] px-3 py-1 rounded-full font-black uppercase font-mono tracking-wider">
               Faol Baholash Tizimi
             </span>
-            <h2 className="text-xl font-bold text-zinc-100 mt-3">{activeGS.name}</h2>
-            <p className="text-xs text-zinc-400 mt-1">
-              Turi: <strong className="text-zinc-200">{activeGS.type}</strong>
+            <h2 className="text-xl font-black text-[#1D1E26] mt-3">{activeGS.name}</h2>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              Turi: <strong className="text-[#1D1E26]">{activeGS.type}</strong>
               {activeGS.type === "NUMERIC" && ` (Diapazon: ${activeGS.min_value} - ${activeGS.max_value})`}
               {activeGS.type === "PERCENTAGE" && ` (Diapazon: ${activeGS.min_value}% - ${activeGS.max_value}%)`}
             </p>
           </div>
-          <div className="w-12 h-12 bg-blue-600/10 border border-blue-500/30 rounded-xl flex items-center justify-center text-blue-400 font-bold text-lg font-mono">
+          <div className="w-14 h-14 bg-white border border-lime-200 rounded-2xl flex items-center justify-center text-[#65A30D] font-black text-xl font-mono shadow-xs">
             {activeGS.type === "NUMERIC" ? activeGS.max_value : activeGS.type === "PERCENTAGE" ? "%" : "A"}
           </div>
         </div>
       )}
 
       {gradingSystems.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-zinc-800/60 rounded-3xl bg-zinc-950/10">
-          <p className="text-zinc-500 text-sm">Baholash tizimlari topilmadi.</p>
+        <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+          <p className="text-slate-400 text-xs font-medium">Baholash tizimlari topilmadi.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {gradingSystems.map((gs) => (
             <div
               key={gs.id}
-              className={`bg-zinc-900/10 border rounded-2xl p-5 backdrop-blur-xl flex flex-col justify-between h-44 transition duration-300 ${
+              className={`bg-white border rounded-3xl p-6 shadow-xs flex flex-col justify-between h-48 transition duration-200 ${
                 gs.is_active
-                  ? "border-blue-500/40 shadow-lg shadow-blue-500/[0.02]"
-                  : "border-zinc-850 hover:border-zinc-850"
+                  ? "border-lime-300 ring-2 ring-[#D4F562]/30"
+                  : "border-slate-100/80 hover:shadow-md"
               }`}
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-md font-bold text-zinc-200">{gs.name}</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  <span className="text-base font-black text-[#1D1E26]">{gs.name}</span>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black font-mono uppercase tracking-wider ${
                     gs.is_active
-                      ? "bg-blue-500/10 text-blue-400 border-blue-500/25"
-                      : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                      ? "bg-[#ECFCCA] text-[#65A30D]"
+                      : "bg-slate-100 text-slate-500"
                   }`}>
                     {gs.is_active ? "Faol" : "Nofaol"}
                   </span>
                 </div>
 
-                <p className="text-xs text-zinc-500 mt-3.5">
-                  Turi: <span className="text-zinc-400 font-semibold">{gs.type}</span>
+                <p className="text-xs text-slate-400 font-medium mt-3">
+                  Turi: <span className="text-[#1D1E26] font-bold">{gs.type}</span>
                 </p>
                 {gs.type === "NUMERIC" && (
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Qiymatlar: <span className="text-zinc-400 font-semibold">{gs.min_value} - {gs.max_value}</span>
+                  <p className="text-xs text-slate-400 font-medium mt-1">
+                    Qiymatlar: <span className="text-[#1D1E26] font-bold">{gs.min_value} - {gs.max_value}</span>
                   </p>
                 )}
                 {gs.type === "PERCENTAGE" && (
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Foiz diapazoni: <span className="text-zinc-400 font-semibold">{gs.min_value}% - {gs.max_value}%</span>
+                  <p className="text-xs text-slate-400 font-medium mt-1">
+                    Foiz diapazoni: <span className="text-[#1D1E26] font-bold">{gs.min_value}% - {gs.max_value}%</span>
                   </p>
                 )}
                 {gs.type === "LETTER" && gs.options && (
-                  <div className="text-[10px] text-zinc-500 mt-1 flex flex-wrap gap-1 items-center">
+                  <div className="text-xs text-slate-400 mt-1 flex flex-wrap gap-1 items-center font-medium">
                     <span>Variantlar:</span>
                     {gs.options.map((opt: any, index: number) => (
-                      <span key={index} className="bg-zinc-950 border border-zinc-850 px-2 py-0.5 rounded text-zinc-300 font-mono">
+                      <span key={index} className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-700 font-mono text-[10px] font-bold">
                         {opt.label} ({opt.numeric_value} ball)
                       </span>
                     ))}
@@ -213,12 +222,12 @@ export default function GradingSystemsSection({
                 )}
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-900/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 {!gs.is_active && (
                   <button
                     onClick={() => handleActivateGS(gs.id)}
                     disabled={actionLoading}
-                    className="bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 hover:border-transparent text-blue-400 hover:text-white font-semibold text-[10px] py-1.5 px-3 rounded-lg transition duration-200 cursor-pointer disabled:opacity-50"
+                    className="bg-[#1D1E26] text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
                   >
                     Faollashtirish
                   </button>
@@ -227,7 +236,7 @@ export default function GradingSystemsSection({
                   <button
                     onClick={() => handleDeleteGS(gs.id)}
                     disabled={actionLoading}
-                    className="bg-red-950/20 hover:bg-red-600 border border-red-900/20 hover:border-transparent text-red-400 hover:text-white font-semibold text-[10px] py-1.5 px-3 rounded-lg transition duration-200 cursor-pointer disabled:opacity-50"
+                    className="bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold text-xs py-2 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
                   >
                     O'chirish
                   </button>
@@ -240,34 +249,34 @@ export default function GradingSystemsSection({
 
       {/* Modal: Add Grading System */}
       {showAddGSModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi Baholash Tizimi Yaratish</h3>
-            <p className="text-[11px] text-zinc-550 mb-6">Tizim turini va qiymatlarini belgilang.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
+            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi Baholash Tizimi Yaratish</h3>
+            <p className="text-xs text-slate-400 font-medium mb-6">Tizim turini va qiymatlarini belgilang.</p>
 
             {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-2xl mb-4 font-medium">{actionError}</div>
             )}
 
             <form onSubmit={handleCreateGS} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Tizim Nomi</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tizim Nomi</label>
                 <input
                   type="text"
                   required
                   placeholder="Masalan: 5 ballik baholash"
                   value={gsNameInput}
                   onChange={(e) => setGsNameInput(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Tizim turi</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tizim turi</label>
                 <select
                   value={gsTypeInput}
                   onChange={(e) => setGsTypeInput(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition cursor-pointer font-bold"
                 >
                   <option value="NUMERIC">Numeric (Raqamli)</option>
                   <option value="PERCENTAGE">Percentage (Foizli)</option>
@@ -278,23 +287,23 @@ export default function GradingSystemsSection({
               {(gsTypeInput === "NUMERIC" || gsTypeInput === "PERCENTAGE") && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Eng kichik qiymat</label>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Eng kichik qiymat</label>
                     <input
                       type="number"
                       required
                       value={gsMinInput}
                       onChange={(e) => setGsMinInput(e.target.value)}
-                      className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Eng katta qiymat</label>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Eng katta qiymat</label>
                     <input
                       type="number"
                       required
                       value={gsMaxInput}
                       onChange={(e) => setGsMaxInput(e.target.value)}
-                      className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                     />
                   </div>
                 </div>
@@ -302,20 +311,20 @@ export default function GradingSystemsSection({
 
               {gsTypeInput === "LETTER" && (
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Variantlar (JSON)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Variantlar (JSON)</label>
                   <textarea
                     required
                     placeholder='Masalan: [{"label": "A", "numeric_value": 5}, {"label": "B", "numeric_value": 4}]'
                     value={gsOptionsInput}
                     onChange={(e) => setGsOptionsInput(e.target.value)}
                     rows={4}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-xs outline-none transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
                   />
-                  <span className="text-[9px] text-zinc-650 block mt-1 font-sans">Har bir variant JSON formatida "label" va ixtiyoriy "numeric_value" maydonlaridan iborat bo'lishi kerak.</span>
+                  <span className="text-[10px] text-slate-400 block mt-1 font-medium">Har bir variant JSON formatida "label" va ixtiyoriy "numeric_value" maydonlaridan iborat bo'lishi kerak.</span>
                 </div>
               )}
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -324,14 +333,14 @@ export default function GradingSystemsSection({
                     setGsOptionsInput("");
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                 >
                   {actionLoading ? "Yaratilmoqda..." : "Yaratish"}
                 </button>

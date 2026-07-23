@@ -773,16 +773,16 @@ export default function ClassesSection({
     <>
       {!selectedClass ? (
         // 1A. Class list grid
-        <div className="space-y-6">
+        <div className="space-y-6 font-sans text-[#1D1E26]">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-zinc-100">Sinflar Boshqaruvi</h1>
-              <p className="text-xs text-zinc-500 mt-1">Maktabingizdagi faol sinflar va ularning tarkibini boshqaring.</p>
+              <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Sinflar Boshqaruvi</h1>
+              <p className="text-xs text-slate-400 font-medium mt-1">Maktabingizdagi faol sinflar va ularning tarkibini boshqaring.</p>
             </div>
             {userInfo?.role === "ADMIN" && (
               <button
                 onClick={() => setShowAddClassModal(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-blue-600/15 cursor-pointer whitespace-nowrap"
+                className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl hover:opacity-90 transition duration-200 shadow-md cursor-pointer whitespace-nowrap"
               >
                 + Yangi Sinf
               </button>
@@ -790,9 +790,9 @@ export default function ClassesSection({
           </div>
 
           {/* Search & Statistics bar */}
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-zinc-900/20 border border-zinc-800/40 p-4 rounded-2xl backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-white border border-slate-100/80 p-4 rounded-3xl shadow-xs">
             <div className="relative max-w-sm w-full">
-              <span className="absolute inset-y-0 left-3 flex items-center text-zinc-500 pointer-events-none">
+              <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
                 </svg>
@@ -802,17 +802,17 @@ export default function ClassesSection({
                 placeholder="Sinf nomini qidirish..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 pl-9 pr-4 py-2 rounded-xl text-sm outline-none transition"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-[#D4F562] pl-9 pr-4 py-2 rounded-xl text-xs outline-none transition font-medium"
               />
             </div>
-            <div className="flex items-center space-x-6 text-xs text-zinc-400 px-2 font-mono">
-              <span>Jami sinflar: <strong className="text-blue-400 font-bold">{classes.length}</strong></span>
+            <div className="flex items-center space-x-6 text-xs text-slate-500 px-2 font-mono">
+              <span>Jami sinflar: <strong className="text-[#1D1E26] font-extrabold">{classes.length}</strong></span>
             </div>
           </div>
 
           {filteredClasses.length === 0 ? (
-            <div className="text-center py-20 border border-dashed border-zinc-800/60 rounded-3xl bg-zinc-950/10">
-              <p className="text-zinc-500 text-sm">
+            <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-white">
+              <p className="text-slate-400 text-xs font-medium">
                 {searchQuery ? "Mos keluvchi sinflar topilmadi" : "Hozircha hech qanday sinf mavjud emas. Yuqoridan yangi sinf qo'shing."}
               </p>
             </div>
@@ -826,25 +826,25 @@ export default function ClassesSection({
                     setSelectedClass(cls);
                     setClassDetailsTab("students");
                   }}
-                  className="bg-zinc-900/30 border border-zinc-800/50 hover:border-blue-500/30 rounded-2xl p-5 backdrop-blur-xl cursor-pointer hover:shadow-xl hover:shadow-blue-500/[0.02] hover:-translate-y-0.5 transition duration-300 flex flex-col justify-between h-40 group"
+                  className="bg-white border border-slate-100/80 hover:border-[#D4F562] rounded-3xl p-5 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between h-40 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-zinc-100 group-hover:text-blue-400 transition">
+                    <span className="text-base font-black text-[#1D1E26] group-hover:text-[#65A30D] transition">
                       {cls.name} sinfi
                     </span>
                     <div className="flex items-center space-x-2">
-                      <span className="bg-blue-900/30 text-blue-400 text-[10px] font-mono tracking-wider px-2 py-0.5 rounded border border-blue-800/40">
+                      <span className="bg-[#ECFCCA] text-[#65A30D] text-[10px] font-mono font-bold tracking-wider px-2.5 py-1 rounded-xl">
                         Lvl {cls.level ?? 0}
                       </span>
-                      <span className="bg-zinc-800/60 text-zinc-400 text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded border border-zinc-800">
+                      <span className="bg-slate-100 text-slate-600 text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-1 rounded-xl">
                         ID: {cls.id}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-xs text-zinc-500 space-y-1">
-                    <p className="flex items-center">
-                      <svg className="w-3.5 h-3.5 text-zinc-600 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <div className="text-xs text-slate-400 space-y-1">
+                    <p className="flex items-center font-medium">
+                      <svg className="w-3.5 h-3.5 text-slate-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
                       </svg>
                       Boshqarish uchun ustiga bosing
@@ -857,23 +857,29 @@ export default function ClassesSection({
         </div>
       ) : (
         // 1B. Contextual Class detail view
-        <div className="space-y-6">
+        <div className="space-y-6 select-none font-sans">
           {/* Class Details Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/40 pb-5">
+          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSelectedClass(null)}
-                className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-400 hover:text-zinc-200 p-2.5 rounded-xl transition cursor-pointer"
+                className="bg-slate-100 hover:bg-slate-200 text-[#1D1E26] p-2.5 rounded-2xl transition cursor-pointer font-extrabold shadow-xs"
+                title="Ortga qarata"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-zinc-100">
-                  {selectedClass.name} sinfi <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 align-middle ml-2 font-mono">Level {selectedClass.level ?? 0}</span>
+                <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight flex items-center gap-2">
+                  {selectedClass.name} sinfi{" "}
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-[#ECFCCA] text-[#65A30D] align-middle font-mono">
+                    Level {selectedClass.level ?? 0}
+                  </span>
                 </h1>
-                <p className="text-xs text-zinc-500 mt-1">Sinf tarkibidagi o'quvchilar va fan o'qituvchilari boshqaruvi.</p>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Sinf tarkibidagi o'quvchilar va fan o'qituvchilari boshqaruvi.
+                </p>
               </div>
             </div>
 
@@ -885,13 +891,13 @@ export default function ClassesSection({
                     setEditClassLevel(selectedClass.level ?? 1);
                     setShowEditClassModal(true);
                   }}
-                  className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                  className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
                 >
                   Nomini o'zgartirish
                 </button>
                 <button
                   onClick={() => setShowDeleteClassModal(true)}
-                  className="bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-400 font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                  className="bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
                 >
                   Sinfni o'chirish
                 </button>
@@ -900,43 +906,43 @@ export default function ClassesSection({
           </div>
 
           {/* Inside Tab Switcher */}
-          <div className="flex border-b border-zinc-800/40">
+          <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
             <button
               onClick={() => setClassDetailsTab("students")}
-              className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
                 classDetailsTab === "students"
-                  ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                  : "border-transparent text-zinc-400 hover:text-zinc-300"
+                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               Sinf O'quvchilari ({classStudents.length})
             </button>
             <button
               onClick={() => setClassDetailsTab("teachers")}
-              className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
                 classDetailsTab === "teachers"
-                  ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                  : "border-transparent text-zinc-400 hover:text-zinc-300"
+                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               Biriktirilgan O'qituvchilar ({classTeachers.length})
             </button>
             <button
               onClick={() => setClassDetailsTab("parents")}
-              className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
                 classDetailsTab === "parents"
-                  ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                  : "border-transparent text-zinc-400 hover:text-zinc-300"
+                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               Ota-onalar ({classParents.length})
             </button>
             <button
               onClick={() => setClassDetailsTab("schedule")}
-              className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
                 classDetailsTab === "schedule"
-                  ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                  : "border-transparent text-zinc-400 hover:text-zinc-300"
+                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               Dars Jadvali
@@ -945,15 +951,15 @@ export default function ClassesSection({
 
           {/* Tab Content: Students */}
           {classDetailsTab === "students" && (
-            <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+            <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-md font-bold text-zinc-300">O'quvchilar ro'yxati</h3>
+                <h3 className="text-base font-black text-[#1D1E26]">O'quvchilar ro'yxati</h3>
                 
-                <div className="flex space-x-3">
+                <div className="flex items-center space-x-3">
                   {userInfo?.role === "ADMIN" && (
                     <button
                       onClick={() => setShowImportStudentsModal(true)}
-                      className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-indigo-400 font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                      className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
                     >
                       Excel orqali yuklash
                     </button>
@@ -962,7 +968,7 @@ export default function ClassesSection({
                   {isMainTeacherOfClass() && (
                     <button
                       onClick={() => setShowAddStudentModal(true)}
-                      className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                     >
                       + O'quvchi qo'shish
                     </button>
@@ -972,51 +978,51 @@ export default function ClassesSection({
 
               {classStudentsLoading ? (
                 <div className="text-center py-10">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : classStudents.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-                  <p className="text-zinc-500 text-xs">Ushbu sinfda o'quvchilar mavjud emas.</p>
+                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <p className="text-slate-400 text-xs font-medium">Ushbu sinfda o'quvchilar mavjud emas.</p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-                  <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                    <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                       <tr>
-                        <th className="px-5 py-3">T/R</th>
-                        <th className="px-5 py-3">F.I.SH</th>
-                        <th className="px-5 py-3">Manzil</th>
-                        <th className="px-5 py-3">Tug'ilgan sana</th>
-                        <th className="px-5 py-3">INA</th>
-                        <th className="px-5 py-3">Balans</th>
-                        <th className="px-5 py-3 text-right">Amallar</th>
+                        <th className="px-6 py-4">T/R</th>
+                        <th className="px-6 py-4">F.I.SH</th>
+                        <th className="px-6 py-4">Manzil</th>
+                        <th className="px-6 py-4">Tug'ilgan sana</th>
+                        <th className="px-6 py-4">INA</th>
+                        <th className="px-6 py-4">Balans</th>
+                        <th className="px-6 py-4 text-right">Amallar</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
+                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                       {classStudents.map((student, i) => (
-                        <tr key={student.id} className="hover:bg-zinc-900/10 transition">
-                          <td className="px-5 py-3 text-zinc-500 font-mono">{i + 1}</td>
-                          <td className="px-5 py-3 font-semibold text-zinc-200">
+                        <tr key={student.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-6 py-4 text-slate-400 font-mono">{i + 1}</td>
+                          <td className="px-6 py-4 font-bold text-[#1D1E26]">
                             {student.last_name} {student.first_name} {student.middle_name}
                           </td>
-                          <td className="px-5 py-3 text-zinc-400">{student.address || "Kiritilmagan"}</td>
-                          <td className="px-5 py-3 text-zinc-400">
+                          <td className="px-6 py-4 text-slate-500">{student.address || "Kiritilmagan"}</td>
+                          <td className="px-6 py-4 text-slate-500 font-mono">
                             {student.birthdate ? student.birthdate.split("T")[0] : "Kiritilmagan"}
                           </td>
-                          <td className="px-5 py-3 text-zinc-450 font-mono">{student.ina || "Kiritilmagan"}</td>
-                          <td className={`px-5 py-3 font-mono font-bold ${
-                            (student.balance ? student.balance : 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                          <td className="px-6 py-4 text-slate-500 font-mono">{student.ina || "Kiritilmagan"}</td>
+                          <td className={`px-6 py-4 font-mono font-bold ${
+                            (student.balance ? student.balance : 0) >= 0 ? "text-emerald-600" : "text-red-500"
                           }`}>
                             {new Intl.NumberFormat("uz-UZ").format(student.balance || 0)} UZS
                           </td>
-                          <td className="px-5 py-3 text-right space-x-2">
+                          <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                             <button
                               onClick={() => {
                                 setSelectedStudentForParents(student);
                                 fetchLinkedParents(student.id);
                                 setShowParentsModal(true);
                               }}
-                              className="text-[10px] bg-indigo-950/40 hover:bg-indigo-950/60 border border-indigo-900/30 text-indigo-400 py-1.5 px-3 rounded-lg transition cursor-pointer"
+                              className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
                             >
                               Vasiylar
                             </button>
@@ -1033,7 +1039,7 @@ export default function ClassesSection({
                                     setEditStudentINA(student.ina || "");
                                     setShowEditStudentModal(true);
                                   }}
-                                  className="text-[10px] bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 py-1.5 px-3 rounded-lg transition cursor-pointer"
+                                  className="text-xs bg-slate-100 hover:bg-slate-200 text-[#1D1E26] font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
                                 >
                                   Tahrirlash
                                 </button>
@@ -1042,7 +1048,7 @@ export default function ClassesSection({
                                     setDeletingStudentId(student.id);
                                     setShowDeleteStudentModal(true);
                                   }}
-                                  className="text-[10px] bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-400 py-1.5 px-3 rounded-lg transition cursor-pointer"
+                                  className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
                                 >
                                   O'chirish
                                 </button>
@@ -1060,13 +1066,13 @@ export default function ClassesSection({
 
           {/* Tab Content: Teachers */}
           {classDetailsTab === "teachers" && (
-            <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+            <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-md font-bold text-zinc-300">Sinf fan o'qituvchilari</h3>
+                <h3 className="text-base font-black text-[#1D1E26]">Sinf fan o'qituvchilari</h3>
                 {userInfo?.role === "ADMIN" && (
                   <button
                     onClick={() => setShowAssignTeacherModal(true)}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                    className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     + O'qituvchi biriktirish
                   </button>
@@ -1075,55 +1081,55 @@ export default function ClassesSection({
 
               {classTeachersLoading ? (
                 <div className="text-center py-10">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : classTeachers.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-                  <p className="text-zinc-500 text-xs">Ushbu sinfga hali o'qituvchilar biriktirilmagan.</p>
+                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <p className="text-slate-400 text-xs font-medium">Ushbu sinfga hali o'qituvchilar biriktirilmagan.</p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-                  <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                    <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                       <tr>
-                        <th className="px-5 py-3">T/R</th>
-                        <th className="px-5 py-3">O'qituvchi</th>
-                        <th className="px-5 py-3">Fan</th>
-                        <th className="px-5 py-3">Telefon</th>
-                        <th className="px-5 py-3">Rol</th>
-                        {userInfo?.role === "ADMIN" && <th className="px-5 py-3 text-right">Amallar</th>}
+                        <th className="px-6 py-4">T/R</th>
+                        <th className="px-6 py-4">O'qituvchi</th>
+                        <th className="px-6 py-4">Fan</th>
+                        <th className="px-6 py-4">Telefon</th>
+                        <th className="px-6 py-4">Rol</th>
+                        {userInfo?.role === "ADMIN" && <th className="px-6 py-4 text-right">Amallar</th>}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
+                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                       {classTeachers.map((ct, i) => (
-                        <tr key={ct.id} className="hover:bg-zinc-900/10 transition">
-                          <td className="px-5 py-3 text-zinc-500 font-mono">{i + 1}</td>
-                          <td className="px-5 py-3 font-semibold text-zinc-200">
+                        <tr key={ct.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-6 py-4 text-slate-400 font-mono">{i + 1}</td>
+                          <td className="px-6 py-4 font-bold text-[#1D1E26]">
                             {ct.last_name} {ct.first_name} {ct.middle_name}
                           </td>
-                          <td className="px-5 py-3">
-                            <span className="bg-blue-950/40 text-blue-400 border border-blue-900/25 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                          <td className="px-6 py-4">
+                            <span className="bg-[#E0F2FE] text-[#0284C7] font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg">
                               {ct.subject_name}
                             </span>
                           </td>
-                          <td className="px-5 py-3 font-mono text-zinc-400">{ct.phone}</td>
-                          <td className="px-5 py-3">
+                          <td className="px-6 py-4 font-mono text-slate-500">{ct.phone}</td>
+                          <td className="px-6 py-4">
                             {ct.is_main_teacher ? (
-                              <span className="bg-indigo-950/40 text-indigo-400 border border-indigo-900/25 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                Sinf Rahbari ⭐
+                              <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                                Sinf Rahbari
                               </span>
                             ) : (
-                              <span className="text-zinc-500 text-[10px]">Fan o'qituvchisi</span>
+                              <span className="text-slate-400 text-xs">Fan o'qituvchisi</span>
                             )}
                           </td>
                           {userInfo?.role === "ADMIN" && (
-                            <td className="px-5 py-3 text-right">
+                            <td className="px-6 py-4 text-right">
                               <button
                                 onClick={() => {
                                   setUnassignClassTeacherId(ct.id);
                                   setShowUnassignTeacherModal(true);
                                 }}
-                                className="text-[10px] bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-400 py-1.5 px-3 rounded-lg transition cursor-pointer"
+                                className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
                               >
                                 Ajratish
                               </button>
@@ -1140,13 +1146,13 @@ export default function ClassesSection({
 
           {/* Tab Content: Parents */}
           {classDetailsTab === "parents" && (
-            <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+            <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-md font-bold text-zinc-300">Sinf ota-onalari</h3>
+                <h3 className="text-base font-black text-[#1D1E26]">Sinf ota-onalari</h3>
                 {userInfo?.role === "ADMIN" && (
                   <button
                     onClick={() => setShowImportParentsModal(true)}
-                    className="bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-indigo-400 font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+                    className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
                   >
                     Excel orqali yuklash
                   </button>
@@ -1155,44 +1161,44 @@ export default function ClassesSection({
 
               {classParentsLoading ? (
                 <div className="text-center py-10">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : classParents.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-                  <p className="text-zinc-500 text-xs">Ushbu sinf o'quvchilariga vasiylar biriktirilmagan.</p>
+                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <p className="text-slate-400 text-xs font-medium">Ushbu sinf o'quvchilariga vasiylar biriktirilmagan.</p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-                  <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                    <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                       <tr>
-                        <th className="px-5 py-3">T/R</th>
-                        <th className="px-5 py-3">Vasiy</th>
-                        <th className="px-5 py-3">Farzandi (O'quvchi)</th>
-                        <th className="px-5 py-3">Telefon</th>
-                        <th className="px-5 py-3">Pasport</th>
-                        {userInfo?.role === "ADMIN" && <th className="px-5 py-3 text-right">Amallar</th>}
+                        <th className="px-6 py-4">T/R</th>
+                        <th className="px-6 py-4">Vasiy</th>
+                        <th className="px-6 py-4">Farzandi (O'quvchi)</th>
+                        <th className="px-6 py-4">Telefon</th>
+                        <th className="px-6 py-4">Pasport</th>
+                        {userInfo?.role === "ADMIN" && <th className="px-6 py-4 text-right">Amallar</th>}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
+                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                       {classParents.map((parent, i) => (
-                        <tr key={parent.id} className="hover:bg-zinc-900/10 transition">
-                          <td className="px-5 py-3 text-zinc-500 font-mono">{i + 1}</td>
-                          <td className="px-5 py-3 font-semibold text-zinc-200">
+                        <tr key={parent.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-6 py-4 text-slate-400 font-mono">{i + 1}</td>
+                          <td className="px-6 py-4 font-bold text-[#1D1E26]">
                             {parent.last_name} {parent.first_name} {parent.middle_name}
                           </td>
-                          <td className="px-5 py-3 text-blue-400 font-semibold">{parent.student_name}</td>
-                          <td className="px-5 py-3 font-mono text-zinc-400">{parent.phone}</td>
-                          <td className="px-5 py-3 font-mono text-zinc-400">{parent.email || "Kiritilmagan"}</td>
+                          <td className="px-6 py-4 font-extrabold text-indigo-600">{parent.student_name}</td>
+                          <td className="px-6 py-4 font-mono text-slate-500">{parent.phone}</td>
+                          <td className="px-6 py-4 font-mono text-slate-500">{parent.email || "Kiritilmagan"}</td>
                           {userInfo?.role === "ADMIN" && (
-                            <td className="px-5 py-3 text-right">
+                            <td className="px-6 py-4 text-right">
                               <button
                                 onClick={() => {
                                   setEditingParent(parent);
                                   setUnlinkStudentId(parent.student_id || 0);
                                   setShowUnlinkParentModal(true);
                                 }}
-                                className="text-[10px] bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-400 py-1.5 px-3 rounded-lg transition cursor-pointer"
+                                className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
                               >
                                 Ajratish
                               </button>
@@ -1210,11 +1216,11 @@ export default function ClassesSection({
           {/* Tab Content: Schedule */}
           {classDetailsTab === "schedule" && (
             <div className="space-y-6">
-              <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-6">
+              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                   <div>
-                    <h3 className="text-md font-bold text-zinc-300">Haftalik dars jadvali</h3>
-                    <p className="text-[11px] text-zinc-500 mt-1">Ushbu sinf uchun dars jadvali va o'qituvchilarning biriktiruvlari.</p>
+                    <h3 className="text-base font-black text-[#1D1E26]">Haftalik dars jadvali</h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">Ushbu sinf uchun dars jadvali va o'qituvchilarning biriktiruvlari.</p>
                   </div>
                   {userInfo?.role === "ADMIN" && (
                     <button
@@ -1227,39 +1233,39 @@ export default function ClassesSection({
                         setScheduleFormState(mapped);
                         setShowEditScheduleModal(true);
                       }}
-                      className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer whitespace-nowrap"
+                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer whitespace-nowrap"
                     >
-                      ✏️ Jadvalni tahrirlash
+                      Jadvalni tahrirlash
                     </button>
                   )}
                 </div>
 
                 {classScheduleLoading ? (
                   <div className="text-center py-10">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 ) : classSchedule.length === 0 ? (
-                  <div className="text-center py-16 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-                    <p className="text-zinc-550 text-xs">Ushbu sinfda dars jadvali hali belgilanmagan.</p>
+                  <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <p className="text-slate-400 text-xs font-medium">Ushbu sinfda dars jadvali hali belgilanmagan.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-                    <table className="min-w-full divide-y divide-zinc-800/60 text-center table-fixed">
-                      <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-center border-collapse table-fixed">
+                      <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                         <tr>
-                          <th className="px-2 py-3 w-16">Soat</th>
-                          <th className="px-2 py-3">Dushanba</th>
-                          <th className="px-2 py-3">Seshanba</th>
-                          <th className="px-2 py-3">Chorshanba</th>
-                          <th className="px-2 py-3">Payshanba</th>
-                          <th className="px-2 py-3">Juma</th>
-                          <th className="px-2 py-3">Shanba</th>
+                          <th className="px-2 py-4 w-20">Soat</th>
+                          <th className="px-2 py-4">Dushanba</th>
+                          <th className="px-2 py-4">Seshanba</th>
+                          <th className="px-2 py-4">Chorshanba</th>
+                          <th className="px-2 py-4">Payshanba</th>
+                          <th className="px-2 py-4">Juma</th>
+                          <th className="px-2 py-4">Shanba</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-350 font-medium">
+                      <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                          <tr key={period} className="hover:bg-zinc-900/10 transition">
-                            <td className="px-2 py-2.5 font-mono font-bold text-zinc-500 bg-zinc-900/10">
+                          <tr key={period} className="hover:bg-slate-50/80 transition">
+                            <td className="px-2 py-3 font-mono font-bold text-slate-400 bg-slate-50/50">
                               {period}-dars
                             </td>
                             {[1, 2, 3, 4, 5, 6].map((day) => {
@@ -1267,15 +1273,15 @@ export default function ClassesSection({
                                 (item) => item.day_of_week === day && item.lesson_number === period
                               );
                               return (
-                                <td key={day} className="px-2 py-2.5 border-l border-zinc-800/30">
+                                <td key={day} className="px-2 py-3 border-l border-slate-100">
                                   {lesson ? (
                                     <div className="space-y-1">
-                                      <span className="font-semibold text-zinc-200 text-xs block">
+                                      <span className="font-extrabold text-[#1D1E26] text-xs block">
                                         {lesson.subject_name}
                                       </span>
                                     </div>
                                   ) : (
-                                    <span className="text-zinc-650 text-[10px] font-mono">-</span>
+                                    <span className="text-slate-300 text-xs font-mono">-</span>
                                   )}
                                 </td>
                               );
@@ -1289,8 +1295,8 @@ export default function ClassesSection({
               </div>
 
               {/* Day Exception Section */}
-              <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-zinc-800/20 pb-4">
+              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                   <div>
                     <h3 className="text-md font-bold text-zinc-300">Kunlik dars o'zgarishlari</h3>
                     <p className="text-[11px] text-zinc-500 mt-1">Haftalik dars jadvaliga kiritilgan bir martalik o'zgarishlar.</p>

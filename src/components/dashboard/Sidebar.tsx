@@ -1,14 +1,13 @@
 import React from "react";
-import { UserInfo, ClassItem } from "./types";
+import { ClassItem } from "./types";
 
 interface SidebarProps {
   activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram";
   setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
-  userInfo: UserInfo | null;
-  handleLogout: () => void;
-  setShowChangePasswordModal: (show: boolean) => void;
+  mobileOpen?: boolean;
+  setMobileOpen?: (open: boolean) => void;
 }
 
 export default function Sidebar({
@@ -16,87 +15,184 @@ export default function Sidebar({
   setActiveMenu,
   selectedClass,
   setSelectedClass,
-  userInfo,
-  handleLogout,
-  setShowChangePasswordModal,
+  mobileOpen = false,
+  setMobileOpen,
 }: SidebarProps) {
+  // SVG Icon Renderer
+  const renderIcon = (id: string) => {
+    switch (id) {
+      case "overview":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="2" />
+            <rect x="14" y="3" width="7" height="7" rx="2" />
+            <rect x="14" y="14" width="7" height="7" rx="2" />
+            <rect x="3" y="14" width="7" height="7" rx="2" />
+          </svg>
+        );
+      case "classes":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
+          </svg>
+        );
+      case "teachers":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        );
+      case "subjects":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+        );
+      case "grading-systems":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        );
+      case "menu":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+        );
+      case "balance":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+            <line x1="1" y1="10" x2="23" y2="10" />
+          </svg>
+        );
+      case "announcements":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
+          </svg>
+        );
+      case "feedback":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        );
+      case "telegram":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
   const menuItems = [
-    { id: "overview", label: "Dashboard", icon: "📊" },
-    { id: "classes", label: "Sinflar", icon: "🏫" },
-    { id: "teachers", label: "O'qituvchilar", icon: "👨‍🏫" },
-    { id: "subjects", label: "Fanlar", icon: "📚" },
-    { id: "grading-systems", label: "Baholash Tizimi", icon: "⭐" },
-    { id: "menu", label: "Taomnoma", icon: "🍽️" },
-    { id: "balance", label: "Balans boshqaruvi", icon: "💳" },
-    { id: "announcements", label: "E'lonlar", icon: "📢" },
-    { id: "feedback", label: "Fikr-mulohazalar", icon: "💬" },
-    { id: "telegram", label: "Telegram Bot", icon: "🤖" },
+    { id: "overview", label: "Dashboard", badge: null },
+    { id: "classes", label: "Sinflar", badge: null },
+    { id: "teachers", label: "O'qituvchilar", badge: null },
+    { id: "subjects", label: "Fanlar", badge: null },
+    { id: "grading-systems", label: "Baholash Tizimi", badge: null },
+    { id: "menu", label: "Taomnoma", badge: null },
+    { id: "balance", label: "Balans boshqaruvi", badge: null },
+    { id: "announcements", label: "E'lonlar", badge: null },
+    { id: "feedback", label: "Fikr-mulohazalar", badge: null },
+    { id: "telegram", label: "Telegram Bot", badge: null },
   ] as const;
 
   return (
-    <aside className="w-64 bg-zinc-950/80 border-r border-zinc-900 flex flex-col justify-between backdrop-blur-xl shrink-0 h-screen select-none">
-      <div className="p-6">
-        <div className="flex items-center space-x-3 mb-8">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-xs shadow-lg shadow-blue-500/25">
-            OJ
-          </div>
-          <span className="font-sans font-bold text-zinc-100 text-sm tracking-wide">
-            Online Jurnal Admin
-          </span>
-        </div>
+    <>
+      {/* Mobile Drawer Overlay Backdrop */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen && setMobileOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-fadeIn"
+        />
+      )}
 
-        <nav className="space-y-1">
-          {menuItems.map((item) => {
-            const isActive = activeMenu === item.id;
-            return (
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col justify-between shrink-0 h-screen select-none shadow-2xl font-sans overflow-y-auto transform transition-transform duration-300 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <div className="p-6">
+          {/* Farzandim Logo Header */}
+          <div className="flex items-center justify-between mb-8 px-1">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-full bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-sm shadow-md">
+                <svg className="w-5 h-5 text-[#1D1E26]" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="3" />
+                  <circle cx="12" cy="12" r="4" fill="currentColor" />
+                </svg>
+              </div>
+              <span className="font-black text-white text-xl tracking-tight">
+                Farzandim
+              </span>
+            </div>
+
+            {/* Mobile Close Button */}
+            {setMobileOpen && (
               <button
-                key={item.id}
-                onClick={() => {
-                  setActiveMenu(item.id);
-                  if (item.id !== "classes") {
-                    setSelectedClass(null);
-                  }
-                }}
-                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10"
-                    : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                }`}
+                onClick={() => setMobileOpen(false)}
+                className="md:hidden text-slate-400 hover:text-white p-1"
               >
-                <span className="text-base">{item.icon}</span>
-                <span>{item.label}</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="p-6 border-t border-zinc-900/60 bg-zinc-950/30 space-y-4">
-        <div className="flex items-center justify-between min-w-0">
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-zinc-300 truncate">
-              {userInfo ? `${userInfo.first_name} ${userInfo.last_name}` : "Admin"}
-            </p>
-            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
-              {userInfo?.role || "ADMIN"}
-            </p>
+            )}
           </div>
-          <button
-            onClick={() => setShowChangePasswordModal(true)}
-            className="text-zinc-500 hover:text-zinc-300 p-1.5 hover:bg-zinc-900 rounded-lg transition cursor-pointer"
-            title="Parolni o'zgartirish"
-          >
-            ⚙️
-          </button>
-        </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center space-x-2 bg-zinc-900 hover:bg-red-950/20 hover:text-red-400 border border-zinc-800 hover:border-red-900/30 text-zinc-400 text-xs font-semibold py-2 px-4 rounded-xl transition duration-250 cursor-pointer"
-        >
-          <span>Chiqish</span>
-        </button>
-      </div>
-    </aside>
+          {/* Navigation Items List */}
+          <nav className="space-y-1.5">
+            {menuItems.map((item) => {
+              const isActive = activeMenu === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveMenu(item.id);
+                    if (item.id !== "classes") {
+                      setSelectedClass(null);
+                    }
+                    if (setMobileOpen) {
+                      setMobileOpen(false);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-xs font-bold tracking-wide transition duration-200 cursor-pointer ${
+                    isActive
+                      ? "bg-[#D4F562] text-[#1D1E26] shadow-lg shadow-lime-500/10 font-extrabold"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <span>{renderIcon(item.id)}</span>
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                        isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </aside>
+    </>
   );
 }

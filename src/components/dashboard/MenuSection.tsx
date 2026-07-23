@@ -47,6 +47,15 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
   const [actionLoading, setActionLoading] = useState(false);
 
+  const safeFetchHeaders = () => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+    const headers: Record<string, string> = {
+      "Authorization": `Bearer ${token}`,
+    };
+    if (sId) headers["X-School-ID"] = sId;
+    return headers;
+  };
+
   // Fetch initial intervals and exceptions
   useEffect(() => {
     if (token) {
@@ -67,7 +76,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
   const fetchMenuIntervals = async () => {
     try {
       const response = await fetch(`${API_URL}/api/schools/menu/intervals`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) {
@@ -86,7 +95,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     setMenuCyclesLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/menu/cycle?interval_id=${selectedIntervalId}`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) {
@@ -103,7 +112,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     setMenuExceptionsLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/menu/exceptions`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) {
@@ -122,12 +131,12 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     setActionLoading(true);
 
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/menu/intervals`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           name: newIntervalName.trim(),
           start_date: newIntervalStartDate,
@@ -152,13 +161,13 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
   };
 
   const handleDeleteMenuInterval = async (id: number) => {
-    if (!confirm("Haqiqatan ham ushbu interval va unga biriktirilgan aylanma shablonlarni o'chirib yubormoqchimisiz?")) return;
+    if (!confirm("Ushbu intervalni o'chirmoqchisiz? Tizim undagi aylanma shablonlarni ham o'chirib yuboradi.")) return;
     setActionLoading(true);
 
     try {
       const response = await fetch(`${API_URL}/api/schools/menu/intervals/${id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
 
       if (!response.ok) {
@@ -167,9 +176,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       }
 
       alert("Interval muvaffaqiyatli o'chirildi!");
-      if (selectedIntervalId === id) {
-        setSelectedIntervalId(null);
-      }
+      if (selectedIntervalId === id) setSelectedIntervalId(null);
       fetchMenuIntervals();
     } catch (err: any) {
       alert(err.message);
@@ -184,12 +191,12 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     setActionLoading(true);
 
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/menu/cycle`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           interval_id: Number(selectedIntervalId),
           week_number: Number(menuWeekNumber),
@@ -229,16 +236,15 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       } catch (e) {}
     }
 
-    // Update specific meal
     mealsObj[mealType] = value.trim();
 
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/menu/cycle`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           interval_id: Number(selectedIntervalId),
           week_number: week,
@@ -252,7 +258,6 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
         throw new Error(data.error || "Saqlashda xatolik");
       }
       
-      // Update local state directly to be fast
       setMenuCycles((prev) =>
         prev.map((c) => {
           if (c.week_number === week && c.day_of_week === day) {
@@ -261,7 +266,6 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
           return c;
         })
       );
-      // Wait, if it didn't exist locally, we reload
       if (!cycleItem) {
         fetchMenuCycles();
       }
@@ -277,12 +281,12 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     setActionLoading(true);
 
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/menu/exceptions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           menu_date: menuExcDate,
           meals: {
@@ -315,7 +319,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     try {
       const response = await fetch(`${API_URL}/api/schools/menu/exceptions/${id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
 
       if (!response.ok) {
@@ -332,76 +336,27 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     }
   };
 
-  const handleImportMenuExcel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedMenuFile) return;
-    
-    // Choose endpoint based on subtab
-    const isCycle = activeMenuSubTab === "cycle";
-    if (isCycle && !selectedIntervalId) {
-      alert("Avval intervalni tanlang");
-      return;
-    }
-
-    setMenuImportLoading(true);
-    setMenuImportError("");
-    setMenuImportResult(null);
-
-    const formData = new FormData();
-    formData.append("file", selectedMenuFile);
-    if (isCycle && selectedIntervalId) {
-      formData.append("interval_id", selectedIntervalId.toString());
-    }
-
-    try {
-      const endpoint = isCycle ? "import/menu/cycle" : "import/menu/exception";
-      const response = await fetch(`${API_URL}/api/schools/${endpoint}`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setMenuImportResult(data);
-        if (isCycle) {
-          fetchMenuCycles();
-        } else {
-          fetchMenuExceptions();
-        }
-      } else {
-        setMenuImportError(data.error || "Excel yuklashda xatolik");
-      }
-    } catch (err: any) {
-      setMenuImportError(err.message || "Serverga ulanish xatosi");
-    } finally {
-      setMenuImportLoading(false);
-    }
-  };
-
   const closeMenuExcelModal = () => {
     setSelectedMenuFile(null);
-    setMenuImportError("");
     setMenuImportResult(null);
+    setMenuImportError("");
   };
 
-  const daysNameMap = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+  const daysOfWeekMap = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
 
   return (
-    <div className="space-y-8 animate-fadeIn text-zinc-100">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <span>🍲</span> Taomnoma Boshqaruvi
-          </h1>
-          <p className="text-xs text-zinc-500 mt-1">
-            Maktab o'quvchilari uchun aylanma taomnoma shablonlari va maxsus kunlik taomnomalarni boshqaring.
+          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Taomnoma Boshqaruvi</h1>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            O'quvchilar uchun haftalik va kunlik taomnomalarni sozlang.
           </p>
         </div>
         {activeMenuSubTab === "cycle" && (
           <button
             onClick={() => setShowAddIntervalModal(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-blue-600/15 cursor-pointer"
+            className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
           >
             + Yangi Interval
           </button>
@@ -409,16 +364,16 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       </div>
 
       {/* Sub Tab Navigation */}
-      <div className="flex space-x-1 p-0.5 bg-zinc-950/60 border border-zinc-800/60 rounded-xl w-fit">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
         <button
           onClick={() => {
             setActiveMenuSubTab("cycle");
             closeMenuExcelModal();
           }}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
             activeMenuSubTab === "cycle"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-              : "text-zinc-400 hover:text-zinc-200"
+              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+              : "text-slate-500 hover:text-slate-900"
           }`}
         >
           Aylanma Shablon (Template)
@@ -428,10 +383,10 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
             setActiveMenuSubTab("exception");
             closeMenuExcelModal();
           }}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
             activeMenuSubTab === "exception"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-              : "text-zinc-400 hover:text-zinc-200"
+              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+              : "text-slate-500 hover:text-slate-900"
           }`}
         >
           Kunlik Istisnolar (Overrides)
@@ -442,10 +397,10 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
         <div className="space-y-8">
           {/* Section 1: Intervals List */}
           <div className="space-y-3">
-            <h2 className="text-sm font-bold text-zinc-300">Taomnoma Intervallari</h2>
+            <h2 className="text-base font-black text-[#1D1E26]">Taomnoma Intervallari</h2>
             {menuIntervals.length === 0 ? (
-              <div className="text-center py-8 border border-dashed border-zinc-800 rounded-2xl bg-zinc-900/10">
-                <p className="text-xs text-zinc-500">Hozircha hech qanday interval yaratilmagan. Yuqoridagi tugma orqali yangi interval yarating.</p>
+              <div className="text-center py-8 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <p className="text-xs text-slate-400 font-medium">Hozircha hech qanday interval yaratilmagan. Yuqoridagi tugma orqali yangi interval yarating.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -455,16 +410,16 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                     <div
                       key={interval.id}
                       onClick={() => setSelectedIntervalId(interval.id)}
-                      className={`p-4 rounded-xl border backdrop-blur-md cursor-pointer transition flex flex-col justify-between h-32 ${
+                      className={`p-5 rounded-3xl border cursor-pointer transition flex flex-col justify-between h-36 shadow-xs ${
                         isSelected
-                          ? "bg-blue-600/10 border-blue-500 text-blue-100 shadow-md shadow-blue-600/5"
-                          : "bg-zinc-900/20 border-zinc-800 hover:border-zinc-700 text-zinc-300"
+                          ? "bg-[#ECFCCA]/50 border-lime-300 ring-2 ring-[#D4F562]/30 text-[#1D1E26]"
+                          : "bg-white border-slate-100/80 hover:shadow-md text-slate-700"
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="truncate pr-2">
-                          <h3 className="font-bold text-sm truncate">{interval.name}</h3>
-                          <p className="text-[10px] text-zinc-500 font-mono mt-1">
+                          <h3 className="font-black text-sm text-[#1D1E26] truncate">{interval.name}</h3>
+                          <p className="text-[11px] text-slate-400 font-mono mt-1">
                             {new Date(interval.start_date).toLocaleDateString()} - {new Date(interval.end_date).toLocaleDateString()}
                           </p>
                         </div>
@@ -473,15 +428,17 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                             e.stopPropagation();
                             handleDeleteMenuInterval(interval.id);
                           }}
-                          className="text-zinc-500 hover:text-red-400 p-1 hover:bg-zinc-800/40 rounded transition"
+                          className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-xl transition"
                           title="O'chirish"
                         >
-                          🗑️
+                          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
                         </button>
                       </div>
-                      <div className="flex items-center justify-between border-t border-zinc-800/60 pt-2 mt-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Tsikl davomiyligi:</span>
-                        <span className="text-[11px] font-bold font-mono text-blue-400">{interval.cycle_weeks} hafta</span>
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tsikl davomiyligi:</span>
+                        <span className="text-xs font-black font-mono text-[#65A30D]">{interval.cycle_weeks} hafta</span>
                       </div>
                     </div>
                   );
@@ -497,23 +454,23 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
               if (!activeInterval) return null;
 
               return (
-                <div className="bg-zinc-900/10 border border-zinc-800 rounded-2xl p-6 backdrop-blur-xl space-y-6">
+                <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h2 className="text-md font-bold text-zinc-200">
-                        Aylanma taomnoma jadvali: <span className="text-blue-400 font-bold">{activeInterval.name}</span>
+                      <h2 className="text-base font-black text-[#1D1E26]">
+                        Aylanma taomnoma jadvali: <span className="text-[#65A30D] font-black">{activeInterval.name}</span>
                       </h2>
-                      <p className="text-[11px] text-zinc-500 mt-1 font-sans">
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">
                         Ushbu interval uchun haftalik taomlarni tahrirlang. Katakni <strong>ikki marta bosib</strong> inline tahrirlashingiz mumkin.
                       </p>
                     </div>
 
                     <button
                       onClick={() => setShowOnlyFoodDays(!showOnlyFoodDays)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1.5 select-none ${
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 select-none cursor-pointer ${
                         showOnlyFoodDays
-                          ? "bg-blue-600 text-white"
-                          : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                          ? "bg-[#D4F562] text-[#1D1E26] shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                       }`}
                     >
                       <span>{showOnlyFoodDays ? "✓" : "○"}</span>
@@ -523,22 +480,22 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
                   {menuCyclesLoading ? (
                     <div className="py-20 text-center flex flex-col items-center justify-center space-y-2">
-                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                      <p className="text-xs text-zinc-500">Jadval yuklanmoqda...</p>
+                      <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-xs text-slate-400">Jadval yuklanmoqda...</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-zinc-850">
-                      <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                        <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                           <tr>
-                            <th className="px-4 py-3 w-16 sm:w-20 text-center">Hafta</th>
-                            <th className="px-4 py-3 w-20 sm:w-28 text-center">Kun</th>
-                            <th className="px-4 py-3">Nonushta (Ertalab)</th>
-                            <th className="px-4 py-3">Tushlik (Asosiy)</th>
-                            <th className="px-4 py-3">Peshinlik / Kechki</th>
+                            <th className="px-4 py-4 w-20 text-center">Hafta</th>
+                            <th className="px-4 py-4 w-28 text-center">Kun</th>
+                            <th className="px-4 py-4">Nonushta (Ertalab)</th>
+                            <th className="px-4 py-4">Tushlik (Asosiy)</th>
+                            <th className="px-4 py-4">Peshinlik / Kechki</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300 bg-zinc-950/10">
+                        <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                           {(() => {
                             const rowsToRender: any[] = [];
 
@@ -552,21 +509,14 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                                   } catch (e) {}
                                 }
 
-                                const breakfast = mealsObj.breakfast || "";
-                                const lunch = mealsObj.lunch || "";
-                                const snack = mealsObj.snack || "";
-                                const hasFood = breakfast || lunch || snack;
-
-                                if (showOnlyFoodDays && !hasFood) {
-                                  continue;
-                                }
+                                const hasFood = mealsObj.breakfast || mealsObj.lunch || mealsObj.snack;
+                                if (showOnlyFoodDays && !hasFood) continue;
 
                                 rowsToRender.push({
                                   week: w,
                                   day: d,
-                                  breakfast,
-                                  lunch,
-                                  snack,
+                                  dayName: daysOfWeekMap[d - 1] || `${d}-kun`,
+                                  meals: mealsObj,
                                 });
                               }
                             }
@@ -574,70 +524,68 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                             if (rowsToRender.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={5} className="px-4 py-12 text-center text-zinc-500 italic">
-                                    Jadvalda ma'lumot topilmadi.
+                                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                                    Taom kiritilgan kunlar mavjud emas.
                                   </td>
                                 </tr>
                               );
                             }
 
-                            return rowsToRender.map((row) => {
-                              const isEditing = (mealType: string) =>
-                                editingCell &&
-                                editingCell.week === row.week &&
-                                editingCell.day === row.day &&
-                                editingCell.mealType === mealType;
+                            return rowsToRender.map((row, idx) => (
+                              <tr key={`${row.week}-${row.day}`} className="hover:bg-slate-50/80 transition">
+                                <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-400 bg-slate-50/50">
+                                  {row.week}-hafta
+                                </td>
+                                <td className="px-4 py-3.5 text-center font-bold text-[#1D1E26]">
+                                  {row.dayName}
+                                </td>
+                                
+                                {["breakfast", "lunch", "snack"].map((mealKey) => {
+                                  const isEditing = editingCell?.week === row.week && editingCell?.day === row.day && editingCell?.mealType === mealKey;
+                                  const currentText = row.meals[mealKey] || "";
 
-                              const renderCell = (mealType: "breakfast" | "lunch" | "snack", currentVal: string) => {
-                                if (isEditing(mealType)) {
                                   return (
-                                    <input
-                                      type="text"
-                                      value={editingValue}
-                                      onChange={(e) => setEditingValue(e.target.value)}
-                                      onBlur={() => handleSaveInlineMeal(row.week, row.day, mealType, editingValue)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          handleSaveInlineMeal(row.week, row.day, mealType, editingValue);
-                                        } else if (e.key === "Escape") {
-                                          setEditingCell(null);
-                                        }
+                                    <td
+                                      key={mealKey}
+                                      onDoubleClick={() => {
+                                        setEditingCell({ week: row.week, day: row.day, mealType: mealKey });
+                                        setEditingValue(currentText);
                                       }}
-                                      className="w-full bg-zinc-900 border border-blue-500 text-zinc-100 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500"
-                                      autoFocus
-                                    />
+                                      className="px-4 py-3.5 border-l border-slate-100 hover:bg-lime-50/50 transition cursor-pointer relative"
+                                    >
+                                      {isEditing ? (
+                                        <div className="flex items-center space-x-2">
+                                          <input
+                                            type="text"
+                                            autoFocus
+                                            value={editingValue}
+                                            onChange={(e) => setEditingValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                handleSaveInlineMeal(row.week, row.day, mealKey as any, editingValue);
+                                              } else if (e.key === "Escape") {
+                                                setEditingCell(null);
+                                              }
+                                            }}
+                                            className="w-full bg-white border border-[#D4F562] text-slate-800 text-xs px-2 py-1 rounded-lg outline-none focus:ring-2 focus:ring-[#D4F562]"
+                                          />
+                                          <button
+                                            onClick={() => handleSaveInlineMeal(row.week, row.day, mealKey as any, editingValue)}
+                                            className="bg-[#D4F562] text-[#1D1E26] font-bold text-[10px] px-2 py-1 rounded-lg"
+                                          >
+                                            OK
+                                          </button>
+                                        </div>
+                                      ) : currentText ? (
+                                        <span className="text-slate-800 font-bold">{currentText}</span>
+                                      ) : (
+                                        <span className="text-slate-300 text-xs italic">+ Qo'shish</span>
+                                      )}
+                                    </td>
                                   );
-                                }
-                                return (
-                                  <div
-                                    onDoubleClick={() => {
-                                      setEditingCell({ week: row.week, day: row.day, mealType });
-                                      setEditingValue(currentVal);
-                                    }}
-                                    className="min-h-8 px-2 py-1.5 rounded hover:bg-zinc-800/40 transition cursor-pointer select-none truncate"
-                                    title="Tahrirlash uchun ikki marta bosing"
-                                  >
-                                    {currentVal || <span className="text-zinc-650 italic">Kiritilmagan</span>}
-                                  </div>
-                                );
-                              };
-
-                              return (
-                                <tr key={`${row.week}_${row.day}`} className="hover:bg-zinc-900/20 transition">
-                                  <td className="px-4 py-3 text-center w-16 sm:w-20 font-semibold font-mono text-zinc-400">
-                                    <span className="bg-zinc-850 px-2 py-0.5 rounded text-[10px] text-zinc-300">
-                                      {row.week}-h
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-center w-20 sm:w-28 font-medium text-zinc-300">
-                                    {daysNameMap[row.day - 1]}
-                                  </td>
-                                  <td className="px-4 py-2">{renderCell("breakfast", row.breakfast)}</td>
-                                  <td className="px-4 py-2">{renderCell("lunch", row.lunch)}</td>
-                                  <td className="px-4 py-2">{renderCell("snack", row.snack)}</td>
-                                </tr>
-                              );
-                            });
+                                })}
+                              </tr>
+                            ));
                           })()}
                         </tbody>
                       </table>
@@ -647,464 +595,141 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
               );
             })()
           )}
+        </div>
+      ) : (
+        /* Subtab Exception: Overrides List */
+        <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-black text-[#1D1E26]">Kunlik Istisnolar Ro'yxati</h2>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Muayyan sana uchun aylanma taomnomani bekor qiluvchi taomlar.</p>
+            </div>
+          </div>
 
-          {/* Section 3: Excel import and Template Download */}
-          {selectedIntervalId && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Manual Input (Save Template) */}
-              <div className="bg-zinc-900/10 border border-zinc-850 rounded-2xl p-6 backdrop-blur-xl space-y-6">
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-200">Aylanma shablon qo'shish</h3>
-                  <p className="text-[11px] text-zinc-500 mt-1 font-sans">
-                    Quyidagi formani to'ldirib, tanlangan interval shabloniga yangi kunlik taom qo'shishingiz yoki mavjudini almashtirishingiz mumkin.
-                  </p>
-                </div>
-                <form onSubmit={handleSaveMenuCycle} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Hafta raqami</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={menuWeekNumber}
-                        onChange={(e) => setMenuWeekNumber(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2 rounded-xl text-xs outline-none transition font-mono"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Hafta kuni</label>
-                      <select
-                        value={menuDayOfWeek}
-                        onChange={(e) => setMenuDayOfWeek(Number(e.target.value))}
-                        className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition cursor-pointer"
-                      >
-                        <option value={1}>Dushanba</option>
-                        <option value={2}>Seshanba</option>
-                        <option value={3}>Chorshanba</option>
-                        <option value={4}>Payshanba</option>
-                        <option value={5}>Juma</option>
-                        <option value={6}>Shanba</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Nonushta (Ertalabki taom)</label>
-                      <input
-                        type="text"
-                        placeholder="Masalan: Tuxum 🍳, non, choy..."
-                        value={menuBreakfast}
-                        onChange={(e) => setMenuBreakfast(e.target.value)}
-                        className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Tushlik (Asosiy taom)</label>
-                      <input
-                        type="text"
-                        placeholder="Masalan: Mastava 🍲, palov..."
-                        value={menuLunch}
-                        onChange={(e) => setMenuLunch(e.target.value)}
-                        className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Peshinlik / Kechki ovqat</label>
-                      <input
-                        type="text"
-                        placeholder="Masalan: Mevalar 🍎, pechenye, sharbat..."
-                        value={menuSnack}
-                        onChange={(e) => setMenuSnack(e.target.value)}
-                        className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={actionLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-3 rounded-xl transition duration-200 cursor-pointer disabled:opacity-50"
-                  >
-                    {actionLoading ? "Saqlanmoqda..." : "Shablonni Saqlash"}
-                  </button>
-                </form>
-              </div>
-
-              {/* Excel Import Panel */}
-              <div className="bg-zinc-900/10 border border-zinc-850 rounded-2xl p-6 backdrop-blur-xl space-y-6 flex flex-col justify-between">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-bold text-zinc-200">Excel orqali guruhlab yuklash</h3>
-                    <p className="text-[11px] text-zinc-500 mt-1 font-sans">
-                      Excel fayl yordamida ushbu tanlangan aylanma shablonga ko'plab kunlarni birdaniga kiritishingiz mumkin.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleImportMenuExcel} className="space-y-4">
-                    <div className="border border-dashed border-zinc-800/80 rounded-2xl p-6 bg-zinc-950/20 text-center hover:bg-zinc-950/30 transition relative group">
-                      <input
-                        type="file"
-                        id="menuExcelFileInput"
-                        accept=".xlsx"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files.length > 0) {
-                            setSelectedMenuFile(e.target.files[0]);
-                          }
-                        }}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div className="space-y-2.5">
-                        <span className="text-2xl block">📁</span>
-                        <p className="text-xs text-zinc-300 font-medium">
-                          {selectedMenuFile ? selectedMenuFile.name : "Excel faylni tanlang yoki sudrab olib keling"}
-                        </p>
-                        <p className="text-[10px] text-zinc-500">Faqat aylanma shablon .xlsx fayli qabul qilinadi</p>
-                      </div>
-                    </div>
-
-                    {menuImportError && (
-                      <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl font-mono">
-                        {menuImportError}
-                      </div>
-                    )}
-
-                    {menuImportResult && (
-                      <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl space-y-1.5">
-                        <p className="font-bold">Muvaffaqiyatli yuklandi!</p>
-                        <ul className="text-[11px] list-disc list-inside space-y-0.5 text-zinc-300">
-                          <li>Qabul qilindi: <strong className="text-emerald-400">{menuImportResult.imported_count}</strong> ta satr</li>
-                          <li>Xatoliklar: <strong className="text-red-400">{menuImportResult.failed_count}</strong> ta</li>
-                        </ul>
-                        {menuImportResult.errors && menuImportResult.errors.length > 0 && (
-                          <div className="border-t border-emerald-500/20 pt-2 mt-2 max-h-32 overflow-y-auto text-[10px] text-red-300 space-y-1 font-mono">
-                            {menuImportResult.errors.map((err: any, index: number) => (
-                              <p key={index}>{err.row}-qator: {err.error}</p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={menuImportLoading}
-                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-3 rounded-xl transition duration-200 cursor-pointer disabled:opacity-50"
-                    >
-                      {menuImportLoading ? "Yuklanmoqda..." : "Excel-ni yuklash"}
-                    </button>
-                  </form>
-                </div>
-
-                <div className="border-t border-zinc-850 pt-5 mt-6">
-                  <span className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Namuna shablonini yuklab olish</span>
-                  <a
-                    href={`${API_URL}/api/schools/import/template/menu/cycle?token=${token}`}
-                    download
-                    className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-[10px] font-medium py-2.5 px-3 rounded-xl flex items-center justify-center space-x-2 transition cursor-pointer w-fit"
-                  >
-                    <span>🔽</span>
-                    <span>Aylanma shablon shabloni</span>
-                  </a>
-                </div>
-              </div>
+          {menuExceptionsLoading ? (
+            <div className="text-center py-10">
+              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+          ) : menuExceptions.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              <p className="text-slate-400 text-xs font-medium">Hozircha hech qanday istisno taomnoma kiritilmagan.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                  <tr>
+                    <th className="px-6 py-4">Sana</th>
+                    <th className="px-6 py-4">Nonushta</th>
+                    <th className="px-6 py-4">Tushlik</th>
+                    <th className="px-6 py-4">Peshinlik / Kechki</th>
+                    <th className="px-6 py-4 text-right">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
+                  {menuExceptions.map((exc) => {
+                    let m: any = { breakfast: "", lunch: "", snack: "" };
+                    if (exc.meals) {
+                      try {
+                        m = typeof exc.meals === "string" ? JSON.parse(exc.meals) : exc.meals;
+                      } catch (e) {}
+                    }
+                    return (
+                      <tr key={exc.id} className="hover:bg-slate-50/80 transition">
+                        <td className="px-6 py-4 font-mono font-bold text-[#1D1E26]">
+                          {new Date(exc.menu_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">{m.breakfast || "-"}</td>
+                        <td className="px-6 py-4">{m.lunch || "-"}</td>
+                        <td className="px-6 py-4">{m.snack || "-"}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => handleDeleteMenuException(exc.id)}
+                            className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition cursor-pointer"
+                          >
+                            O'chirish
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-      ) : (
-        // Subtab Exceptions Override
-        <div className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Manual Exception entry */}
-            <div className="bg-zinc-900/10 border border-zinc-850 rounded-2xl p-6 backdrop-blur-xl space-y-6">
-              <div>
-                <h2 className="text-md font-bold text-zinc-200">Maxsus kunlik ovqat qo'shish</h2>
-                <p className="text-[11px] text-zinc-500 mt-1">
-                  Aylanma taomnomaga kirmaydigan ma'lum sanalar (masalan: bayramlar, maxsus tadbirlar kungi ovqatlar) uchun istisno kiriting.
-                </p>
-              </div>
-              <form onSubmit={handleSaveMenuException} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Sana (Istisno kuni)</label>
-                  <input
-                    type="date"
-                    value={menuExcDate}
-                    onChange={(e) => setMenuExcDate(e.target.value)}
-                    className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2 rounded-xl text-xs outline-none transition font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Nonushta (Ertalabki taom)</label>
-                    <input
-                      type="text"
-                      placeholder="Masalan: Maxsus bo'tqa 🥛, mevalar..."
-                      value={menuExcBreakfast}
-                      onChange={(e) => setMenuExcBreakfast(e.target.value)}
-                      className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Tushlik (Asosiy taom)</label>
-                    <input
-                      type="text"
-                      placeholder="Masalan: Shurva, somsa 🥟..."
-                      value={menuExcLunch}
-                      onChange={(e) => setMenuExcLunch(e.target.value)}
-                      className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Peshinlik / Kechki ovqat</label>
-                    <input
-                      type="text"
-                      placeholder="Masalan: Yogurt, shirinlik..."
-                      value={menuExcSnack}
-                      onChange={(e) => setMenuExcSnack(e.target.value)}
-                      className="w-full bg-zinc-950/40 border border-zinc-800/80 focus:border-blue-500 text-zinc-200 px-3.5 py-2.5 rounded-xl text-xs outline-none transition"
-                    />
-                  </div>
-                  <p className="text-[9px] text-zinc-500 italic mt-1 font-sans">
-                    * Eslatma: Barcha taomlarni bo'sh qoldirsangiz, o'sha kundagi istisno o'chadi.
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-3 rounded-xl transition duration-200 cursor-pointer disabled:opacity-50"
-                >
-                  {actionLoading ? "Saqlanmoqda..." : "Istisnoli Taomnomani Saqlash"}
-                </button>
-              </form>
-            </div>
-
-            {/* Excel Exception Import */}
-            <div className="bg-zinc-900/10 border border-zinc-850 rounded-2xl p-6 backdrop-blur-xl space-y-6 flex flex-col justify-between">
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-md font-bold text-zinc-200">Excel orqali guruhlab yuklash</h2>
-                  <p className="text-[11px] text-zinc-500 mt-1">
-                    Excel fayl yordamida maxsus sanalarni va ularning taomnomalarini tizimga ommaviy yuklang.
-                  </p>
-                </div>
-
-                <form onSubmit={handleImportMenuExcel} className="space-y-4">
-                  <div className="border border-dashed border-zinc-800/80 rounded-2xl p-6 bg-zinc-950/20 text-center hover:bg-zinc-950/30 transition relative group">
-                    <input
-                      type="file"
-                      id="menuExcelFileInput"
-                      accept=".xlsx"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          setSelectedMenuFile(e.target.files[0]);
-                        }
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div className="space-y-2.5">
-                      <span className="text-2xl block">📁</span>
-                      <p className="text-xs text-zinc-305 font-medium">
-                        {selectedMenuFile ? selectedMenuFile.name : "Excel faylni tanlang yoki sudrab olib keling"}
-                      </p>
-                      <p className="text-[10px] text-zinc-500">Faqat maxsus kunlar .xlsx fayli qabul qilinadi</p>
-                    </div>
-                  </div>
-
-                  {menuImportError && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl font-mono">
-                      {menuImportError}
-                    </div>
-                  )}
-
-                  {menuImportResult && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl space-y-1.5">
-                      <p className="font-bold">Muvaffaqiyatli yuklandi!</p>
-                      <ul className="text-[11px] list-disc list-inside space-y-0.5 text-zinc-300">
-                        <li>Qabul qilindi: <strong className="text-emerald-400">{menuImportResult.imported_count}</strong> ta satr</li>
-                        <li>Xatoliklar: <strong className="text-red-400">{menuImportResult.failed_count}</strong> ta</li>
-                      </ul>
-                      {menuImportResult.errors && menuImportResult.errors.length > 0 && (
-                        <div className="border-t border-emerald-500/20 pt-2 mt-2 max-h-32 overflow-y-auto text-[10px] text-red-300 space-y-1 font-mono">
-                          {menuImportResult.errors.map((err: any, index: number) => (
-                            <p key={index}>{err.row}-qator: {err.error}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={menuImportLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-3 rounded-xl transition duration-200 cursor-pointer disabled:opacity-50"
-                  >
-                    {menuImportLoading ? "Yuklanmoqda..." : "Excel-ni yuklash"}
-                  </button>
-                </form>
-              </div>
-
-              <div className="border-t border-zinc-850 pt-5 mt-6">
-                <span className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Namuna shablonini yuklab olish</span>
-                <a
-                  href={`${API_URL}/api/schools/import/template/menu/exception?token=${token}`}
-                  download
-                  className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-[10px] font-medium py-2.5 px-3 rounded-xl flex items-center justify-center space-x-2 transition cursor-pointer w-fit"
-                >
-                  <span>🔽</span>
-                  <span>Kunlik istisno shabloni</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Exceptions History list */}
-          <div className="bg-zinc-900/10 border border-zinc-800 rounded-2xl p-6 backdrop-blur-xl space-y-4">
-            <div>
-              <h3 className="text-md font-bold text-zinc-200">Maxsus kunlik taomnomalar tarixi</h3>
-              <p className="text-[11px] text-zinc-500 mt-1">Ushbu ro'yxatda tizimga kiritilgan barcha maxsus kunlik taomlar (istisnolar) ko'rsatiladi.</p>
-            </div>
-
-            {menuExceptionsLoading ? (
-              <div className="py-12 text-center text-zinc-500 flex flex-col items-center justify-center space-y-2">
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span>Tarix yuklanmoqda...</span>
-              </div>
-            ) : menuExceptions.length === 0 ? (
-              <div className="py-12 text-center border border-dashed border-zinc-800 rounded-xl bg-zinc-950/20 text-zinc-500 text-xs">
-                Hozircha hech qanday maxsus kunlik taomnoma kiritilmagan.
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-zinc-850">
-                <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                  <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                    <tr>
-                      <th className="px-4 py-3 w-32">Sana</th>
-                      <th className="px-4 py-3">Nonushta</th>
-                      <th className="px-4 py-3">Tushlik</th>
-                      <th className="px-4 py-3">Peshinlik / Kechki</th>
-                      <th className="px-4 py-3 w-20 text-center">Amal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300 bg-zinc-950/10">
-                    {menuExceptions.map((exc) => {
-                      let mealsObj: any = { breakfast: "", lunch: "", snack: "" };
-                      if (exc.meals) {
-                        try {
-                          mealsObj = typeof exc.meals === "string" ? JSON.parse(exc.meals) : exc.meals;
-                        } catch (e) {}
-                      }
-                      return (
-                        <tr key={exc.id} className="hover:bg-zinc-900/20 transition">
-                          <td className="px-4 py-3 font-semibold font-mono text-blue-400">
-                            {exc.menu_date}
-                          </td>
-                          <td className="px-4 py-3 max-w-[200px] truncate">
-                            {mealsObj.breakfast || <span className="text-zinc-650 italic">Bo'sh (Bekor qilingan)</span>}
-                          </td>
-                          <td className="px-4 py-3 max-w-[200px] truncate">
-                            {mealsObj.lunch || <span className="text-zinc-650 italic">Bo'sh (Bekor qilingan)</span>}
-                          </td>
-                          <td className="px-4 py-3 max-w-[200px] truncate">
-                            {mealsObj.snack || <span className="text-zinc-650 italic">Bo'sh (Bekor qilingan)</span>}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => handleDeleteMenuException(exc.id)}
-                              className="text-zinc-500 hover:text-red-400 p-1 hover:bg-zinc-800/40 rounded transition"
-                              title="O'chirish"
-                            >
-                              🗑️
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
-      {/* Modal: Add Menu Interval */}
+      {/* Modal: Add Interval */}
       {showAddIntervalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi Taomnoma Intervali Yaratish</h3>
-            <p className="text-[11px] text-zinc-550 mb-6">Taomnoma amal qilish davri va uning takrorlanish (aylanish) haftasini kiriting.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
+            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi Taomnoma Interval Yaratish</h3>
+            <p className="text-xs text-slate-400 font-medium mb-6">Taomnoma aylanadigan vaqt oralig'ini va haftalar sonini belgilang.</p>
 
             <form onSubmit={handleSaveMenuInterval} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Interval nomi</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Interval Nomi</label>
                 <input
                   type="text"
                   required
-                  placeholder="Masalan: Birinchi chorak taomnomasi"
+                  placeholder="Masalan: 1-Chorak taomnomasi"
                   value={newIntervalName}
                   onChange={(e) => setNewIntervalName(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Boshlanish sanasi</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Boshlanish Sanasi</label>
                   <input
                     type="date"
                     required
                     value={newIntervalStartDate}
                     onChange={(e) => setNewIntervalStartDate(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Tugash sanasi</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tugash Sanasi</label>
                   <input
                     type="date"
                     required
                     value={newIntervalEndDate}
                     onChange={(e) => setNewIntervalEndDate(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Aylanish haftalari (Cycle weeks)</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Aylanma Tsikl (Haftalarda)</label>
                 <input
                   type="number"
-                  required
                   min={1}
-                  max={12}
+                  max={8}
+                  required
                   value={newIntervalWeeks}
-                  onChange={(e) => setNewIntervalWeeks(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                  onChange={(e) => setNewIntervalWeeks(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddIntervalModal(false);
-                    setNewIntervalName("");
-                    setActionLoading(false);
-                  }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  onClick={() => setShowAddIntervalModal(false)}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                 >
-                  {actionLoading ? "Saqlanmoqda..." : "Yaratish"}
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
               </div>
             </form>

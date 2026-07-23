@@ -60,11 +60,20 @@ export default function BalanceSection({
 
   const [actionLoading, setActionLoading] = useState(false);
 
+  const safeFetchHeaders = () => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+    const headers: Record<string, string> = {
+      "Authorization": `Bearer ${token}`,
+    };
+    if (sId) headers["X-School-ID"] = sId;
+    return headers;
+  };
+
   const fetchStudentsBalanceData = async () => {
     setStudentsBalanceLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) setStudentsBalanceList(Array.isArray(data) ? data : []);
@@ -79,7 +88,7 @@ export default function BalanceSection({
     setChargePlansLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/balance/charge-plans`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) setChargePlans(Array.isArray(data) ? data : []);
@@ -94,7 +103,7 @@ export default function BalanceSection({
     setGlobalTransactionsLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/schools/balance/transactions`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (response.ok) setGlobalTransactionsList(Array.isArray(data) ? data : []);
@@ -113,12 +122,12 @@ export default function BalanceSection({
     }
     setActionLoading(true);
     try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
       const response = await fetch(`${API_URL}/api/schools/students/${paymentStudentId}/balance/transaction`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           amount: parseFloat(paymentAmount),
           type: "PAYMENT",
@@ -155,24 +164,22 @@ export default function BalanceSection({
     formData.append("file", paymentFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/balance/import-payments`, {
+      const response = await fetch(`${API_URL}/api/schools/import/payments`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
+        headers: safeFetchHeaders(),
         body: formData,
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Import qilishda xatolik yuz berdi");
-
-      setPaymentImportResult(data);
-      if (data.imported_count > 0) {
+      if (response.ok) {
+        setPaymentImportResult(data);
         fetchStudentsBalanceData();
         fetchGlobalTransactionsData();
+      } else {
+        setPaymentImportError(data.error || "Fayl yuklashda xatolik yuz berdi");
       }
     } catch (err: any) {
-      setPaymentImportError(err.message);
+      setPaymentImportError(err.message || "Fayl yuklashda xatolik");
     } finally {
       setPaymentImportLoading(false);
     }
@@ -180,55 +187,48 @@ export default function BalanceSection({
 
   const handleCreateChargePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!planName.trim() || !planAmount || !planStartDate || !planEndDate || !planChargeDay) {
-      alert("Iltimos, barcha majburiy maydonlarni to'ldiring");
+    if (!planName.trim() || !planAmount) {
+      alert("Nomi va summa majburiy");
       return;
     }
     setActionLoading(true);
+
+    const targetLevels = rawPlanSelectedLevels
+      ? rawPlanSelectedLevels.split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n))
+      : [];
+    const targetClasses = rawPlanSelectedClasses
+      ? rawPlanSelectedClasses.split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n))
+      : [];
+    const targetStudents = rawPlanSelectedStudents
+      ? rawPlanSelectedStudents.split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n))
+      : [];
+
     try {
-      const parsedLevels = rawPlanSelectedLevels.split(",")
-        .map(v => parseInt(v.trim()))
-        .filter(v => !isNaN(v));
-      const parsedClasses = rawPlanSelectedClasses.split(",")
-        .map(v => parseInt(v.trim()))
-        .filter(v => !isNaN(v));
-      const parsedStudents = rawPlanSelectedStudents.split(",")
-        .map(v => parseInt(v.trim()))
-        .filter(v => !isNaN(v));
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
 
       const response = await fetch(`${API_URL}/api/schools/balance/charge-plans`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           name: planName.trim(),
           amount: parseFloat(planAmount),
           start_date: planStartDate,
           end_date: planEndDate,
-          charge_day: Number(planChargeDay),
-          levels: parsedLevels,
-          classes: parsedClasses,
-          students: parsedStudents,
+          charge_day: parseInt(planChargeDay.toString()),
+          target_levels: targetLevels,
+          target_classes: targetClasses,
+          target_students: targetStudents,
         }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "To'lov rejasini saqlab bo'lmadi");
 
-      alert("To'lov rejasi muvaffaqiyatli saqlandi!");
+      alert("Yangi to'lov rejasi yaratildi!");
       setShowAddChargePlanModal(false);
-      
       setPlanName("");
       setPlanAmount("");
-      setPlanStartDate("2026-09-01");
-      setPlanEndDate("2027-05-31");
-      setPlanChargeDay(1);
-      setRawPlanSelectedLevels("");
-      setRawPlanSelectedClasses("");
-      setRawPlanSelectedStudents("");
-
       fetchChargePlansData();
     } catch (err: any) {
       alert(err.message);
@@ -238,15 +238,18 @@ export default function BalanceSection({
   };
 
   const handleDeleteChargePlan = async (id: number) => {
-    if (!confirm("Haqiqatan ham ushbu to'lov rejasini o'chirmoqchisiz? Keyingi oylik yechimlar to'xtatiladi.")) return;
+    if (!confirm("Ushbu to'lov rejasini o'chirmoqchimisiz?")) return;
     setActionLoading(true);
+
     try {
       const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/${id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "O'chirishda xatolik yuz berdi");
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "O'chirib bo'lmadi");
+      }
 
       alert("To'lov rejasi o'chirildi!");
       fetchChargePlansData();
@@ -262,7 +265,7 @@ export default function BalanceSection({
     try {
       const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/run`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: safeFetchHeaders(),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "To'lovlarni hisoblashda xatolik");
@@ -278,26 +281,27 @@ export default function BalanceSection({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Balans va To'lovlar boshqaruvi</h1>
-          <p className="text-xs text-zinc-500 mt-1">O'quvchilar balansini ko'rish, to'lovlar qabul qilish va avtomat to'lov rejalarini sozlash.</p>
+          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Balans va To'lovlar boshqaruvi</h1>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            O'quvchilar balansini ko'rish, to'lovlar qabul qilish va avtomat to'lov rejalarini sozlash.
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleRunChargesManually}
             disabled={actionLoading}
-            className="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition duration-200 cursor-pointer disabled:opacity-50 whitespace-nowrap"
-            title="Dars kunlaridagi oylik to'lovlarni hisoblab, qarzdorliklarni avtomatik hisoblash"
+            className="bg-[#FFEADB] text-[#FF7A00] hover:bg-[#FFD2B8] font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
           >
-            🔄 To'lovlarni hisoblash (Manual Run)
+            To'lovlarni hisoblash
           </button>
           <button
             onClick={() => setShowImportPaymentsModal(true)}
-            className="bg-emerald-650 hover:bg-emerald-600 border border-emerald-700/30 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition duration-200 cursor-pointer whitespace-nowrap"
+            className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
           >
-            📥 Excel orqali to'lovlar
+            Excel orqali to'lovlar
           </button>
           <button
             onClick={() => {
@@ -306,7 +310,7 @@ export default function BalanceSection({
               setPaymentDescription("");
               setShowAddPaymentModal(true);
             }}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-4 rounded-xl transition duration-200 cursor-pointer whitespace-nowrap"
+            className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
           >
             + Yangi To'lov
           </button>
@@ -314,33 +318,33 @@ export default function BalanceSection({
       </div>
 
       {/* Sub-tabs Navigation */}
-      <div className="flex border-b border-zinc-800/40">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
         <button
           onClick={() => setBalanceActiveSubTab("balances")}
-          className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
             balanceActiveSubTab === "balances"
-              ? "border-blue-500 text-blue-400 bg-blue-500/5"
-              : "border-transparent text-zinc-400 hover:text-zinc-300"
+              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+              : "text-slate-500 hover:text-slate-900"
           }`}
         >
           O'quvchilar Balansi ({studentsBalanceList.length})
         </button>
         <button
           onClick={() => setBalanceActiveSubTab("plans")}
-          className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
             balanceActiveSubTab === "plans"
-              ? "border-blue-500 text-blue-400 bg-blue-500/5"
-              : "border-transparent text-zinc-400 hover:text-zinc-300"
+              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+              : "text-slate-500 hover:text-slate-900"
           }`}
         >
           To'lov Rejalari ({chargePlans.length})
         </button>
         <button
           onClick={() => setBalanceActiveSubTab("transactions")}
-          className={`px-5 py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
+          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
             balanceActiveSubTab === "transactions"
-              ? "border-blue-500 text-blue-400 bg-blue-500/5"
-              : "border-transparent text-zinc-400 hover:text-zinc-300"
+              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+              : "text-slate-500 hover:text-slate-900"
           }`}
         >
           Barcha Tranzaksiyalar ({globalTransactionsList.length})
@@ -349,45 +353,45 @@ export default function BalanceSection({
 
       {/* Sub-tab 1: O'quvchilar Balansi */}
       {balanceActiveSubTab === "balances" && (
-        <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+        <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
           {studentsBalanceLoading ? (
             <div className="text-center py-10">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           ) : studentsBalanceList.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-              <p className="text-zinc-500 text-xs">O'quvchilar topilmadi.</p>
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              <p className="text-slate-400 text-xs font-medium">O'quvchilar topilmadi.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-              <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                   <tr>
-                    <th className="px-5 py-3">O'quvchi F.I.SH</th>
-                    <th className="px-5 py-3">Sinf va Lvl</th>
-                    <th className="px-5 py-3">Balans</th>
-                    <th className="px-5 py-3 text-right">Amallar</th>
+                    <th className="px-6 py-4">O'quvchi F.I.SH</th>
+                    <th className="px-6 py-4">Sinf va Lvl</th>
+                    <th className="px-6 py-4">Balans</th>
+                    <th className="px-6 py-4 text-right">Amallar</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                   {studentsBalanceList.map((st) => (
-                    <tr key={st.id} className="hover:bg-zinc-900/40 transition">
-                      <td className="px-5 py-3 font-medium text-zinc-100">
-                        {st.first_name} {st.last_name} {st.middle_name && <span className="text-zinc-500">({st.middle_name})</span>}
+                    <tr key={st.id} className="hover:bg-slate-50/80 transition">
+                      <td className="px-6 py-4 font-bold text-[#1D1E26]">
+                        {st.first_name} {st.last_name} {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
                       </td>
-                      <td className="px-5 py-3 font-mono">
+                      <td className="px-6 py-4 font-mono font-bold text-slate-500">
                         {st.class_name ? `${st.class_name} (Level ${st.class_level ?? '-'})` : "-"}
                       </td>
-                      <td className="px-5 py-3 font-semibold font-mono">
-                        <span className={`px-2.5 py-1 rounded-full text-xs ${
+                      <td className="px-6 py-4 font-mono font-bold">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs ${
                           st.balance < 0
-                            ? "bg-red-500/10 border border-red-500/20 text-red-400"
-                            : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                            ? "bg-red-50 text-red-600 border border-red-100"
+                            : "bg-[#ECFCCA] text-[#65A30D]"
                         }`}>
                           {parseFloat(st.balance || 0).toLocaleString()} UZS
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => {
                             setPaymentStudentId(st.id);
@@ -395,7 +399,7 @@ export default function BalanceSection({
                             setPaymentDescription("");
                             setShowAddPaymentModal(true);
                           }}
-                          className="bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 text-[10px] font-semibold py-1 px-3 rounded-lg transition cursor-pointer"
+                          className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-1.5 px-3 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                         >
                           To'lov qo'shish
                         </button>
@@ -411,86 +415,56 @@ export default function BalanceSection({
 
       {/* Sub-tab 2: To'lov Rejalari */}
       {balanceActiveSubTab === "plans" && (
-        <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+        <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-300">Faol To'lov Rejalari (Charge Plans)</h3>
+            <h2 className="text-base font-black text-[#1D1E26]">To'lov Rejalari (Oylik to'lovlar)</h2>
             <button
-              onClick={() => {
-                setPlanName("");
-                setPlanAmount("");
-                setPlanStartDate("2026-09-01");
-                setPlanEndDate("2027-05-31");
-                setPlanChargeDay(1);
-                setRawPlanSelectedLevels("");
-                setRawPlanSelectedClasses("");
-                setRawPlanSelectedStudents("");
-                setShowAddChargePlanModal(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer"
+              onClick={() => setShowAddChargePlanModal(true)}
+              className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
             >
-              + Yangi Plan Yaratish
+              + Yangi Reja Qo'shish
             </button>
           </div>
 
           {chargePlansLoading ? (
             <div className="text-center py-10">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           ) : chargePlans.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-              <p className="text-zinc-500 text-xs">To'lov rejalari mavjud emas. Yangi plan qo'shing.</p>
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              <p className="text-slate-400 text-xs font-medium">To'lov rejalari topilmadi.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-              <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                  <tr>
-                    <th className="px-5 py-3">Plan Nomi</th>
-                    <th className="px-5 py-3">Summa</th>
-                    <th className="px-5 py-3">Sana oralig'i</th>
-                    <th className="px-5 py-3">Kuni</th>
-                    <th className="px-5 py-3">Nishon (Target)</th>
-                    <th className="px-5 py-3 text-right">Amallar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
-                  {chargePlans.map((plan) => (
-                    <tr key={plan.id} className="hover:bg-zinc-900/40 transition">
-                      <td className="px-5 py-3 font-semibold text-zinc-200">{plan.name}</td>
-                      <td className="px-5 py-3 font-mono font-bold text-zinc-100">
-                        {parseFloat(plan.amount).toLocaleString()} UZS
-                      </td>
-                      <td className="px-5 py-3 text-zinc-400 font-mono text-[11px]">
-                        {plan.start_date.substring(0, 10)} / {plan.end_date.substring(0, 10)}
-                      </td>
-                      <td className="px-5 py-3 font-mono">har oyning {plan.charge_day}-kuni</td>
-                      <td className="px-5 py-3 text-[11px] text-zinc-400 space-y-1">
-                        {plan.levels && plan.levels.length > 0 && (
-                          <div>Levels: <span className="text-blue-400">{plan.levels.join(", ")}</span></div>
-                        )}
-                        {plan.classes && plan.classes.length > 0 && (
-                          <div>Classes (IDs): <span className="text-amber-400">{plan.classes.join(", ")}</span></div>
-                        )}
-                        {plan.students && plan.students.length > 0 && (
-                          <div>Students (IDs): <span className="text-teal-400">{plan.students.join(", ")}</span></div>
-                        )}
-                        {(!plan.levels?.length && !plan.classes?.length && !plan.students?.length) && (
-                          <span className="text-zinc-650">Barchaga tegishli</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => handleDeleteChargePlan(plan.id)}
-                          className="text-zinc-500 hover:text-red-400 transition cursor-pointer"
-                          title="O'chirish"
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {chargePlans.map((plan) => (
+                <div key={plan.id} className="bg-slate-50/80 border border-slate-100 rounded-3xl p-5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-black text-[#1D1E26] text-sm">{plan.name}</h3>
+                    <button
+                      onClick={() => handleDeleteChargePlan(plan.id)}
+                      className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1 px-2.5 rounded-xl transition cursor-pointer"
+                    >
+                      O'chirish
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-500 font-medium">
+                    Summa: <strong className="text-[#1D1E26] font-mono">{parseFloat(plan.amount).toLocaleString()} UZS</strong> / oy
+                  </p>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    Har oyning {plan.charge_day}-kuni yechiladi ({new Date(plan.start_date).toLocaleDateString()} - {new Date(plan.end_date).toLocaleDateString()})
+                  </p>
+
+                  <div className="text-[10px] font-mono text-slate-400 border-t border-slate-200/60 pt-2 flex flex-wrap gap-2">
+                    {plan.target_levels?.length > 0 && (
+                      <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Levellar: {plan.target_levels.join(", ")}</span>
+                    )}
+                    {plan.target_classes?.length > 0 && (
+                      <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Sinflar: {plan.target_classes.join(", ")}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -498,51 +472,45 @@ export default function BalanceSection({
 
       {/* Sub-tab 3: Barcha Tranzaksiyalar */}
       {balanceActiveSubTab === "transactions" && (
-        <div className="bg-[#0d0d12]/30 border border-zinc-800/40 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+        <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+          <h2 className="text-base font-black text-[#1D1E26]">Tranzaksiyalar Tarixi</h2>
+
           {globalTransactionsLoading ? (
             <div className="text-center py-10">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           ) : globalTransactionsList.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-zinc-800/60 rounded-2xl bg-zinc-950/10">
-              <p className="text-zinc-500 text-xs">Tranzaksiyalar mavjud emas.</p>
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              <p className="text-slate-400 text-xs font-medium">Tranzaksiyalar topilmadi.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-              <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                   <tr>
-                    <th className="px-5 py-3">O'quvchi</th>
-                    <th className="px-5 py-3">Summa</th>
-                    <th className="px-5 py-3">Turi</th>
-                    <th className="px-5 py-3">Izoh</th>
-                    <th className="px-5 py-3">Sana / Vaqt</th>
+                    <th className="px-6 py-4">Sana</th>
+                    <th className="px-6 py-4">O'quvchi F.I.SH</th>
+                    <th className="px-6 py-4">Turi</th>
+                    <th className="px-6 py-4">Summa</th>
+                    <th className="px-6 py-4">Izoh</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                   {globalTransactionsList.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-zinc-900/40 transition">
-                      <td className="px-5 py-3 font-semibold text-zinc-200">
-                        {tx.student_name}
-                      </td>
-                      <td className="px-5 py-3 font-semibold font-mono">
-                        <span className={tx.type === "PAYMENT" ? "text-emerald-400" : "text-red-400"}>
-                          {tx.type === "PAYMENT" ? "+" : "-"}{parseFloat(tx.amount).toLocaleString()} UZS
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          tx.type === "PAYMENT"
-                            ? "bg-emerald-950/40 text-emerald-400 border border-emerald-900/20"
-                            : "bg-red-950/40 text-red-400 border border-red-900/20"
+                    <tr key={tx.id} className="hover:bg-slate-50/80 transition">
+                      <td className="px-6 py-4 font-mono text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
+                      <td className="px-6 py-4 font-bold text-[#1D1E26]">{tx.student_name || `ID: ${tx.student_id}`}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono ${
+                          tx.type === "PAYMENT" ? "bg-[#ECFCCA] text-[#65A30D]" : "bg-red-50 text-red-600"
                         }`}>
-                          {tx.type === "PAYMENT" ? "TO'LOV" : "CHIQIM"}
+                          {tx.type === "PAYMENT" ? "To'lov (+)" : "Yechim (-)"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-zinc-400">{tx.description}</td>
-                      <td className="px-5 py-3 text-zinc-550 font-mono text-[11px]">
-                        {new Date(tx.created_at).toLocaleString()}
+                      <td className="px-6 py-4 font-mono font-black">
+                        {parseFloat(tx.amount).toLocaleString()} UZS
                       </td>
+                      <td className="px-6 py-4 text-slate-500">{tx.description || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -552,73 +520,68 @@ export default function BalanceSection({
         </div>
       )}
 
-      {/* Modal: Add Payment Quick */}
+      {/* Modal: Add Payment */}
       {showAddPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative text-zinc-200">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi To'lov Kiritish</h3>
-            <p className="text-[11px] text-zinc-500 mb-6">O'quvchi balansiga mablag' qo'shish.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
+            <h3 className="text-base font-black text-[#1D1E26] mb-1">To'lov Qabul Qilish</h3>
+            <p className="text-xs text-slate-400 font-medium mb-6">O'quvchi balansini to'ldirish.</p>
 
             <form onSubmit={handleAddPaymentQuick} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">O'quvchi *</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">O'quvchini tanlang</label>
                 <select
                   required
                   value={paymentStudentId}
-                  onChange={(e) => setPaymentStudentId(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition cursor-pointer"
+                  onChange={(e) => setPaymentStudentId(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition cursor-pointer font-bold"
                 >
-                  <option value="">O'quvchini tanlang...</option>
+                  <option value="">-- O'quvchini tanlang --</option>
                   {studentsBalanceList.map((st) => (
                     <option key={st.id} value={st.id}>
-                      {st.first_name} {st.last_name} {st.class_name ? `(${st.class_name})` : ""}
+                      {st.first_name} {st.last_name} ({st.class_name || "Sinfsiz"})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">To'lov Summasi (UZS) *</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">To'lov Summasi (UZS)</label>
                 <input
                   type="number"
                   required
                   placeholder="Masalan: 500000"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Izoh / Tafsilotlar</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Izoh (Kassa / Kvitansiya)</label>
                 <input
                   type="text"
-                  placeholder="Kassa orqali naqd pul, plastik karta va hokazo..."
+                  placeholder="Kassa orqali naqd to'lov"
                   value={paymentDescription}
                   onChange={(e) => setPaymentDescription(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddPaymentModal(false);
-                    setPaymentStudentId("");
-                    setPaymentAmount("");
-                    setPaymentDescription("");
-                  }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  onClick={() => setShowAddPaymentModal(false)}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                 >
-                  {actionLoading ? "Saqlanmoqda..." : "To'lovni Kiritish"}
+                  {actionLoading ? "Qabul qilinmoqda..." : "To'lovni qabul qilish"}
                 </button>
               </div>
             </form>
@@ -626,258 +589,88 @@ export default function BalanceSection({
         </div>
       )}
 
-      {/* Modal: Import Payments (Excel sheet) */}
-      {showImportPaymentsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8 text-zinc-200">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">To'lovlarni Excel Orqali Import Qilish</h3>
-            <p className="text-xs text-zinc-400 mb-6">O'quvchilar tomonidan amalga oshirilgan to'lovlarni ommaviy yuklash uchun Excel shablonini yuklang.</p>
-
-            {/* Template Download Option */}
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-6 flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-emerald-400">Excel shablonini ko'chirib oling</h4>
-                <p className="text-[10px] text-zinc-500 mt-0.5">To'lovlar shablonini yuklab olib, o'quvchilar INA raqami va to'lov summasini to'ldiring.</p>
-              </div>
-              <a
-                href={`${API_URL}/api/schools/import/template/payments?token=${token}`}
-                download
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2.5 px-4 rounded-lg transition cursor-pointer"
-              >
-                📥 Shablonni Yuklash
-              </a>
-            </div>
-
-            {paymentImportError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{paymentImportError}</div>
-            )}
-
-            {!paymentImportResult ? (
-              <form onSubmit={handleImportPaymentsSubmit} className="space-y-4">
-                <div className="border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center bg-zinc-950/20 hover:border-zinc-700 transition relative">
-                  <input
-                    type="file"
-                    required
-                    accept=".xlsx"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setPaymentFile(e.target.files[0]);
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <div className="space-y-2">
-                    <div className="text-2xl">💵</div>
-                    <p className="text-sm text-zinc-305">
-                      {paymentFile ? paymentFile.name : "To'lov Excel shablonini tanlang (.xlsx)"}
-                    </p>
-                    <p className="text-xs text-zinc-505">Maksimal hajm: 5MB</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowImportPaymentsModal(false);
-                      setPaymentFile(null);
-                      setPaymentImportError("");
-                    }}
-                    className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
-                  >
-                    Bekor qilish
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={paymentImportLoading || !paymentFile}
-                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
-                  >
-                    {paymentImportLoading ? "Yuklanmoqda..." : "Faylni yuklash"}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Qabul qilindi</span>
-                    <span className="text-2xl font-bold">{paymentImportResult.imported_count}</span>
-                  </div>
-                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Rad etildi</span>
-                    <span className="text-2xl font-bold">{paymentImportResult.failed_count}</span>
-                  </div>
-                  <div className="bg-zinc-800/40 border border-zinc-800 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Status</span>
-                    <span className="text-xs font-semibold block mt-1">
-                      {paymentImportResult.success ? "✅ Hammasi to'g'ri" : "⚠️ Xatolar mavjud"}
-                    </span>
-                  </div>
-                </div>
-
-                {paymentImportResult.errors && paymentImportResult.errors.length > 0 && (
-                  <div className="border border-zinc-850 rounded-xl overflow-hidden text-xs">
-                    <div className="bg-zinc-950/60 text-zinc-400 px-4 py-2 uppercase font-semibold">Row-by-Row Error Reports</div>
-                    <div className="divide-y divide-zinc-800 max-h-40 overflow-y-auto bg-zinc-950/10">
-                      {paymentImportResult.errors.map((err, i) => (
-                        <div key={i} className="px-4 py-2 flex items-start space-x-2">
-                          <span className="bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded font-mono">Satr {err.row}</span>
-                          <span className="mt-0.5 text-zinc-300">{err.error}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-end pt-4 border-t border-zinc-800/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowImportPaymentsModal(false);
-                      setPaymentFile(null);
-                      setPaymentImportResult(null);
-                    }}
-                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-xl transition cursor-pointer"
-                  >
-                    Tugatish
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Modal: Add Charge Plan */}
       {showAddChargePlanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-xl bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative text-zinc-200">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi To'lov Rejasi (Charge Plan) Yaratish</h3>
-            <p className="text-[11px] text-zinc-500 mb-6">Yillik reja bo'yicha belgilangan intervalda o'quvchilar balansidan avtomatik ravishda mablag' yechish.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
+            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi To'lov Rejasi Yaratish</h3>
+            <p className="text-xs text-slate-400 font-medium mb-6">Oylik to'lov summasi va yechilish qoidasini belgilang.</p>
 
             <form onSubmit={handleCreateChargePlan} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Plan Nomi *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Masalan: Yillik to'lov plani"
-                    value={planName}
-                    onChange={(e) => setPlanName(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Oylik Summa (UZS) *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="Masalan: 450000"
-                    value={planAmount}
-                    onChange={(e) => setPlanAmount(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Reja Nomi</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Masalan: Oylik ta'lim to'lovi"
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Oylik Summa (UZS)</label>
+                <input
+                  type="number"
+                  required
+                  placeholder="Masalan: 1200000"
+                  value={planAmount}
+                  onChange={(e) => setPlanAmount(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Boshlanish sanasi *</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Boshlanish Sanasi</label>
                   <input
                     type="date"
                     required
                     value={planStartDate}
                     onChange={(e) => setPlanStartDate(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3 py-2 text-xs outline-none transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Tugash sanasi *</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tugash Sanasi</label>
                   <input
                     type="date"
                     required
                     value={planEndDate}
                     onChange={(e) => setPlanEndDate(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3 py-2 text-xs outline-none transition font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Yechish kuni (1-28) *</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={28}
-                    required
-                    value={planChargeDay}
-                    onChange={(e) => setPlanChargeDay(Math.min(28, Math.max(1, parseInt(e.target.value) || 1)))}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3 border-t border-zinc-800/60 pt-4">
-                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Plan Nishonlari (Target)</h4>
-                <p className="text-[10px] text-zinc-500">Quyidagi maydonlardan faqat bittasini to'ldiring yoki hammasini bo'sh qoldiring (barchaga tegishli bo'ladi).</p>
-                
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-1">Class Levels (Vergul bilan ajratib: 0,1,2,3...)</label>
-                  <input
-                    type="text"
-                    placeholder="Masalan: 1, 2, 3, 4"
-                    value={rawPlanSelectedLevels}
-                    onChange={(e) => setRawPlanSelectedLevels(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2 text-xs outline-none transition font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-1">Sinf ID lari (Vergul bilan ajratib)</label>
-                  <input
-                    type="text"
-                    placeholder="Masalan: 1, 3, 5"
-                    value={rawPlanSelectedClasses}
-                    onChange={(e) => setRawPlanSelectedClasses(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2 text-xs outline-none transition font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-1">O'quvchi ID lari (Vergul bilan ajratib)</label>
-                  <input
-                    type="text"
-                    placeholder="Masalan: 12, 15, 23"
-                    value={rawPlanSelectedStudents}
-                    onChange={(e) => setRawPlanSelectedStudents(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-[#2d2d3a] focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2 text-xs outline-none transition font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Har Oyning Qaysi Kuni (1-31)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  required
+                  value={planChargeDay}
+                  onChange={(e) => setPlanChargeDay(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddChargePlanModal(false);
-                    setPlanName("");
-                    setPlanAmount("");
-                    setPlanStartDate("2026-09-01");
-                    setPlanEndDate("2027-05-31");
-                    setPlanChargeDay(1);
-                    setRawPlanSelectedLevels("");
-                    setRawPlanSelectedClasses("");
-                    setRawPlanSelectedStudents("");
-                  }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  onClick={() => setShowAddChargePlanModal(false)}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                 >
-                  {actionLoading ? "Saqlanmoqda..." : "Rejani Yaratish"}
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
               </div>
             </form>

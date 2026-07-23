@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 // Sub-components
 import Sidebar from "@/components/dashboard/Sidebar";
+import Header from "@/components/dashboard/Header";
 import OverviewSection from "@/components/dashboard/OverviewSection";
 import ClassesSection from "@/components/dashboard/ClassesSection";
 import TeachersSection from "@/components/dashboard/TeachersSection";
@@ -129,20 +130,22 @@ export default function TenantDashboard() {
   const [changePasswordSuccess, setChangePasswordSuccess] = useState("");
 
   // Initialize
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   useEffect(() => {
     const savedToken = localStorage.getItem("school_token");
-    const savedSchoolId = localStorage.getItem("school_id");
-    const savedUserStr = localStorage.getItem("school_user");
+    const savedUser = localStorage.getItem("school_user");
+    const sId = localStorage.getItem("school_id") || "";
+    setSchoolId(sId);
 
-    if (!savedToken || !savedSchoolId || !savedUserStr) {
+    if (!savedToken || !savedUser) {
       router.push("/login");
       return;
     }
 
     setToken(savedToken);
-    setSchoolId(savedSchoolId);
     try {
-      const parsed = JSON.parse(savedUserStr);
+      const parsed = JSON.parse(savedUser);
       if (parsed.role !== "ADMIN") {
         router.push("/login");
         return;
@@ -181,97 +184,72 @@ export default function TenantDashboard() {
     }
   };
 
-  const fetchClassesData = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/schools/classes`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setClasses(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
+  const getAuthHeaders = (authToken: string) => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || schoolId || "" : "";
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${authToken}`,
+    };
+    if (sId) {
+      headers["X-School-ID"] = sId;
     }
+    return headers;
+  };
+
+  const safeFetchData = async (url: string, authToken: string) => {
+    try {
+      const response = await fetch(url, { headers: getAuthHeaders(authToken) });
+      if (!response.ok) return null;
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return null;
+      }
+    } catch (e) {
+      console.error("Fetch error for " + url, e);
+      return null;
+    }
+  };
+
+  const fetchClassesData = async (authToken: string) => {
+    const data = await safeFetchData(`${API_URL}/api/schools/classes`, authToken);
+    if (Array.isArray(data)) setClasses(data);
   };
 
   const fetchTeachersData = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/schools/teachers`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setTeachers(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    }
+    const data = await safeFetchData(`${API_URL}/api/schools/teachers`, authToken);
+    if (Array.isArray(data)) setTeachers(data);
   };
 
   const fetchSubjectsData = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/schools/subjects`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setSubjects(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    }
+    const data = await safeFetchData(`${API_URL}/api/schools/subjects`, authToken);
+    if (Array.isArray(data)) setSubjects(data);
   };
 
   const fetchGradingSystemsData = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setGradingSystems(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    }
+    const data = await safeFetchData(`${API_URL}/api/schools/grading-systems`, authToken);
+    if (Array.isArray(data)) setGradingSystems(data);
   };
 
   const fetchStudentsBalanceData = async (authToken: string) => {
     setStudentsBalanceLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setStudentsBalanceList(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setStudentsBalanceLoading(false);
-    }
+    const data = await safeFetchData(`${API_URL}/api/schools/users?role=STUDENT`, authToken);
+    if (Array.isArray(data)) setStudentsBalanceList(data);
+    setStudentsBalanceLoading(false);
   };
 
   const fetchChargePlansData = async (authToken: string) => {
     setChargePlansLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/balance/charge-plans`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setChargePlans(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setChargePlansLoading(false);
-    }
+    const data = await safeFetchData(`${API_URL}/api/schools/balance/charge-plans`, authToken);
+    if (Array.isArray(data)) setChargePlans(data);
+    setChargePlansLoading(false);
   };
 
   const fetchGlobalTransactionsData = async (authToken: string) => {
     setGlobalTransactionsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/balance/transactions`, {
-        headers: { "Authorization": `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) setGlobalTransactionsList(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGlobalTransactionsLoading(false);
-    }
+    const data = await safeFetchData(`${API_URL}/api/schools/balance/transactions`, authToken);
+    if (Array.isArray(data)) setGlobalTransactionsList(data);
+    setGlobalTransactionsLoading(false);
   };
 
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
@@ -326,37 +304,47 @@ export default function TenantDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070709] text-zinc-400 flex flex-col items-center justify-center space-y-4">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-medium animate-pulse">Ma'lumotlar yuklanmoqda...</p>
+      <div className="min-h-screen bg-[#F4F4F7] text-slate-600 flex flex-col items-center justify-center space-y-4 font-sans">
+        <div className="w-10 h-10 border-4 border-[#D4F562] border-t-[#1D1E26] rounded-full animate-spin"></div>
+        <p className="text-sm font-black text-[#1D1E26] animate-pulse">Ma'lumotlar yuklanmoqda...</p>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#070709] text-zinc-100 flex font-sans overflow-hidden">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeMenu={activeMenu}
-        setActiveMenu={setActiveMenu}
-        userInfo={userInfo}
-        handleLogout={handleLogout}
-        setShowChangePasswordModal={setShowChangePasswordModal}
-        selectedClass={selectedClass}
-        setSelectedClass={setSelectedClass}
-      />
+    <main className="min-h-screen bg-[#F4F4F7] text-[#1D1E26] flex font-sans overflow-hidden p-3 sm:p-4">
+      <div className="flex w-full h-[calc(100vh-2rem)] bg-[#F7F7FA] rounded-[36px] overflow-hidden shadow-2xl border border-slate-200/60">
+        {/* Sidebar Navigation */}
+        <Sidebar
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          selectedClass={selectedClass}
+          setSelectedClass={setSelectedClass}
+          mobileOpen={mobileSidebarOpen}
+          setMobileOpen={setMobileSidebarOpen}
+        />
 
-      {/* Main Content Area */}
-      <section className="flex-1 h-screen overflow-y-auto bg-zinc-950/20 px-8 py-6">
-        <div className="max-w-7xl mx-auto space-y-8 pb-12">
-          
-          {activeMenu === "overview" && (
-            <OverviewSection
-              token={token}
-              API_URL={API_URL}
-              classes={classes}
+        {/* Main Content Area */}
+        <section className="flex-1 h-full overflow-y-auto px-4 sm:px-8 py-6">
+          <div className="max-w-7xl mx-auto space-y-6 pb-12">
+            {/* Top Bar Header */}
+            <Header
+              userInfo={userInfo}
+              setShowChangePasswordModal={setShowChangePasswordModal}
+              handleLogout={handleLogout}
+              mobileOpen={mobileSidebarOpen}
+              setMobileOpen={setMobileSidebarOpen}
             />
-          )}
+            
+            {activeMenu === "overview" && (
+              <OverviewSection
+                token={token}
+                API_URL={API_URL}
+                classes={classes}
+                userInfo={userInfo}
+                setActiveMenu={setActiveMenu}
+              />
+            )}
 
           {activeMenu === "classes" && (
             <ClassesSection
@@ -443,38 +431,39 @@ export default function TenantDashboard() {
             />
           )}
 
+          {/* 10. TELEGRAM BOT SETTINGS TAB */}
           {activeMenu === "telegram" && (
-            <div className="space-y-6 max-w-2xl mx-auto mt-6">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-sm space-y-6 text-zinc-100">
-                <div className="border-b border-zinc-800 pb-4">
-                  <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
-                    <span>🤖 Telegram Bot Integratsiyasi</span>
+            <div className="space-y-6 max-w-2xl mx-auto mt-6 font-sans text-[#1D1E26] select-none">
+              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+                <div className="border-b border-slate-100 pb-4">
+                  <h3 className="text-lg font-black text-[#1D1E26] flex items-center gap-2">
+                    <span>Telegram Bot Integratsiyasi</span>
                   </h3>
-                  <p className="text-xs text-zinc-405 font-medium mt-1 leading-relaxed">
+                  <p className="text-xs text-slate-400 font-medium mt-1 leading-relaxed">
                     Maktabingiz ota-onalariga baholar va e'lonlarni shaxsiy Telegram bot orqali yuborishni sozlang. Har bir maktab o'z xususiy botiga ega bo'lishi mumkin.
                   </p>
                 </div>
 
                 {telegramLoading ? (
                   <div className="text-center py-12">
-                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-500 font-mono">Yuklanmoqda...</p>
+                    <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-xs text-slate-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : (
                   <form onSubmit={handleSaveTelegramConfig} className="space-y-4">
                     {telegramError && (
-                      <div className="p-3 bg-red-950/20 border border-red-900/30 text-red-400 text-xs font-semibold rounded-lg">
+                      <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
                         {telegramError}
                       </div>
                     )}
                     {telegramSuccess && (
-                      <div className="p-3 bg-emerald-950/20 border border-emerald-900/30 text-emerald-400 text-xs font-semibold rounded-lg">
+                      <div className="p-3.5 bg-[#ECFCCA] border border-lime-200 text-[#65A30D] text-xs font-bold rounded-2xl">
                         {telegramSuccess}
                       </div>
                     )}
 
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-extrabold text-zinc-400 uppercase tracking-wide font-mono">
+                      <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wide font-mono">
                         Telegram Bot Token *
                       </label>
                       <input
@@ -482,37 +471,37 @@ export default function TenantDashboard() {
                         required
                         value={telegramToken}
                         onChange={(e) => setTelegramToken(e.target.value)}
-                        className="w-full text-xs border border-zinc-800 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-zinc-650 bg-zinc-950/50 font-mono font-bold text-zinc-200"
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#D4F562] bg-slate-50 font-mono font-bold text-slate-800 transition"
                         placeholder="Masalan: 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ"
                       />
-                      <span className="block text-[10px] text-zinc-500 leading-normal">
+                      <span className="block text-[10px] text-slate-400 font-medium">
                         Bot tokenini olish uchun Telegram-da <b>@BotFather</b> orqali yangi bot yarating va u bergan API Tokenni shu yerga kiriting.
                       </span>
                     </div>
 
                     {telegramConfig?.has_token && (
-                      <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-2">
-                        <span className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider block font-mono">
-                          🤖 Ulanish Sozlamalari:
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block font-mono">
+                          Ulanish Sozlamalari:
                         </span>
-                        <div className="text-xs space-y-1.5 text-zinc-300 font-semibold">
+                        <div className="text-xs space-y-1.5 text-slate-700 font-semibold">
                           <p>
-                            Bot nomi: <a href={`https://t.me/${telegramConfig.bot_username}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@{telegramConfig.bot_username}</a>
+                            Bot nomi: <a href={`https://t.me/${telegramConfig.bot_username}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">@{telegramConfig.bot_username}</a>
                           </p>
                           <p>
-                            Ota-onalar uchun taklif havolasi: <code className="bg-zinc-900 px-1.5 py-0.5 rounded text-[10px] select-all font-mono text-emerald-400 border border-zinc-800">https://t.me/{telegramConfig.bot_username}?start=1</code>
+                            Ota-onalar uchun taklif havolasi: <code className="bg-white px-2 py-0.5 rounded text-[10px] select-all font-mono text-[#65A30D] border border-slate-200">https://t.me/{telegramConfig.bot_username}?start=1</code>
                           </p>
                         </div>
                       </div>
                     )}
 
-                    <div className="flex justify-end pt-2 border-t border-zinc-800">
+                    <div className="flex justify-end pt-2 border-t border-slate-100">
                       <button
                         type="submit"
                         disabled={telegramSaveLoading}
-                        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                        className="px-5 py-2.5 bg-[#D4F562] text-[#1D1E26] font-black rounded-xl text-xs shadow-xs hover:opacity-90 transition flex items-center space-x-1 cursor-pointer"
                       >
-                        {telegramSaveLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                        {telegramSaveLoading && <span className="w-3.5 h-3.5 border border-[#1D1E26] border-t-transparent rounded-full animate-spin shrink-0"></span>}
                         <span>Botni ulash & Saqlash</span>
                       </button>
                     </div>
@@ -524,60 +513,61 @@ export default function TenantDashboard() {
 
         </div>
       </section>
+      </div>
 
       {/* Profile Settings / Change Password Modal */}
       {showChangePasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn text-zinc-200">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Profil parolini o'zgartirish</h3>
-            <p className="text-[11px] text-zinc-500 mb-6">Xavfsizlik maqsadida eski parolingizni kiritib, yangi parol o'rnating.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn text-[#1D1E26] font-sans">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl relative">
+            <h3 className="text-base font-black text-[#1D1E26] mb-1">Profil parolini o'zgartirish</h3>
+            <p className="text-xs text-slate-400 font-medium mb-6">Xavfsizlik maqsadida eski parolingizni kiritib, yangi parol o'rnating.</p>
 
             {changePasswordError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{changePasswordError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-2xl mb-4 font-medium">{changePasswordError}</div>
             )}
             
             {changePasswordSuccess && (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-lg mb-4">{changePasswordSuccess}</div>
+              <div className="bg-[#ECFCCA] border border-lime-200 text-[#65A30D] text-xs p-3 rounded-2xl mb-4 font-bold">{changePasswordSuccess}</div>
             )}
 
             <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Eski Parol</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Eski Parol</label>
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
                   value={changePasswordOld}
                   onChange={(e) => setChangePasswordOld(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Yangi Parol</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Yangi Parol</label>
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
                   value={changePasswordNew}
                   onChange={(e) => setChangePasswordNew(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Yangi Parolni Tasdiqlang</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Yangi Parolni Tasdiqlang</label>
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
                   value={changePasswordConfirm}
                   onChange={(e) => setChangePasswordConfirm(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#1e1e24]/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -588,14 +578,14 @@ export default function TenantDashboard() {
                     setChangePasswordError("");
                     setChangePasswordSuccess("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Yopish
                 </button>
                 <button
                   type="submit"
                   disabled={changePasswordLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                 >
                   {changePasswordLoading ? "Yangilanmoqda..." : "Parolni Yangilash"}
                 </button>
