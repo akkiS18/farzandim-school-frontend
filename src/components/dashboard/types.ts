@@ -35,6 +35,7 @@ export interface TenantUser {
 export interface SubjectItem {
   id: number;
   name: string;
+  target_levels?: number[];
 }
 
 export interface ClassTeacherItem {
@@ -82,12 +83,23 @@ export interface GradingSystem {
   options?: any;
 }
 
+export interface PollOptionItem {
+  id: number;
+  option_text: string;
+  vote_count: number;
+  user_voted?: boolean;
+}
+
 export interface AnnouncementItem {
   id: number;
   title: string;
   content: string;
   author_id: number;
   author_name?: string;
+  is_poll?: boolean;
+  poll_options?: PollOptionItem[];
   class_ids?: number[];
+  level_ids?: number[];
+  student_ids?: number[];
   created_at: string;
 }

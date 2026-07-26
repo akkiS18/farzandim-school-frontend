@@ -2,8 +2,8 @@ import React from "react";
 import { ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram";
-  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
+  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays";
+  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   mobileOpen?: boolean;
@@ -91,6 +91,15 @@ export default function Sidebar({
             <polygon points="22 2 15 22 11 13 2 9 22 2" />
           </svg>
         );
+      case "holidays":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -104,6 +113,7 @@ export default function Sidebar({
     { id: "grading-systems", label: "Baholash Tizimi", badge: null },
     { id: "menu", label: "Taomnoma", badge: null },
     { id: "balance", label: "Balans boshqaruvi", badge: null },
+    { id: "holidays", label: "Dam olish kunlari", badge: null },
     { id: "announcements", label: "E'lonlar", badge: null },
     { id: "feedback", label: "Fikr-mulohazalar", badge: null },
     { id: "telegram", label: "Telegram Bot", badge: null },

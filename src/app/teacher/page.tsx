@@ -19,6 +19,9 @@ interface ClassItem {
   name: string;
   subject_id?: number;
   subject_name?: string;
+  main_teacher_id?: number;
+  teacher_id?: number;
+  is_main_teacher?: boolean;
 }
 
 interface SubjectItem {
@@ -500,6 +503,66 @@ export default function TeacherDashboard() {
   // Toast Notification state
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Grade Comment Modal state (for locked grades double-click)
+  const [showGradeCommentModal, setShowGradeCommentModal] = useState(false);
+  const [selectedGradeForComment, setSelectedGradeForComment] = useState<any>(null);
+  const [gradeCommentsList, setGradeCommentsList] = useState<any[]>([]);
+  const [gradeCommentsLoading, setGradeCommentsLoading] = useState(false);
+  const [newGradeCommentText, setNewGradeCommentText] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  const handleOpenGradeCommentModal = async (grade: any, studentName?: string) => {
+    if (!grade || !grade.id) return;
+    setSelectedGradeForComment({ ...grade, student_name: studentName || grade.student_name });
+    setShowGradeCommentModal(true);
+    setGradeCommentsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/grades/${grade.id}/comments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setGradeCommentsList(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGradeCommentsLoading(false);
+    }
+  };
+
+  const handleAddGradeComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGradeForComment || !newGradeCommentText.trim()) return;
+    setCommentSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/grades/${selectedGradeForComment.id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: newGradeCommentText.trim() }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setNewGradeCommentText("");
+        showToast("success", "Izoh muvaffaqiyatli saqlandi!");
+        const commRes = await fetch(`${API_URL}/api/schools/grades/${selectedGradeForComment.id}/comments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const commData = await commRes.json();
+        if (commRes.ok) setGradeCommentsList(Array.isArray(commData) ? commData : []);
+      } else {
+        showToast("error", data.error || "Izoh saqlashda xatolik");
+      }
+    } catch (err: any) {
+      showToast("error", err.message);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 4000);
@@ -636,7 +699,11 @@ export default function TeacherDashboard() {
     try {
       const parsedUser = JSON.parse(savedUserStr);
       if (parsedUser.role !== "MAIN_TEACHER" && parsedUser.role !== "SUBJECT_TEACHER" && parsedUser.role !== "ADMIN") {
-        router.push("/login");
+        if (parsedUser.role === "PARENT") {
+          router.push("/parents");
+        } else {
+          router.push("/login");
+        }
         return;
       }
       setUserInfo(parsedUser);
@@ -2755,13 +2822,13 @@ export default function TeacherDashboard() {
                     </div>
                     
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-200 text-left">
-                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-450 uppercase tracking-wider">
+                      <table className="min-w-full divide-y divide-zinc-200 text-left border-separate border-spacing-0">
+                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-450 uppercase tracking-wider sticky top-0 z-20">
                           <tr>
-                            <th className="px-6 py-4 w-12 text-center font-mono">№</th>
-                            <th className="px-6 py-4">O'quvchi ismi</th>
+                            <th className="px-4 py-4 w-12 text-center font-mono sticky left-0 z-20 bg-[#fafafa] border-b border-zinc-200">№</th>
+                            <th className="px-4 py-4 sticky left-[48px] z-20 bg-[#fafafa] border-b border-zinc-200 min-w-[140px] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">O'quvchi ismi</th>
                             {journalColumns.map((col) => (
-                              <th key={col.id} className="px-6 py-4 text-center">
+                              <th key={col.id} className="px-6 py-4 text-center border-b border-zinc-200">
                                 <div>{col.name}</div>
                                 {col.id !== "ATTENDANCE" && (() => {
                                   const hasGradesInThisColumn = journalAllGrades.some(g => {
@@ -2797,114 +2864,114 @@ export default function TeacherDashboard() {
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-100 text-xs bg-white">
-                          {students.length === 0 ? (
-                            <tr>
-                              <td colSpan={2 + journalColumns.length} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
-                                Bu sinfda o'quvchilar topilmadi.
-                              </td>
-                            </tr>
-                          ) : (
-                            students.map((st, idx) => {
-                              const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
-                              const attendanceVal = cellInputs[attKey] || "+";
+            <tbody className="divide-y divide-zinc-100 text-xs bg-white">
+              {students.length === 0 ? (
+                <tr>
+                  <td colSpan={2 + journalColumns.length} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
+                    Bu sinfda o'quvchilar topilmadi.
+                  </td>
+                </tr>
+              ) : (
+                students.map((st, idx) => {
+                  const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
+                  const attendanceVal = cellInputs[attKey] || "+";
 
-                              return (
-                                <tr key={st.id} className={`hover:bg-zinc-50/50 transition ${attendanceVal === "-" ? "opacity-60 bg-zinc-50/30" : ""}`}>
-                                  {/* No. */}
-                                  <td className="px-6 py-4 text-center font-mono text-zinc-400 text-xs font-semibold">
-                                    {String(idx + 1).padStart(2, '0')}
-                                  </td>
-                                  
-                                  {/* Student Name */}
-                                  <td className="px-6 py-4 font-bold text-zinc-800 text-sm whitespace-nowrap">
-                                    {st.first_name} {st.last_name}
-                                  </td>
-                                  
-                                  {/* Columns */}
-                                  {journalColumns.map((col) => {
-                                    const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
-                                    const cellVal = cellInputs[key] || "";
-                                    const grade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
-                                    const isApproved = grade?.status === 'approved';
-                                    const isParentApproved = grade?.approved_by_parent;
-                                    const isSaving = cellSaving === key;
-                                    const isHoliday = holidays.some(h => {
-                                      const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
-                                      return hDate === journalDate;
+                  return (
+                    <tr key={st.id} className={`hover:bg-zinc-50/50 transition ${attendanceVal === "-" ? "opacity-60 bg-zinc-50/30" : ""}`}>
+                      {/* No. */}
+                      <td className="px-4 py-4 text-center font-mono text-zinc-400 text-xs font-semibold sticky left-0 z-10 bg-white border-b border-zinc-100">
+                        {String(idx + 1).padStart(2, '0')}
+                      </td>
+                      
+                      {/* Student Name */}
+                      <td className="px-4 py-4 font-bold text-zinc-800 text-sm whitespace-nowrap sticky left-[48px] z-10 bg-white border-b border-zinc-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                        {st.first_name} {st.last_name}
+                      </td>
+                      
+                      {/* Columns */}
+                      {journalColumns.map((col) => {
+                        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
+                        const cellVal = cellInputs[key] || "";
+                        const grade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
+                        const isApproved = grade?.status === 'approved';
+                        const isParentApproved = grade?.approved_by_parent;
+                        const isSaving = cellSaving === key;
+                        const isHoliday = holidays.some(h => {
+                          const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
+                          return hDate === journalDate;
+                        });
+
+                        return (
+                          <td key={col.id} className="px-6 py-3 text-center">
+                            <div className="relative inline-block group">
+                              {grade && !isApproved && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGradeIds.has(grade.id)}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setSelectedGradeIds(prev => {
+                                      const next = new Set(prev);
+                                      if (checked) {
+                                        next.add(grade.id);
+                                      } else {
+                                        next.delete(grade.id);
+                                      }
+                                      return next;
                                     });
+                                  }}
+                                  className="absolute -left-6 top-2.5 w-3 h-3 text-[#5B50EC] border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
+                                  title="Tasdiqlash uchun tanlash"
+                                />
+                              )}
 
+                              {col.id === "ATTENDANCE" ? (
+                                <select
+                                  value={cellVal}
+                                  onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "ATTENDANCE", e.target.value)}
+                                  disabled={isSaving || isApproved || isHoliday}
+                                  className={`w-14 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
+                                    ${cellVal === "+" ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
+                                      cellVal === "-" ? "bg-red-50 border-red-300 text-red-700" :
+                                      "bg-amber-50 border-amber-300 text-amber-700"
+                                    }
+                                  `}
+                                >
+                                  <option value="+">+</option>
+                                  <option value="-">-</option>
+                                  <option value="k">k</option>
+                                </select>
+                              ) : (() => {
+                                const colGSId = columnGradingSystems[col.id];
+                                const colGS = gradingSystemsList.find(gs => gs.id === colGSId);
+                                if (colGS) {
+                                  let options: { label: string; numeric_value?: number }[] = [];
+                                  if (colGS.options) {
+                                    try {
+                                      options = typeof colGS.options === 'string' ? JSON.parse(colGS.options) : colGS.options;
+                                    } catch (e) {
+                                      console.error("Failed to parse options", e);
+                                    }
+                                  }
+                                  if (Array.isArray(options) && options.length > 0) {
                                     return (
-                                      <td key={col.id} className="px-6 py-3 text-center">
-                                        <div className="relative inline-block group">
-                                          {grade && !isApproved && (
-                                            <input
-                                              type="checkbox"
-                                              checked={selectedGradeIds.has(grade.id)}
-                                              onChange={(e) => {
-                                                const checked = e.target.checked;
-                                                setSelectedGradeIds(prev => {
-                                                  const next = new Set(prev);
-                                                  if (checked) {
-                                                    next.add(grade.id);
-                                                  } else {
-                                                    next.delete(grade.id);
-                                                  }
-                                                  return next;
-                                                });
-                                              }}
-                                              className="absolute -left-6 top-2.5 w-3 h-3 text-[#5B50EC] border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
-                                              title="Tasdiqlash uchun tanlash"
-                                            />
-                                          )}
-
-                                          {col.id === "ATTENDANCE" ? (
-                                            <select
-                                              value={cellVal}
-                                              onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "ATTENDANCE", e.target.value)}
-                                              disabled={isSaving || isApproved || isHoliday}
-                                              className={`w-14 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
-                                                ${cellVal === "+" ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
-                                                  cellVal === "-" ? "bg-red-50 border-red-300 text-red-700" :
-                                                  "bg-amber-50 border-amber-300 text-amber-700"
-                                                }
-                                              `}
-                                            >
-                                              <option value="+">+</option>
-                                              <option value="-">-</option>
-                                              <option value="k">k</option>
-                                            </select>
-                                          ) : (() => {
-                                            const colGSId = columnGradingSystems[col.id];
-                                            const colGS = gradingSystemsList.find(gs => gs.id === colGSId);
-                                            if (colGS) {
-                                              let options: { label: string; numeric_value?: number }[] = [];
-                                              if (colGS.options) {
-                                                try {
-                                                  options = typeof colGS.options === 'string' ? JSON.parse(colGS.options) : colGS.options;
-                                                } catch (e) {
-                                                  console.error("Failed to parse options", e);
-                                                }
-                                              }
-                                              if (Array.isArray(options) && options.length > 0) {
-                                                return (
-                                                  <select
-                                                    value={cellVal}
-                                                    onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, e.target.value)}
-                                                    disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                                    className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer bg-white border-zinc-300 text-zinc-800
-                                                      ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
-                                                    `}
-                                                  >
-                                                    <option value="">—</option>
-                                                    {options.map((opt, oidx) => (
-                                                      <option key={oidx} value={opt.label}>
-                                                        {opt.label}
-                                                      </option>
-                                                    ))}
-                                                  </select>
-                                                );
-                                              }
+                                      <select
+                                        value={cellVal}
+                                        onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, e.target.value)}
+                                        disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
+                                        className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer bg-white border-zinc-300 text-zinc-800
+                                          ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
+                                        `}
+                                      >
+                                        <option value="">—</option>
+                                        {options.map((opt, oidx) => (
+                                          <option key={oidx} value={opt.label}>
+                                            {opt.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    );
+                                  }
                                               
                                               return (
                                                 <input
@@ -2958,31 +3025,6 @@ export default function TeacherDashboard() {
                                               );
                                             }
 
-                                            if (col.id === "MASTERY") {
-                                              return (
-                                                <select
-                                                  value={cellVal}
-                                                  onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "MASTERY", e.target.value)}
-                                                  disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                                  className={`w-14 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
-                                                    ${cellVal === "" ? "bg-zinc-50 border-zinc-300 text-zinc-400" :
-                                                      cellVal === "5" ? "bg-emerald-100 border-emerald-300 text-emerald-700" :
-                                                      cellVal === "4" ? "bg-blue-100 border-blue-300 text-blue-700" :
-                                                      cellVal === "3" ? "bg-amber-100 border-amber-300 text-amber-700" :
-                                                      "bg-red-100 border-red-300 text-red-700"
-                                                    }
-                                                  `}
-                                                >
-                                                  <option value="">—</option>
-                                                  <option value="5">5</option>
-                                                  <option value="4">4</option>
-                                                  <option value="3">3</option>
-                                                  <option value="2">2</option>
-                                                  <option value="1">1</option>
-                                                </select>
-                                              );
-                                            }
-
                                             return (
                                               <input
                                                 type="text"
@@ -3010,8 +3052,12 @@ export default function TeacherDashboard() {
                                           {/* Status badges */}
                                           {isApproved && (
                                             <span 
-                                              className="absolute -right-2 -top-2 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20"
-                                              title="Tasdiqlangan baholash, o'zgartirib bo'lmaydi"
+                                              className="absolute -right-2 -top-2 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20 cursor-pointer hover:scale-110 transition"
+                                              title="Ikki marta bosib izoh/komment yozish yoki ko'rish"
+                                              onDoubleClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenGradeCommentModal(grade, `${st.first_name} ${st.last_name}`);
+                                              }}
                                             >
                                               🔒
                                             </span>
@@ -3918,9 +3964,14 @@ export default function TeacherDashboard() {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               >
                 <option value="">Sinfni tanlang</option>
-                {classes.map(cls => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
-                ))}
+                {classes.map((cls: any) => {
+                  const isMyMainClass = cls.is_main_teacher || cls.main_teacher_id === userInfo?.id || cls.teacher_id === userInfo?.id;
+                  return (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name} {isMyMainClass ? "⭐ (Sinf Rahbari)" : "(Fan o'qituvchisi)"}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -4218,6 +4269,27 @@ export default function TeacherDashboard() {
                 <span>Jadvalni tahrirlash</span>
               </button>
             )}
+
+            {teacherTab === "clubs" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setClubsError("");
+                  setClubsSuccess("");
+                  setNewClubName("");
+                  setNewClubSubjectId("");
+                  setNewClubAllowedLevels([]);
+                  setNewClubExtraStudentIds([]);
+                  setShowAddClubModal(true);
+                }}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(16,185,129,0.3)] cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>+ Yangi To'garak</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -4233,6 +4305,7 @@ export default function TeacherDashboard() {
       {renderAddClubModal()}
       {renderAddScheduleModal()}
       {renderClubStudentsModal()}
+      {renderGradeCommentModal()}
 
       {chatModalOpen && selectedChatComment && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -5204,6 +5277,86 @@ export default function TeacherDashboard() {
               </div>
             </form>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Grade Comment Modal (Double-click locked grade)
+  function renderGradeCommentModal() {
+    if (!showGradeCommentModal || !selectedGradeForComment) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+        <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 flex items-center gap-2">
+                <span>🔒 Baho bo'yicha muloqot / Izohlar</span>
+              </h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                {selectedGradeForComment.student_name || "O'quvchi"} · Baho: <strong className="text-indigo-600 font-mono">{selectedGradeForComment.value}</strong>
+              </p>
+            </div>
+            <button
+              onClick={() => setShowGradeCommentModal(false)}
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 font-bold text-sm"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Comment Thread List */}
+          <div className="max-h-60 overflow-y-auto space-y-3 p-1">
+            {gradeCommentsLoading ? (
+              <div className="py-8 text-center text-xs text-zinc-400 font-mono">
+                Izohlar yuklanmoqda...
+              </div>
+            ) : gradeCommentsList.length === 0 ? (
+              <div className="py-8 text-center text-xs text-zinc-400 italic bg-zinc-50 rounded-2xl">
+                Ushbu baho uchun hali izoh yozilmagan. Ilk izohni yozing.
+              </div>
+            ) : (
+              gradeCommentsList.map((comm) => (
+                <div key={comm.id} className="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-xs space-y-1">
+                  <div className="flex items-center justify-between font-bold text-zinc-800">
+                    <span>{comm.author_name || `Foydalanuvchi #${comm.author_id}`}</span>
+                    <span className="text-[10px] text-zinc-400 font-mono font-normal">
+                      {new Date(comm.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-zinc-700 leading-relaxed font-medium">{comm.content}</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* New Comment Input */}
+          <form onSubmit={handleAddGradeComment} className="pt-2 border-t border-zinc-100 space-y-3">
+            <textarea
+              required
+              rows={2}
+              placeholder="Baho bo'yicha izoh yoki ota-onaga bildirishnoma yozing..."
+              value={newGradeCommentText}
+              onChange={(e) => setNewGradeCommentText(e.target.value)}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl p-3 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+            ></textarea>
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setShowGradeCommentModal(false)}
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold rounded-xl text-xs"
+              >
+                Yopish
+              </button>
+              <button
+                type="submit"
+                disabled={commentSubmitting}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs disabled:opacity-50"
+              >
+                {commentSubmitting ? "Yuborilmoqda..." : "Izoh Qoldirish"}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     );

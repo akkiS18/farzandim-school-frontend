@@ -56,6 +56,16 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
   };
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setChatModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     fetchFeedback();
   }, []);
 
@@ -268,7 +278,12 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
 
       {/* Chat Dialog Modal */}
       {chatModalOpen && selectedChatComment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setChatModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
           <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 text-[#1D1E26] max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
@@ -280,8 +295,9 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setChatModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
                 ✕
               </button>

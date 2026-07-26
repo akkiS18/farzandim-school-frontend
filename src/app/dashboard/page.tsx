@@ -15,6 +15,7 @@ import MenuSection from "@/components/dashboard/MenuSection";
 import BalanceSection from "@/components/dashboard/BalanceSection";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import FeedbackSection from "@/components/dashboard/FeedbackSection";
+import HolidaysSection from "@/components/dashboard/HolidaysSection";
 
 // Types
 import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/components/dashboard/types";
@@ -31,7 +32,7 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram">("overview");
+  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays">("overview");
 
   // Core Data Lists
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -146,8 +147,14 @@ export default function TenantDashboard() {
     setToken(savedToken);
     try {
       const parsed = JSON.parse(savedUser);
-      if (parsed.role !== "ADMIN") {
-        router.push("/login");
+      if (parsed.role !== "ADMIN" && parsed.role !== "SUPER_ADMIN") {
+        if (parsed.role === "PARENT") {
+          router.push("/parents");
+        } else if (parsed.role === "MAIN_TEACHER" || parsed.role === "SUBJECT_TEACHER") {
+          router.push("/teacher");
+        } else {
+          router.push("/login");
+        }
         return;
       }
       setUserInfo(parsed);
@@ -358,6 +365,7 @@ export default function TenantDashboard() {
               selectedClass={selectedClass}
               setSelectedClass={setSelectedClass}
               fetchStudentsBalanceData={fetchStudentsBalanceData}
+              setSubjects={setSubjects}
             />
           )}
 
@@ -400,6 +408,7 @@ export default function TenantDashboard() {
             <BalanceSection
               token={token}
               API_URL={API_URL}
+              classes={classes}
               studentsBalanceList={studentsBalanceList}
               setStudentsBalanceList={setStudentsBalanceList}
               chargePlans={chargePlans}
@@ -415,12 +424,21 @@ export default function TenantDashboard() {
             />
           )}
 
+          {activeMenu === "holidays" && (
+            <HolidaysSection
+              token={token}
+              API_URL={API_URL}
+              userInfo={userInfo}
+              classes={classes}
+            />
+          )}
           {activeMenu === "announcements" && (
             <AnnouncementsSection
               token={token}
               classes={classes}
               students={studentsBalanceList}
               apiUrl={API_URL}
+              userRole={userInfo?.role}
             />
           )}
 

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { TenantUser, UserInfo, ImportResult } from "./types";
 
 interface TeachersSectionProps {
@@ -26,6 +27,18 @@ export default function TeachersSection({
   const [teacherRole, setTeacherRole] = useState("SUBJECT_TEACHER");
   const [teacherPassword, setTeacherPassword] = useState("password123");
 
+  const [showEditTeacherModal, setShowEditTeacherModal] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState<TenantUser | null>(null);
+  const [editTeacherFirstName, setEditTeacherFirstName] = useState("");
+  const [editTeacherLastName, setEditTeacherLastName] = useState("");
+  const [editTeacherMiddleName, setEditTeacherMiddleName] = useState("");
+  const [editTeacherPhone, setEditTeacherPhone] = useState("");
+  const [editTeacherRole, setEditTeacherRole] = useState("SUBJECT_TEACHER");
+  const [editTeacherPassword, setEditTeacherPassword] = useState("");
+
+  const [showDeleteTeacherModal, setShowDeleteTeacherModal] = useState(false);
+  const [deletingTeacherId, setDeletingTeacherId] = useState<number | null>(null);
+
   const [showImportTeachersModal, setShowImportTeachersModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -34,6 +47,19 @@ export default function TeachersSection({
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowAddTeacherModal(false);
+        setShowEditTeacherModal(false);
+        setShowDeleteTeacherModal(false);
+        setShowImportTeachersModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const safeFetchHeaders = () => {
     const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
@@ -91,6 +117,85 @@ export default function TeachersSection({
       setTeacherPassword("password123");
     } catch (err: any) {
       setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeacher) return;
+    if (!editTeacherFirstName.trim() || !editTeacherLastName.trim() || !editTeacherPhone.trim()) {
+      alert("Iltimos, barcha majburiy maydonlarni to'ldiring");
+      return;
+    }
+    setActionLoading(true);
+    setActionError("");
+
+    try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
+      const payload: any = {
+        first_name: editTeacherFirstName.trim(),
+        last_name: editTeacherLastName.trim(),
+        middle_name: editTeacherMiddleName.trim() || undefined,
+        phone: editTeacherPhone.trim(),
+        role: editTeacherRole,
+      };
+      if (editTeacherPassword.trim()) {
+        payload.password = editTeacherPassword.trim();
+      }
+
+      const response = await fetch(`${API_URL}/api/schools/teachers/${editingTeacher.id}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "O'qituvchi ma'lumotlarini yangilab bo'lmadi");
+
+      // Refresh teacher list
+      const resList = await fetch(`${API_URL}/api/schools/teachers`, {
+        headers: safeFetchHeaders(),
+      });
+      const dataList = await resList.json();
+      if (resList.ok) setTeachers(Array.isArray(dataList) ? dataList : []);
+
+      setShowEditTeacherModal(false);
+      setEditingTeacher(null);
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteTeacher = async () => {
+    if (!deletingTeacherId) return;
+    setActionLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/teachers/${deletingTeacherId}`, {
+        method: "DELETE",
+        headers: safeFetchHeaders(),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "O'qituvchini o'chirib bo'lmadi");
+
+      // Refresh teacher list
+      const resList = await fetch(`${API_URL}/api/schools/teachers`, {
+        headers: safeFetchHeaders(),
+      });
+      const dataList = await resList.json();
+      if (resList.ok) setTeachers(Array.isArray(dataList) ? dataList : []);
+
+      setShowDeleteTeacherModal(false);
+      setDeletingTeacherId(null);
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -227,6 +332,7 @@ export default function TeachersSection({
                 <th className="px-6 py-4">Telefon</th>
                 <th className="px-6 py-4">Rol</th>
                 <th className="px-6 py-4">Qo'shilgan sana</th>
+                {userInfo?.role === "ADMIN" && <th className="px-6 py-4 text-right">Amallar</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
@@ -247,6 +353,36 @@ export default function TeachersSection({
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-400 font-mono">{new Date(t.created_at).toLocaleDateString()}</td>
+                  {userInfo?.role === "ADMIN" && (
+                    <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                      <button
+                        onClick={() => {
+                          setEditingTeacher(t);
+                          setEditTeacherFirstName(t.first_name);
+                          setEditTeacherLastName(t.last_name);
+                          setEditTeacherMiddleName(t.middle_name || "");
+                          setEditTeacherPhone(t.phone || "");
+                          setEditTeacherRole(t.role_name || "SUBJECT_TEACHER");
+                          setEditTeacherPassword("");
+                          setShowEditTeacherModal(true);
+                        }}
+                        title="Tahrirlash"
+                        className="p-2 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingTeacherId(t.id);
+                          setShowDeleteTeacherModal(true);
+                        }}
+                        title="O'chirish"
+                        className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -256,61 +392,97 @@ export default function TeachersSection({
 
       {/* Modal: Add Teacher */}
       {showAddTeacherModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl my-8 text-[#1D1E26]">
-            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi O'qituvchi Yaratish</h3>
-            <p className="text-xs text-slate-400 font-medium mb-6">Yaratilgan o'qituvchini sinf va fanlarga biriktirishingiz mumkin.</p>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddTeacherModal(false);
+              setTeacherFirstName("");
+              setTeacherLastName("");
+              setTeacherMiddleName("");
+              setTeacherPhone("");
+              setTeacherRole("SUBJECT_TEACHER");
+              setTeacherPassword("password123");
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl my-8 text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Yangi O'qituvchi Yaratish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Yaratilgan o'qituvchini sinf va fanlarga biriktirishingiz mumkin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddTeacherModal(false);
+                  setTeacherFirstName("");
+                  setTeacherLastName("");
+                  setTeacherMiddleName("");
+                  setTeacherPhone("");
+                  setTeacherRole("SUBJECT_TEACHER");
+                  setTeacherPassword("password123");
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {actionError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-2xl mb-4 font-medium">{actionError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">{actionError}</div>
             )}
 
             <form onSubmit={handleAddTeacher} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
                   <input
                     type="text"
                     required
                     placeholder="Olim"
                     value={teacherFirstName}
                     onChange={(e) => setTeacherFirstName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi *</label>
                   <input
                     type="text"
                     required
                     placeholder="Sodiqov"
                     value={teacherLastName}
                     onChange={(e) => setTeacherLastName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otang ismi (Ixtiyoriy)</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otasining ismi (sharif)</label>
                 <input
                   type="text"
                   placeholder="Valiyevich"
                   value={teacherMiddleName}
                   onChange={(e) => setTeacherMiddleName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami *</label>
                 <input
                   type="text"
                   required
                   placeholder="+998907654321"
                   value={teacherPhone}
                   onChange={(e) => setTeacherPhone(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                 />
               </div>
 
@@ -327,7 +499,7 @@ export default function TeachersSection({
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Parol (Default: password123)</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Parol (Default: password123) *</label>
                 <input
                   type="password"
                   required
@@ -357,9 +529,9 @@ export default function TeachersSection({
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
-                  {actionLoading ? "Qo'shilmoqda..." : "Qo me'yorida qo'shish"}
+                  {actionLoading ? "Qo'shilmoqda..." : "Saqlash"}
                 </button>
               </div>
             </form>
@@ -369,10 +541,26 @@ export default function TeachersSection({
 
       {/* Modal: Import Teachers */}
       {showImportTeachersModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl my-8 text-[#1D1E26]">
-            <h3 className="text-base font-black text-[#1D1E26] mb-1">O'qituvchilarni Excel Orqali Import Qilish</h3>
-            <p className="text-xs text-slate-400 font-medium mb-6">Excel fayli orqali o'qituvchilar ro'yxatini yuklash.</p>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeSheetModal();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl my-8 text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">O'qituvchilarni Excel Orqali Import Qilish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Excel fayli orqali o'qituvchilar ro'yxatini yuklash.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeSheetModal}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             <div className="bg-[#E0F2FE] border border-sky-200 rounded-2xl p-4 mb-6 flex items-center justify-between">
               <div>
@@ -475,6 +663,187 @@ export default function TeachersSection({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Modal: Edit Teacher */}
+      {showEditTeacherModal && editingTeacher && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditTeacherModal(false);
+              setEditingTeacher(null);
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl my-8 text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">O'qituvchini Tahrirlash</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  O'qituvchi ma'lumotlarini yangilash.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditTeacherModal(false);
+                  setEditingTeacher(null);
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {actionError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">{actionError}</div>
+            )}
+
+            <form onSubmit={handleEditTeacher} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTeacherFirstName}
+                    onChange={(e) => setEditTeacherFirstName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTeacherLastName}
+                    onChange={(e) => setEditTeacherLastName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otasining ismi (sharif)</label>
+                <input
+                  type="text"
+                  value={editTeacherMiddleName}
+                  onChange={(e) => setEditTeacherMiddleName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami *</label>
+                <input
+                  type="text"
+                  required
+                  value={editTeacherPhone}
+                  onChange={(e) => setEditTeacherPhone(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Rol (Lavozimi)</label>
+                <select
+                  value={editTeacherRole}
+                  onChange={(e) => setEditTeacherRole(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition cursor-pointer font-bold"
+                >
+                  <option value="SUBJECT_TEACHER">Fan O'qituvchisi (Subject Teacher)</option>
+                  <option value="MAIN_TEACHER">Sinf Rahbari (Main Teacher)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Yangi Parol (ixtiyoriy)</label>
+                <input
+                  type="password"
+                  placeholder="O'zgarishsiz qoldirish uchun bo'sh qo'ying"
+                  value={editTeacherPassword}
+                  onChange={(e) => setEditTeacherPassword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditTeacherModal(false);
+                    setEditingTeacher(null);
+                    setActionError("");
+                  }}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                >
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Delete Teacher */}
+      {showDeleteTeacherModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteTeacherModal(false);
+              setDeletingTeacherId(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-red-600">O'qituvchini o'chirish</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteTeacherModal(false);
+                  setDeletingTeacherId(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Haqiqatan ham ushbu o'qituvchini o'chirmoqchisiz? Barcha sinf va fan biriktiruvlari ham o'chiriladi.
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteTeacherModal(false);
+                  setDeletingTeacherId(null);
+                }}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleDeleteTeacher}
+                disabled={actionLoading}
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
+              </button>
+            </div>
           </div>
         </div>
       )}

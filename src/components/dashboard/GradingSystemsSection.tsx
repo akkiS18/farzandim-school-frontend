@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { GradingSystem } from "./types";
 
 interface GradingSystemsSectionProps {
@@ -23,6 +23,16 @@ export default function GradingSystemsSection({
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowAddGSModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const activeGS = gradingSystems.find((gs) => gs.is_active);
 
@@ -249,13 +259,37 @@ export default function GradingSystemsSection({
 
       {/* Modal: Add Grading System */}
       {showAddGSModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
-            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi Baholash Tizimi Yaratish</h3>
-            <p className="text-xs text-slate-400 font-medium mb-6">Tizim turini va qiymatlarini belgilang.</p>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddGSModal(false);
+              setGsNameInput("");
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Yangi Baholash Tizimi Yaratish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Tizim turini va qiymatlarini belgilang.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddGSModal(false);
+                  setGsNameInput("");
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {actionError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-2xl mb-4 font-medium">{actionError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">{actionError}</div>
             )}
 
             <form onSubmit={handleCreateGS} className="space-y-4">

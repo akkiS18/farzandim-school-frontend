@@ -1,5 +1,107 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { Users, Pencil, Trash2, UserMinus } from "lucide-react";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
+
+interface SearchableSingleSelectProps {
+  value: number;
+  options: { id: number; name: string }[];
+  placeholder?: string;
+  onChange: (val: number) => void;
+}
+
+const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
+  value,
+  options,
+  placeholder = "Bo'sh",
+  onChange,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt) => opt.id === value);
+  const filteredOptions = options.filter((opt) =>
+    opt.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="relative font-sans text-left" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => {
+          setSearch("");
+          setIsOpen(!isOpen);
+        }}
+        className={`w-full py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer flex items-center justify-between gap-1 shadow-2xs ${
+          value > 0
+            ? "bg-[#ECFCCA] border-lime-300 text-[#1D1E26]"
+            : "bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-100/80"
+        }`}
+      >
+        <span className="truncate">{selectedOption ? selectedOption.name : placeholder}</span>
+        <span className="text-[9px] text-slate-400 shrink-0">▼</span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-2 min-w-[150px] max-h-56 flex flex-col space-y-1.5 animate-fadeIn">
+          <input
+            type="text"
+            placeholder="Qidirish..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#D4F562] font-semibold"
+            autoFocus
+          />
+          <div className="flex-1 overflow-y-auto space-y-0.5 max-h-40 pr-0.5 custom-scrollbar">
+            <button
+              type="button"
+              onClick={() => {
+                onChange(0);
+                setIsOpen(false);
+              }}
+              className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                value === 0 ? "bg-slate-100 font-extrabold text-slate-900" : "hover:bg-slate-50 text-slate-500"
+              }`}
+            >
+              Bo'sh
+            </button>
+            {filteredOptions.length === 0 ? (
+              <p className="text-[11px] text-slate-400 p-2 text-center italic">Topilmadi</p>
+            ) : (
+              filteredOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.id);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition truncate ${
+                    value === opt.id
+                      ? "bg-[#D4F562] font-black text-[#1D1E26]"
+                      : "hover:bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  {opt.name}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface ClassesSectionProps {
   classes: ClassItem[];
@@ -12,6 +114,7 @@ interface ClassesSectionProps {
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   fetchStudentsBalanceData: (t: string) => Promise<void>;
+  setSubjects?: React.Dispatch<React.SetStateAction<SubjectItem[]>>;
 }
 
 export default function ClassesSection({
@@ -25,9 +128,23 @@ export default function ClassesSection({
   selectedClass,
   setSelectedClass,
   fetchStudentsBalanceData,
+  setSubjects,
 }: ClassesSectionProps) {
   // Navigation
   const [classDetailsTab, setClassDetailsTab] = useState<"students" | "teachers" | "parents" | "schedule">("students");
+
+  // Quick Add Subject Modal (inside Schedule Modal)
+  const [showQuickAddSubjectModal, setShowQuickAddSubjectModal] = useState(false);
+  const [quickSubjectName, setQuickSubjectName] = useState("");
+  const [quickSubjectLevels, setQuickSubjectLevels] = useState<number[]>([]);
+  const [quickSubjectLoading, setQuickSubjectLoading] = useState(false);
+  const [quickSubjectError, setQuickSubjectError] = useState("");
+
+  const filteredSubjectsForClass = subjects.filter((sub) => {
+    if (!selectedClass || !selectedClass.level) return true;
+    if (!sub.target_levels || sub.target_levels.length === 0) return true;
+    return sub.target_levels.includes(selectedClass.level);
+  });
 
   // Contextual Sub-lists
   const [classStudents, setClassStudents] = useState<TenantUser[]>([]);
@@ -74,6 +191,9 @@ export default function ClassesSection({
 
   const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<number | null>(null);
+
+  const [classStudentsPage, setClassStudentsPage] = useState(1);
+  const [classStudentsPerPage, setClassStudentsPerPage] = useState<number>(10);
 
   const [showParentsModal, setShowParentsModal] = useState(false);
   const [selectedStudentForParents, setSelectedStudentForParents] = useState<TenantUser | null>(null);
@@ -124,6 +244,30 @@ export default function ClassesSection({
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+
+  // ESC key listener to close active modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowAddClassModal(false);
+        setShowEditClassModal(false);
+        setShowDeleteClassModal(false);
+        setShowAddStudentModal(false);
+        setShowEditStudentModal(false);
+        setShowDeleteStudentModal(false);
+        setShowParentsModal(false);
+        setShowUnassignTeacherModal(false);
+        setShowUnlinkParentModal(false);
+        setShowAssignTeacherModal(false);
+        setShowEditScheduleModal(false);
+        setShowAddExceptionModal(false);
+        setShowImportStudentsModal(false);
+        setShowImportParentsModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Contextual view triggers
   useEffect(() => {
@@ -287,6 +431,60 @@ export default function ClassesSection({
       alert("Ota-ona muvaffaqiyatli bog'landi");
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddParentDirect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudentIdForAdd) {
+      alert("Iltimos, o'quvchini tanlang");
+      return;
+    }
+    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
+      alert("Majburiy maydonlarni to'ldiring");
+      return;
+    }
+
+    setActionLoading(true);
+    setActionError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentIdForAdd}/parents`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: parentFirstName.trim(),
+          last_name: parentLastName.trim(),
+          middle_name: parentMiddleName.trim() || undefined,
+          phone: parentPhone.trim(),
+          passport: parentPassport.trim() || undefined,
+          password: parentPassword,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Ota-onani qo'shib bo'lmadi");
+      }
+
+      setParentFirstName("");
+      setParentLastName("");
+      setParentMiddleName("");
+      setParentPhone("");
+      setParentPassport("");
+      setParentPassword("password123");
+      setSelectedStudentIdForAdd("");
+
+      setShowAddParentModal(false);
+      fetchClassParents();
+      alert("Ota-ona muvaffaqiyatli qo'shildi!");
+    } catch (err: any) {
+      setActionError(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -985,80 +1183,133 @@ export default function ClassesSection({
                   <p className="text-slate-400 text-xs font-medium">Ushbu sinfda o'quvchilar mavjud emas.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
-                      <tr>
-                        <th className="px-6 py-4">T/R</th>
-                        <th className="px-6 py-4">F.I.SH</th>
-                        <th className="px-6 py-4">Manzil</th>
-                        <th className="px-6 py-4">Tug'ilgan sana</th>
-                        <th className="px-6 py-4">INA</th>
-                        <th className="px-6 py-4">Balans</th>
-                        <th className="px-6 py-4 text-right">Amallar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
-                      {classStudents.map((student, i) => (
-                        <tr key={student.id} className="hover:bg-slate-50/80 transition">
-                          <td className="px-6 py-4 text-slate-400 font-mono">{i + 1}</td>
-                          <td className="px-6 py-4 font-bold text-[#1D1E26]">
-                            {student.last_name} {student.first_name} {student.middle_name}
-                          </td>
-                          <td className="px-6 py-4 text-slate-500">{student.address || "Kiritilmagan"}</td>
-                          <td className="px-6 py-4 text-slate-500 font-mono">
-                            {student.birthdate ? student.birthdate.split("T")[0] : "Kiritilmagan"}
-                          </td>
-                          <td className="px-6 py-4 text-slate-500 font-mono">{student.ina || "Kiritilmagan"}</td>
-                          <td className={`px-6 py-4 font-mono font-bold ${
-                            (student.balance ? student.balance : 0) >= 0 ? "text-emerald-600" : "text-red-500"
-                          }`}>
-                            {new Intl.NumberFormat("uz-UZ").format(student.balance || 0)} UZS
-                          </td>
-                          <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                            <button
-                              onClick={() => {
-                                setSelectedStudentForParents(student);
-                                fetchLinkedParents(student.id);
-                                setShowParentsModal(true);
-                              }}
-                              className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
-                            >
-                              Vasiylar
-                            </button>
-                            {isMainTeacherOfClass() && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setEditingStudent(student);
-                                    setEditStudentFirstName(student.first_name);
-                                    setEditStudentLastName(student.last_name);
-                                    setEditStudentMiddleName(student.middle_name || "");
-                                    setEditStudentAddress(student.address || "");
-                                    setEditStudentBirthDate(student.birthdate ? student.birthdate.split("T")[0] : "");
-                                    setEditStudentINA(student.ina || "");
-                                    setShowEditStudentModal(true);
-                                  }}
-                                  className="text-xs bg-slate-100 hover:bg-slate-200 text-[#1D1E26] font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
-                                >
-                                  Tahrirlash
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setDeletingStudentId(student.id);
-                                    setShowDeleteStudentModal(true);
-                                  }}
-                                  className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
-                                >
-                                  O'chirish
-                                </button>
-                              </>
-                            )}
-                          </td>
+                <div className="space-y-4">
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100 relative">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                        <tr>
+                          <th className="px-6 py-4">T/R</th>
+                          <th className="px-6 py-4 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">F.I.SH</th>
+                          <th className="px-6 py-4">Manzil</th>
+                          <th className="px-6 py-4">Tug'ilgan sana</th>
+                          <th className="px-6 py-4">INA</th>
+                          <th className="px-6 py-4">Balans</th>
+                          <th className="px-6 py-4 text-right">Amallar</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
+                        {(() => {
+                          const perPage = classStudentsPerPage;
+                          const startIndex = (classStudentsPage - 1) * perPage;
+                          const paginatedList = classStudents.slice(startIndex, startIndex + perPage);
+
+                          return paginatedList.map((student, i) => (
+                            <tr key={student.id} className="group hover:bg-slate-50/80 transition">
+                              <td className="px-6 py-4 text-slate-400 font-mono">{startIndex + i + 1}</td>
+                              <td className="px-6 py-4 font-bold text-[#1D1E26] sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] min-w-[200px]">
+                                {student.last_name} {student.first_name} {student.middle_name}
+                              </td>
+                              <td className="px-6 py-4 text-slate-500">{student.address || "Kiritilmagan"}</td>
+                              <td className="px-6 py-4 text-slate-500 font-mono">
+                                {student.birthdate ? student.birthdate.split("T")[0] : "Kiritilmagan"}
+                              </td>
+                              <td className="px-6 py-4 text-slate-500 font-mono">{student.ina || "Kiritilmagan"}</td>
+                              <td className={`px-6 py-4 font-mono font-bold ${
+                                (student.balance ? student.balance : 0) >= 0 ? "text-emerald-600" : "text-red-500"
+                              }`}>
+                                {new Intl.NumberFormat("uz-UZ").format(student.balance || 0)} UZS
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                                <button
+                                  onClick={() => {
+                                    setSelectedStudentForParents(student);
+                                    fetchLinkedParents(student.id);
+                                    setShowParentsModal(true);
+                                  }}
+                                  title="Vasiylar"
+                                  className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                >
+                                  <Users className="w-4 h-4" />
+                                </button>
+                                {isMainTeacherOfClass() && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditingStudent(student);
+                                        setEditStudentFirstName(student.first_name);
+                                        setEditStudentLastName(student.last_name);
+                                        setEditStudentMiddleName(student.middle_name || "");
+                                        setEditStudentAddress(student.address || "");
+                                        setEditStudentBirthDate(student.birthdate ? student.birthdate.split("T")[0] : "");
+                                        setEditStudentINA(student.ina || "");
+                                        setShowEditStudentModal(true);
+                                      }}
+                                      title="Tahrirlash"
+                                      className="p-2 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setDeletingStudentId(student.id);
+                                        setShowDeleteStudentModal(true);
+                                      }}
+                                      title="O'chirish"
+                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Controls */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="text-[11px] text-slate-400 font-medium font-mono">
+                        Jami <b>{classStudents.length}</b> ta o'quvchi · Sahifa {classStudentsPage} / {Math.ceil(classStudents.length / classStudentsPerPage) || 1}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-400 font-medium">Har sahifada:</span>
+                        <select
+                          value={classStudentsPerPage}
+                          onChange={(e) => {
+                            setClassStudentsPerPage(Number(e.target.value));
+                            setClassStudentsPage(1);
+                          }}
+                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                        >
+                          <option value={10}>10 ta</option>
+                          <option value={25}>25 ta</option>
+                          <option value={50}>50 ta</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        disabled={classStudentsPage === 1}
+                        onClick={() => setClassStudentsPage((prev) => Math.max(prev - 1, 1))}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                      >
+                        ← Oldingi
+                      </button>
+                      <button
+                        type="button"
+                        disabled={classStudentsPage >= Math.ceil(classStudents.length / classStudentsPerPage)}
+                        onClick={() => setClassStudentsPage((prev) => Math.min(prev + 1, Math.ceil(classStudents.length / classStudentsPerPage)))}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                      >
+                        Keyingi →
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1129,9 +1380,10 @@ export default function ClassesSection({
                                   setUnassignClassTeacherId(ct.id);
                                   setShowUnassignTeacherModal(true);
                                 }}
-                                className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
+                                title="Ajratish"
+                                className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                               >
-                                Ajratish
+                                <UserMinus className="w-4 h-4" />
                               </button>
                             </td>
                           )}
@@ -1149,14 +1401,33 @@ export default function ClassesSection({
             <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-[#1D1E26]">Sinf ota-onalari</h3>
-                {userInfo?.role === "ADMIN" && (
-                  <button
-                    onClick={() => setShowImportParentsModal(true)}
-                    className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
-                  >
-                    Excel orqali yuklash
-                  </button>
-                )}
+                <div className="flex items-center space-x-3">
+                  {userInfo?.role === "ADMIN" && (
+                    <button
+                      onClick={() => setShowImportParentsModal(true)}
+                      className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+                    >
+                      Excel orqali yuklash
+                    </button>
+                  )}
+                  {(userInfo?.role === "ADMIN" || isMainTeacherOfClass()) && (
+                    <button
+                      onClick={() => {
+                        setSelectedStudentIdForAdd(classStudents.length > 0 ? classStudents[0].id : "");
+                        setParentFirstName("");
+                        setParentLastName("");
+                        setParentMiddleName("");
+                        setParentPhone("");
+                        setParentPassport("");
+                        setParentPassword("password123");
+                        setShowAddParentModal(true);
+                      }}
+                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    >
+                      + Ota-ona qo'shish
+                    </button>
+                  )}
+                </div>
               </div>
 
               {classParentsLoading ? (
@@ -1198,9 +1469,10 @@ export default function ClassesSection({
                                   setUnlinkStudentId(parent.student_id || 0);
                                   setShowUnlinkParentModal(true);
                                 }}
-                                className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
+                                title="Ajratish"
+                                className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                               >
-                                Ajratish
+                                <UserMinus className="w-4 h-4" />
                               </button>
                             </td>
                           )}
@@ -1298,8 +1570,8 @@ export default function ClassesSection({
               <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                   <div>
-                    <h3 className="text-md font-bold text-zinc-300">Kunlik dars o'zgarishlari</h3>
-                    <p className="text-[11px] text-zinc-500 mt-1">Haftalik dars jadvaliga kiritilgan bir martalik o'zgarishlar.</p>
+                    <h3 className="text-base font-extrabold text-[#1D1E26]">Kunlik dars o'zgarishlari</h3>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">Haftalik dars jadvaliga kiritilgan bir martalik o'zgarishlar.</p>
                   </div>
                   <div className="flex items-center space-x-3">
                     <input
@@ -1307,13 +1579,12 @@ export default function ClassesSection({
                       value={scheduleViewDate}
                       onChange={(e) => {
                         setScheduleViewDate(e.target.value);
-                        // Trigger fetch with new date immediately
                         setTimeout(() => {
                           fetchClassSchedule();
                           fetchScheduleExceptions();
                         }, 50);
                       }}
-                      className="bg-zinc-900 border border-zinc-800 focus:border-blue-500 text-zinc-200 text-xs rounded-xl px-3 py-2 outline-none transition font-mono cursor-pointer"
+                      className="bg-slate-50 border border-slate-200 text-[#1D1E26] text-xs font-bold rounded-xl px-3.5 py-2 outline-none transition font-mono cursor-pointer"
                     />
                     {userInfo?.role === "ADMIN" && (
                       <button
@@ -1321,7 +1592,7 @@ export default function ClassesSection({
                           setExcDate(scheduleViewDate);
                           setShowAddExceptionModal(true);
                         }}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2 px-4 rounded-xl transition cursor-pointer whitespace-nowrap"
+                        className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer whitespace-nowrap"
                       >
                         + O'zgarish kiritish
                       </button>
@@ -1331,55 +1602,61 @@ export default function ClassesSection({
 
                 {scheduleExceptionsLoading ? (
                   <div className="text-center py-6">
-                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <div className="w-5 h-5 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 ) : scheduleExceptions.length === 0 ? (
-                  <p className="text-center text-zinc-550 text-xs py-6">Ushbu sana bo'yicha hech qanday dars o'zgarishi kiritilmagan.</p>
+                  <p className="text-center text-slate-400 text-xs py-6 font-medium">Ushbu sana bo'yicha hech qanday dars o'zgarishi kiritilmagan.</p>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-                    <table className="min-w-full divide-y divide-zinc-800/60 text-left">
-                      <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                  <div className="overflow-hidden rounded-2xl border border-slate-100">
+                    <table className="min-w-full divide-y divide-slate-100 text-left">
+                      <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider font-mono">
                         <tr>
-                          <th className="px-5 py-3">Sana</th>
-                          <th className="px-5 py-3">Dars soati</th>
-                          <th className="px-5 py-3">Holat</th>
-                          <th className="px-5 py-3">Yangi Fan</th>
-                          {userInfo?.role === "ADMIN" && <th className="px-5 py-3 text-right">Amallar</th>}
+                          <th className="px-5 py-3.5">Sana</th>
+                          <th className="px-5 py-3.5">Dars soati</th>
+                          <th className="px-5 py-3.5">Holat</th>
+                          <th className="px-5 py-3.5">Yangi Fan</th>
+                          {userInfo?.role === "ADMIN" && <th className="px-5 py-3.5 text-right">Amallar</th>}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
-                        {scheduleExceptions.map((exc) => (
-                          <tr key={exc.id} className="hover:bg-zinc-900/10 transition">
-                            <td className="px-5 py-3 font-mono text-zinc-400">
-                              {new Date(exc.exception_date).toLocaleDateString()}
-                            </td>
-                            <td className="px-5 py-3 text-zinc-300 font-semibold">{exc.lesson_number}-dars</td>
-                            <td className="px-5 py-3">
-                              {exc.type === "cancel" ? (
-                                <span className="bg-red-950/40 text-red-400 border border-red-900/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                                  Bekor qilingan
-                                </span>
-                              ) : (
-                                <span className="bg-emerald-950/40 text-emerald-400 border border-emerald-900/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                                  O'zgartirilgan
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3 text-zinc-200">
-                              {exc.type === "replace" ? exc.subject_name : <span className="text-zinc-650">-</span>}
-                            </td>
-                            {userInfo?.role === "ADMIN" && (
-                              <td className="px-5 py-3 text-right">
-                                <button
-                                  onClick={() => handleDeleteException(exc.id)}
-                                  className="text-[10px] bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-400 py-1.5 px-3 rounded-lg transition cursor-pointer"
-                                >
-                                  O'chirish
-                                </button>
+                      <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
+                        {scheduleExceptions.map((exc) => {
+                          const excDateStr = exc.date || exc.exception_date || "";
+                          const formattedExcDate = excDateStr ? excDateStr.split("T")[0] : "-";
+                          const isCancel = exc.type === "cancel" || !exc.subject_id;
+
+                          return (
+                            <tr key={exc.id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-5 py-3.5 font-mono text-slate-500 font-bold">
+                                {formattedExcDate}
                               </td>
-                            )}
-                          </tr>
-                        ))}
+                              <td className="px-5 py-3.5 text-[#1D1E26] font-bold">{exc.lesson_number}-dars</td>
+                              <td className="px-5 py-3.5">
+                                {isCancel ? (
+                                  <span className="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono">
+                                    Bekor qilingan
+                                  </span>
+                                ) : (
+                                  <span className="bg-[#ECFCCA] text-[#65A30D] border border-lime-200 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono">
+                                    O'zgartirilgan
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-5 py-3.5 text-[#1D1E26] font-bold">
+                                {!isCancel ? (exc.subject_name || "Mavjud fan") : <span className="text-slate-300 font-mono">-</span>}
+                              </td>
+                              {userInfo?.role === "ADMIN" && (
+                                <td className="px-5 py-3.5 text-right">
+                                  <button
+                                    onClick={() => handleDeleteException(exc.id)}
+                                    className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
+                                  >
+                                    O'chirish
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1395,34 +1672,64 @@ export default function ClassesSection({
 
       {/* Modal 1: Add Class */}
       {showAddClassModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi Sinf Qo'shish</h3>
-            <p className="text-[11px] text-zinc-500 mb-6">Sinf nomi va unga mos to'lov guruhini aniqlovchi levelni kiriting.</p>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddClassModal(false);
+              setNewClassName("");
+              setNewClassLevel(1);
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Yangi Sinf Qo'shish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Sinf nomi va unga mos to'lov guruhini aniqlovchi levelni kiriting.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddClassModal(false);
+                  setNewClassName("");
+                  setNewClassLevel(1);
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                {actionError}
+              </div>
             )}
 
             <form onSubmit={handleAddClass} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Sinf Nomi</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sinf Nomi</label>
                 <input
                   type="text"
                   required
                   placeholder="Masalan: 9-A"
                   value={newClassName}
                   onChange={(e) => setNewClassName(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Sinf Leveli (0 - 13) *</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sinf Leveli (0 - 13) *</label>
                 <select
                   value={newClassLevel}
                   onChange={(e) => setNewClassLevel(Number(e.target.value))}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   {Array.from({ length: 14 }, (_, i) => (
                     <option key={i} value={i}>Level {i}</option>
@@ -1430,7 +1737,7 @@ export default function ClassesSection({
                 </select>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -1439,14 +1746,14 @@ export default function ClassesSection({
                     setNewClassLevel(1);
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -1458,34 +1765,62 @@ export default function ClassesSection({
 
       {/* Modal 2: Edit Class */}
       {showEditClassModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Sinfni Tahrirlash</h3>
-            <p className="text-[11px] text-zinc-500 mb-6">Sinf nomi va levelini tahrirlash.</p>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditClassModal(false);
+              setEditClassName("");
+              setEditClassLevel(1);
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Sinfni Tahrirlash</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Sinf nomi va levelini tahrirlash.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditClassModal(false);
+                  setEditClassName("");
+                  setEditClassLevel(1);
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                {actionError}
+              </div>
             )}
 
             <form onSubmit={handleEditClass} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Sinf Nomi</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sinf Nomi</label>
                 <input
                   type="text"
                   required
                   placeholder="Masalan: 10-C"
                   value={editClassName}
                   onChange={(e) => setEditClassName(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Sinf Leveli (0 - 13) *</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sinf Leveli (0 - 13) *</label>
                 <select
                   value={editClassLevel}
                   onChange={(e) => setEditClassLevel(Number(e.target.value))}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   {Array.from({ length: 14 }, (_, i) => (
                     <option key={i} value={i}>Level {i}</option>
@@ -1493,7 +1828,7 @@ export default function ClassesSection({
                 </select>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -1502,14 +1837,14 @@ export default function ClassesSection({
                     setEditClassLevel(1);
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Yangilanmoqda..." : "Saqlash"}
                 </button>
@@ -1521,29 +1856,43 @@ export default function ClassesSection({
 
       {/* Modal 3: Delete Class Confirmation */}
       {showDeleteClassModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-md font-bold text-red-500 mb-2">Sinfni o'chirish</h3>
-            {selectedClass && (
-              <p className="text-sm text-zinc-300 mb-6">
-                Haqiqatan ham <strong className="text-zinc-100">"{selectedClass.name}"</strong> sinfini o'chirib yubormoqchimisiz? Ushbu sinfga tegishli barcha o'quvchilar bazadan soft-delete qilinadi.
-              </p>
-            )}
-
-            <div className="flex items-center justify-end space-x-3">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDeleteClassModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-red-600">Sinfni o'chirish</h3>
               <button
                 type="button"
                 onClick={() => setShowDeleteClassModal(false)}
-                className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            {selectedClass && (
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Haqiqatan ham <strong className="text-slate-900 font-black">"{selectedClass.name}"</strong> sinfini o'chirib yubormoqchimisiz? Ushbu sinfga tegishli barcha o'quvchilar bazadan soft-delete qilinadi.
+              </p>
+            )}
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowDeleteClassModal(false)}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleDeleteClass}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
-                O'chirishni tasdiqlash
+                {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
               </button>
             </div>
           </div>
@@ -1552,242 +1901,335 @@ export default function ClassesSection({
 
       {/* Modal 4: Manual Student Add under Selected Class */}
       {showAddStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Yangi O'quvchi Qo'shish</h3>
-            {selectedClass && <p className="text-[11px] text-zinc-500 mb-6">Ushbu o'quvchi avtomat ravishda "{selectedClass.name}" sinfiga biriktiriladi.</p>}
-
-            {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
-            )}
-
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Ismi</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ali"
-                    value={studentFirstName}
-                    onChange={(e) => setStudentFirstName(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Familiyasi</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Valiyev"
-                    value={studentLastName}
-                    onChange={(e) => setStudentLastName(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
-                </div>
-              </div>
-
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddStudentModal(false);
+              setStudentFirstName("");
+              setStudentLastName("");
+              setStudentMiddleName("");
+              setStudentPhone("");
+              setStudentAddress("");
+              setStudentBirthDate("");
+              setStudentINA("");
+              setStudentPassword("password123");
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Otang ismi (Ixtiyoriy)</label>
-                <input
-                  type="text"
-                  placeholder="Karimovich"
-                  value={studentMiddleName}
-                  onChange={(e) => setStudentMiddleName(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
+                <h3 className="text-base font-black text-[#1D1E26]">Yangi O'quvchi Qo'shish</h3>
+                {selectedClass && (
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Ushbu o'quvchi avtomat ravishda "{selectedClass.name}" sinfiga biriktiriladi.
+                  </p>
+                )}
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddStudentModal(false);
+                  setStudentFirstName("");
+                  setStudentLastName("");
+                  setStudentMiddleName("");
+                  setStudentPhone("");
+                  setStudentAddress("");
+                  setStudentBirthDate("");
+                  setStudentINA("");
+                  setStudentPassword("password123");
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Manzil</label>
-                <input
-                  type="text"
-                  placeholder="Masalan: Toshkent sh., Chilonzor"
-                  value={studentAddress}
-                  onChange={(e) => setStudentAddress(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Tug'ilgan sana</label>
-                  <input
-                    type="date"
-                    value={studentBirthDate}
-                    onChange={(e) => setStudentBirthDate(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
+            <div className="flex-1 overflow-y-auto pt-4 space-y-4">
+              {actionError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                  {actionError}
                 </div>
+              )}
+
+              <form onSubmit={handleAddStudent} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ali"
+                      value={studentFirstName}
+                      onChange={(e) => setStudentFirstName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Valiyev"
+                      value={studentLastName}
+                      onChange={(e) => setStudentLastName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Guvohnoma (INA)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otasining ismi (sharif)</label>
                   <input
                     type="text"
-                    placeholder="I-TV No 123456"
-                    value={studentINA}
-                    onChange={(e) => setStudentINA(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                    placeholder="Karimovich"
+                    value={studentMiddleName}
+                    onChange={(e) => setStudentMiddleName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddStudentModal(false);
-                    setStudentFirstName("");
-                    setStudentLastName("");
-                    setStudentMiddleName("");
-                    setStudentPhone("");
-                    setStudentAddress("");
-                    setStudentBirthDate("");
-                    setStudentINA("");
-                    setStudentPassword("password123");
-                    setActionError("");
-                  }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
-                >
-                  {actionLoading ? "Qo'shilmoqda..." : "Qo'shish"}
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Manzil</label>
+                  <input
+                    type="text"
+                    placeholder="Masalan: Toshkent sh., Chilonzor"
+                    value={studentAddress}
+                    onChange={(e) => setStudentAddress(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tug'ilgan sana</label>
+                    <input
+                      type="date"
+                      value={studentBirthDate}
+                      onChange={(e) => setStudentBirthDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                    <input
+                      type="text"
+                      placeholder="I-TV No 123456"
+                      value={studentINA}
+                      onChange={(e) => setStudentINA(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddStudentModal(false);
+                      setStudentFirstName("");
+                      setStudentLastName("");
+                      setStudentMiddleName("");
+                      setStudentPhone("");
+                      setStudentAddress("");
+                      setStudentBirthDate("");
+                      setStudentINA("");
+                      setStudentPassword("password123");
+                      setActionError("");
+                    }}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {actionLoading ? "Qo'shilmoqda..." : "Qo'shish"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Modal 4.5: Edit Student Modal */}
       {showEditStudentModal && editingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">O'quvchi ma'lumotlarini tahrirlash</h3>
-
-            {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
-            )}
-
-            <form onSubmit={handleEditStudent} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Ismi</label>
-                  <input
-                    type="text"
-                    required
-                    value={editStudentFirstName}
-                    onChange={(e) => setEditStudentFirstName(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Familiyasi</label>
-                  <input
-                    type="text"
-                    required
-                    value={editStudentLastName}
-                    onChange={(e) => setEditStudentLastName(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                  />
-                </div>
-              </div>
-
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditStudentModal(false);
+              setEditingStudent(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Otang ismi</label>
-                <input
-                  type="text"
-                  value={editStudentMiddleName}
-                  onChange={(e) => setEditStudentMiddleName(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
+                <h3 className="text-base font-black text-[#1D1E26]">O'quvchi ma'lumotlarini tahrirlash</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">O'quvchi shaxsiy va hujjat ma'lumotlarini yangilash.</p>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditStudentModal(false);
+                  setEditingStudent(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Manzil</label>
-                <input
-                  type="text"
-                  value={editStudentAddress}
-                  onChange={(e) => setEditStudentAddress(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Tug'ilgan sana</label>
-                  <input
-                    type="date"
-                    value={editStudentBirthDate}
-                    onChange={(e) => setEditStudentBirthDate(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
-                  />
+            <div className="flex-1 overflow-y-auto pt-4 space-y-4">
+              {actionError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                  {actionError}
                 </div>
+              )}
+
+              <form onSubmit={handleEditStudent} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editStudentFirstName}
+                      onChange={(e) => setEditStudentFirstName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editStudentLastName}
+                      onChange={(e) => setEditStudentLastName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Guvohnoma (INA)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otasining ismi</label>
                   <input
                     type="text"
-                    value={editStudentINA}
-                    onChange={(e) => setEditStudentINA(e.target.value)}
-                    className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                    value={editStudentMiddleName}
+                    onChange={(e) => setEditStudentMiddleName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditStudentModal(false);
-                    setEditingStudent(null);
-                  }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
-                >
-                  {actionLoading ? "Yangilanmoqda..." : "Saqlash"}
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Manzil</label>
+                  <input
+                    type="text"
+                    value={editStudentAddress}
+                    onChange={(e) => setEditStudentAddress(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tug'ilgan sana</label>
+                    <input
+                      type="date"
+                      value={editStudentBirthDate}
+                      onChange={(e) => setEditStudentBirthDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                    <input
+                      type="text"
+                      value={editStudentINA}
+                      onChange={(e) => setEditStudentINA(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditStudentModal(false);
+                      setEditingStudent(null);
+                    }}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {actionLoading ? "Yangilanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Modal 4.6: Delete Student Modal */}
       {showDeleteStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-md font-bold text-red-500 mb-2">O'quvchini o'chirish</h3>
-            <p className="text-sm text-zinc-300 mb-6 font-medium">
-              Haqiqatan ham ushbu o'quvchini sinfdan o'chirmoqchisiz? Barcha baholar va bog'liqliklar saqlanadi, lekin o'quvchi ro'yxatdan o'chadi.
-            </p>
-
-            <div className="flex items-center justify-end space-x-3">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteStudentModal(false);
+              setDeletingStudentId(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-red-600">O'quvchini o'chirish</h3>
               <button
                 type="button"
                 onClick={() => {
                   setShowDeleteStudentModal(false);
                   setDeletingStudentId(null);
                 }}
-                className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Haqiqatan ham ushbu o'quvchini sinfdan o'chirmoqchisiz? Barcha baholar va bog'liqliklar saqlanadi, lekin o'quvchi ro'yxatdan o'chadi.
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteStudentModal(false);
+                  setDeletingStudentId(null);
+                }}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleDeleteStudent}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
-                O'chirishni tasdiqlash
+                {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
               </button>
             </div>
           </div>
@@ -1795,15 +2237,27 @@ export default function ClassesSection({
       )}
 
       {/* Modal: Linked Parents management popup */}
+      {/* Modal 3: Manage Parents (Vasiylar) for Student */}
       {showParentsModal && selectedStudentForParents && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-xl bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8 relative text-zinc-200">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowParentsModal(false);
+              setSelectedStudentForParents(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-xl max-h-[90vh] bg-white border border-slate-100 rounded-3xl shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-md font-bold text-zinc-200">
+                <h3 className="text-base font-black text-[#1D1E26]">
                   Vasiylarni Boshqarish ({selectedStudentForParents.first_name} {selectedStudentForParents.last_name})
                 </h3>
-                <p className="text-[10px] text-zinc-550 mt-1">Ushbu o'quvchiga biriktirilgan vasiylar (ota-onalar) ro'yxati va yangi bog'lash oynasi.</p>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Ushbu o'quvchiga biriktirilgan vasiylar (ota-onalar) ro'yxati va yangi bog'lash oynasi.
+                </p>
               </div>
               <button
                 type="button"
@@ -1811,156 +2265,345 @@ export default function ClassesSection({
                   setShowParentsModal(false);
                   setSelectedStudentForParents(null);
                 }}
-                className="text-zinc-500 hover:text-zinc-300 transition text-xs font-semibold cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
-                Yopish
+                ✕
               </button>
             </div>
 
-            {/* List of current parents */}
-            <div className="space-y-3 mb-6">
-              <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Mavjud bog'langan vasiylar</h4>
-              {linkedParentsLoading ? (
-                <div className="text-center py-4">
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                </div>
-              ) : linkedParents.length === 0 ? (
-                <p className="text-zinc-550 text-xs py-2">Ushbu o'quvchiga hali vasiy biriktirilmagan.</p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-zinc-850 bg-zinc-950/20 text-xs">
-                  <div className="divide-y divide-zinc-850">
-                    {linkedParents.map((parent) => (
-                      <div key={parent.id} className="p-3 flex items-center justify-between hover:bg-zinc-900/10 transition">
-                        <div>
-                          <p className="font-semibold text-zinc-300">
-                            {parent.last_name} {parent.first_name} {parent.middle_name}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
-                            Tel: {parent.phone} | Pasport: {parent.email || "Kiritilmagan"}
-                          </p>
-                        </div>
-                        {isMainTeacherOfClass() && (
-                          <button
-                            onClick={() => handleUnlinkParent(parent.id)}
-                            className="bg-red-950/20 hover:bg-red-950/40 border border-red-900/20 text-red-400 text-[10px] font-semibold py-1 px-2.5 rounded-lg transition cursor-pointer"
-                          >
-                            Ajratish
-                          </button>
-                        )}
-                      </div>
-                    ))}
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* List of current parents */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-extrabold text-slate-400 uppercase font-mono tracking-wider">Mavjud bog'langan vasiylar</h4>
+                {linkedParentsLoading ? (
+                  <div className="text-center py-6">
+                    <div className="w-5 h-5 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
+                ) : linkedParents.length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                    <p className="text-slate-400 text-xs font-medium">Ushbu o'quvchiga hali vasiy biriktirilmagan.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/50 text-xs">
+                    <div className="divide-y divide-slate-100">
+                      {linkedParents.map((parent) => (
+                        <div key={parent.id} className="p-3.5 flex items-center justify-between hover:bg-slate-100/50 transition">
+                          <div>
+                            <p className="font-bold text-[#1D1E26]">
+                              {parent.last_name} {parent.first_name} {parent.middle_name}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                              Tel: {parent.phone} | Pasport: {parent.email || "Kiritilmagan"}
+                            </p>
+                          </div>
+                          {isMainTeacherOfClass() && (
+                            <button
+                              onClick={() => handleUnlinkParent(parent.id)}
+                              title="Ajratish"
+                              className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                            >
+                              <UserMinus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Manual add new parent form */}
+              {isMainTeacherOfClass() && (
+                <div className="border-t border-slate-100 pt-5">
+                  <h4 className="text-[10px] font-extrabold text-slate-400 uppercase font-mono tracking-wider mb-3">Yangi vasiy qo'shish va bog'lash</h4>
+                  <form onSubmit={handleLinkParent} autoComplete="off" className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Valiyeva"
+                          value={parentLastName}
+                          onChange={(e) => setParentLastName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Dilnoza"
+                          value={parentFirstName}
+                          onChange={(e) => setParentFirstName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otasining ismi (sharif)</label>
+                        <input
+                          type="text"
+                          placeholder="Karimovna"
+                          value={parentMiddleName}
+                          onChange={(e) => setParentMiddleName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="+998901234567"
+                          value={parentPhone}
+                          onChange={(e) => setParentPhone(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport</label>
+                        <input
+                          type="text"
+                          name="parent_passport_serial_no_no_autofill"
+                          autoComplete="off"
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          data-lpignore="true"
+                          placeholder="AB1234567"
+                          value={parentPassport}
+                          onChange={(e) => setParentPassport(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Parol (Default: password123) *</label>
+                        <input
+                          type="password"
+                          required
+                          autoComplete="new-password"
+                          value={parentPassword}
+                          onChange={(e) => setParentPassword(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end pt-3 border-t border-slate-100">
+                      <button
+                        type="submit"
+                        disabled={actionLoading}
+                        className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                      >
+                        {actionLoading ? "Bog'lanmoqda..." : "Yangi vasiyni bog'lash"}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Manual add new parent form */}
-            {isMainTeacherOfClass() && (
-              <div className="border-t border-zinc-800/60 pt-4">
-                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Yangi vasiy qo'shish va bog'lash</h4>
-                <form onSubmit={handleLinkParent} className="space-y-3.5 text-zinc-300">
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-[9px] font-semibold text-zinc-400 uppercase mb-1">Familiyasi *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Valiyeva"
-                        value={parentLastName}
-                        onChange={(e) => setParentLastName(e.target.value)}
-                        className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-lg px-3 py-2 text-xs outline-none transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-semibold text-zinc-400 uppercase mb-1">Ismi *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Dilnoza"
-                        value={parentFirstName}
-                        onChange={(e) => setParentFirstName(e.target.value)}
-                        className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-lg px-3 py-2 text-xs outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-[9px] font-semibold text-zinc-400 uppercase mb-1">Otasining ismi (sharif)</label>
-                      <input
-                        type="text"
-                        placeholder="Karimovna"
-                        value={parentMiddleName}
-                        onChange={(e) => setParentMiddleName(e.target.value)}
-                        className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-lg px-3 py-2 text-xs outline-none transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-semibold text-zinc-400 uppercase mb-1">Telefon raqami *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="+998901234567"
-                        value={parentPhone}
-                        onChange={(e) => setParentPhone(e.target.value)}
-                        className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-lg px-3 py-2 text-xs outline-none transition font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-[9px] font-semibold text-zinc-400 uppercase mb-1">Pasport</label>
-                      <input
-                        type="text"
-                        placeholder="AB1234567"
-                        value={parentPassport}
-                        onChange={(e) => setParentPassport(e.target.value)}
-                        className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-lg px-3 py-2 text-xs outline-none transition font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-semibold text-zinc-400 uppercase mb-1">Parol (Default: password123) *</label>
-                      <input
-                        type="password"
-                        required
-                        value={parentPassword}
-                        onChange={(e) => setParentPassword(e.target.value)}
-                        className="w-full bg-[#181820]/60 border border-zinc-800/80 focus:border-blue-500 text-zinc-100 rounded-lg px-3 py-2 text-xs outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end pt-3">
-                    <button
-                      type="submit"
-                      disabled={actionLoading}
-                      className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-6 rounded-xl transition cursor-pointer"
-                    >
-                      {actionLoading ? "Bog'lanmoqda..." : "Yangi vasiyni bog'lash"}
-                    </button>
-                  </div>
-                </form>
+      {/* Modal: Add Parent directly to Class */}
+      {showAddParentModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddParentModal(false);
+              setParentFirstName("");
+              setParentLastName("");
+              setParentMiddleName("");
+              setParentPhone("");
+              setParentPassport("");
+              setParentPassword("password123");
+              setSelectedStudentIdForAdd("");
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Yangi Ota-ona Qo'shish</h3>
+                {selectedClass && (
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    "{selectedClass.name}" sinfidagi o'quvchiga vasiy biriktirish.
+                  </p>
+                )}
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddParentModal(false);
+                  setParentFirstName("");
+                  setParentLastName("");
+                  setParentMiddleName("");
+                  setParentPhone("");
+                  setParentPassport("");
+                  setParentPassword("password123");
+                  setSelectedStudentIdForAdd("");
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pt-4 space-y-4">
+              {actionError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                  {actionError}
+                </div>
+              )}
+
+              <form onSubmit={handleAddParentDirect} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sinf O'quvchisi *</label>
+                  <select
+                    required
+                    value={selectedStudentIdForAdd}
+                    onChange={(e) => setSelectedStudentIdForAdd(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                  >
+                    <option value="">-- O'quvchini tanlang --</option>
+                    {classStudents.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.last_name} {st.first_name} {st.middle_name || ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Dilnoza"
+                      value={parentFirstName}
+                      onChange={(e) => setParentFirstName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familiyasi *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Valiyeva"
+                      value={parentLastName}
+                      onChange={(e) => setParentLastName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Otasining ismi (sharif)</label>
+                  <input
+                    type="text"
+                    placeholder="Karimovna"
+                    value={parentMiddleName}
+                    onChange={(e) => setParentMiddleName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="+998901234567"
+                    value={parentPhone}
+                    onChange={(e) => setParentPhone(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport (Email)</label>
+                    <input
+                      type="text"
+                      placeholder="AB1234567"
+                      value={parentPassport}
+                      onChange={(e) => setParentPassport(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Parol *</label>
+                    <input
+                      type="password"
+                      required
+                      value={parentPassword}
+                      onChange={(e) => setParentPassword(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddParentModal(false);
+                      setParentFirstName("");
+                      setParentLastName("");
+                      setParentMiddleName("");
+                      setParentPhone("");
+                      setParentPassport("");
+                      setParentPassword("password123");
+                      setSelectedStudentIdForAdd("");
+                      setActionError("");
+                    }}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {actionLoading ? "Qo'shilmoqda..." : "Qo'shish"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Modal 3.5: Unassign Teacher Mapping Confirmation */}
       {showUnassignTeacherModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-md font-bold text-red-500 mb-2">Biriktiruvni o'chirish</h3>
-            <p className="text-sm text-zinc-300 mb-6">
-              Haqiqatan ham ushbu o'qituvchi va dars fani biriktiruvini sinfdan o'chirib tashlamoqchimisiz?
-            </p>
-
-            {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
-            )}
-
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowUnassignTeacherModal(false);
+              setUnassignClassTeacherId(null);
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-red-600">Biriktiruvni o'chirish</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -1968,14 +2611,35 @@ export default function ClassesSection({
                   setUnassignClassTeacherId(null);
                   setActionError("");
                 }}
-                className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Haqiqatan ham ushbu o'qituvchi va dars fani biriktiruvini sinfdan o'chirib tashlamoqchimisiz?
+            </p>
+
+            {actionError && (
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
+            )}
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnassignTeacherModal(false);
+                  setUnassignClassTeacherId(null);
+                  setActionError("");
+                }}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleUnassignTeacherSubmit}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
               </button>
@@ -1986,14 +2650,19 @@ export default function ClassesSection({
 
       {/* Modal: Unlink Parent Confirmation */}
       {showUnlinkParentModal && editingParent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-850 rounded-2xl p-6 shadow-2xl relative">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Vasiyni o'quvchidan ajratishni tasdiqlang</h3>
-            <p className="text-xs text-zinc-400 mb-6">
-              Haqiqatan ham ota-ona <span className="text-zinc-100 font-semibold">{editingParent.first_name} {editingParent.last_name}</span>ni ushbu o'quvchidan ajratmoqchisiz?
-            </p>
-
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowUnlinkParentModal(false);
+              setEditingParent(null);
+              setUnlinkStudentId(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-[#1D1E26]">Vasiyni o'quvchidan ajratish</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -2001,7 +2670,24 @@ export default function ClassesSection({
                   setEditingParent(null);
                   setUnlinkStudentId(null);
                 }}
-                className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Haqiqatan ham ota-ona <span className="text-slate-900 font-bold">{editingParent.first_name} {editingParent.last_name}</span>ni ushbu o'quvchidan ajratmoqchisiz?
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnlinkParentModal(false);
+                  setEditingParent(null);
+                  setUnlinkStudentId(null);
+                }}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
               >
                 Bekor qilish
               </button>
@@ -2009,7 +2695,7 @@ export default function ClassesSection({
                 type="button"
                 onClick={handleUnlinkParentFromTab}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "Ajratilmoqda..." : "Ha, ajratish"}
               </button>
@@ -2020,23 +2706,55 @@ export default function ClassesSection({
 
       {/* Modal 7: Assign Teacher to Class (with Subject & Main status) */}
       {showAssignTeacherModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">Sinfga O'qituvchi Biriktirish</h3>
-            {selectedClass && <p className="text-[11px] text-zinc-500 mb-6">"{selectedClass.name}" sinfi uchun o'qituvchi va dars beradigan fanini tanlang.</p>}
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAssignTeacherModal(false);
+              setAssignTeacherId("");
+              setAssignSubjectId("");
+              setAssignIsMain(false);
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Sinfga O'qituvchi Biriktirish</h3>
+                {selectedClass && (
+                  <p className="text-xs text-slate-400 font-medium mt-0.5 font-sans">
+                    "{selectedClass.name}" sinfi uchun o'qituvchi va dars beradigan fanini tanlang.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignTeacherModal(false);
+                  setAssignTeacherId("");
+                  setAssignSubjectId("");
+                  setAssignIsMain(false);
+                  setActionError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
             )}
 
             <form onSubmit={handleAssignTeacher} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">O'qituvchini tanlang</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">O'qituvchini tanlang</label>
                 <select
                   required
                   value={assignTeacherId}
                   onChange={(e) => setAssignTeacherId(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3 py-2.5 text-sm outline-none transition cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   <option value="">O'qituvchini tanlang...</option>
                   {teachers.map((t) => (
@@ -2046,15 +2764,15 @@ export default function ClassesSection({
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Dars beradigan fanini tanlang</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Dars beradigan fanini tanlang</label>
                 <select
                   required
                   value={assignSubjectId}
                   onChange={(e) => setAssignSubjectId(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3 py-2.5 text-sm outline-none transition cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   <option value="">Fanni tanlang...</option>
-                  {subjects.map((s) => (
+                  {filteredSubjectsForClass.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
@@ -2067,15 +2785,15 @@ export default function ClassesSection({
                     type="checkbox"
                     checked={assignIsMain}
                     onChange={(e) => setAssignIsMain(e.target.checked)}
-                    className="w-4 h-4 rounded border-zinc-850 bg-zinc-950 text-blue-600 focus:ring-0 cursor-pointer"
+                    className="w-4 h-4 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562] cursor-pointer"
                   />
-                  <label htmlFor="assign-is-main-checkbox" className="text-xs text-zinc-300 font-semibold cursor-pointer select-none">
+                  <label htmlFor="assign-is-main-checkbox" className="text-xs text-slate-700 font-bold cursor-pointer select-none">
                     Sinf Rahbari (Main Teacher) etib tayinlash
                   </label>
                 </div>
               )}
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -2085,14 +2803,14 @@ export default function ClassesSection({
                     setAssignIsMain(false);
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Biriktirilmoqda..." : "Biriktirish"}
                 </button>
@@ -2104,105 +2822,37 @@ export default function ClassesSection({
 
       {/* Modal: Edit Weekly Schedule */}
       {showEditScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-5xl bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8 relative">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditScheduleModal(false);
+              setScheduleFormState({});
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-5xl max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div>
-                <h3 className="text-md font-bold text-zinc-200">Haftalik dars jadvalini tahrirlash</h3>
-                <p className="text-[11px] text-zinc-500 mt-1">Har bir kun va dars soati uchun fanni tanlang. Dars yo'q soatlarni "Bo'sh" holatida qoldiring.</p>
+                <h3 className="text-base font-black text-[#1D1E26]">Haftalik dars jadvalini tahrirlash</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Har bir kun va dars soati uchun fanni tanlang. Dars yo'q soatlarni "Bo'sh" holatida qoldiring.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditScheduleModal(false);
-                  setScheduleFormState({});
-                  setActionError("");
-                }}
-                className="text-zinc-500 hover:text-zinc-300 transition text-xs font-semibold"
-              >
-                Yopish
-              </button>
-            </div>
-
-            {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
-            )}
-
-            <form onSubmit={handleSaveSchedule} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-900/20 border border-zinc-800/80 p-4 rounded-xl">
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-1">Jadval boshlanish sanasi (Start Date)</label>
-                  <input
-                    type="date"
-                    value={scheduleStartDate}
-                    onChange={(e) => setScheduleStartDate(e.target.value)}
-                    required
-                    className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-200 rounded-lg px-3 py-1.5 text-xs outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-1">Jadval tugash sanasi (End Date)</label>
-                  <input
-                    type="date"
-                    value={scheduleEndDate}
-                    onChange={(e) => setScheduleEndDate(e.target.value)}
-                    required
-                    className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-200 rounded-lg px-3 py-1.5 text-xs outline-none transition"
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-zinc-800/60 bg-zinc-950/20">
-                <table className="min-w-full divide-y divide-zinc-800/60 text-center table-fixed">
-                  <thead className="bg-zinc-900/40 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                    <tr>
-                      <th className="px-2 py-3 w-16">Soat</th>
-                      <th className="px-2 py-3">Dushanba</th>
-                      <th className="px-2 py-3">Seshanba</th>
-                      <th className="px-2 py-3">Chorshanba</th>
-                      <th className="px-2 py-3">Payshanba</th>
-                      <th className="px-2 py-3">Juma</th>
-                      <th className="px-2 py-3">Shanba</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/40 text-xs text-zinc-300">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                      <tr key={period} className="hover:bg-zinc-900/10 transition">
-                        <td className="px-2 py-2.5 font-mono font-semibold text-zinc-500 bg-zinc-900/10">
-                          {period}-dars
-                        </td>
-                        {[1, 2, 3, 4, 5, 6].map((day) => {
-                          const slotKey = `${day}-${period}`;
-                          const selectedVal = scheduleFormState[slotKey] || 0;
-                          return (
-                            <td key={day} className="px-2 py-2 border-l border-zinc-800/30">
-                              <select
-                                value={selectedVal}
-                                onChange={(e) => {
-                                  setScheduleFormState((prev) => ({
-                                    ...prev,
-                                    [slotKey]: Number(e.target.value),
-                                  }));
-                                }}
-                                className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-lg px-2 py-1.5 text-xs outline-none transition cursor-pointer"
-                              >
-                                <option value="0">Bo'sh</option>
-                                {subjects.map((sub) => (
-                                  <option key={sub.id} value={sub.id}>
-                                    {sub.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickSubjectName("");
+                    setQuickSubjectLevels(selectedClass?.level ? [selectedClass.level] : []);
+                    setQuickSubjectError("");
+                    setShowQuickAddSubjectModal(true);
+                  }}
+                  className="bg-lime-100 text-lime-900 hover:bg-lime-200 font-black text-xs py-2 px-3 rounded-xl transition cursor-pointer"
+                >
+                  + Yangi Fan Qo'shish
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -2210,31 +2860,130 @@ export default function ClassesSection({
                     setScheduleFormState({});
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
                 >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-6 rounded-xl transition cursor-pointer"
-                >
-                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                  ✕
                 </button>
               </div>
-            </form>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pt-4 space-y-5">
+              {actionError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
+              )}
+
+              <form onSubmit={handleSaveSchedule} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-slate-200/80 p-4 rounded-2xl">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Jadval boshlanish sanasi (Start Date)</label>
+                    <input
+                      type="date"
+                      value={scheduleStartDate}
+                      onChange={(e) => setScheduleStartDate(e.target.value)}
+                      required
+                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Jadval tugash sanasi (End Date)</label>
+                    <input
+                      type="date"
+                      value={scheduleEndDate}
+                      onChange={(e) => setScheduleEndDate(e.target.value)}
+                      required
+                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
+                  <table className="min-w-full divide-y divide-slate-100 text-center table-fixed">
+                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase font-mono tracking-wider">
+                      <tr>
+                        <th className="px-2 py-3 w-16">Soat</th>
+                        <th className="px-2 py-3">Dushanba</th>
+                        <th className="px-2 py-3">Seshanba</th>
+                        <th className="px-2 py-3">Chorshanba</th>
+                        <th className="px-2 py-3">Payshanba</th>
+                        <th className="px-2 py-3">Juma</th>
+                        <th className="px-2 py-3">Shanba</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
+                        <tr key={period} className="hover:bg-slate-50/50 transition">
+                          <td className="px-2 py-2.5 font-mono font-bold text-slate-500 bg-slate-50/60">
+                            {period}-dars
+                          </td>
+                          {[1, 2, 3, 4, 5, 6].map((day) => {
+                            const slotKey = `${day}-${period}`;
+                            const selectedVal = scheduleFormState[slotKey] || 0;
+                            return (
+                              <td key={day} className="px-2 py-2 border-l border-slate-100">
+                                <SearchableSingleSelect
+                                  value={selectedVal}
+                                  options={filteredSubjectsForClass}
+                                  placeholder="Bo'sh"
+                                  onChange={(val) => {
+                                    setScheduleFormState((prev) => ({
+                                      ...prev,
+                                      [slotKey]: val,
+                                    }));
+                                  }}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditScheduleModal(false);
+                      setScheduleFormState({});
+                      setActionError("");
+                    }}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Modal: Add Schedule Exception Override */}
       {showAddExceptionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative">
-            <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddExceptionModal(false);
+              setActionError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-md font-bold text-zinc-200">Kunlik Dars Jadvali O'zgarishi Kiritish</h3>
-                <p className="text-[11px] text-zinc-500 mt-1">Tanlangan kun va dars soati uchun bir martalik o'zgarish yoki darsni bekor qilish.</p>
+                <h3 className="text-base font-black text-[#1D1E26]">Kunlik Dars Jadvali O'zgarishi Kiritish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Tanlangan kun va dars soati uchun bir martalik o'zgarish yoki darsni bekor qilish.
+                </p>
               </div>
               <button
                 type="button"
@@ -2242,35 +2991,35 @@ export default function ClassesSection({
                   setShowAddExceptionModal(false);
                   setActionError("");
                 }}
-                className="text-zinc-500 hover:text-zinc-300 transition text-xs font-semibold"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
-                Yopish
+                ✕
               </button>
             </div>
 
             {actionError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
             )}
 
             <form onSubmit={handleAddExceptionSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Kun (Sana)</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Kun (Sana)</label>
                 <input
                   type="date"
                   required
                   value={excDate}
                   min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setExcDate(e.target.value)}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Dars soati</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Dars soati</label>
                 <select
                   value={excLesson}
                   onChange={(e) => setExcLesson(Number(e.target.value))}
-                  className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
                     <option key={period} value={period}>{period}-dars</option>
@@ -2279,25 +3028,25 @@ export default function ClassesSection({
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">O'zgarish turi</label>
-                <div className="flex items-center space-x-4">
-                  <label className="flex items-center space-x-2 text-xs text-zinc-300 cursor-pointer">
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">O'zgarish turi</label>
+                <div className="flex items-center space-x-4 pt-1">
+                  <label className="flex items-center space-x-2 text-xs text-slate-700 font-bold cursor-pointer">
                     <input
                       type="radio"
                       name="excType"
                       checked={excType === "replace"}
                       onChange={() => setExcType("replace")}
-                      className="text-blue-600 focus:ring-0"
+                      className="text-[#1D1E26] focus:ring-[#D4F562]"
                     />
                     <span>O'zgartirish / Qo'shimcha fan</span>
                   </label>
-                  <label className="flex items-center space-x-2 text-xs text-zinc-300 cursor-pointer">
+                  <label className="flex items-center space-x-2 text-xs text-slate-700 font-bold cursor-pointer">
                     <input
                       type="radio"
                       name="excType"
                       checked={excType === "cancel"}
                       onChange={() => setExcType("cancel")}
-                      className="text-blue-600 focus:ring-0"
+                      className="text-[#1D1E26] focus:ring-[#D4F562]"
                     />
                     <span>Darsni bekor qilish (Cancel)</span>
                   </label>
@@ -2306,12 +3055,12 @@ export default function ClassesSection({
 
               {excType === "replace" && (
                 <div>
-                  <label className="block text-[10px] font-semibold text-zinc-400 uppercase mb-2">Fan</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Fan</label>
                   <select
                     required={excType === "replace"}
                     value={excSubjectId}
                     onChange={(e) => setExcSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full bg-[#181820]/60 border border-zinc-800 focus:border-blue-500 text-zinc-100 rounded-xl px-3.5 py-2.5 text-sm outline-none transition cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                   >
                     <option value="">Fanni tanlang</option>
                     {subjects.map((sub) => (
@@ -2321,21 +3070,21 @@ export default function ClassesSection({
                 </div>
               )}
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddExceptionModal(false);
                     setActionError("");
                   }}
-                  className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-6 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Kiritilmoqda..." : "Kiritish"}
                 </button>
@@ -2347,33 +3096,53 @@ export default function ClassesSection({
 
       {/* Modal: Import Students (Excel sheet) */}
       {showImportStudentsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">O'quvchilarni Excel Orqali Import Qilish</h3>
-            {selectedClass && <p className="text-[11px] text-zinc-500 mb-6">Yuklangan barcha o'quvchilar avtomat ravishda "{selectedClass.name}" sinfiga biriktiriladi.</p>}
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeSheetModal();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">O'quvchilarni Excel Orqali Import Qilish</h3>
+                {selectedClass && (
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Yuklangan barcha o'quvchilar avtomat ravishda "{selectedClass.name}" sinfiga biriktiriladi.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={closeSheetModal}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {/* Template Download Option */}
-            <div className="bg-[#4f46e5]/10 border border-[#4f46e5]/20 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-bold text-indigo-400">Excel shablonini ko'chirib oling</h4>
-                <p className="text-[10px] text-zinc-500 mt-0.5">O'quvchilar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
+                <h4 className="text-xs font-black text-indigo-900">Excel shablonini ko'chirib oling</h4>
+                <p className="text-[11px] text-indigo-600 font-medium mt-0.5">O'quvchilar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
               </div>
               <button
                 type="button"
                 onClick={() => downloadTemplate("students")}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer shadow-xs"
               >
                 📥 Shablonni Yuklash
               </button>
             </div>
 
             {importError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{importError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{importError}</div>
             )}
 
             {!importResult ? (
               <form onSubmit={(e) => handleSheetUpload(e, "students")} className="space-y-4">
-                <div className="border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center bg-zinc-950/20 hover:border-zinc-700 transition relative">
+                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 hover:border-slate-400 transition relative">
                   <input
                     type="file"
                     required
@@ -2386,26 +3155,26 @@ export default function ClassesSection({
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   <div className="space-y-2">
-                    <div className="text-2xl">📝</div>
-                    <p className="text-sm text-zinc-300">
+                    <div className="text-3xl">📝</div>
+                    <p className="text-xs font-bold text-slate-800">
                       {selectedFile ? selectedFile.name : "O'quvchilar Excel shablonini tanlang (.xlsx)"}
                     </p>
-                    <p className="text-xs text-zinc-500">Maksimal hajm: 5MB</p>
+                    <p className="text-[10px] text-slate-400">Maksimal hajm: 5MB</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={importLoading || !selectedFile}
-                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {importLoading ? "Yuklanmoqda..." : "Faylni yuklash"}
                   </button>
@@ -2415,41 +3184,41 @@ export default function ClassesSection({
               // Results View
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Qabul qilindi</span>
-                    <span className="text-2xl font-bold">{importResult.imported_count}</span>
+                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold text-emerald-600 block uppercase font-mono">Qabul qilindi</span>
+                    <span className="text-2xl font-black">{importResult.imported_count}</span>
                   </div>
-                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Rad etildi</span>
-                    <span className="text-2xl font-bold">{importResult.failed_count}</span>
+                  <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold text-red-600 block uppercase font-mono">Rad etildi</span>
+                    <span className="text-2xl font-black">{importResult.failed_count}</span>
                   </div>
-                  <div className="bg-zinc-800/40 border border-zinc-800 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Status</span>
-                    <span className="text-xs font-semibold block mt-1">
+                  <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold text-slate-400 block uppercase font-mono">Status</span>
+                    <span className="text-xs font-bold block mt-1">
                       {importResult.success ? "✅ Hammasi to'g'ri" : "⚠️ Xatolar mavjud"}
                     </span>
                   </div>
                 </div>
 
                 {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="border border-zinc-850 rounded-xl overflow-hidden text-xs">
-                    <div className="bg-zinc-950/60 text-zinc-400 px-4 py-2 uppercase font-semibold">Row-by-Row Error Reports</div>
-                    <div className="divide-y divide-zinc-800 max-h-40 overflow-y-auto bg-zinc-950/10">
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+                    <div className="bg-slate-100 text-slate-600 px-4 py-2 uppercase font-mono font-extrabold text-[10px]">Row-by-Row Error Reports</div>
+                    <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto bg-slate-50/50">
                       {importResult.errors.map((err, i) => (
                         <div key={i} className="px-4 py-2 flex items-start space-x-2">
-                          <span className="bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded font-mono">Satr {err.row}</span>
-                          <span className="mt-0.5 text-zinc-300">{err.error}</span>
+                          <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">Satr {err.row}</span>
+                          <span className="mt-0.5 text-slate-700 font-medium">{err.error}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-end pt-4 border-t border-zinc-800/60">
+                <div className="flex items-center justify-end pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     Tugatish
                   </button>
@@ -2462,33 +3231,53 @@ export default function ClassesSection({
 
       {/* Modal: Import Parents (Excel sheet) */}
       {showImportParentsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#0f0f15]/95 border border-zinc-800 rounded-2xl p-6 shadow-2xl my-8">
-            <h3 className="text-md font-bold text-zinc-200 mb-2">O'quvchilar Ota-onalarini Excel Orqali Import Qilish</h3>
-            {selectedClass && <p className="text-[11px] text-zinc-500 mb-6">Yuklangan ota-onalar tegishli o'quvchilarga bog'lanadi. Sinf: "{selectedClass.name}".</p>}
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeSheetModal();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">O'quvchilar Ota-onalarini Excel Orqali Import Qilish</h3>
+                {selectedClass && (
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Yuklangan ota-onalar tegishli o'quvchilarga bog'lanadi. Sinf: "{selectedClass.name}".
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={closeSheetModal}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             {/* Template Download Option */}
-            <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div className="bg-teal-50 border border-teal-100 rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-bold text-teal-400">Excel shablonini ko'chirib oling</h4>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Ota-onalar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
+                <h4 className="text-xs font-black text-teal-900">Excel shablonini ko'chirib oling</h4>
+                <p className="text-[11px] text-teal-600 font-medium mt-0.5">Ota-onalar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
               </div>
               <button
                 type="button"
                 onClick={() => downloadTemplate("parents")}
-                className="bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition cursor-pointer"
+                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer shadow-xs"
               >
                 📥 Shablonni Yuklash
               </button>
             </div>
 
             {importError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg mb-4">{importError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{importError}</div>
             )}
 
             {!importResult ? (
               <form onSubmit={(e) => handleSheetUpload(e, "parents")} className="space-y-4">
-                <div className="border-2 border-dashed border-zinc-800 rounded-xl p-8 text-center bg-zinc-950/20 hover:border-zinc-700 transition relative">
+                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 hover:border-slate-400 transition relative">
                   <input
                     type="file"
                     required
@@ -2501,26 +3290,26 @@ export default function ClassesSection({
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   <div className="space-y-2">
-                    <div className="text-2xl">👨‍👩‍👧‍👦</div>
-                    <p className="text-sm text-zinc-300">
+                    <div className="text-3xl">👨‍👩‍👧‍👦</div>
+                    <p className="text-xs font-bold text-slate-800">
                       {selectedFile ? selectedFile.name : "Ota-ona Excel shablonini tanlang (.xlsx)"}
                     </p>
-                    <p className="text-xs text-zinc-500">Maksimal hajm: 5MB</p>
+                    <p className="text-[10px] text-slate-400">Maksimal hajm: 5MB</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-800/60">
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-zinc-900 border border-zinc-800 text-zinc-400 py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={importLoading || !selectedFile}
-                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {importLoading ? "Yuklanmoqda..." : "Faylni yuklash"}
                   </button>
@@ -2530,47 +3319,180 @@ export default function ClassesSection({
               // Results View
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Qabul qilindi</span>
-                    <span className="text-2xl font-bold">{importResult.imported_count}</span>
+                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold text-emerald-600 block uppercase font-mono">Qabul qilindi</span>
+                    <span className="text-2xl font-black">{importResult.imported_count}</span>
                   </div>
-                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Rad etildi</span>
-                    <span className="text-2xl font-bold">{importResult.failed_count}</span>
+                  <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold text-red-600 block uppercase font-mono">Rad etildi</span>
+                    <span className="text-2xl font-black">{importResult.failed_count}</span>
                   </div>
-                  <div className="bg-zinc-800/40 border border-zinc-800 rounded-xl p-4 text-center">
-                    <span className="text-[10px] text-zinc-500 block">Status</span>
-                    <span className="text-xs font-semibold block mt-1">
+                  <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold text-slate-400 block uppercase font-mono">Status</span>
+                    <span className="text-xs font-bold block mt-1">
                       {importResult.success ? "✅ Hammasi to'g'ri" : "⚠️ Xatolar mavjud"}
                     </span>
                   </div>
                 </div>
 
                 {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="border border-zinc-850 rounded-xl overflow-hidden text-xs">
-                    <div className="bg-zinc-950/60 text-zinc-400 px-4 py-2 uppercase font-semibold">Row-by-Row Error Reports</div>
-                    <div className="divide-y divide-zinc-800 max-h-40 overflow-y-auto bg-zinc-950/10">
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+                    <div className="bg-slate-100 text-slate-600 px-4 py-2 uppercase font-mono font-extrabold text-[10px]">Row-by-Row Error Reports</div>
+                    <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto bg-slate-50/50">
                       {importResult.errors.map((err, i) => (
                         <div key={i} className="px-4 py-2 flex items-start space-x-2">
-                          <span className="bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded font-mono">Satr {err.row}</span>
-                          <span className="mt-0.5 text-zinc-300">{err.error}</span>
+                          <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">Satr {err.row}</span>
+                          <span className="mt-0.5 text-slate-700 font-medium">{err.error}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-end pt-4 border-t border-zinc-800/60">
+                <div className="flex items-center justify-end pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-6 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     Tugatish
                   </button>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Subject Modal (inside Schedule Modal) */}
+      {showQuickAddSubjectModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowQuickAddSubjectModal(false);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Tezkor Fan Qo'shish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Dars jadvali uchun yangi fan yarating.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickAddSubjectModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {quickSubjectError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">
+                {quickSubjectError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!quickSubjectName.trim()) return;
+                setQuickSubjectLoading(true);
+                setQuickSubjectError("");
+
+                try {
+                  const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+                  const headers: Record<string, string> = {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  };
+                  if (sId) headers["X-School-ID"] = sId;
+
+                  const response = await fetch(`${API_URL}/api/schools/subjects`, {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({
+                      name: quickSubjectName.trim(),
+                      target_levels: quickSubjectLevels,
+                    }),
+                  });
+
+                  const data = await response.json();
+                  if (!response.ok) throw new Error(data.error || "Fan saqlanmadi");
+
+                  // Refresh subjects
+                  const resList = await fetch(`${API_URL}/api/schools/subjects`, { headers });
+                  const dataList = await resList.json();
+                  if (resList.ok && setSubjects) {
+                    setSubjects(Array.isArray(dataList) ? dataList : []);
+                  }
+
+                  setShowQuickAddSubjectModal(false);
+                  setQuickSubjectName("");
+                  setQuickSubjectLevels([]);
+                } catch (err: any) {
+                  setQuickSubjectError(err.message);
+                } finally {
+                  setQuickSubjectLoading(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Fan Nomi *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Masalan: Odobnoma"
+                  value={quickSubjectName}
+                  onChange={(e) => setQuickSubjectName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tegishli Level(lar)</label>
+                <div className="grid grid-cols-4 gap-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl max-h-36 overflow-y-auto">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => {
+                        setQuickSubjectLevels((prev) =>
+                          prev.includes(lvl) ? prev.filter((l) => l !== lvl) : [...prev, lvl]
+                        );
+                      }}
+                      className={`p-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        quickSubjectLevels.includes(lvl)
+                          ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {lvl}-sinf
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddSubjectModal(false)}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickSubjectLoading}
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                >
+                  {quickSubjectLoading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

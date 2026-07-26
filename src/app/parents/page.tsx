@@ -617,6 +617,8 @@ export default function ParentDashboard() {
           id: item.id,
           title: item.title,
           content: item.content,
+          is_poll: item.is_poll,
+          poll_options: item.poll_options,
           date: new Date(item.created_at).toLocaleDateString("uz-UZ", {
             day: "numeric",
             month: "long",
@@ -630,6 +632,30 @@ export default function ParentDashboard() {
       console.error("Failed to fetch announcements:", err);
     } finally {
       setAnnouncementsLoading(false);
+    }
+  };
+
+  const handleVoteParentPoll = async (annId: number, optionId: number) => {
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || schoolId || "" : schoolId || "";
+      const response = await fetch(`${API_URL}/api/schools/announcements/${annId}/vote`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "X-School-ID": sId,
+        },
+        body: JSON.stringify({ option_id: optionId }),
+      });
+
+      if (response.ok) {
+        fetchAnnouncements(token, sId);
+      } else {
+        const data = await response.json();
+        alert(data.error || "Ovoz berishda xatolik");
+      }
+    } catch {
+      alert("Server bilan bog'lanishda xatolik");
     }
   };
 
@@ -648,8 +674,14 @@ export default function ParentDashboard() {
     setSchoolId(savedSchoolId);
     try {
       const parsedUser = JSON.parse(savedUserStr);
-      if (parsedUser.role !== "PARENT" && parsedUser.role !== "ADMIN") {
-        router.push("/login");
+      if (parsedUser.role !== "PARENT") {
+        if (parsedUser.role === "ADMIN" || parsedUser.role === "SUPER_ADMIN") {
+          router.push("/dashboard");
+        } else if (parsedUser.role === "MAIN_TEACHER" || parsedUser.role === "SUBJECT_TEACHER") {
+          router.push("/teacher");
+        } else {
+          router.push("/login");
+        }
         return;
       }
       setUserInfo(parsedUser);
@@ -2260,45 +2292,115 @@ export default function ParentDashboard() {
                     📭 Hali hech qanday e'lonlar chop etilmagan.
                   </div>
                 ) : (
-                  announcements.map((ann) => (
-                    <div
-                      key={ann.id}
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: "12px",
-                        border: "1px solid #E5E7EB",
-                        padding: "12px 14px",
-                        borderLeft: `4px solid ${ACCENT}`,
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-                      }}
-                    >
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK, marginBottom: "4px" }}>
-                        {ann.title}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#4B5563", lineHeight: 1.5, marginBottom: "8px" }}>
-                        {ann.content}
-                      </div>
+                  announcements.map((ann: any) => {
+                    const totalVotes = ann.poll_options
+                      ? ann.poll_options.reduce((sum: number, opt: any) => sum + opt.vote_count, 0)
+                      : 0;
+
+                    return (
                       <div
+                        key={ann.id}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          fontSize: "9px",
-                          color: TEXT_MUTED,
-                          borderTop: "1px solid #F3F4F6",
-                          paddingTop: "6px",
+                          backgroundColor: "#FFFFFF",
+                          borderRadius: "12px",
+                          border: "1px solid #E5E7EB",
+                          padding: "12px 14px",
+                          borderLeft: `4px solid ${ACCENT}`,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                         }}
                       >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "10px", height: "10px" }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                          </svg>
-                          {ann.author}
-                        </span>
-                        <span>{ann.date}</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                          <div style={{ fontSize: "13px", fontWeight: 700, color: TEXT_DARK }}>
+                            {ann.title}
+                          </div>
+                          {ann.is_poll && (
+                            <span style={{ fontSize: "10px", fontWeight: 700, color: "#4F46E5", backgroundColor: "#EEF2FF", padding: "2px 6px", borderRadius: "6px" }}>
+                              📊 So'rovnoma
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: "11px", color: "#4B5563", lineHeight: 1.5, marginBottom: "8px" }}>
+                          {ann.content}
+                        </div>
+
+                        {/* Interactive Poll options for Parents */}
+                        {ann.is_poll && ann.poll_options && ann.poll_options.length > 0 && (
+                          <div style={{ marginTop: "10px", padding: "10px", backgroundColor: "#F9FAFB", borderRadius: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: 700, color: TEXT_MUTED }}>
+                              <span>Ovoz bering:</span>
+                              <span>Jami: {totalVotes} ovoz</span>
+                            </div>
+                            {ann.poll_options.map((opt: any) => {
+                              const pct = totalVotes > 0 ? Math.round((opt.vote_count / totalVotes) * 100) : 0;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => handleVoteParentPoll(ann.id, opt.id)}
+                                  style={{
+                                    width: "100%",
+                                    textAlign: "left",
+                                    padding: "8px 10px",
+                                    borderRadius: "8px",
+                                    border: opt.user_voted ? "1px solid #C7D2FE" : "1px solid #E5E7EB",
+                                    backgroundColor: opt.user_voted ? "#EEF2FF" : "#FFFFFF",
+                                    position: "relative",
+                                    overflow: "hidden",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {/* Progress bar fill */}
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      top: 0,
+                                      left: 0,
+                                      bottom: 0,
+                                      width: `${pct}%`,
+                                      backgroundColor: opt.user_voted ? "#C7D2FE" : "#ECFCCA",
+                                      opacity: 0.6,
+                                      transition: "width 0.3s ease",
+                                    }}
+                                  />
+                                  <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", fontWeight: 600, color: TEXT_DARK }}>
+                                    <span>
+                                      {opt.user_voted && <strong style={{ color: ACCENT, marginRight: "4px" }}>✓</strong>}
+                                      {opt.option_text}
+                                    </span>
+                                    <span style={{ fontSize: "10px", color: TEXT_MUTED }}>
+                                      {pct}% ({opt.vote_count})
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            fontSize: "9px",
+                            color: TEXT_MUTED,
+                            borderTop: "1px solid #F3F4F6",
+                            paddingTop: "6px",
+                            marginTop: "8px",
+                          }}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "10px", height: "10px" }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
+                            {ann.author}
+                          </span>
+                          <span>{ann.date}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}

@@ -23,6 +23,12 @@ interface StudentAttendanceStat {
   status: "absent" | "partial" | "present" | "no_data";
 }
 
+interface DailyAttendanceStat {
+  day: string;
+  date: string;
+  attendance_pct: number;
+}
+
 interface DashboardStatsResponse {
   date: string;
   total_students: number;
@@ -31,6 +37,7 @@ interface DashboardStatsResponse {
   completely_absent_count: number;
   partially_absent_count: number;
   students: StudentAttendanceStat[];
+  weekly_attendance?: DailyAttendanceStat[];
 }
 
 interface AnnouncementItem {
@@ -222,7 +229,7 @@ export default function OverviewSection({
 
   // Table Filter Students & Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const filteredStudents = (stats?.students || []).filter((st) => {
     const fullName = `${st.first_name} ${st.last_name} ${st.middle_name || ""}`.toLowerCase();
@@ -248,6 +255,13 @@ export default function OverviewSection({
 
   // Dynamic Attendance Dynamics Chart Data
   const dynamicAttendanceData = React.useMemo(() => {
+    if (stats?.weekly_attendance && stats.weekly_attendance.length > 0) {
+      return stats.weekly_attendance.map((wa) => ({
+        day: wa.day,
+        qatnashuv: wa.attendance_pct,
+      }));
+    }
+
     const total = stats?.total_students || 1;
     const completelyAbsent = stats?.completely_absent_count || 0;
     const presentCount = Math.max(0, total - completelyAbsent);
@@ -763,13 +777,30 @@ export default function OverviewSection({
         {/* Table Pagination Footer */}
         {totalStudentsCount > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 text-xs font-bold text-slate-500">
-            <p className="text-slate-400 font-medium">
-              Jami <strong className="text-[#1D1E26] font-mono">{totalStudentsCount}</strong> ta o'quvchidan{" "}
-              <span className="font-mono text-[#1D1E26]">
-                {startIndex + 1}-{Math.min(startIndex + pageSize, totalStudentsCount)}
-              </span>{" "}
-              ko'rsatilmoqda
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-slate-400 font-medium">
+                Jami <strong className="text-[#1D1E26] font-mono">{totalStudentsCount}</strong> ta o'quvchidan{" "}
+                <span className="font-mono text-[#1D1E26]">
+                  {startIndex + 1}-{Math.min(startIndex + pageSize, totalStudentsCount)}
+                </span>{" "}
+                ko'rsatilmoqda
+              </p>
+              <div className="flex items-center gap-1.5 font-normal">
+                <span className="text-[11px] text-slate-400 font-medium">Har sahifada:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                >
+                  <option value={10}>10 ta</option>
+                  <option value={25}>25 ta</option>
+                  <option value={50}>50 ta</option>
+                </select>
+              </div>
+            </div>
 
             <div className="flex items-center space-x-1.5 bg-slate-100 p-1.5 rounded-2xl flex-wrap justify-center">
               <button

@@ -24,6 +24,8 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
   // Modals & Form values
   const [showAddIntervalModal, setShowAddIntervalModal] = useState(false);
+  const [showAddExceptionModal, setShowAddExceptionModal] = useState(false);
+
   const [newIntervalName, setNewIntervalName] = useState("");
   const [newIntervalStartDate, setNewIntervalStartDate] = useState("2026-09-01");
   const [newIntervalEndDate, setNewIntervalEndDate] = useState("2027-05-31");
@@ -34,11 +36,13 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
   const [menuBreakfast, setMenuBreakfast] = useState("");
   const [menuLunch, setMenuLunch] = useState("");
   const [menuSnack, setMenuSnack] = useState("");
+  const [menuDinner, setMenuDinner] = useState("");
 
   const [menuExcDate, setMenuExcDate] = useState(new Date().toISOString().split("T")[0]);
   const [menuExcBreakfast, setMenuExcBreakfast] = useState("");
   const [menuExcLunch, setMenuExcLunch] = useState("");
   const [menuExcSnack, setMenuExcSnack] = useState("");
+  const [menuExcDinner, setMenuExcDinner] = useState("");
 
   const [selectedMenuFile, setSelectedMenuFile] = useState<File | null>(null);
   const [menuImportLoading, setMenuImportLoading] = useState(false);
@@ -57,6 +61,17 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
   };
 
   // Fetch initial intervals and exceptions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowAddIntervalModal(false);
+        setShowAddExceptionModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   useEffect(() => {
     if (token) {
       fetchMenuIntervals();
@@ -205,6 +220,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
             breakfast: menuBreakfast.trim() || undefined,
             lunch: menuLunch.trim() || undefined,
             snack: menuSnack.trim() || undefined,
+            dinner: menuDinner.trim() || undefined,
           },
         }),
       });
@@ -215,6 +231,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       setMenuBreakfast("");
       setMenuLunch("");
       setMenuSnack("");
+      setMenuDinner("");
       fetchMenuCycles();
       alert("Kunlik taom aylanma shablonga kiritildi!");
     } catch (err: any) {
@@ -224,12 +241,12 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
     }
   };
 
-  const handleSaveInlineMeal = async (week: number, day: number, mealType: "breakfast" | "lunch" | "snack", value: string) => {
+  const handleSaveInlineMeal = async (week: number, day: number, mealType: "breakfast" | "lunch" | "snack" | "dinner", value: string) => {
     if (!selectedIntervalId) return;
     
     // Find current meals
     const cycleItem = menuCycles.find((c) => c.week_number === week && c.day_of_week === day);
-    let mealsObj: any = { breakfast: "", lunch: "", snack: "" };
+    let mealsObj: any = { breakfast: "", lunch: "", snack: "", dinner: "" };
     if (cycleItem && cycleItem.meals) {
       try {
         mealsObj = typeof cycleItem.meals === "string" ? JSON.parse(cycleItem.meals) : cycleItem.meals;
@@ -293,6 +310,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
             breakfast: menuExcBreakfast.trim() || undefined,
             lunch: menuExcLunch.trim() || undefined,
             snack: menuExcSnack.trim() || undefined,
+            dinner: menuExcDinner.trim() || undefined,
           },
         }),
       });
@@ -303,6 +321,8 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       setMenuExcBreakfast("");
       setMenuExcLunch("");
       setMenuExcSnack("");
+      setMenuExcDinner("");
+      setShowAddExceptionModal(false);
       fetchMenuExceptions();
       alert("Kunlik istisno taomnomasi muvaffaqiyatli saqlandi!");
     } catch (err: any) {
@@ -490,9 +510,10 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                           <tr>
                             <th className="px-4 py-4 w-20 text-center">Hafta</th>
                             <th className="px-4 py-4 w-28 text-center">Kun</th>
-                            <th className="px-4 py-4">Nonushta (Ertalab)</th>
-                            <th className="px-4 py-4">Tushlik (Asosiy)</th>
-                            <th className="px-4 py-4">Peshinlik / Kechki</th>
+                            <th className="px-4 py-4">1-Mahal (Nonushta)</th>
+                            <th className="px-4 py-4">2-Mahal (Tushlik)</th>
+                            <th className="px-4 py-4">3-Mahal (Peshinlik)</th>
+                            <th className="px-4 py-4">4-Mahal (Poldnik / Polnik)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
@@ -502,14 +523,14 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                             for (let w = 1; w <= activeInterval.cycle_weeks; w++) {
                               for (let d = 1; d <= 6; d++) {
                                 const cycleItem = menuCycles.find((c) => c.week_number === w && c.day_of_week === d);
-                                let mealsObj: any = { breakfast: "", lunch: "", snack: "" };
+                                let mealsObj: any = { breakfast: "", lunch: "", snack: "", dinner: "" };
                                 if (cycleItem && cycleItem.meals) {
                                   try {
                                     mealsObj = typeof cycleItem.meals === "string" ? JSON.parse(cycleItem.meals) : cycleItem.meals;
                                   } catch (e) {}
                                 }
 
-                                const hasFood = mealsObj.breakfast || mealsObj.lunch || mealsObj.snack;
+                                const hasFood = mealsObj.breakfast || mealsObj.lunch || mealsObj.snack || mealsObj.dinner;
                                 if (showOnlyFoodDays && !hasFood) continue;
 
                                 rowsToRender.push({
@@ -524,7 +545,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                             if (rowsToRender.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
                                     Taom kiritilgan kunlar mavjud emas.
                                   </td>
                                 </tr>
@@ -540,7 +561,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                                   {row.dayName}
                                 </td>
                                 
-                                {["breakfast", "lunch", "snack"].map((mealKey) => {
+                                {["breakfast", "lunch", "snack", "dinner"].map((mealKey) => {
                                   const isEditing = editingCell?.week === row.week && editingCell?.day === row.day && editingCell?.mealType === mealKey;
                                   const currentText = row.meals[mealKey] || "";
 
@@ -599,11 +620,17 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       ) : (
         /* Subtab Exception: Overrides List */
         <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-black text-[#1D1E26]">Kunlik Istisnolar Ro'yxati</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Muayyan sana uchun aylanma taomnomani bekor qiluvchi taomlar.</p>
             </div>
+            <button
+              onClick={() => setShowAddExceptionModal(true)}
+              className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+            >
+              + Yangi Istisno Qo'shish
+            </button>
           </div>
 
           {menuExceptionsLoading ? (
@@ -612,7 +639,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
             </div>
           ) : menuExceptions.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-              <p className="text-slate-400 text-xs font-medium">Hozircha hech qanday istisno taomnoma kiritilmagan.</p>
+              <p className="text-slate-400 text-xs font-medium">Hozircha hech qanday istisno taomnoma kiritilmagan. "+ Yangi Istisno Qo'shish" tugmasini bosing.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-slate-100">
@@ -620,15 +647,16 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                 <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                   <tr>
                     <th className="px-6 py-4">Sana</th>
-                    <th className="px-6 py-4">Nonushta</th>
-                    <th className="px-6 py-4">Tushlik</th>
-                    <th className="px-6 py-4">Peshinlik / Kechki</th>
+                    <th className="px-6 py-4">1-Mahal (Nonushta)</th>
+                    <th className="px-6 py-4">2-Mahal (Tushlik)</th>
+                    <th className="px-6 py-4">3-Mahal (Peshinlik)</th>
+                    <th className="px-6 py-4">4-Mahal (Poldnik / Polnik)</th>
                     <th className="px-6 py-4 text-right">Amallar</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                   {menuExceptions.map((exc) => {
-                    let m: any = { breakfast: "", lunch: "", snack: "" };
+                    let m: any = { breakfast: "", lunch: "", snack: "", dinner: "" };
                     if (exc.meals) {
                       try {
                         m = typeof exc.meals === "string" ? JSON.parse(exc.meals) : exc.meals;
@@ -642,6 +670,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                         <td className="px-6 py-4">{m.breakfast || "-"}</td>
                         <td className="px-6 py-4">{m.lunch || "-"}</td>
                         <td className="px-6 py-4">{m.snack || "-"}</td>
+                        <td className="px-6 py-4">{m.dinner || "-"}</td>
                         <td className="px-6 py-4 text-right">
                           <button
                             onClick={() => handleDeleteMenuException(exc.id)}
@@ -662,10 +691,26 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
       {/* Modal: Add Interval */}
       {showAddIntervalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
-            <h3 className="text-base font-black text-[#1D1E26] mb-1">Yangi Taomnoma Interval Yaratish</h3>
-            <p className="text-xs text-slate-400 font-medium mb-6">Taomnoma aylanadigan vaqt oralig'ini va haftalar sonini belgilang.</p>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddIntervalModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Yangi Taomnoma Interval Yaratish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Taomnoma aylanadigan vaqt oralig'ini va haftalar sonini belgilang.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddIntervalModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
 
             <form onSubmit={handleSaveMenuInterval} className="space-y-4">
               <div>
@@ -676,7 +721,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   placeholder="Masalan: 1-Chorak taomnomasi"
                   value={newIntervalName}
                   onChange={(e) => setNewIntervalName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
@@ -688,7 +733,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                     required
                     value={newIntervalStartDate}
                     onChange={(e) => setNewIntervalStartDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                   />
                 </div>
                 <div>
@@ -698,7 +743,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                     required
                     value={newIntervalEndDate}
                     onChange={(e) => setNewIntervalEndDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                   />
                 </div>
               </div>
@@ -712,7 +757,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   required
                   value={newIntervalWeeks}
                   onChange={(e) => setNewIntervalWeeks(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
@@ -727,7 +772,107 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                >
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Daily Exception */}
+      {showAddExceptionModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddExceptionModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26]">Kunlik Istisno Taomnoma Qo'shish</h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Muayyan sana uchun 4 mahal taomnomani belgilang.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddExceptionModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMenuException} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sana</label>
+                <input
+                  type="date"
+                  required
+                  value={menuExcDate}
+                  onChange={(e) => setMenuExcDate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">1-Mahal: Nonushta</label>
+                <input
+                  type="text"
+                  placeholder="Masalan: Bo'tqa va Choy"
+                  value={menuExcBreakfast}
+                  onChange={(e) => setMenuExcBreakfast(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">2-Mahal: Tushlik</label>
+                <input
+                  type="text"
+                  placeholder="Masalan: Moshxo'rda, Osh, Salat"
+                  value={menuExcLunch}
+                  onChange={(e) => setMenuExcLunch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">3-Mahal: Peshinlik</label>
+                <input
+                  type="text"
+                  placeholder="Masalan: Meva sharbati va Pirojniy"
+                  value={menuExcSnack}
+                  onChange={(e) => setMenuExcSnack(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">4-Mahal: Poldnik / Polnik</label>
+                <input
+                  type="text"
+                  placeholder="Masalan: Sut, Kulcha va Meva"
+                  value={menuExcDinner}
+                  onChange={(e) => setMenuExcDinner(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddExceptionModal(false)}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>

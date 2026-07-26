@@ -9,6 +9,7 @@ interface AnnouncementsSectionProps {
   students: any[];
   apiUrl: string;
   isTeacher?: boolean;
+  userRole?: string;
   currentUserId?: number;
 }
 
@@ -18,11 +19,13 @@ export default function AnnouncementsSection({
   students,
   apiUrl,
   isTeacher = false,
+  userRole,
   currentUserId,
 }: AnnouncementsSectionProps) {
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [votingOptionId, setVotingOptionId] = useState<number | null>(null);
 
   // Form States
   const [title, setTitle] = useState("");
@@ -30,6 +33,11 @@ export default function AnnouncementsSection({
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
   const [selectedLevelIds, setSelectedLevelIds] = useState<number[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+
+  // Poll States
+  const [isPoll, setIsPoll] = useState(false);
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
@@ -47,15 +55,19 @@ export default function AnnouncementsSection({
   };
 
   const availableLevels = Array.from(
-    new Set(classes.map((c) => c.level).filter(Boolean))
-  ).sort((a, b) => (a || 0) - (b || 0)) as number[];
+    new Set(classes.map((c) => c.level).filter((l): l is number => typeof l === "number"))
+  ).sort((a, b) => a - b);
 
   useEffect(() => {
     fetchAnnouncements();
+    const interval = setInterval(() => {
+      fetchAnnouncements(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchAnnouncements = async () => {
-    setLoading(true);
+  const fetchAnnouncements = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const response = await fetch(`${apiUrl}/api/schools/announcements`, {
         headers: safeFetchHeaders(),
@@ -69,7 +81,7 @@ export default function AnnouncementsSection({
     } catch (err) {
       console.error("Error fetching announcements:", err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -91,11 +103,39 @@ export default function AnnouncementsSection({
     );
   };
 
+  const handleAddPollOption = () => {
+    if (pollOptions.length < 6) {
+      setPollOptions((prev) => [...prev, ""]);
+    }
+  };
+
+  const handleRemovePollOption = (index: number) => {
+    if (pollOptions.length > 2) {
+      setPollOptions((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePollOptionChange = (index: number, val: string) => {
+    setPollOptions((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
       setFormError("Sarlavha va e'lon matni to'ldirilishi shart");
       return;
+    }
+
+    if (isPoll) {
+      const validOpts = pollOptions.filter((o) => o.trim() !== "");
+      if (validOpts.length < 2) {
+        setFormError("So'rovnoma uchun kamida 2 ta variant kiritilishi shart");
+        return;
+      }
     }
 
     setSubmitLoading(true);
@@ -119,6 +159,8 @@ export default function AnnouncementsSection({
           class_ids: classIds,
           level_ids: levelIds,
           student_ids: studentIds,
+          is_poll: isPoll,
+          options: isPoll ? pollOptions.filter((o) => o.trim() !== "") : [],
         }),
       });
 
@@ -127,10 +169,12 @@ export default function AnnouncementsSection({
         setFormSuccess("E'lon chop etildi va Telegram bot orqali bildirishnomalar yuborildi!");
         setTitle("");
         setContent("");
+        setIsPoll(false);
+        setPollOptions(["", ""]);
         setSelectedClassIds([]);
         setSelectedLevelIds([]);
         setSelectedStudentIds([]);
-        setTargetType("all");
+        setTargetType(isTeacher ? "classes" : "all");
         setStudentSearchText("");
         fetchAnnouncements();
       } else {
@@ -140,6 +184,31 @@ export default function AnnouncementsSection({
       setFormError("Serverga bog'lanishda xatolik yuz berdi");
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const handleVote = async (annId: number, optionId: number) => {
+    setVotingOptionId(optionId);
+    try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
+      const response = await fetch(`${apiUrl}/api/schools/announcements/${annId}/vote`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ option_id: optionId }),
+      });
+
+      if (response.ok) {
+        fetchAnnouncements();
+      } else {
+        const data = await response.json();
+        alert(data.error || "Ovoz berishda xatolik yuz berdi");
+      }
+    } catch {
+      alert("Server bilan bog'lanishda xatolik");
+    } finally {
+      setVotingOptionId(null);
     }
   };
 
@@ -163,7 +232,7 @@ export default function AnnouncementsSection({
     }
   };
 
-  const getTargetLabel = (ann: any) => {
+  const getTargetLabel = (ann: AnnouncementItem) => {
     const classIds = ann.class_ids || [];
     const levelIds = ann.level_ids || [];
     const studentIds = ann.student_ids || [];
@@ -196,270 +265,393 @@ export default function AnnouncementsSection({
     }
 
     if (studentIds.length > 0) {
-      const names = studentIds
-        .map((sid: number) => {
-          const s = students.find((x) => (x.student_id || x.id) === sid);
-          return s ? `${s.first_name} ${s.last_name.charAt(0)}.` : `ID: ${sid}`;
-        })
-        .join(", ");
       labels.push(
-        <span key="students" className="text-[#7E22CE] font-bold bg-[#F3E8FF] px-2.5 py-1 rounded-lg text-[10px] truncate max-w-[200px] inline-block">
-          O'quvchi: {names}
+        <span key="students" className="text-purple-700 font-bold bg-purple-100 px-2.5 py-1 rounded-lg text-[10px] inline-block">
+          Xususiy ({studentIds.length} o'quvchi)
         </span>
       );
     }
 
-    return <div className="flex flex-wrap gap-2">{labels}</div>;
+    return <div className="flex flex-wrap gap-1.5">{labels}</div>;
   };
 
-  const filteredStudentsList = students.filter((s) =>
-    `${s.first_name} ${s.last_name}`.toLowerCase().includes(studentSearchText.toLowerCase())
-  );
+  const filteredAnnouncements = announcements.filter((ann) => {
+    const q = searchQuery.toLowerCase();
+    return ann.title.toLowerCase().includes(q) || ann.content.toLowerCase().includes(q);
+  });
 
-  const filteredAnnouncements = announcements.filter((ann) =>
-    ann.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ann.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStudentsForSelect = students.filter((s) => {
+    if (!studentSearchText.trim()) return true;
+    const txt = studentSearchText.toLowerCase();
+    const fullName = `${s.last_name || ""} ${s.first_name || ""} ${s.middle_name || ""}`.toLowerCase();
+    const className = (s.class_name || "").toLowerCase();
+    return fullName.includes(txt) || className.includes(txt);
+  });
 
   return (
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-black text-[#1D1E26] tracking-tight">E'lonlar va Bildirishnomalar</h2>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Sinflar, o'quvchilar yoki sinf darajalari (level) kesimida bildirishnomalar yuborish.
-          </p>
-        </div>
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">E'lonlar & So'rovnomalar</h1>
+        <p className="text-xs text-slate-400 font-medium mt-0.5">
+          Maktab jamoasi, ota-onalar va o'quvchilar uchun e'lonlar va so'rovnomalar (polls) yuborish.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Create Form */}
-        <div className="lg:col-span-1 bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
-          <h3 className="text-base font-black text-[#1D1E26]">Yangi e'lon yaratish</h3>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {formError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-xs font-medium">
-                {formError}
-              </div>
-            )}
-            {formSuccess && (
-              <div className="p-3 bg-[#ECFCCA] border border-lime-200 text-[#65A30D] rounded-2xl text-xs font-bold">
-                {formSuccess}
-              </div>
-            )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Side: Create Form */}
+        <div className="lg:col-span-5 bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-base font-black text-[#1D1E26]">Yangi E'lon / So'rovnoma Yaratish</h2>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">Mo'ljallangan auditoriyani tanlab yuboring.</p>
+          </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider font-mono">
-                E'lon Sarlavhasi
-              </label>
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold">
+              {formError}
+            </div>
+          )}
+
+          {formSuccess && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold">
+              {formSuccess}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sarlavha *</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Masalan: Majlis yoki tadbirlar..."
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                placeholder="E'lon sarlavhasi..."
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider font-mono">
-                E'lon Matni
-              </label>
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">E'lon Matni *</label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Batafsil e'lon matni..."
                 rows={4}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition resize-none"
+                placeholder="Batafsil ma'lumot matni..."
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium resize-none"
               />
             </div>
 
-            {/* Target Select Filter Buttons */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider font-mono block">
-                Kimlarga yuborilsin?
-              </label>
-              <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60 text-xs font-extrabold">
+            {/* Poll Toggle Switch */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  📊 So'rovnoma (Poll) qo'shish
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isPoll}
+                  onChange={(e) => setIsPoll(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562] cursor-pointer"
+                />
+              </div>
+
+              {isPoll && (
+                <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono">So'rovnoma Variantlari *</label>
+                  {pollOptions.map((opt, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder={`Variant ${idx + 1}...`}
+                        value={opt}
+                        onChange={(e) => handlePollOptionChange(idx, e.target.value)}
+                        className="flex-1 bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-semibold"
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePollOption(idx)}
+                          className="w-7 h-7 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {pollOptions.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={handleAddPollOption}
+                      className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer pt-1 block"
+                    >
+                      + Variant qo'shish
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Target Scope Selection */}
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Kimlarga Yuboriladi?</label>
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 {!isTeacher && (
                   <button
                     type="button"
                     onClick={() => setTargetType("all")}
-                    className={`flex-1 min-w-[70px] py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer text-center ${
-                      targetType === "all" ? "bg-white text-[#1D1E26] shadow-xs" : "text-slate-500 hover:text-slate-900"
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
+                      targetType === "all"
+                        ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    Barchaga
+                    Butun Maktab
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setTargetType("classes")}
-                  className={`flex-1 min-w-[70px] py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer text-center ${
-                    targetType === "classes" ? "bg-white text-[#1D1E26] shadow-xs" : "text-slate-500 hover:text-slate-900"
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
+                    targetType === "classes"
+                      ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
-                  Sinflarga
+                  Sinflar bo'yicha
                 </button>
                 <button
                   type="button"
                   onClick={() => setTargetType("levels")}
-                  className={`flex-1 min-w-[70px] py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer text-center ${
-                    targetType === "levels" ? "bg-white text-[#1D1E26] shadow-xs" : "text-slate-500 hover:text-slate-900"
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
+                    targetType === "levels"
+                      ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
-                  Levellarga
+                  Level bo'yicha
                 </button>
                 <button
                   type="button"
                   onClick={() => setTargetType("students")}
-                  className={`flex-1 min-w-[70px] py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer text-center ${
-                    targetType === "students" ? "bg-white text-[#1D1E26] shadow-xs" : "text-slate-500 hover:text-slate-900"
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
+                    targetType === "students"
+                      ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
-                  O'quvchiga
+                  Xususiy O'quvchilar
                 </button>
               </div>
-            </div>
 
-            {/* Dynamic Selection lists */}
-            {targetType === "classes" && (
-              <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-44 overflow-y-auto">
-                <span className="text-[10px] text-slate-400 font-extrabold font-mono uppercase block mb-1">Sinflarni belgilang:</span>
-                {classes.map((cls) => (
-                  <label key={cls.id} className="flex items-center space-x-2.5 text-xs text-slate-700 cursor-pointer font-medium hover:text-[#1D1E26]">
-                    <input
-                      type="checkbox"
-                      checked={selectedClassIds.includes(cls.id)}
-                      onChange={() => handleClassCheckboxChange(cls.id)}
-                      className="rounded text-[#1D1E26] focus:ring-[#D4F562]"
-                    />
-                    <span>{cls.name} (Level {cls.level})</span>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            {targetType === "levels" && (
-              <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-44 overflow-y-auto">
-                <span className="text-[10px] text-slate-400 font-extrabold font-mono uppercase block mb-1">Levellarni belgilang:</span>
-                {availableLevels.map((lvl) => (
-                  <label key={lvl} className="flex items-center space-x-2.5 text-xs text-slate-700 cursor-pointer font-medium hover:text-[#1D1E26]">
-                    <input
-                      type="checkbox"
-                      checked={selectedLevelIds.includes(lvl)}
-                      onChange={() => handleLevelCheckboxChange(lvl)}
-                      className="rounded text-[#1D1E26] focus:ring-[#D4F562]"
-                    />
-                    <span>Level {lvl}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            {targetType === "students" && (
-              <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-3 max-h-56 overflow-y-auto">
-                <input
-                  type="text"
-                  placeholder="O'quvchini qidirish..."
-                  value={studentSearchText}
-                  onChange={(e) => setStudentSearchText(e.target.value)}
-                  className="w-full bg-white border border-slate-200 text-xs px-3 py-1.5 rounded-xl outline-none mb-2"
-                />
-                {filteredStudentsList.map((st) => {
-                  const sId = st.student_id || st.id;
-                  return (
-                    <label key={sId} className="flex items-center space-x-2.5 text-xs text-slate-700 cursor-pointer font-medium hover:text-[#1D1E26]">
+              {targetType === "classes" && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5 max-h-40 overflow-y-auto">
+                  {classes.map((cls) => (
+                    <label key={cls.id} className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={selectedStudentIds.includes(sId)}
-                        onChange={() => handleStudentCheckboxChange(sId)}
-                        className="rounded text-[#1D1E26] focus:ring-[#D4F562]"
+                        checked={selectedClassIds.includes(cls.id)}
+                        onChange={() => handleClassCheckboxChange(cls.id)}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562]"
                       />
-                      <span>{st.first_name} {st.last_name} ({st.class_name || "Sinfsiz"})</span>
+                      <span>{cls.name}</span>
                     </label>
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+
+              {targetType === "levels" && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5 max-h-40 overflow-y-auto">
+                  {availableLevels.map((lvl) => (
+                    <label key={lvl} className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedLevelIds.includes(lvl)}
+                        onChange={() => handleLevelCheckboxChange(lvl)}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562]"
+                      />
+                      <span>{lvl}-sinflar</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {targetType === "students" && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <input
+                    type="text"
+                    placeholder="O'quvchini qidirish..."
+                    value={studentSearchText}
+                    onChange={(e) => setStudentSearchText(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none"
+                  />
+                  <div className="max-h-36 overflow-y-auto space-y-1">
+                    {filteredStudentsForSelect.map((s) => (
+                      <label key={s.id} className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.includes(s.id)}
+                          onChange={() => handleStudentCheckboxChange(s.id)}
+                          className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562]"
+                        />
+                        <span>{s.last_name} {s.first_name} ({s.class_name || "Sinfi yo'q"})</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               type="submit"
               disabled={submitLoading}
-              className="w-full bg-[#D4F562] text-[#1D1E26] font-black text-xs py-3 rounded-2xl shadow-xs hover:opacity-90 transition cursor-pointer"
+              className="w-full bg-[#D4F562] text-[#1D1E26] font-black text-xs py-3 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
             >
-              {submitLoading ? "E'lon yuborilmoqda..." : "E'lonni Chop Etish & Yuborish"}
+              {submitLoading ? "Chop etilmoqda..." : "E'lonni Chop Etish"}
             </button>
           </form>
         </div>
 
-        {/* Right Column: Announcement Feed */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h3 className="text-base font-black text-[#1D1E26]">Chop etilgan e'lonlar tarixi</h3>
-              
-              <input
-                type="text"
-                placeholder="E'lonlardan izlash..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium px-3.5 py-2 rounded-xl outline-none focus:ring-2 focus:ring-[#D4F562] w-56"
-              />
+        {/* Right Side: Announcement Feed Cards */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="flex items-center justify-between bg-white border border-slate-100/80 p-4 rounded-2xl shadow-xs">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-[#1D1E26]">Chop Etilgan E'lonlar ({filteredAnnouncements.length})</h3>
+              <button
+                type="button"
+                onClick={() => fetchAnnouncements()}
+                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                title="Qayta yuklash"
+              >
+                🔄
+              </button>
             </div>
+            <input
+              type="text"
+              placeholder="Qidiruv..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-medium"
+            />
+          </div>
 
-            {loading ? (
-              <div className="py-12 text-center text-slate-400 font-mono text-xs">
-                E'lonlar yuklanmoqda...
-              </div>
-            ) : filteredAnnouncements.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 font-medium text-xs italic border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                E'lonlar topilmadi.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredAnnouncements.map((ann) => (
-                  <div
-                    key={ann.id}
-                    className="bg-slate-50/80 border border-slate-100 rounded-3xl p-5 shadow-xs space-y-3 relative group"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-black text-[#1D1E26]">{ann.title}</h4>
-                        <div className="flex items-center space-x-3 text-[10px] text-slate-400 font-mono">
-                          <span>👤 {ann.author_name || "Admin"}</span>
-                          <span>•</span>
-                          <span>📅 {new Date(ann.created_at).toLocaleString()}</span>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+          ) : filteredAnnouncements.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-3xl bg-white">
+              <p className="text-slate-400 text-xs font-medium">Hech qanday e'lon topilmadi.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredAnnouncements.map((ann) => {
+                const totalVotes = ann.poll_options
+                  ? ann.poll_options.reduce((sum, opt) => sum + opt.vote_count, 0)
+                  : 0;
+
+                return (
+                  <div key={ann.id} className="bg-white border border-slate-100/80 rounded-3xl p-5 shadow-xs space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-[#1D1E26] text-sm">{ann.title}</h4>
+                          {ann.is_poll && (
+                            <span className="bg-indigo-50 text-indigo-700 font-extrabold text-[10px] px-2 py-0.5 rounded-lg border border-indigo-100">
+                              📊 So'rovnoma
+                            </span>
+                          )}
                         </div>
+                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          Muallif: <strong className="text-slate-600">{ann.author_name || "Admin"}</strong> | {new Date(ann.created_at).toLocaleString()}
+                        </p>
                       </div>
 
-                      {/* Delete button for Admin or Owner */}
-                      {(!isTeacher || ann.author_name?.includes(currentUserId?.toString() || "")) && (
-                        <button
-                          onClick={() => handleDelete(ann.id)}
-                          className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-xl transition"
-                          title="E'lonni o'chirish"
-                        >
-                          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {getTargetLabel(ann)}
+                        {(!isTeacher || ann.author_id === currentUserId) && (
+                          <button
+                            onClick={() => handleDelete(ann.id)}
+                            className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-bold p-1.5 rounded-xl transition cursor-pointer"
+                            title="O'chirish"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">
-                      {ann.content}
-                    </p>
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{ann.content}</p>
 
-                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-slate-400">Kimlarga:</span>
-                      {getTargetLabel(ann)}
-                    </div>
+                    {/* Poll Rendering */}
+                    {ann.is_poll && ann.poll_options && ann.poll_options.length > 0 && (
+                      <div className="mt-3 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 font-mono">
+                          <span className="flex items-center gap-1">
+                            Variantlar
+                            <span className="text-[10px] text-amber-600 font-normal bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-md">
+                              (Faqat kuzatuv rejimi)
+                            </span>
+                          </span>
+                          <span>Jami: {totalVotes} ovoz</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {ann.poll_options.map((opt) => {
+                            const pct = totalVotes > 0 ? Math.round((opt.vote_count / totalVotes) * 100) : 0;
+                            const canVote = userRole === "PARENT" || userRole === "STUDENT";
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => {
+                                  if (canVote) {
+                                    handleVote(ann.id, opt.id);
+                                  } else {
+                                    alert("Admin va o'qituvchilar so'rovnomada ovoz bera olmaydilar. Faqat ota-onalar va o'quvchilar ovoz berishi mumkin.");
+                                  }
+                                }}
+                                disabled={votingOptionId === opt.id}
+                                className={`w-full text-left p-2.5 rounded-xl border transition relative overflow-hidden group ${
+                                  canVote ? "cursor-pointer" : "cursor-default"
+                                } ${
+                                  opt.user_voted
+                                    ? "bg-indigo-50/80 border-indigo-300 text-indigo-900"
+                                    : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
+                                }`}
+                              >
+                                {/* Progress bar background */}
+                                <div
+                                  className={`absolute top-0 left-0 bottom-0 transition-all duration-500 ${
+                                    opt.user_voted ? "bg-indigo-200/60" : "bg-lime-100/60"
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+
+                                <div className="relative z-10 flex items-center justify-between text-xs font-bold">
+                                  <span className="flex items-center gap-2">
+                                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                                      opt.user_voted ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300"
+                                    }`}>
+                                      {opt.user_voted && "✓"}
+                                    </span>
+                                    {opt.option_text}
+                                  </span>
+                                  <span className="font-mono text-[11px] text-slate-500">
+                                    {pct}% ({opt.vote_count})
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
