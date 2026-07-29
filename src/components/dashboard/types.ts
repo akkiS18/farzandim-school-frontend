@@ -71,6 +71,8 @@ export interface ClassScheduleItem {
   lesson_number: number;
   subject_id: number;
   subject_name: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 export interface GradingSystem {

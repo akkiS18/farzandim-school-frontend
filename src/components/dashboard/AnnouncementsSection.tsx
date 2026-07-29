@@ -2,6 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { AnnouncementItem, ClassItem } from "./types";
+import { 
+  Megaphone, 
+  BarChart3, 
+  Search, 
+  RotateCw, 
+  Plus, 
+  Trash2, 
+  X, 
+  Eye, 
+  CheckCircle2, 
+  Users 
+} from "lucide-react";
 
 interface AnnouncementsSectionProps {
   token: string;
@@ -26,6 +38,10 @@ export default function AnnouncementsSection({
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [votingOptionId, setVotingOptionId] = useState<number | null>(null);
+
+  // Modal & Filter States
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"all" | "announcements" | "polls">("all");
 
   // Form States
   const [title, setTitle] = useState("");
@@ -65,6 +81,17 @@ export default function AnnouncementsSection({
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Esc key listener for create modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showCreateModal) {
+        setShowCreateModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showCreateModal]);
 
   const fetchAnnouncements = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -176,6 +203,7 @@ export default function AnnouncementsSection({
         setSelectedStudentIds([]);
         setTargetType(isTeacher ? "classes" : "all");
         setStudentSearchText("");
+        setShowCreateModal(false);
         fetchAnnouncements();
       } else {
         setFormError(data.error || "E'lon yaratishda xatolik yuz berdi");
@@ -238,7 +266,7 @@ export default function AnnouncementsSection({
     const studentIds = ann.student_ids || [];
 
     if (classIds.length === 0 && levelIds.length === 0 && studentIds.length === 0) {
-      return <span className="text-[#65A30D] font-bold bg-[#ECFCCA] px-2.5 py-1 rounded-lg text-[10px]">Barcha sinflar</span>;
+      return <span className="text-[#65A30D] font-bold bg-[#ECFCCA] px-2.5 py-1 rounded-xl text-[10px]">Butun maktab</span>;
     }
 
     const labels: React.ReactNode[] = [];
@@ -249,7 +277,7 @@ export default function AnnouncementsSection({
         .filter(Boolean)
         .join(", ");
       labels.push(
-        <span key="classes" className="text-[#0284C7] font-bold bg-[#E0F2FE] px-2.5 py-1 rounded-lg text-[10px] truncate max-w-[200px] inline-block">
+        <span key="classes" className="text-[#0284C7] font-extrabold bg-[#E0F2FE] px-2.5 py-1 rounded-xl text-[10px] truncate max-w-[200px] inline-block">
           Sinf: {names || "topilmadi"}
         </span>
       );
@@ -258,7 +286,7 @@ export default function AnnouncementsSection({
     if (levelIds.length > 0) {
       const names = levelIds.map((l: number) => `${l}-sinflar`).join(", ");
       labels.push(
-        <span key="levels" className="text-[#FF7A00] font-bold bg-[#FFEADB] px-2.5 py-1 rounded-lg text-[10px] inline-block">
+        <span key="levels" className="text-[#FF7A00] font-extrabold bg-[#FFEADB] px-2.5 py-1 rounded-xl text-[10px] inline-block">
           Level: {names}
         </span>
       );
@@ -266,7 +294,7 @@ export default function AnnouncementsSection({
 
     if (studentIds.length > 0) {
       labels.push(
-        <span key="students" className="text-purple-700 font-bold bg-purple-100 px-2.5 py-1 rounded-lg text-[10px] inline-block">
+        <span key="students" className="text-purple-700 font-extrabold bg-purple-100 px-2.5 py-1 rounded-xl text-[10px] inline-block">
           Xususiy ({studentIds.length} o'quvchi)
         </span>
       );
@@ -277,8 +305,16 @@ export default function AnnouncementsSection({
 
   const filteredAnnouncements = announcements.filter((ann) => {
     const q = searchQuery.toLowerCase();
-    return ann.title.toLowerCase().includes(q) || ann.content.toLowerCase().includes(q);
+    const matchesSearch = ann.title.toLowerCase().includes(q) || ann.content.toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+
+    if (activeFilter === "announcements") return !ann.is_poll;
+    if (activeFilter === "polls") return ann.is_poll;
+    return true;
   });
+
+  const countAnnouncements = announcements.filter((a) => !a.is_poll).length;
+  const countPolls = announcements.filter((a) => a.is_poll).length;
 
   const filteredStudentsForSelect = students.filter((s) => {
     if (!studentSearchText.trim()) return true;
@@ -289,371 +325,551 @@ export default function AnnouncementsSection({
   });
 
   return (
-    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">E'lonlar & So'rovnomalar</h1>
-        <p className="text-xs text-slate-400 font-medium mt-0.5">
-          Maktab jamoasi, ota-onalar va o'quvchilar uchun e'lonlar va so'rovnomalar (polls) yuborish.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Side: Create Form */}
-        <div className="lg:col-span-5 bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
-          <div>
-            <h2 className="text-base font-black text-[#1D1E26]">Yangi E'lon / So'rovnoma Yaratish</h2>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">Mo'ljallangan auditoriyani tanlab yuboring.</p>
-          </div>
-
-          {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold">
-              {formError}
-            </div>
-          )}
-
-          {formSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold">
-              {formSuccess}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sarlavha *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="E'lon sarlavhasi..."
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">E'lon Matni *</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={4}
-                placeholder="Batafsil ma'lumot matni..."
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium resize-none"
-              />
-            </div>
-
-            {/* Poll Toggle Switch */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  📊 So'rovnoma (Poll) qo'shish
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isPoll}
-                  onChange={(e) => setIsPoll(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562] cursor-pointer"
-                />
-              </div>
-
-              {isPoll && (
-                <div className="space-y-2.5 pt-2 border-t border-slate-200/60">
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono">So'rovnoma Variantlari *</label>
-                  {pollOptions.map((opt, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder={`Variant ${idx + 1}...`}
-                        value={opt}
-                        onChange={(e) => handlePollOptionChange(idx, e.target.value)}
-                        className="flex-1 bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-semibold"
-                      />
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePollOption(idx)}
-                          className="w-7 h-7 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  {pollOptions.length < 6 && (
-                    <button
-                      type="button"
-                      onClick={handleAddPollOption}
-                      className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer pt-1 block"
-                    >
-                      + Variant qo'shish
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Target Scope Selection */}
-            <div>
-              <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Kimlarga Yuboriladi?</label>
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                {!isTeacher && (
-                  <button
-                    type="button"
-                    onClick={() => setTargetType("all")}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
-                      targetType === "all"
-                        ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    Butun Maktab
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setTargetType("classes")}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
-                    targetType === "classes"
-                      ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
-                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Sinflar bo'yicha
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetType("levels")}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
-                    targetType === "levels"
-                      ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
-                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Level bo'yicha
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetType("students")}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition border text-center cursor-pointer ${
-                    targetType === "students"
-                      ? "bg-[#D4F562] border-lime-300 text-[#1D1E26]"
-                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Xususiy O'quvchilar
-                </button>
-              </div>
-
-              {targetType === "classes" && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5 max-h-40 overflow-y-auto">
-                  {classes.map((cls) => (
-                    <label key={cls.id} className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedClassIds.includes(cls.id)}
-                        onChange={() => handleClassCheckboxChange(cls.id)}
-                        className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562]"
-                      />
-                      <span>{cls.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {targetType === "levels" && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5 max-h-40 overflow-y-auto">
-                  {availableLevels.map((lvl) => (
-                    <label key={lvl} className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedLevelIds.includes(lvl)}
-                        onChange={() => handleLevelCheckboxChange(lvl)}
-                        className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562]"
-                      />
-                      <span>{lvl}-sinflar</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {targetType === "students" && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                  <input
-                    type="text"
-                    placeholder="O'quvchini qidirish..."
-                    value={studentSearchText}
-                    onChange={(e) => setStudentSearchText(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none"
-                  />
-                  <div className="max-h-36 overflow-y-auto space-y-1">
-                    {filteredStudentsForSelect.map((s) => (
-                      <label key={s.id} className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(s.id)}
-                          onChange={() => handleStudentCheckboxChange(s.id)}
-                          className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D1E26] focus:ring-[#D4F562]"
-                        />
-                        <span>{s.last_name} {s.first_name} ({s.class_name || "Sinfi yo'q"})</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitLoading}
-              className="w-full bg-[#D4F562] text-[#1D1E26] font-black text-xs py-3 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
-            >
-              {submitLoading ? "Chop etilmoqda..." : "E'lonni Chop Etish"}
-            </button>
-          </form>
+    <div className="space-y-5 font-sans text-zinc-900 select-none animate-fadeIn pb-12">
+      {/* Top Header Card with Primary Action Button */}
+      <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-lg sm:text-2xl font-extrabold text-[#16193E] tracking-tight flex items-center gap-2">
+            <Megaphone className="w-6 h-6 text-indigo-600 shrink-0" />
+            <span>E'lonlar & So'rovnomalar</span>
+          </h1>
+          <p className="text-xs text-zinc-500 font-medium mt-1">
+            Maktab jamoasi, ota-onalar va o'quvchilar uchun e'lonlar va so'rovnomalar (polls) yuborish hamda boshqarish.
+          </p>
         </div>
 
-        {/* Right Side: Announcement Feed Cards */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between bg-white border border-slate-100/80 p-4 rounded-2xl shadow-xs">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black text-[#1D1E26]">Chop Etilgan E'lonlar ({filteredAnnouncements.length})</h3>
-              <button
-                type="button"
-                onClick={() => fetchAnnouncements()}
-                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                title="Qayta yuklash"
-              >
-                🔄
-              </button>
-            </div>
+        <button
+          type="button"
+          onClick={() => {
+            setFormError("");
+            setFormSuccess("");
+            setShowCreateModal(true);
+          }}
+          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-xs transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Yangi E'lon / So'rovnoma Yaratish</span>
+        </button>
+      </div>
+
+      {/* Filter & Search Navigation Panel */}
+      <div className="bg-white border border-zinc-200/70 p-3 sm:p-4 rounded-3xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <button
+            type="button"
+            onClick={() => setActiveFilter("all")}
+            className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeFilter === "all"
+                ? "bg-[#5B50EC] text-white shadow-xs"
+                : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200/60"
+            }`}
+          >
+            <span>Barchasi</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeFilter === "all" ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-700"
+            }`}>
+              {announcements.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter("announcements")}
+            className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeFilter === "announcements"
+                ? "bg-[#5B50EC] text-white shadow-xs"
+                : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200/60"
+            }`}
+          >
+            <Megaphone className="w-3.5 h-3.5" />
+            <span>E'lonlar</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeFilter === "announcements" ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-700"
+            }`}>
+              {countAnnouncements}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter("polls")}
+            className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeFilter === "polls"
+                ? "bg-[#5B50EC] text-white shadow-xs"
+                : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200/60"
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>So'rovnomalar</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeFilter === "polls" ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-700"
+            }`}>
+              {countPolls}
+            </span>
+          </button>
+        </div>
+
+        {/* Search & Refresh */}
+        <div className="flex items-center gap-2 shrink-0 justify-end">
+          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3.5 py-2">
+            <Search className="w-4 h-4 text-zinc-400 shrink-0" />
             <input
               type="text"
-              placeholder="Qidiruv..."
+              placeholder="E'lonlarni qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-medium"
+              className="bg-transparent border-none text-xs outline-none font-bold text-zinc-800 w-36 sm:w-48"
             />
           </div>
 
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
-            </div>
-          ) : filteredAnnouncements.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-slate-200 rounded-3xl bg-white">
-              <p className="text-slate-400 text-xs font-medium">Hech qanday e'lon topilmadi.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredAnnouncements.map((ann) => {
-                const totalVotes = ann.poll_options
-                  ? ann.poll_options.reduce((sum, opt) => sum + opt.vote_count, 0)
-                  : 0;
-
-                return (
-                  <div key={ann.id} className="bg-white border border-slate-100/80 rounded-3xl p-5 shadow-xs space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-black text-[#1D1E26] text-sm">{ann.title}</h4>
-                          {ann.is_poll && (
-                            <span className="bg-indigo-50 text-indigo-700 font-extrabold text-[10px] px-2 py-0.5 rounded-lg border border-indigo-100">
-                              📊 So'rovnoma
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          Muallif: <strong className="text-slate-600">{ann.author_name || "Admin"}</strong> | {new Date(ann.created_at).toLocaleString()}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {getTargetLabel(ann)}
-                        {(!isTeacher || ann.author_id === currentUserId) && (
-                          <button
-                            onClick={() => handleDelete(ann.id)}
-                            className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-bold p-1.5 rounded-xl transition cursor-pointer"
-                            title="O'chirish"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{ann.content}</p>
-
-                    {/* Poll Rendering */}
-                    {ann.is_poll && ann.poll_options && ann.poll_options.length > 0 && (
-                      <div className="mt-3 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 font-mono">
-                          <span className="flex items-center gap-1">
-                            Variantlar
-                            <span className="text-[10px] text-amber-600 font-normal bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-md">
-                              (Faqat kuzatuv rejimi)
-                            </span>
-                          </span>
-                          <span>Jami: {totalVotes} ovoz</span>
-                        </div>
-
-                        <div className="space-y-2">
-                          {ann.poll_options.map((opt) => {
-                            const pct = totalVotes > 0 ? Math.round((opt.vote_count / totalVotes) * 100) : 0;
-                            const canVote = userRole === "PARENT" || userRole === "STUDENT";
-                            return (
-                              <button
-                                key={opt.id}
-                                type="button"
-                                onClick={() => {
-                                  if (canVote) {
-                                    handleVote(ann.id, opt.id);
-                                  } else {
-                                    alert("Admin va o'qituvchilar so'rovnomada ovoz bera olmaydilar. Faqat ota-onalar va o'quvchilar ovoz berishi mumkin.");
-                                  }
-                                }}
-                                disabled={votingOptionId === opt.id}
-                                className={`w-full text-left p-2.5 rounded-xl border transition relative overflow-hidden group ${
-                                  canVote ? "cursor-pointer" : "cursor-default"
-                                } ${
-                                  opt.user_voted
-                                    ? "bg-indigo-50/80 border-indigo-300 text-indigo-900"
-                                    : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
-                                }`}
-                              >
-                                {/* Progress bar background */}
-                                <div
-                                  className={`absolute top-0 left-0 bottom-0 transition-all duration-500 ${
-                                    opt.user_voted ? "bg-indigo-200/60" : "bg-lime-100/60"
-                                  }`}
-                                  style={{ width: `${pct}%` }}
-                                />
-
-                                <div className="relative z-10 flex items-center justify-between text-xs font-bold">
-                                  <span className="flex items-center gap-2">
-                                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                                      opt.user_voted ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300"
-                                    }`}>
-                                      {opt.user_voted && "✓"}
-                                    </span>
-                                    {opt.option_text}
-                                  </span>
-                                  <span className="font-mono text-[11px] text-slate-500">
-                                    {pct}% ({opt.vote_count})
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => fetchAnnouncements()}
+            className="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 border border-zinc-200/60 rounded-2xl transition cursor-pointer shrink-0"
+            title="Qayta yuklash"
+          >
+            <RotateCw className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
+      {/* Full-Width Feed Cards */}
+      {loading ? (
+        <div className="text-center py-20 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+          <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs text-zinc-400 font-mono">E'lonlar yuklanmoqda...</p>
+        </div>
+      ) : filteredAnnouncements.length === 0 ? (
+        <div className="text-center py-20 border border-dashed border-zinc-200/80 rounded-3xl bg-white space-y-2">
+          <Megaphone className="w-10 h-10 text-zinc-300 mx-auto" />
+          <p className="text-zinc-800 text-sm font-extrabold">Hech qanday e'lon topilmadi</p>
+          <p className="text-zinc-400 text-xs font-medium max-w-sm mx-auto">
+            Hozircha hech qanday e'lon yoki so'rovnoma joylanmagan. Yangi e'lon yaratish uchun yuqoridagi tugmani bosing.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredAnnouncements.map((ann) => {
+            const totalVotes = ann.poll_options
+              ? ann.poll_options.reduce((sum, opt) => sum + opt.vote_count, 0)
+              : 0;
+
+            return (
+              <div key={ann.id} className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 hover:shadow-md transition">
+                {/* Header Row */}
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 pb-3.5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-extrabold text-[#16193E] text-base sm:text-lg">{ann.title}</h4>
+                      {ann.is_poll ? (
+                        <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 font-extrabold text-[10px] px-3 py-1 rounded-xl border border-indigo-100">
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          <span>So'rovnoma</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 font-extrabold text-[10px] px-3 py-1 rounded-xl border border-blue-100">
+                          <Megaphone className="w-3.5 h-3.5" />
+                          <span>Oddiy E'lon</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-zinc-400 font-mono">
+                      Muallif: <strong className="text-zinc-700 font-semibold">{ann.author_name || "Admin"}</strong> • {new Date(ann.created_at).toLocaleString("uz-UZ", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {getTargetLabel(ann)}
+                    {(!isTeacher || ann.author_id === currentUserId) && (
+                      <button
+                        onClick={() => handleDelete(ann.id)}
+                        className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-bold p-2 rounded-xl transition cursor-pointer"
+                        title="O'chirish"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed font-medium whitespace-pre-wrap">{ann.content}</p>
+
+                {/* Poll Options */}
+                {ann.is_poll && ann.poll_options && ann.poll_options.length > 0 && (
+                  <div className="mt-3 p-4 sm:p-5 bg-zinc-50/80 border border-zinc-200/80 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between text-xs font-bold text-zinc-600 font-mono">
+                      <span className="flex items-center gap-1.5">
+                        <span>Ovoz berish variantlari</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                          <Eye className="w-3 h-3" />
+                          <span>Faqat kuzatuv rejimi</span>
+                        </span>
+                      </span>
+                      <span>Jami: {totalVotes} ovoz</span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {ann.poll_options.map((opt) => {
+                        const pct = totalVotes > 0 ? Math.round((opt.vote_count / totalVotes) * 100) : 0;
+                        const canVote = userRole === "PARENT" || userRole === "STUDENT";
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              if (canVote) {
+                                handleVote(ann.id, opt.id);
+                              } else {
+                                alert("Admin va o'qituvchilar so'rovnomada ovoz bera olmaydilar. Faqat ota-onalar va o'quvchilar ovoz berishi mumkin.");
+                              }
+                            }}
+                            disabled={votingOptionId === opt.id}
+                            className={`w-full text-left p-3.5 rounded-2xl border transition relative overflow-hidden group ${
+                              canVote ? "cursor-pointer" : "cursor-default"
+                            } ${
+                              opt.user_voted
+                                ? "bg-indigo-50/80 border-indigo-300 text-indigo-900"
+                                : "bg-white border-zinc-200/90 text-zinc-800 hover:border-zinc-300"
+                            }`}
+                          >
+                            {/* Progress bar background */}
+                            <div
+                              className={`absolute top-0 left-0 bottom-0 transition-all duration-500 ${
+                                opt.user_voted ? "bg-indigo-200/60" : "bg-indigo-100/70"
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+
+                            <div className="relative z-10 flex items-center justify-between text-xs font-bold">
+                              <span className="flex items-center gap-2">
+                                <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                  opt.user_voted ? "border-indigo-600 bg-indigo-600 text-white" : "border-zinc-300"
+                                }`}>
+                                  {opt.user_voted && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                </span>
+                                <span>{opt.option_text}</span>
+                              </span>
+                              <span className="font-mono text-[11px] text-zinc-500 font-bold">
+                                {pct}% ({opt.vote_count})
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* CREATE ANNOUNCEMENT / POLL MODAL */}
+      {showCreateModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreateModal(false);
+            }
+          }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+        >
+          <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-indigo-600" />
+                  <span>Yangi E'lon yoki So'rovnoma Yaratish</span>
+                </h3>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                  Mo'ljallangan auditoriyani tanlab e'lon yuboring
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+                title="Yopish"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5">
+              {formError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs font-bold">
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Segmented Type Switch */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-2">E'lon Turi</label>
+                  <div className="grid grid-cols-2 gap-2 bg-zinc-100 p-1.5 rounded-2xl border border-zinc-200/60">
+                    <button
+                      type="button"
+                      onClick={() => setIsPoll(false)}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-2 ${
+                        !isPoll
+                          ? "bg-white text-[#16193E] shadow-xs"
+                          : "text-zinc-600 hover:text-zinc-900"
+                      }`}
+                    >
+                      <Megaphone className="w-4 h-4 text-blue-600" />
+                      <span>📢 Oddiy E'lon</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsPoll(true)}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-2 ${
+                        isPoll
+                          ? "bg-white text-[#16193E] shadow-xs"
+                          : "text-zinc-600 hover:text-zinc-900"
+                      }`}
+                    >
+                      <BarChart3 className="w-4 h-4 text-indigo-600" />
+                      <span>📊 Interaktiv So'rovnoma</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sarlavha */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Sarlavha *</label>
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="E'lon sarlavhasini kiriting..."
+                    className="w-full bg-zinc-50 border border-zinc-200/80 text-zinc-800 rounded-2xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 transition font-bold"
+                  />
+                </div>
+
+                {/* Matn */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Batafsil Matn *</label>
+                  <textarea
+                    required
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    rows={4}
+                    placeholder="E'lon yoki so'rovnoma matnini yozing..."
+                    className="w-full bg-zinc-50 border border-zinc-200/80 text-zinc-800 rounded-2xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 transition font-medium resize-none"
+                  />
+                </div>
+
+                {/* Poll Options section */}
+                {isPoll && (
+                  <div className="p-4 bg-zinc-50/80 border border-zinc-200/80 rounded-2xl space-y-3 animate-fadeIn">
+                    <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono">So'rovnoma Variantlari *</label>
+                    <div className="space-y-2">
+                      {pollOptions.map((opt, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder={`Variant ${idx + 1}...`}
+                            value={opt}
+                            onChange={(e) => handlePollOptionChange(idx, e.target.value)}
+                            className="flex-1 bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                          />
+                          {pollOptions.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePollOption(idx)}
+                              className="w-8 h-8 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center font-bold text-xs cursor-pointer shrink-0 transition"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {pollOptions.length < 6 && (
+                      <button
+                        type="button"
+                        onClick={handleAddPollOption}
+                        className="text-xs text-indigo-600 font-extrabold hover:underline cursor-pointer pt-1 inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ Variant qo'shish</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Target Scope Selection */}
+                <div className="space-y-2 pt-2 border-t border-zinc-100">
+                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono">Kimlarga Yuboriladi?</label>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {!isTeacher && (
+                      <button
+                        type="button"
+                        onClick={() => setTargetType("all")}
+                        className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                          targetType === "all"
+                            ? "bg-[#5B50EC] text-white shadow-xs"
+                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                        }`}
+                      >
+                        Butun Maktab
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setTargetType("classes")}
+                      className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                        targetType === "classes"
+                          ? "bg-[#5B50EC] text-white shadow-xs"
+                          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      }`}
+                    >
+                      Sinflar bo'yicha
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetType("levels")}
+                      className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                        targetType === "levels"
+                          ? "bg-[#5B50EC] text-white shadow-xs"
+                          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      }`}
+                    >
+                      Level bo'yicha
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetType("students")}
+                      className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                        targetType === "students"
+                          ? "bg-[#5B50EC] text-white shadow-xs"
+                          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      }`}
+                    >
+                      Xususiy O'quvchilar
+                    </button>
+                  </div>
+
+                  {targetType === "classes" && (
+                    <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-2xl flex flex-wrap gap-2 max-h-44 overflow-y-auto">
+                      {classes.map((cls) => {
+                        const isSelected = selectedClassIds.includes(cls.id);
+                        return (
+                          <button
+                            key={cls.id}
+                            type="button"
+                            onClick={() => handleClassCheckboxChange(cls.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 border ${
+                              isSelected
+                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs"
+                                : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                            }`}
+                          >
+                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                            <span>{cls.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {targetType === "levels" && (
+                    <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-2xl flex flex-wrap gap-2 max-h-44 overflow-y-auto">
+                      {availableLevels.map((lvl) => {
+                        const isSelected = selectedLevelIds.includes(lvl);
+                        return (
+                          <button
+                            key={lvl}
+                            type="button"
+                            onClick={() => handleLevelCheckboxChange(lvl)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 border ${
+                              isSelected
+                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs"
+                                : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                            }`}
+                          >
+                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                            <span>{lvl}-sinflar</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {targetType === "students" && (
+                    <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-2xl space-y-2">
+                      <input
+                        type="text"
+                        placeholder="O'quvchini qidirish..."
+                        value={studentSearchText}
+                        onChange={(e) => setStudentSearchText(e.target.value)}
+                        className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-zinc-800 font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <div className="max-h-36 overflow-y-auto space-y-1.5">
+                        {filteredStudentsForSelect.map((s) => {
+                          const isSelected = selectedStudentIds.includes(s.id);
+                          return (
+                            <label key={s.id} className="flex items-center space-x-2 text-xs font-semibold text-zinc-700 cursor-pointer hover:bg-white p-1.5 rounded-xl transition">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleStudentCheckboxChange(s.id)}
+                                className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="font-bold text-zinc-800">{s.last_name} {s.first_name}</span>
+                              <span className="text-zinc-400 text-[10px]">({s.class_name || "Sinfi yo'q"})</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-3 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-2xl text-xs font-extrabold cursor-pointer transition"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitLoading}
+                    className="px-6 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl text-xs font-extrabold disabled:opacity-50 flex items-center space-x-2 cursor-pointer shadow-xs transition"
+                  >
+                    {submitLoading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0"></span>
+                        <span>Chop etilmoqda...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Megaphone className="w-4 h-4" />
+                        <span>Chop Etish va Yuborish</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

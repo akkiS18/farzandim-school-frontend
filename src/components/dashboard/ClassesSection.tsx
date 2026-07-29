@@ -332,8 +332,12 @@ export default function ClassesSection({
     if (!selectedClass) return;
     setClassScheduleLoading(true);
     try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+
       const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule?date=${scheduleViewDate}`, {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers,
       });
       const data = await response.json();
       if (response.ok) setClassSchedule(Array.isArray(data) ? data : []);
@@ -724,12 +728,16 @@ export default function ClassesSection({
       });
 
     try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      };
+      if (sId) headers["X-School-ID"] = sId;
+
       const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           start_date: scheduleStartDate,
           end_date: scheduleEndDate,
@@ -1503,6 +1511,18 @@ export default function ClassesSection({
                           mapped[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
                         });
                         setScheduleFormState(mapped);
+
+                        if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
+                          setScheduleStartDate(classSchedule[0].start_date);
+                          setScheduleEndDate(classSchedule[0].end_date);
+                        } else {
+                          const todayStr = new Date().toISOString().split("T")[0];
+                          setScheduleStartDate(todayStr);
+                          const nextYear = new Date();
+                          nextYear.setFullYear(nextYear.getFullYear() + 1);
+                          setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                        }
+
                         setShowEditScheduleModal(true);
                       }}
                       className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer whitespace-nowrap"

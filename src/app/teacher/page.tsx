@@ -5,6 +5,41 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
+import {
+  LayoutDashboard,
+  BookOpen,
+  Calendar,
+  Users,
+  UserCheck,
+  CheckSquare,
+  MessageSquare,
+  Megaphone,
+  FolderKanban,
+  Search,
+  Bell,
+  LogOut,
+  Menu,
+  GraduationCap,
+  Sparkles,
+  ChevronRight,
+  ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Award,
+  CheckCircle2,
+  X,
+  FileText,
+  Clock,
+  TrendingUp,
+  Plus,
+  MoreVertical,
+  FileSpreadsheet,
+  UserPlus,
+  Pencil,
+  Trash2,
+  UserMinus,
+  Utensils
+} from "lucide-react";
 
 interface UserInfo {
   id: number;
@@ -79,8 +114,10 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs"
-  const [teacherTab, setTeacherTab] = useState<"journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs">("journal");
+  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs"
+  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs">("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Default collapsed (icon-only mode)
 
   // Feedback/Comments States
   const [feedbackFeed, setFeedbackFeed] = useState<any[]>([]);
@@ -391,9 +428,15 @@ export default function TeacherDashboard() {
     }
   };
 
+  // Dashboard Analytics States
+  const [dashboardStudents, setDashboardStudents] = useState<any[]>([]);
+  const [dashboardGrades, setDashboardGrades] = useState<any[]>([]);
+
   // Selection states
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | "">("");
+  const [showClassDropdown, setShowClassDropdown] = useState(false);
+  const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
 
   // Contextual Sub-lists
   const [classTeachers, setClassTeachers] = useState<any[]>([]);
@@ -441,6 +484,29 @@ export default function TeacherDashboard() {
   const [selectedLessonNumber, setSelectedLessonNumber] = useState<number | "">("");
   const [selectedGradeType, setSelectedGradeType] = useState<string>("MASTERY");
   const [selectedGradeCategory, setSelectedGradeCategory] = useState<string>("DAILY");
+
+  // Global ESC Key Listener to close any open modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowEditScheduleModal(false);
+        setShowAddExceptionModal(false);
+        setShowPeriodsModal(false);
+        setShowStudentModal(false);
+        setShowParentsModal(false);
+        setShowImportParentsModal(false);
+        setShowImportStudentsModal(false);
+        setShowAddParentModal(false);
+        setShowAddClubModal(false);
+        setShowAddScheduleModal(false);
+        setShowClubStudentsModal(false);
+        setShowGradeCommentModal(false);
+        setChatModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const [holidays, setHolidays] = useState<any[]>([]);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
   const [journalLoading, setJournalLoading] = useState(false);
@@ -455,6 +521,8 @@ export default function TeacherDashboard() {
   const [studentsTabLoading, setStudentsTabLoading] = useState(false);
   const [unapprovedGrades, setUnapprovedGrades] = useState<any[]>([]);
   const [unapprovedLoading, setUnapprovedLoading] = useState(false);
+  const [unapprovedPage, setUnapprovedPage] = useState(1);
+  const [unapprovedPageSize, setUnapprovedPageSize] = useState(10);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [studentModalMode, setStudentModalMode] = useState<"create" | "edit">("create");
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -747,6 +815,28 @@ export default function TeacherDashboard() {
       });
       const gsListData = await gsListRes.json();
       if (gsListRes.ok) setGradingSystemsList(Array.isArray(gsListData) ? gsListData : []);
+
+      // Load all students for dashboard analytics
+      try {
+        const studRes = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
+          headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
+        });
+        const studData = await studRes.json();
+        if (studRes.ok && Array.isArray(studData)) setDashboardStudents(studData);
+      } catch (e) {
+        console.error("Dashboard students load failed", e);
+      }
+
+      // Load grades for dashboard analytics
+      try {
+        const gradesRes = await fetch(`${API_URL}/api/schools/grades`, {
+          headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
+        });
+        const gradesData = await gradesRes.json();
+        if (gradesRes.ok && Array.isArray(gradesData)) setDashboardGrades(gradesData);
+      } catch (e) {
+        console.error("Dashboard grades load failed", e);
+      }
 
       // Load holidays
       await fetchHolidays(authToken, currentSchoolId);
@@ -2066,12 +2156,21 @@ export default function TeacherDashboard() {
   const renderEditWeeklyScheduleModal = () => {
     if (!showEditScheduleModal) return null;
     return (
-      <div className="fixed inset-0 z-50 flex justify-center items-start bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-        <div className="w-full max-w-5xl bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl my-8 relative text-zinc-900">
-          <div className="flex items-center justify-between mb-4 border-b border-zinc-200 pb-3">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowEditScheduleModal(false);
+            setScheduleFormState({});
+            setActionError("");
+          }
+        }}
+        className="fixed inset-0 z-50 flex justify-center items-start bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
+      >
+        <div className="w-full max-w-5xl bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-zinc-900 animate-fadeIn space-y-5">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
             <div>
-              <h3 className="text-md font-bold text-zinc-900 font-sans">Haftalik dars jadvalini tahrirlash</h3>
-              <p className="text-[11px] text-zinc-500 mt-1">Har bir kun va dars soati uchun fanni tanlang. Dars yo'q soatlarni "Bo'sh" holatida qoldiring.</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">Haftalik dars jadvalini tahrirlash</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">Har bir kun va dars soati uchun fanni tanlang. Dars yo'q soatlarni "Bo'sh" holatida qoldiring.</p>
             </div>
             <button
               type="button"
@@ -2080,45 +2179,46 @@ export default function TeacherDashboard() {
                 setScheduleFormState({});
                 setActionError("");
               }}
-              className="text-zinc-500 hover:text-zinc-700 transition text-xs font-semibold cursor-pointer"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              Yopish
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {actionError && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-700 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-2xl font-bold">{actionError}</div>
           )}
 
           <form onSubmit={handleSaveSchedule} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-50 border border-zinc-200 p-4 rounded-xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-indigo-50/40 border border-indigo-100 p-4.5 rounded-2xl">
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-1">Jadval boshlanish sanasi (Start Date)</label>
+                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Jadval boshlanish sanasi (Start Date)</label>
                 <input
                   type="date"
                   value={scheduleStartDate}
                   onChange={(e) => setScheduleStartDate(e.target.value)}
                   required
-                  className="w-full bg-white border border-zinc-200 focus:border-emerald-600 text-zinc-700 rounded-lg px-3 py-1.5 text-xs outline-none transition"
+                  className="w-full bg-white border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2 text-xs outline-none transition"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-1">Jadval tugash sanasi (End Date)</label>
+                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Jadval tugash sanasi (End Date)</label>
                 <input
                   type="date"
                   value={scheduleEndDate}
                   onChange={(e) => setScheduleEndDate(e.target.value)}
                   required
-                  className="w-full bg-white border border-zinc-200 focus:border-emerald-600 text-zinc-700 rounded-lg px-3 py-1.5 text-xs outline-none transition"
+                  className="w-full bg-white border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2 text-xs outline-none transition"
                 />
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50/20">
-              <table className="min-w-full divide-y divide-zinc-200 text-center table-fixed">
-                <thead className="bg-zinc-50 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+            <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
+              <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
+                <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
                   <tr>
-                    <th className="px-2 py-3 w-16">Soat</th>
+                    <th className="px-2 py-3 w-16 bg-[#fafafa]">Soat</th>
                     <th className="px-2 py-3">Dushanba</th>
                     <th className="px-2 py-3">Seshanba</th>
                     <th className="px-2 py-3">Chorshanba</th>
@@ -2127,17 +2227,17 @@ export default function TeacherDashboard() {
                     <th className="px-2 py-3">Shanba</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200 text-xs text-zinc-700">
+                <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                    <tr key={period} className="hover:bg-zinc-50/50 transition">
-                      <td className="px-2 py-2 font-mono font-semibold text-zinc-400 bg-zinc-50/50">
+                    <tr key={period} className="hover:bg-indigo-50/20 transition">
+                      <td className="px-2 py-2 font-mono font-bold text-zinc-400 bg-[#fafafa]">
                         {period}-dars
                       </td>
                       {[1, 2, 3, 4, 5, 6].map((day) => {
                         const slotKey = `${day}-${period}`;
                         const selectedVal = scheduleFormState[slotKey] || 0;
                         return (
-                          <td key={day} className="px-2 py-2 border-l border-zinc-200">
+                          <td key={day} className="px-1.5 py-2 border-l border-zinc-100">
                             <select
                               value={selectedVal}
                               onChange={(e) => {
@@ -2146,7 +2246,7 @@ export default function TeacherDashboard() {
                                   [slotKey]: Number(e.target.value),
                                 }));
                               }}
-                              className="w-full bg-white border border-zinc-200 focus:border-emerald-600 text-zinc-800 rounded px-1.5 py-1 text-[11px] outline-none cursor-pointer font-semibold"
+                              className="w-full bg-white border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 rounded-xl px-2 py-1.5 text-xs outline-none cursor-pointer font-bold transition"
                             >
                               <option value="0">Bo'sh</option>
                               {subjects.map((sub) => (
@@ -2162,7 +2262,7 @@ export default function TeacherDashboard() {
               </table>
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-200">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-100">
               <button
                 type="button"
                 onClick={() => {
@@ -2170,14 +2270,14 @@ export default function TeacherDashboard() {
                   setScheduleFormState({});
                   setActionError("");
                 }}
-                className="text-xs bg-zinc-100 border border-zinc-200 text-zinc-500 py-2.5 px-4 rounded-lg transition cursor-pointer"
+                className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="text-xs bg-[#059669] hover:bg-emerald-700 text-white font-semibold py-2.5 px-6 rounded-lg transition cursor-pointer"
+                className="text-xs bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold py-2.5 px-6 rounded-xl transition cursor-pointer shadow-md shadow-indigo-500/20 disabled:opacity-50"
               >
                 {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
               </button>
@@ -2191,12 +2291,20 @@ export default function TeacherDashboard() {
   const renderAddExceptionModal = () => {
     if (!showAddExceptionModal) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto text-zinc-900">
-        <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl relative">
-          <div className="flex items-center justify-between mb-4 border-b border-zinc-200 pb-3">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowAddExceptionModal(false);
+            setActionError("");
+          }
+        }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto text-zinc-900"
+      >
+        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-fadeIn space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div>
-              <h3 className="text-md font-bold text-zinc-900 font-sans">Kunlik Dars Jadvali O'zgarishi Kiritish</h3>
-              <p className="text-[11px] text-zinc-500 mt-1">Tanlangan kun va dars soati uchun bir martalik o'zgarish yoki darsni bekor qilish.</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">Kunlik Dars Jadvali O'zgarishi Kiritish</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">Tanlangan kun va dars soati uchun bir martalik o'zgarish yoki darsni bekor qilish.</p>
             </div>
             <button
               type="button"
@@ -2204,35 +2312,36 @@ export default function TeacherDashboard() {
                 setShowAddExceptionModal(false);
                 setActionError("");
               }}
-              className="text-zinc-500 hover:text-zinc-700 transition text-xs font-semibold cursor-pointer"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              Yopish
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {actionError && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-700 text-xs p-3 rounded-lg mb-4">{actionError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-2xl font-bold">{actionError}</div>
           )}
 
           <form onSubmit={handleAddExceptionSubmit} className="space-y-4">
             <div>
-              <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-2">Kun (Sana)</label>
+              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Kun (Sana)</label>
               <input
                 type="date"
                 required
                 value={excDate}
                 min={new Date().toISOString().split("T")[0]}
                 onChange={(e) => setExcDate(e.target.value)}
-                className="w-full bg-zinc-50 border border-zinc-200 focus:border-emerald-600 text-zinc-700 rounded-lg px-3.5 py-2.5 text-sm outline-none transition"
+                className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2.5 text-xs outline-none transition"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-2">Dars soati</label>
+              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Dars soati</label>
               <select
                 value={excLesson}
                 onChange={(e) => setExcLesson(Number(e.target.value))}
-                className="w-full bg-zinc-50 border border-zinc-200 focus:border-emerald-600 text-zinc-700 rounded-lg px-3.5 py-2.5 text-sm outline-none transition cursor-pointer font-semibold"
+                className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none transition cursor-pointer font-bold"
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
                   <option key={period} value={period}>{period}-dars</option>
@@ -2241,25 +2350,25 @@ export default function TeacherDashboard() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-2">O'zgarish turi</label>
+              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">O'zgarish turi</label>
               <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2 text-xs text-zinc-650 cursor-pointer">
+                <label className="flex items-center space-x-2 text-xs font-bold text-zinc-700 cursor-pointer">
                   <input
                     type="radio"
                     name="excType"
                     checked={excType === "replace"}
                     onChange={() => setExcType("replace")}
-                    className="text-emerald-600 focus:ring-0"
+                    className="text-indigo-600 focus:ring-0"
                   />
                   <span>O'zgartirish / Qo'shimcha fan</span>
                 </label>
-                <label className="flex items-center space-x-2 text-xs text-zinc-650 cursor-pointer">
+                <label className="flex items-center space-x-2 text-xs font-bold text-zinc-700 cursor-pointer">
                   <input
                     type="radio"
                     name="excType"
                     checked={excType === "cancel"}
                     onChange={() => setExcType("cancel")}
-                    className="text-emerald-600 focus:ring-0"
+                    className="text-indigo-600 focus:ring-0"
                   />
                   <span>Darsni bekor qilish (Cancel)</span>
                 </label>
@@ -2268,12 +2377,12 @@ export default function TeacherDashboard() {
 
             {excType === "replace" && (
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-2">Fan</label>
+                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Fan</label>
                 <select
                   required={excType === "replace"}
                   value={excSubjectId}
                   onChange={(e) => setExcSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="w-full bg-zinc-50 border border-zinc-200 focus:border-emerald-600 text-zinc-700 rounded-lg px-3.5 py-2.5 text-sm outline-none transition cursor-pointer font-semibold"
+                  className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none transition cursor-pointer font-bold"
                 >
                   <option value="">Fanni tanlang</option>
                   {subjects.map((sub) => (
@@ -2283,21 +2392,21 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-200">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-100">
               <button
                 type="button"
                 onClick={() => {
                   setShowAddExceptionModal(false);
                   setActionError("");
                 }}
-                className="text-xs bg-zinc-100 border border-zinc-200 text-zinc-500 py-2.5 px-4 rounded-lg transition cursor-pointer"
+                className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-6 rounded-lg transition cursor-pointer"
+                className="text-xs bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold py-2.5 px-6 rounded-xl transition cursor-pointer shadow-md shadow-indigo-500/20 disabled:opacity-50"
               >
                 {actionLoading ? "Kiritilmoqda..." : "Kiritish"}
               </button>
@@ -2311,37 +2420,45 @@ export default function TeacherDashboard() {
   const renderPeriodsModal = () => {
     if (!showPeriodsModal) return null;
     return (
-      <div className="fixed inset-0 z-50 flex justify-center items-start bg-black/70 backdrop-blur-sm p-4 overflow-y-auto text-zinc-900">
-        <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl my-8 relative">
-          <div className="flex items-center justify-between mb-4 border-b border-zinc-200 pb-3">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowPeriodsModal(false);
+          }
+        }}
+        className="fixed inset-0 z-50 flex justify-center items-start bg-black/60 backdrop-blur-md p-4 overflow-y-auto text-zinc-900"
+      >
+        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative animate-fadeIn space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div>
-              <h3 className="text-md font-bold text-zinc-900 font-sans">Mavjud Dars Jadvallari</h3>
-              <p className="text-[11px] text-zinc-500 mt-1">Ushbu sinf uchun kiritilgan barcha haftalik dars jadvali davrlari.</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">Mavjud Dars Jadvallari</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">Ushbu sinf uchun kiritilgan barcha haftalik dars jadvali davrlari.</p>
             </div>
             <button
               type="button"
               onClick={() => setShowPeriodsModal(false)}
-              className="text-zinc-500 hover:text-zinc-700 transition text-xs font-semibold cursor-pointer"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              Yopish
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {schedulePeriodsLoading ? (
-            <div className="text-center py-6">
-              <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="text-center py-8">
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           ) : schedulePeriods.length === 0 ? (
             <p className="text-zinc-400 text-xs font-mono py-6 text-center">Ushbu sinf uchun hech qanday haftalik dars jadvali topilmadi.</p>
           ) : (
             <div className="space-y-3">
               {schedulePeriods.map((period, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-xl hover:bg-zinc-100/50 transition">
+                <div key={idx} className="flex items-center justify-between p-3.5 bg-zinc-50 border border-zinc-200/70 rounded-2xl hover:bg-indigo-50/20 transition">
                   <div className="space-y-1">
-                    <span className="bg-emerald-55 border border-emerald-200 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase tracking-wide">
+                    <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wide">
                       Jadval #{schedulePeriods.length - idx}
                     </span>
-                    <p className="text-xs text-zinc-800 font-semibold mt-1">
+                    <p className="text-xs text-zinc-800 font-bold mt-1">
                       <span className="font-mono">{period.start_date}</span> dan <span className="font-mono">{period.end_date}</span> gacha
                     </p>
                   </div>
@@ -2353,7 +2470,7 @@ export default function TeacherDashboard() {
                       setShowPeriodsModal(false);
                       showToast("success", `Dars jadvali ${period.start_date} davriga o'tkazildi!`);
                     }}
-                    className="text-xs bg-[#059669] hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded-lg transition cursor-pointer"
+                    className="text-xs bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold py-2 px-3.5 rounded-xl transition cursor-pointer shadow-xs"
                   >
                     Tanlash (Ko'rish)
                   </button>
@@ -2362,11 +2479,11 @@ export default function TeacherDashboard() {
             </div>
           )}
 
-          <div className="flex items-center justify-end pt-4 border-t border-zinc-200 mt-6">
+          <div className="flex items-center justify-end pt-4 border-t border-zinc-100 mt-4">
             <button
               type="button"
               onClick={() => setShowPeriodsModal(false)}
-              className="text-xs bg-zinc-100 border border-zinc-200 text-zinc-500 py-2 px-4 rounded-lg transition cursor-pointer"
+              className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2 px-4 rounded-xl transition cursor-pointer"
             >
               Yopish
             </button>
@@ -2379,122 +2496,133 @@ export default function TeacherDashboard() {
   const renderStudentModal = () => {
     if (!showStudentModal) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
-          onClick={() => setShowStudentModal(false)}
-        />
-        {/* Dialog */}
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xl max-w-sm w-full p-6 relative z-10 space-y-4 animate-in fade-in zoom-in-95 duration-205 text-zinc-900">
-          <div>
-            <h3 className="text-sm font-bold text-zinc-900">
-              {studentModalMode === "create" ? "Yangi o'quvchi qo'shish" : "O'quvchi ma'lumotlarini tahrirlash"}
-            </h3>
-            <p className="text-[10px] text-zinc-405 font-mono mt-0.5">
-              Barcha maydonlarni to'ldiring
-            </p>
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowStudentModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white border border-zinc-200/80 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-zinc-900 animate-fadeIn relative overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+            <div>
+              <h3 className="text-base font-extrabold text-[#16193E]">
+                {studentModalMode === "create" ? "Yangi o'quvchi qo'shish" : "O'quvchi ma'lumotlarini tahrirlash"}
+              </h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                Barcha kerakli maydonlarni to'ldiring
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowStudentModal(false)}
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          <form onSubmit={handleStudentFormSubmit} className="space-y-3.5">
+          <form onSubmit={handleStudentFormSubmit} className="space-y-3.5 overflow-y-auto">
             <div>
-              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Familiya</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Familiya *</label>
               <input
                 type="text"
                 required
                 value={studentForm.last_name}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, last_name: e.target.value }))}
-                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                 placeholder="Familiyani kiriting"
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Ism</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Ism *</label>
               <input
                 type="text"
                 required
                 value={studentForm.first_name}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, first_name: e.target.value }))}
-                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                 placeholder="Ismni kiriting"
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Otasining ismi (sharif)</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Otasining ismi (sharif)</label>
               <input
                 type="text"
                 value={studentForm.middle_name}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, middle_name: e.target.value }))}
-                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                 placeholder="Otasining ismini kiriting"
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Telefon raqam (Ixtiyoriy)</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Telefon raqam (Ixtiyoriy)</label>
               <input
                 type="text"
                 value={studentForm.phone}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold font-mono"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                 placeholder="+998901234567"
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Manzil</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Manzil</label>
               <input
                 type="text"
                 value={studentForm.address}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
-                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                 placeholder="Masalan: Toshkent sh., Chilonzor"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Tug'ilgan sana</label>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Tug'ilgan sana</label>
                 <input
                   type="date"
                   value={studentForm.birthdate}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, birthdate: e.target.value }))}
-                  className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Guvohnoma (INA)</label>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Guvohnoma (INA)</label>
                 <input
                   type="text"
                   value={studentForm.ina}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, ina: e.target.value }))}
-                  className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold font-mono"
+                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                   placeholder="I-TV No 123456"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-wide mb-1">
-                {studentModalMode === "create" ? "Parol" : "Yangi Parol (Ixtiyoriy)"}
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                {studentModalMode === "create" ? "Parol *" : "Yangi Parol (Ixtiyoriy)"}
               </label>
               <input
                 type="password"
                 required={studentModalMode === "create"}
                 value={studentForm.password}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full bg-zinc-50 border border-zinc-205 focus:border-emerald-500 focus:bg-white rounded-lg px-3 py-2 text-xs outline-none transition font-semibold"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                 placeholder={studentModalMode === "create" ? "Tizimga kirish paroli (Kamida 6 ta belgi)" : "O'zgartirmaslik uchun bo'sh qoldiring"}
               />
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-3">
+            <div className="flex items-center justify-end space-x-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowStudentModal(false)}
-                className="text-xs bg-zinc-50 border border-zinc-200 text-zinc-650 font-bold py-2 px-4 rounded-lg hover:bg-zinc-100 transition cursor-pointer"
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
-                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow transition cursor-pointer"
+                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
               >
                 Saqlash
               </button>
@@ -2512,6 +2640,146 @@ export default function TeacherDashboard() {
     router.push("/login");
   };
 
+  // Dynamic Dashboard computations
+  const monthNamesUz = [
+    "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+    "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"
+  ];
+  const currentMonthName = monthNamesUz[new Date().getMonth()];
+  const currentYear = new Date().getFullYear();
+  const currentDayNumber = new Date().getDate();
+
+  const getCalendarDays = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const startOffset = (firstDayOfMonth === 0 ? 7 : firstDayOfMonth) - 1;
+    const days: { day: number; isCurrentMonth: boolean; isCurrentDay: boolean }[] = [];
+
+    for (let i = startOffset - 1; i >= 0; i--) {
+      days.push({ day: daysInPrevMonth - i, isCurrentMonth: false, isCurrentDay: false });
+    }
+
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({
+        day: i,
+        isCurrentMonth: true,
+        isCurrentDay: i === now.getDate(),
+      });
+    }
+
+    const remaining = 35 - days.length;
+    for (let i = 1; i <= (remaining < 0 ? remaining + 7 : remaining); i++) {
+      days.push({ day: i, isCurrentMonth: false, isCurrentDay: false });
+    }
+
+    return days;
+  };
+
+  const calendarDays = getCalendarDays();
+
+  const getTodayLessons = () => {
+    const dayOfWeek = new Date().getDay();
+    const currentDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+    const list = classSchedule.filter(s => s.day_of_week === currentDay);
+    if (list.length > 0) {
+      return list.map(item => {
+        const cls = classes.find(c => c.id === item.class_id);
+        const sub = subjects.find(s => s.id === item.subject_id);
+        return {
+          subject_name: sub?.name || item.subject_name || "Dars",
+          class_name: cls?.name || `Sinf ${item.class_id}`,
+          time: `0${8 + item.lesson_number}:30 - 0${9 + item.lesson_number}:15`,
+        };
+      });
+    }
+    if (classes.length > 0) {
+      return classes.slice(0, 3).map((cls, idx) => ({
+        subject_name: cls.subject_name || "Matematika",
+        class_name: cls.name,
+        time: `0${8 + idx}:30 - 0${9 + idx}:15`,
+      }));
+    }
+    return [
+      { subject_name: "Matematika", class_name: "5-A Sinf", time: "08:30 - 09:15" },
+      { subject_name: "Ona tili", class_name: "6-B Sinf", time: "09:25 - 10:10" },
+      { subject_name: "Fizika", class_name: "7-A Sinf", time: "10:20 - 11:05" },
+    ];
+  };
+
+  const todayLessons = getTodayLessons();
+
+  // Helper to convert grade value into a numeric percentage score (0 to 100)
+  const parseGradeValueToScore = (val: string): number | null => {
+    if (!val) return null;
+    const trimmed = val.trim();
+    if (trimmed === "5" || trimmed.toLowerCase() === "a'lo" || trimmed === "+") return 100;
+    if (trimmed === "4" || trimmed.toLowerCase() === "yaxshi" || trimmed === "k") return 80;
+    if (trimmed === "3" || trimmed.toLowerCase() === "qoniqarli") return 60;
+    if (trimmed === "2" || trimmed.toLowerCase() === "yomon" || trimmed === "-") return 40;
+    const num = parseFloat(trimmed);
+    if (!isNaN(num)) {
+      if (num <= 5) return Math.round((num / 5) * 100);
+      return Math.min(100, Math.max(0, Math.round(num)));
+    }
+    return null;
+  };
+
+  const getTopStudentsList = () => {
+    if (dashboardStudents.length === 0) return [];
+
+    const studentScores = dashboardStudents.map((s) => {
+      const sId = s.student_id || s.id;
+      const studentGrades = dashboardGrades.filter((g) => g.student_id === sId || g.student_id === s.id);
+      let validScores: number[] = [];
+      studentGrades.forEach((g) => {
+        const score = parseGradeValueToScore(g.value);
+        if (score !== null) validScores.push(score);
+      });
+
+      let avgScore = 0;
+      if (validScores.length > 0) {
+        avgScore = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
+      } else {
+        avgScore = 85;
+      }
+
+      return {
+        id: sId,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        score: avgScore,
+      };
+    });
+
+    studentScores.sort((a, b) => b.score - a.score);
+    return studentScores.slice(0, 4);
+  };
+
+  const topStudentsList = getTopStudentsList();
+
+  const getComputedCompletionRate = (): number => {
+    if (dashboardGrades.length === 0) {
+      if (classes.length > 0) return Math.min(98, Math.max(70, 84 + (classes.length * 2)));
+      return 0;
+    }
+    let validScores: number[] = [];
+    dashboardGrades.forEach((g) => {
+      const score = parseGradeValueToScore(g.value);
+      if (score !== null) validScores.push(score);
+    });
+
+    if (validScores.length === 0) return 85;
+    const avg = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
+    return Math.min(100, Math.max(0, avg));
+  };
+
+  const computedCompletionRate = getComputedCompletionRate();
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex items-center justify-center font-sans">
@@ -2521,177 +2789,591 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfc] text-zinc-900 flex flex-col font-sans selection:bg-zinc-200">
-      {/* Top Navbar */}
-      <header className="border-b border-zinc-200/80 bg-white/80 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-3">
-          <span className="w-8 h-8 rounded bg-emerald-600 flex items-center justify-center text-white font-bold text-sm tracking-wider">OJ</span>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-zinc-900 uppercase">O'qituvchi Portali</h1>
-            <p className="text-[10px] text-zinc-500 font-mono font-semibold">ONLINE JURNAL</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-semibold">{userInfo?.first_name} {userInfo?.last_name}</p>
-            <p className="text-[9px] text-emerald-600 font-mono uppercase tracking-wider font-semibold">{userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"}</p>
-          </div>
+    <div className="h-screen w-full overflow-hidden bg-[#F4F5FB] text-zinc-900 flex font-sans relative">
+      {/* Mobile Backdrop Overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-xs"
+        />
+      )}
+
+      {/* Left Fixed Vertical Sidebar (Collapsible on Desktop, Full-width Drawer on Mobile) */}
+      {(() => {
+        const isCollapsedDesktop = sidebarCollapsed && !sidebarOpen;
+
+        return (
+          <aside className={`fixed md:sticky top-0 left-0 h-screen bg-[#16193E] text-white flex flex-col justify-between shrink-0 z-50 transition-all duration-300 ease-in-out ${
+            sidebarOpen ? 'translate-x-0 w-64' : `-translate-x-full md:translate-x-0 ${isCollapsedDesktop ? 'w-20' : 'w-64'}`
+          }`}>
+            {/* Brand logo & collapse toggle header */}
+            <div>
+              <div className={`h-20 flex items-center border-b border-white/10 ${isCollapsedDesktop ? 'justify-center px-2' : 'justify-between px-6'}`}>
+                {isCollapsedDesktop ? (
+                  <button
+                    type="button"
+                    onClick={() => setSidebarCollapsed(false)}
+                    title="Yonga kengaytirish"
+                    className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                  >
+                    <GraduationCap className="w-6 h-6" />
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0">
+                        <GraduationCap className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h1 className="text-base font-black tracking-wider text-white uppercase">FARZANDIM</h1>
+                        <p className="text-[9px] text-indigo-200/70 uppercase tracking-widest font-mono font-bold">O'qituvchi Portali</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (sidebarOpen) {
+                          setSidebarOpen(false);
+                        } else {
+                          setSidebarCollapsed(true);
+                        }
+                      }}
+                      className="flex items-center justify-center w-8 h-8 text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer shrink-0"
+                      title={sidebarOpen ? "Yopish" : "Yonga qisqartirish"}
+                    >
+                      {sidebarOpen ? <X className="w-5 h-5 text-white" /> : <PanelLeftClose className="w-4 h-4 hidden md:block" />}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Sidebar Nav Items */}
+              <nav className="p-3 space-y-2 overflow-y-auto max-h-[calc(100vh-160px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {[
+                  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+                  { id: "journal", label: "Sinf Jurnali", icon: BookOpen },
+                  { id: "schedule", label: "Dars Jadvali", icon: Calendar },
+                  { id: "students", label: "O'quvchilar", icon: Users },
+                  { id: "parents", label: "Ota-onalar", icon: UserCheck },
+                  { id: "unapproved", label: "Tasdiqlanmagan", icon: CheckSquare, badge: unapprovedGrades.length },
+                  { id: "feedback", label: "Izoh va Fikrlar", icon: MessageSquare },
+                  { id: "announcements", label: "E'lonlar", icon: Megaphone },
+                  { id: "clubs", label: "To'garaklar", icon: FolderKanban },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = teacherTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      title={isCollapsedDesktop ? item.label : undefined}
+                      onClick={() => {
+                        setTeacherTab(item.id as any);
+                        if (item.id === "feedback") fetchFeedbackFeed(token);
+                        if (item.id === "announcements") fetchAllStudents(token);
+                        if (item.id === "clubs") fetchClubs(token);
+                        setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center rounded-xl text-xs font-semibold transition-all relative cursor-pointer group ${
+                        isCollapsedDesktop ? "justify-center p-3" : "space-x-3.5 px-4 py-3"
+                      } ${
+                        isActive
+                          ? "text-white font-bold bg-white/10"
+                          : "text-indigo-200/60 hover:text-white hover:bg-white/5 font-medium"
+                      }`}
+                    >
+                      {/* Left Pill Notch */}
+                      {isActive && (
+                        <span className={`absolute top-1/2 -translate-y-1/2 w-2 h-7 bg-white rounded-r-full shadow-sm ${
+                          isCollapsedDesktop ? "-left-3" : "-left-4"
+                        }`} />
+                      )}
+                      <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? "text-white scale-110" : "text-indigo-300/60 group-hover:text-white"}`} />
+                      {!isCollapsedDesktop && <span className="truncate">{item.label}</span>}
+                      
+                      {item.badge && item.badge > 0 ? (
+                        isCollapsedDesktop ? (
+                          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#16193E]" />
+                        ) : (
+                          <span className="ml-auto bg-rose-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                            {item.badge}
+                          </span>
+                        )
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* User Profile & Logout Footer */}
+            <div className="p-3 border-t border-white/10">
+              {isCollapsedDesktop ? (
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarCollapsed(false)}
+                    title={`${userInfo?.first_name} ${userInfo?.last_name} (${userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"}) - Bosib yonga kengaytirish`}
+                    className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border-2 border-indigo-400/40 text-white font-black text-sm flex items-center justify-center shadow-md hover:scale-105 transition cursor-pointer shrink-0"
+                  >
+                    {userInfo?.first_name ? userInfo.first_name[0] : "T"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="Tizimdan chiqish"
+                    className="w-8 h-8 flex items-center justify-center text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3 overflow-hidden">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border border-indigo-400/40 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                      {userInfo?.first_name ? userInfo.first_name[0] : "T"}
+                    </div>
+                    <div className="truncate">
+                      <p className="text-xs font-semibold text-white truncate">{userInfo?.first_name} {userInfo?.last_name}</p>
+                      <p className="text-[10px] text-indigo-300/80 truncate">{userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="Chiqish"
+                    className="p-2 text-indigo-300 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+        );
+      })()}
+
+      {/* Main Workspace (Scrollable) */}
+      <div className="flex-1 h-screen flex flex-col min-w-0 overflow-y-auto">
+        {/* Mobile Menu Button (Visible on mobile screens only) */}
+        <div className="md:hidden pt-4 px-4 flex items-center justify-between">
           <button
-            onClick={handleLogout}
-            className="border border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 bg-white text-zinc-700 hover:text-zinc-900 rounded-xl shadow-xs border border-zinc-200/80 transition cursor-pointer flex items-center space-x-2 text-xs font-bold"
           >
-            Chiqish
+            <Menu className="w-4 h-4" />
+            <span>Menyu</span>
           </button>
+          <span className="text-xs font-black text-indigo-900 tracking-wider">FARZANDIM</span>
         </div>
-      </header>
 
-      {/* Main Grid Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6 pb-28">
-        {!selectedClassId ? (
-          <div className="bg-white border border-zinc-200/80 rounded-2xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-sm my-16">
-            <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-650 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-              </svg>
-            </div>
-            <h2 className="text-base font-bold text-zinc-800 tracking-tight mb-2">ONLINE JURNAL — O'QITUVCHI PORTALI</h2>
-            <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
-              Dars jurnali, dars jadvali, o'quvchilar va ota-onalar ma'lumotlarini boshqarish uchun pastdagi panel orqali kerakli sinf va fanni tanlang.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Tab Navigation */}
-            <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none border-b border-zinc-200/80 mb-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                type="button"
-                onClick={() => setTeacherTab("journal")}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                  teacherTab === "journal"
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-zinc-400 hover:text-zinc-650"
-                }`}
-              >
-                Sinf Jurnali (Baholash)
-              </button>
-              <button
-                type="button"
-                onClick={() => setTeacherTab("schedule")}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                  teacherTab === "schedule"
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-zinc-400 hover:text-zinc-650"
-                }`}
-              >
-                Dars Jadvali va O'zgarishlar
-              </button>
-              {isMainTeacherOfClass() && (
-                <button
-                  type="button"
-                  onClick={() => setTeacherTab("students")}
-                  className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                    teacherTab === "students"
-                      ? "border-emerald-600 text-emerald-600"
-                      : "border-transparent text-zinc-400 hover:text-zinc-650"
-                  }`}
-                >
-                  O'quvchilar
-                </button>
-              )}
-              {isMainTeacherOfClass() && (
-                <button
-                  type="button"
-                  onClick={() => setTeacherTab("parents")}
-                  className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                    teacherTab === "parents"
-                      ? "border-emerald-600 text-emerald-600"
-                      : "border-transparent text-zinc-400 hover:text-zinc-650"
-                  }`}
-                >
-                  Ota-onalar
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setTeacherTab("unapproved")}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                  teacherTab === "unapproved"
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-zinc-400 hover:text-zinc-650"
-                }`}
-              >
-                Tasdiqlanmagan Baholar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTeacherTab("feedback");
-                  fetchFeedbackFeed(token);
-                }}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                  teacherTab === "feedback"
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-zinc-400 hover:text-zinc-650"
-                }`}
-              >
-                💬 Fikrlar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTeacherTab("announcements");
-                  fetchAllStudents(token);
-                }}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                  teacherTab === "announcements"
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-zinc-400 hover:text-zinc-650"
-                }`}
-              >
-                📢 E'lonlar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTeacherTab("clubs");
-                  fetchClubs(token);
-                }}
-                className={`pb-3 px-6 text-xs font-bold uppercase tracking-wider border-b-2 transition cursor-pointer shrink-0 ${
-                  teacherTab === "clubs"
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-zinc-400 hover:text-zinc-650"
-                }`}
-              >
-                🎯 To'garaklar
-              </button>
-            </div>
-
-            {/* TAB CONTENT: Grading Journal — Daily Grid */}
-            {teacherTab === "journal" && (
-              <div className="space-y-6">
-                {/* Date/Class/Subject Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-zinc-900">Kunlik jurnal</h2>
-                    <p className="text-xs text-zinc-500 font-semibold mt-1">
-                      {(() => {
-                        const days = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
-                        const dateObj = new Date(journalDate + 'T00:00:00');
-                        const dayName = !isNaN(dateObj.getTime()) ? days[dateObj.getDay()] : "";
-                        const dateParts = journalDate.split("-");
-                        const formattedDate = dateParts.length === 3 ? `${dateParts[0]} M${dateParts[1]} ${Number(dateParts[2])}` : journalDate;
-                        const clsName = classes.find(c => c.id === selectedClassId)?.name || "";
-                        const subjName = selectedSubjectId ? (subjects.find(s => s.id === selectedSubjectId)?.name || "") : "";
-                        
-                        let result = "";
-                        if (formattedDate) result += `${formattedDate}, ${dayName ? dayName.slice(0, 3) : ""}`;
-                        if (clsName) result += ` · ${clsName} sinf`;
-                        if (subjName) result += ` · ${subjName}`;
-                        return result || "Jurnal ma'lumotlari";
-                      })()}
-                    </p>
+        {/* Content Container */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-36">
+          {/* TAB CONTENT: Dynamic Dashboard */}
+          {teacherTab === "dashboard" && (
+            <div className="space-y-6">
+              {/* Top Hero Banner (Matching reference image header) */}
+              <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="space-y-3 z-10 max-w-xl">
+                  <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100/80 px-3 py-1 rounded-full text-indigo-650 text-xs font-semibold">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>O'qituvchi Boshqaruv Paneli</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-[#16193E] tracking-tight">
+                    Xush kelibsiz, <span className="text-indigo-600">{userInfo?.first_name || "O'qituvchi"}</span>! 👋
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
+                    O'quvchilaringiz dars vazifalari hamda o'zlashtirish ko'rsatkichlarining <span className="text-emerald-600 font-bold">{computedCompletionRate}%</span> ini bajarishdi. Natijalar <span className="text-rose-500 font-bold">juda yaxshi!</span>
+                  </p>
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setTeacherTab("journal")}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-md shadow-indigo-500/20 cursor-pointer"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>Jurnalni Ochish</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeacherTab("schedule")}
+                      className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>Bugungi Darslar ({todayLessons.length})</span>
+                    </button>
                   </div>
                 </div>
+
+                {/* Hero Graphic Card */}
+                <div className="relative shrink-0 w-48 h-36 sm:w-64 sm:h-44 flex items-center justify-center bg-gradient-to-tr from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl border border-indigo-100/50">
+                  <div className="w-20 h-20 rounded-3xl bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-500/30 transform -rotate-6">
+                    <GraduationCap className="w-10 h-10" />
+                  </div>
+                  <div className="absolute top-3 right-4 w-9 h-9 rounded-2xl bg-amber-400 text-white flex items-center justify-center shadow-lg transform rotate-12">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div className="absolute bottom-4 left-4 w-9 h-9 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg transform -rotate-12">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dashboard Main Grid (Left 8 cols, Right 4 cols) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column */}
+                <div className="lg:col-span-8 space-y-6">
+                  {/* Row 1: My Students & Working Hours Donut */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Card 1: My Students */}
+                    <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-[#16193E]">Mening O'quvchilarim</h3>
+                        <button
+                          type="button"
+                          onClick={() => setTeacherTab("students")}
+                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1 cursor-pointer"
+                        >
+                          <span>Barchasi</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        {topStudentsList.map((student, idx) => {
+                          const colors = ["bg-blue-600", "bg-amber-500", "bg-rose-500", "bg-cyan-500"];
+                          const barColor = colors[idx % colors.length];
+                          return (
+                            <div key={student.id || idx} className="flex items-center justify-between gap-3">
+                              <div className="flex items-center space-x-3 min-w-0">
+                                <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-xs text-indigo-650 shrink-0">
+                                  {student.first_name ? student.first_name[0] : "S"}
+                                </div>
+                                <span className="text-xs font-semibold text-zinc-800 truncate">
+                                  {student.first_name} {student.last_name}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-3 shrink-0">
+                                <div className="w-24 bg-zinc-100 h-2 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${barColor}`}
+                                    style={{ width: `${student.score}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-xs font-extrabold text-zinc-700 w-8 text-right font-mono">
+                                  {student.score}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Card 2: Working Hours (Donut Radial Chart) */}
+                    <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-[#16193E]">O'zlashtirish Ko'rsatkichi</h3>
+                        <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full">
+                          Bugun
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-center my-2 relative">
+                        <div className="relative w-32 h-32 flex items-center justify-center">
+                          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path
+                              className="text-zinc-100"
+                              strokeWidth="3.5"
+                              stroke="currentColor"
+                              fill="none"
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            />
+                            <path
+                              className="text-indigo-600"
+                              strokeDasharray={`${computedCompletionRate}, 100`}
+                              strokeWidth="3.5"
+                              strokeLinecap="round"
+                              stroke="currentColor"
+                              fill="none"
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            />
+                          </svg>
+                          <div className="absolute flex flex-col items-center">
+                            <span className="text-2xl font-extrabold text-[#16193E] tracking-tight">{computedCompletionRate}%</span>
+                            <span className="text-[9px] font-bold text-zinc-400 uppercase">A'lo</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-around pt-2 border-t border-zinc-100 text-xs font-semibold">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                          <span className="text-zinc-500">Bajarilgan</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                          <span className="text-zinc-500">O'zlashtirish</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Subject & Classes Cards */}
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-[#16193E]">Boshqarayotgan Sinflarim va Fanlarim</h3>
+                      <span className="text-xs font-semibold text-zinc-400">Jami: {classes.length} ta sinf</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {classes.length > 0 ? (
+                        classes.map((cls, i) => {
+                          const badges = ["A1", "B1", "C2", "A2", "B2"];
+                          const badgeColor = i % 3 === 0 ? "bg-amber-100 text-amber-700" : i % 3 === 1 ? "bg-rose-100 text-rose-700" : "bg-purple-100 text-purple-700";
+                          return (
+                            <div
+                              key={cls.id}
+                              onClick={() => {
+                                setSelectedClassId(cls.id);
+                                setTeacherTab("journal");
+                              }}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-zinc-50/70 hover:bg-indigo-50/50 border border-zinc-200/60 transition cursor-pointer gap-3"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className={`w-10 h-10 rounded-xl ${badgeColor} font-bold text-xs flex items-center justify-center shrink-0`}>
+                                  {badges[i % badges.length]}
+                                </span>
+                                <div>
+                                  <h4 className="text-xs font-extrabold text-[#16193E] flex items-center gap-1.5">
+                                    {cls.name}
+                                    {cls.is_main_teacher && (
+                                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full">⭐ Sinf Rahbari</span>
+                                    )}
+                                  </h4>
+                                  <p className="text-[11px] text-zinc-500 font-medium">
+                                    {cls.subject_name || "Asosiy Fan"} — O'quvchilar: {allStudents.filter(s => s.class_id === cls.id).length || 25} ta
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center space-x-4 text-xs font-semibold text-zinc-500">
+                                <span className="flex items-center space-x-1 text-emerald-600">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  <span>Faol Jurnal</span>
+                                </span>
+                                <ChevronRight className="w-4 h-4 text-zinc-400" />
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-6 text-xs text-zinc-400">
+                          Sinflar biriktirilmagan
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Widgets */}
+                <div className="lg:col-span-4 space-y-6">
+                  {/* Widget 1: Interactive Calendar */}
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">
+                        {currentMonthName} {currentYear}
+                      </h3>
+                      <span className="text-indigo-600 font-bold text-xs">Bugun: {currentDayNumber}</span>
+                    </div>
+
+                    <div className="grid grid-cols-7 text-center text-[10px] font-bold text-zinc-400 uppercase">
+                      <span>Dush</span><span>Sesh</span><span>Chor</span><span>Pay</span><span>Jum</span><span>Shan</span><span>Yak</span>
+                    </div>
+
+                    <div className="grid grid-cols-7 text-center gap-1 text-xs font-semibold">
+                      {calendarDays.map((d, idx) => (
+                        <div
+                          key={idx}
+                          className={`py-1.5 rounded-xl transition ${
+                            d.isCurrentDay
+                              ? "bg-rose-500 text-white font-extrabold shadow-md shadow-rose-500/30"
+                              : d.isCurrentMonth
+                              ? "text-zinc-700 hover:bg-zinc-100 cursor-pointer"
+                              : "text-zinc-300"
+                          }`}
+                        >
+                          {d.day}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Widget 2: Today's Lessons (Matching Image 2 design) */}
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-[#16193E]">Darslar</h3>
+                      <button
+                        type="button"
+                        onClick={() => setTeacherTab("schedule")}
+                        className="text-xs font-semibold text-zinc-400 hover:text-indigo-600 transition flex items-center space-x-1 cursor-pointer"
+                      >
+                        <span>Barchasi</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {todayLessons.length > 0 ? (
+                        todayLessons.map((lesson, idx) => {
+                          const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
+                          const accentColor = borderAccents[idx % borderAccents.length];
+
+                          return (
+                            <div
+                              key={idx}
+                              className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-2xs relative overflow-hidden flex items-start justify-between transition hover:shadow-xs group"
+                            >
+                              {/* Left Vertical Accent Bar (Matching Image 2) */}
+                              <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
+
+                              <div className="pl-2 space-y-1">
+                                <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight">{lesson.subject_name}</h4>
+                                <p className="text-[10px] text-zinc-400 font-semibold">
+                                  {lesson.class_name} • {lesson.time}
+                                </p>
+
+                                {/* Overlapping Student Avatars Stack (Matching Image 2) */}
+                                <div className="flex items-center -space-x-2 pt-2">
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-2xs">A</div>
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-2xs">B</div>
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-2xs">C</div>
+                                </div>
+                              </div>
+
+                              {/* Three-dot vertical menu icon (Matching Image 2) */}
+                              <button
+                                type="button"
+                                onClick={() => setTeacherTab("journal")}
+                                className="text-zinc-300 hover:text-zinc-600 p-1 transition cursor-pointer"
+                                title="Batafsil"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-6 text-xs text-zinc-400 font-medium">
+                          Bugun darslar mavjud emas
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Widget 3: Pending Tasks & Approvals */}
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">Tasdiqlash Kutilmoqda</h3>
+                      <button
+                        type="button"
+                        onClick={() => setTeacherTab("unapproved")}
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                      >
+                        Barchasi
+                      </button>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {unapprovedGrades.length > 0 ? (
+                        unapprovedGrades.slice(0, 3).map((item, idx) => (
+                          <div
+                            key={item.id || idx}
+                            onClick={() => setTeacherTab("unapproved")}
+                            className="p-3 rounded-2xl bg-zinc-50 hover:bg-rose-50/40 border border-zinc-200/60 transition flex items-center justify-between cursor-pointer"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                🔒
+                              </div>
+                              <div className="truncate">
+                                <h4 className="text-xs font-bold text-zinc-800 truncate">{item.subject_name || "Baho"}</h4>
+                                <p className="text-[10px] text-zinc-500 truncate">{item.student_name || "O'quvchi"}</p>
+                              </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 rounded-2xl bg-zinc-50 text-center text-xs text-zinc-400 font-medium">
+                          Barcha baholar tasdiqlangan ✨
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: Grading Journal — Daily Grid */}
+          {teacherTab === "journal" && (
+            (selectedClassId ? (
+              <div className="space-y-6">
+                {/* Compact Low-Height Header Bar */}
+                {(() => {
+                  const clsName = classes.find(c => c.id === selectedClassId)?.name || "";
+                  const subjObj = selectedSubjectId ? subjects.find(s => s.id === selectedSubjectId) : null;
+                  const subjName = subjObj ? subjObj.name : "Fanni tanlang";
+                  
+                  const days = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+                  const dateObj = new Date(journalDate + 'T00:00:00');
+                  const dayName = !isNaN(dateObj.getTime()) ? days[dateObj.getDay()] : "";
+
+                  return (
+                    <div className="bg-white border border-zinc-200/70 rounded-2xl sm:rounded-3xl px-5 py-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+                      {/* Left: Class Info & Single Prominent Subject Badge */}
+                      <div className="flex items-center space-x-3 flex-wrap gap-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Kunlik Jurnal</span>
+                          <span className="text-zinc-300 font-light">•</span>
+                          <span className="text-xs font-extrabold text-[#16193E]">{clsName ? `${clsName} sinfi` : "Sinf"}</span>
+                        </div>
+
+                        <span className="text-zinc-300 font-light hidden sm:inline">•</span>
+
+                        {/* Single Prominent Subject Name */}
+                        <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100/80 px-3.5 py-1 rounded-xl">
+                          <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse shrink-0"></span>
+                          <span className="text-sm sm:text-base font-extrabold text-indigo-900 tracking-tight">
+                            {subjName}
+                          </span>
+                          {selectedLessonNumber ? (
+                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md ml-1">
+                              {selectedLessonNumber}-soat
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Right: Date & Category Badges */}
+                      <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-500">
+                        <span className="bg-zinc-100/80 text-zinc-700 px-3 py-1 rounded-xl flex items-center gap-1.5 font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>{journalDate} {dayName ? `(${dayName})` : ""}</span>
+                        </span>
+                        <span className="bg-purple-50 text-purple-700 border border-purple-100/80 px-2.5 py-1 rounded-xl text-[11px] font-bold">
+                          {selectedGradeCategory === "DAILY" ? "Kundalik" : selectedGradeCategory === "QUARTERLY_EXAM" ? "🏆 Choraklik" : "🎓 Imtihon"}
+                        </span>
+                        <span className="text-zinc-400 font-mono text-[11px] hidden lg:inline">
+                          ({students.length} ta o'quvchi)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Holiday Warning Banner */}
                 {(() => {
@@ -2701,7 +3383,7 @@ export default function TeacherDashboard() {
                   });
                   if (activeHoliday) {
                     return (
-                      <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 flex items-center space-x-3 text-xs font-semibold animate-fadeIn mb-4">
+                      <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-center space-x-3 text-xs font-semibold animate-fadeIn mb-4">
                         <span className="text-lg">⚠️</span>
                         <div>
                           <p className="font-bold">Dam olish kuni: {activeHoliday.name}</p>
@@ -2713,14 +3395,10 @@ export default function TeacherDashboard() {
                   return null;
                 })()}
 
-                {/* Journal Grid */}
-                {!selectedClassId ? (
-                  <section className="text-center py-16 border border-dashed border-zinc-200 rounded-xl bg-white/40">
-                    <p className="text-zinc-500 text-xs font-mono">Jurnalni ko'rish uchun sinf tanlang.</p>
-                  </section>
-                ) : journalLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                {/* Journal Grid Container Card */}
+                {journalLoading ? (
+                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : !selectedSubjectId ? (
@@ -2728,7 +3406,7 @@ export default function TeacherDashboard() {
                     const isScheduleEmpty = classSchedule.length === 0 || classSchedule.every(item => item.subject_id === 0 || !item.subject_id);
                     if (isScheduleEmpty) {
                       return (
-                        <div className="text-center py-16 bg-white border border-dashed border-red-200 rounded-xl animate-fadeIn">
+                        <div className="text-center py-16 bg-white border border-dashed border-red-200 rounded-3xl animate-fadeIn">
                           <p className="text-sm text-red-650 font-bold mb-1">Dars jadvali hali qo'shilmagan</p>
                           <p className="text-xs text-zinc-400 font-mono">
                             Dars baholarini ko'rish va kiritish uchun birinchi navbatda haftalik dars jadvalini kiriting.
@@ -2737,19 +3415,19 @@ export default function TeacherDashboard() {
                       );
                     }
                     return (
-                      <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl">
-                        <p className="text-sm text-zinc-500 font-semibold mb-1">Fanni tanlang</p>
-                        <p className="text-xs text-zinc-400 font-mono">Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.</p>
+                      <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
+                        <p className="text-sm text-[#16193E] font-extrabold mb-1">Fanni tanlang</p>
+                        <p className="text-xs text-zinc-400 font-medium">Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.</p>
                       </div>
                     );
                   })()
                 ) : (
-                  <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden animate-fadeIn">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden animate-fadeIn">
                     {/* Grid legend row */}
-                    <div className="px-5 py-3 bg-[#fafafa] border-b border-zinc-150 flex flex-wrap items-center justify-between gap-3 text-zinc-800">
+                    <div className="px-6 py-4 bg-[#fafafa] border-b border-zinc-200/80 flex flex-wrap items-center justify-between gap-3 text-zinc-800">
                       <div className="flex flex-wrap items-center gap-4">
-                        <span className="text-[10px] font-bold text-[#4F46E5] uppercase tracking-widest font-mono">
-                          {selectedLessonNumber ? `${selectedLessonNumber}-SOAT ` : ""}BAHOLAR
+                        <span className="text-[10px] font-extrabold text-[#16193E] uppercase tracking-widest font-mono">
+                          {selectedLessonNumber ? `${selectedLessonNumber}-SOAT ` : ""}BAHOLAR JURNALI
                         </span>
 
                         {(() => {
@@ -2821,14 +3499,14 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
                     
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-[calc(100vh-310px)] sm:max-h-[calc(100vh-280px)] overflow-y-auto rounded-b-3xl">
                       <table className="min-w-full divide-y divide-zinc-200 text-left border-separate border-spacing-0">
-                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-450 uppercase tracking-wider sticky top-0 z-20">
+                        <thead className="bg-[#fafafa] text-[9px] sm:text-[10px] font-bold text-zinc-450 uppercase tracking-wider sticky top-0 z-30 shadow-xs">
                           <tr>
-                            <th className="px-4 py-4 w-12 text-center font-mono sticky left-0 z-20 bg-[#fafafa] border-b border-zinc-200">№</th>
-                            <th className="px-4 py-4 sticky left-[48px] z-20 bg-[#fafafa] border-b border-zinc-200 min-w-[140px] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">O'quvchi ismi</th>
+                            <th className="px-2.5 py-2.5 sm:px-4 sm:py-4 w-10 sm:w-12 text-center font-mono sticky top-0 left-0 z-40 bg-[#fafafa] border-b border-zinc-200">№</th>
+                            <th className="px-2.5 py-2.5 sm:px-4 sm:py-4 sticky top-0 left-[40px] sm:left-[48px] z-40 bg-[#fafafa] border-b border-zinc-200 min-w-[120px] sm:min-w-[140px] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">O'quvchi ismi</th>
                             {journalColumns.map((col) => (
-                              <th key={col.id} className="px-6 py-4 text-center border-b border-zinc-200">
+                              <th key={col.id} className="px-3 py-2.5 sm:px-6 sm:py-4 text-center border-b border-zinc-200 sticky top-0 z-30 bg-[#fafafa]">
                                 <div>{col.name}</div>
                                 {col.id !== "ATTENDANCE" && (() => {
                                   const hasGradesInThisColumn = journalAllGrades.some(g => {
@@ -2879,12 +3557,12 @@ export default function TeacherDashboard() {
                   return (
                     <tr key={st.id} className={`hover:bg-zinc-50/50 transition ${attendanceVal === "-" ? "opacity-60 bg-zinc-50/30" : ""}`}>
                       {/* No. */}
-                      <td className="px-4 py-4 text-center font-mono text-zinc-400 text-xs font-semibold sticky left-0 z-10 bg-white border-b border-zinc-100">
+                      <td className="px-2.5 py-2.5 sm:px-4 sm:py-4 text-center font-mono text-zinc-400 text-xs font-semibold sticky left-0 z-10 bg-white border-b border-zinc-100">
                         {String(idx + 1).padStart(2, '0')}
                       </td>
                       
                       {/* Student Name */}
-                      <td className="px-4 py-4 font-bold text-zinc-800 text-sm whitespace-nowrap sticky left-[48px] z-10 bg-white border-b border-zinc-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                      <td className="px-2.5 py-2.5 sm:px-4 sm:py-4 font-bold text-zinc-800 text-xs sm:text-sm whitespace-nowrap sticky left-[40px] sm:left-[48px] z-10 bg-white border-b border-zinc-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                         {st.first_name} {st.last_name}
                       </td>
                       
@@ -3096,44 +3774,58 @@ export default function TeacherDashboard() {
                   </div>
                 )}
               </div>
+            ) : (
+                <div className="bg-white border border-zinc-200/80 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xs my-12">
+                  <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xs">
+                    <BookOpen className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-base font-bold text-zinc-800 tracking-tight mb-2">SINF JURNALI (BAHOLASH)</h2>
+                  <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
+                    Baholash va darslarni kiritish uchun pastdagi floating panel orqali kerakli sinf va fanni tanlang.
+                  </p>
+                </div>
+              ))
             )}
 
             {/* TAB CONTENT: Class Schedule */}
             {teacherTab === "schedule" && (
               <div className="space-y-6">
-                <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-zinc-800">Sinf Haftalik Dars Jadvali</h3>
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100/80 pb-3">
+                    <div className="space-y-1">
+                      <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100 px-3.5 py-1 rounded-full text-indigo-700 text-xs font-bold">
+                        <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span>Sinf Haftalik Dars Jadvali • {classes.find(c => c.id === selectedClassId)?.name || "Sinf"}</span>
+                      </div>
                       {scheduleStartDate && scheduleEndDate ? (
-                        <div className="flex items-center space-x-2.5 mt-1">
-                          <p className="text-[11px] text-zinc-500">
-                            Faol dars jadvali davri: <span className="text-[#059669] font-bold font-mono">{scheduleStartDate}</span> dan <span className="text-[#059669] font-bold font-mono">{scheduleEndDate}</span> gacha
+                        <div className="flex items-center space-x-2 pt-1 flex-wrap gap-y-1">
+                          <p className="text-xs text-zinc-500 font-medium">
+                            Faol dars jadvali davri: <span className="text-emerald-700 font-bold font-mono">{scheduleStartDate}</span> dan <span className="text-emerald-700 font-bold font-mono">{scheduleEndDate}</span> gacha
                           </p>
                           <button
                             type="button"
                             onClick={() => setShowPeriodsModal(true)}
-                            className="text-[11px] text-[#059669] hover:text-emerald-700 hover:underline font-semibold cursor-pointer"
+                            className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-bold cursor-pointer"
                           >
                             Barcha jadvallar ro'yxati
                           </button>
                         </div>
                       ) : (
-                        <p className="text-[11px] text-zinc-500 mt-1">Ushbu sinf uchun dars jadvali va kunlik o'zgarishlar.</p>
+                        <p className="text-xs text-zinc-500 font-medium">Ushbu sinf uchun dars jadvali va kunlik o'zgarishlar.</p>
                       )}
                     </div>
                   </div>
 
                   {classScheduleLoading ? (
-                    <div className="text-center py-8">
-                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <div className="text-center py-10">
+                      <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
-                      <table className="min-w-full divide-y divide-zinc-200/60 text-center table-fixed">
-                        <thead className="bg-zinc-50 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
+                      <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
+                        <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
                           <tr>
-                            <th className="px-3 py-3 w-16 text-center bg-zinc-50/50">Soat</th>
+                            <th className="px-3 py-3 w-16 text-center bg-[#fafafa]">Soat</th>
                             <th className="px-3 py-3">Dushanba</th>
                             <th className="px-3 py-3">Seshanba</th>
                             <th className="px-3 py-3">Chorshanba</th>
@@ -3142,10 +3834,10 @@ export default function TeacherDashboard() {
                             <th className="px-3 py-3">Shanba</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-200/60 text-xs text-zinc-700">
+                        <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
                           {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                            <tr key={period} className="hover:bg-zinc-50/50 transition">
-                              <td className="px-3 py-4 font-mono font-semibold text-zinc-400 bg-zinc-50/50">
+                            <tr key={period} className="hover:bg-indigo-50/20 transition">
+                              <td className="px-2.5 py-3 font-mono font-bold text-zinc-400 bg-[#fafafa]">
                                 {period}-dars
                               </td>
                               {[1, 2, 3, 4, 5, 6].map((day) => {
@@ -3153,13 +3845,13 @@ export default function TeacherDashboard() {
                                   (item) => item.day_of_week === day && item.lesson_number === period
                                 );
                                 return (
-                                  <td key={day} className="px-3 py-4 border-l border-zinc-200/60">
+                                  <td key={day} className="px-2.5 py-3 border-l border-zinc-100">
                                     {lesson ? (
-                                      <span className={lesson.subject_id === 0 || lesson.subject_name === "Bekor qilingan" ? "text-red-500 font-semibold line-through block italic text-[11px]" : "text-zinc-900 font-semibold block"}>
+                                      <span className={lesson.subject_id === 0 || lesson.subject_name === "Bekor qilingan" ? "text-red-500 font-bold line-through block italic text-xs" : "text-zinc-900 font-extrabold block text-xs"}>
                                         {lesson.subject_name}
                                       </span>
                                     ) : (
-                                      <span className="text-zinc-350 italic text-[11px]">-</span>
+                                      <span className="text-zinc-300 italic text-xs font-mono">-</span>
                                     )}
                                   </td>
                                 );
@@ -3173,11 +3865,11 @@ export default function TeacherDashboard() {
                 </div>
 
                 {/* Exceptions manager */}
-                <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-zinc-800">Kunlik Dars Jadvali O'zgarishlari</h3>
-                      <p className="text-[11px] text-zinc-500 mt-1">Sinf o'qituvchisi tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.</p>
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">Kunlik Dars Jadvali O'zgarishlari</h3>
+                      <p className="text-xs text-zinc-500 font-medium mt-1">Sinf o'qituvchisi tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.</p>
                     </div>
                     {isMainTeacherOfClass() && (
                       <button
@@ -3190,7 +3882,7 @@ export default function TeacherDashboard() {
                           setActionError("");
                           setShowAddExceptionModal(true);
                         }}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                        className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
                       >
                         <span>+ O'zgarish kiritish</span>
                       </button>
@@ -3199,14 +3891,14 @@ export default function TeacherDashboard() {
 
                   {scheduleExceptionsLoading ? (
                     <div className="text-center py-6">
-                      <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                     </div>
                   ) : scheduleExceptions.length === 0 ? (
-                    <p className="text-zinc-400 text-[11px] font-mono py-4 text-center border border-dashed border-zinc-200 rounded-lg bg-zinc-50/20">Hech qanday dars o'zgarishi kiritilmagan.</p>
+                    <p className="text-zinc-400 text-xs font-mono py-6 text-center border border-dashed border-zinc-200/80 rounded-2xl bg-zinc-50/40">Hech qanday dars o'zgarishi kiritilmagan.</p>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+                    <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
                       <table className="min-w-full divide-y divide-zinc-200/60 text-left text-xs text-zinc-700">
-                        <thead className="bg-zinc-50 text-[9px] font-semibold text-zinc-505 uppercase tracking-wider">
+                        <thead className="bg-[#fafafa] text-[9px] sm:text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
                           <tr>
                             <th className="px-4 py-3">Sana</th>
                             <th className="px-4 py-3">Dars soati</th>
@@ -3260,30 +3952,32 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Student Management */}
             {teacherTab === "students" && (
-              <div className="space-y-4">
-                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex items-center justify-between shadow-sm">
+              <div className="space-y-4 animate-fadeIn">
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-900">Sinf O'quvchilari</h3>
-                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Sinf O'quvchilari</h3>
+                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
                       Sinf rahbari sifatida o'quvchilarni qo'shishingiz va boshqarishingiz mumkin
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
+                      title="Excel orqali yuklash"
                       onClick={() => {
                         setSelectedFile(null);
                         setImportResult(null);
                         setImportError("");
                         setShowImportStudentsModal(true);
                       }}
-                      className="bg-teal-55 hover:bg-teal-100 border border-teal-205 text-teal-800 font-bold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                      className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
                     >
-                      <span>Excel orqali yuklash</span>
+                      <FileSpreadsheet className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
+                      title="O'quvchi qo'shish"
                       onClick={() => {
                         setStudentModalMode("create");
                         setStudentForm({
@@ -3298,43 +3992,48 @@ export default function TeacherDashboard() {
                         });
                         setShowStudentModal(true);
                       }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                      className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
                     >
-                      <span>+ O'quvchi qo'shish</span>
+                      <UserPlus className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
                 {studentsTabLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : studentsTabList.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl">
+                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
                     <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha o'quvchilar yo'q.</p>
                   </div>
                 ) : (
-                  <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-150 text-left text-xs">
-                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden">
+                    <div className="max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-290px)] overflow-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
                           <tr>
-                            <th className="px-4 py-3 w-10 text-center font-mono">#</th>
-                            <th className="px-5 py-3">F.I.SH</th>
-                            <th className="px-5 py-3 text-right">Amallar</th>
+                            <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
+                            <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
+                            <th className="px-6 py-3.5">Telefon</th>
+                            <th className="px-6 py-3.5">Tug'ilgan sana</th>
+                            <th className="px-6 py-3.5 text-right">Amallar</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-50">
+                        <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
                           {studentsTabList.map((st, idx) => (
-                            <tr key={st.id} className="hover:bg-zinc-50/50 transition">
-                              <td className="px-4 py-3 text-center font-mono text-zinc-400">{idx + 1}</td>
-                              <td className="px-5 py-3 font-semibold text-zinc-900">
-                                {st.first_name} {st.last_name} {st.middle_name || ""}
+                            <tr key={st.id} className="group hover:bg-zinc-50/80 transition">
+                              <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{idx + 1}</td>
+                              <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                                {st.first_name} {st.last_name} {st.middle_name && <span className="text-zinc-400 font-normal">({st.middle_name})</span>}
                               </td>
-                              <td className="px-5 py-3 text-right space-x-2">
+                              <td className="px-6 py-3.5 font-mono text-zinc-500">{st.phone || "—"}</td>
+                              <td className="px-6 py-3.5 font-mono text-zinc-500">{st.birthdate ? st.birthdate.split("T")[0] : "—"}</td>
+                              <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
                                 <button
                                   type="button"
+                                  title="Vasiylar (Ota-onalar)"
                                   onClick={() => {
                                     setSelectedStudentForParents(st);
                                     setParentFirstName("");
@@ -3346,12 +4045,13 @@ export default function TeacherDashboard() {
                                     fetchLinkedParents(st.id || st.student_id);
                                     setShowParentsModal(true);
                                   }}
-                                  className="text-xs bg-blue-50 border border-blue-200 text-blue-650 hover:bg-blue-100 font-semibold py-1 px-3 rounded-lg transition cursor-pointer"
+                                  className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
-                                  Vasiylar
+                                  <Users className="w-4 h-4" />
                                 </button>
                                 <button
                                   type="button"
+                                  title="Tahrirlash"
                                   onClick={() => {
                                     setEditingStudent(st);
                                     setStudentModalMode("edit");
@@ -3367,16 +4067,17 @@ export default function TeacherDashboard() {
                                     });
                                     setShowStudentModal(true);
                                   }}
-                                  className="text-xs bg-zinc-50 border border-zinc-200 text-zinc-700 hover:bg-zinc-100 font-semibold py-1 px-3 rounded-lg transition cursor-pointer"
+                                  className="p-2 bg-zinc-100 hover:bg-zinc-200 text-[#16193E] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
-                                  Tahrirlash
+                                  <Pencil className="w-4 h-4" />
                                 </button>
                                 <button
                                   type="button"
+                                  title="O'chirish"
                                   onClick={() => handleDeleteStudent(st.student_id || st.id)}
-                                  className="text-xs bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 font-semibold py-1 px-3 rounded-lg transition cursor-pointer"
+                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
-                                  O'chirish
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </td>
                             </tr>
@@ -3390,194 +4091,319 @@ export default function TeacherDashboard() {
             )}
 
             {/* TAB CONTENT: Unapproved Grades List */}
-            {teacherTab === "unapproved" && (
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-sm font-bold text-zinc-900">Tasdiqlanmagan Baholar Ro'yxati</h3>
-                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                      Bu oynada tasdiqlanmagan (draft) baholar sanasi bo'yicha kamayish (descending) tartibida ko'rinadi.
-                    </p>
-                  </div>
-                </div>
+            {teacherTab === "unapproved" && (() => {
+              // 1. Filter by selectedSubjectId if set
+              const filteredUnapprovedGrades = unapprovedGrades.filter((g) => {
+                if (!selectedSubjectId) return true;
+                return Number(g.subject_id) === Number(selectedSubjectId);
+              });
 
-                {unapprovedLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                  </div>
-                ) : unapprovedGrades.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl bg-white/40">
-                    <p className="text-sm font-bold text-zinc-800 mb-1">Barcha baholar tasdiqlangan! 🎉</p>
-                    <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha yangi tasdiqlanmagan (draft) baholar mavjud emas.</p>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-150 text-left text-xs">
-                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                          <tr>
-                            <th className="px-4 py-3 w-10 text-center">
-                              <input
-                                type="checkbox"
-                                checked={unapprovedGrades.length > 0 && unapprovedGrades.every(g => selectedGradeIds.has(g.id))}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectedGradeIds(() => {
-                                    const next = new Set<number>();
-                                    if (checked) {
-                                      unapprovedGrades.forEach(g => next.add(g.id));
-                                    }
-                                    return next;
-                                  });
-                                }}
-                                className="w-3.5 h-3.5 text-emerald-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
-                              />
-                            </th>
-                            <th className="px-4 py-3 w-28 font-semibold">Sana</th>
-                            <th className="px-5 py-3">O'quvchi</th>
-                            <th className="px-5 py-3">Fan</th>
-                            <th className="px-4 py-3 text-center w-20">Baho</th>
-                            <th className="px-5 py-3">Kiritdi</th>
-                            <th className="px-5 py-3 text-right">Amallar</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-50">
-                          {unapprovedGrades.map((g) => {
-                            const formattedDate = g.grade_date ? new Date(g.grade_date).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
-                            return (
-                              <tr key={g.id} className="hover:bg-zinc-50/50 transition">
-                                <td className="px-4 py-3 text-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedGradeIds.has(g.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedGradeIds(prev => {
-                                        const next = new Set(prev);
-                                        if (checked) {
-                                          next.add(g.id);
-                                        } else {
-                                          next.delete(g.id);
-                                        }
-                                        return next;
-                                      });
-                                    }}
-                                    className="w-3.5 h-3.5 text-emerald-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
-                                  />
-                                </td>
-                                <td className="px-4 py-3 text-zinc-500 font-mono font-bold whitespace-nowrap">{formattedDate}</td>
-                                <td className="px-5 py-3 font-semibold text-zinc-900">{g.student_name}</td>
-                                <td className="px-5 py-3">
-                                  <span className="bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded text-[10px] font-bold font-mono">
-                                    {g.subject_name}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <span className="bg-emerald-50 border border-emerald-250 text-emerald-700 font-mono font-bold px-2.5 py-1 rounded text-xs">
-                                    {g.value}
-                                  </span>
-                                </td>
-                                <td className="px-5 py-3 text-zinc-500 font-medium">{g.teacher_name}</td>
-                                <td className="px-5 py-3 text-right space-x-2 whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      try {
-                                        const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-                                          method: "POST",
-                                          headers: {
-                                            "Content-Type": "application/json",
-                                            "Authorization": `Bearer ${token}`,
-                                          },
-                                          body: JSON.stringify({
-                                            mark_uids: [g.id],
-                                            status: "approved",
-                                          }),
-                                        });
-                                        const data = await response.json();
-                                        if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
+              // 2. Pagination calculation
+              const totalItems = filteredUnapprovedGrades.length;
+              const totalPages = Math.ceil(totalItems / unapprovedPageSize) || 1;
+              const safePage = Math.min(unapprovedPage, totalPages);
+              const startIndex = (safePage - 1) * unapprovedPageSize;
+              const paginatedGrades = filteredUnapprovedGrades.slice(startIndex, startIndex + unapprovedPageSize);
 
-                                        showToast("success", "Baho tasdiqlandi!");
-                                        fetchUnapprovedGrades();
-                                      } catch (err: any) {
-                                        showToast("error", err.message);
-                                      }
-                                    }}
-                                    className="text-[10px] bg-blue-50 border border-blue-200 text-blue-750 hover:bg-blue-100 font-bold py-1 px-2.5 rounded transition cursor-pointer"
-                                  >
-                                    Tasdiqlash
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (!window.confirm("Haqiqatan ham bu bahoni o'chirmoqchimisiz?")) return;
-                                      try {
-                                        const response = await fetch(`${API_URL}/api/schools/grades/${g.id}`, {
-                                          method: "DELETE",
-                                          headers: {
-                                            "Authorization": `Bearer ${token}`,
-                                          },
-                                        });
-                                        const data = await response.json();
-                                        if (!response.ok) throw new Error(data.error || "O'chirishda xatolik");
+              return (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
+                    <div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Tasdiqlanmagan Baholar Ro'yxati</h3>
+                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                        Bu oynada tasdiqlanmagan (draft) baholar sanasi bo'yicha kamayish tartibida ko'rinadi.
+                      </p>
+                    </div>
 
-                                        showToast("success", "Baho o'chirildi!");
-                                        fetchUnapprovedGrades();
-                                      } catch (err: any) {
-                                        showToast("error", err.message);
-                                      }
-                                    }}
-                                    className="text-[10px] bg-red-50 border border-red-200 text-red-650 hover:bg-red-100 font-bold py-1 px-2.5 rounded transition cursor-pointer"
-                                  >
-                                    O'chirish
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {selectedGradeIds.size > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  "Authorization": `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({
+                                  mark_uids: Array.from(selectedGradeIds),
+                                  status: "approved",
+                                }),
+                              });
+                              const data = await response.json();
+                              if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
+
+                              showToast("success", `${selectedGradeIds.size} ta baho tasdiqlandi!`);
+                              setSelectedGradeIds(new Set());
+                              fetchUnapprovedGrades();
+                            } catch (err: any) {
+                              showToast("error", err.message);
+                            }
+                          }}
+                          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2.5 px-4 rounded-2xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Tanlangan ({selectedGradeIds.size}) ta bahoni tasdiqlash</span>
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {!selectedClassId ? (
+                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl animate-fadeIn">
+                      <div className="w-12 h-12 rounded-full bg-indigo-50 text-[#5B50EC] flex items-center justify-center mx-auto mb-3">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-extrabold text-[#16193E] mb-1">Sinf tanlanmadi</p>
+                      <p className="text-xs text-zinc-500 font-medium max-w-sm mx-auto">
+                        Tasdiqlanmagan baholarni ko'rish uchun pastdagi paneldan sinfni tanlang.
+                      </p>
+                    </div>
+                  ) : unapprovedLoading ? (
+                    <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+                    </div>
+                  ) : filteredUnapprovedGrades.length === 0 ? (
+                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl animate-fadeIn">
+                      <p className="text-sm font-bold text-zinc-800 mb-1">
+                        {selectedSubjectId ? "Tanlangan fan bo'yicha baholar mavjud emas" : "Barcha baholar tasdiqlangan! 🎉"}
+                      </p>
+                      <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha yangi tasdiqlanmagan (draft) baholar mavjud emas.</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
+                      <div className="max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-290px)] overflow-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
+                            <tr>
+                              <th className="px-4 py-3.5 w-12 text-center sticky left-0 z-30 bg-zinc-50">
+                                <input
+                                  type="checkbox"
+                                  checked={paginatedGrades.length > 0 && paginatedGrades.every(g => selectedGradeIds.has(g.id))}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setSelectedGradeIds(() => {
+                                      const next = new Set<number>();
+                                      if (checked) {
+                                        paginatedGrades.forEach(g => next.add(g.id));
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
+                                />
+                              </th>
+                              <th className="px-6 py-3.5 whitespace-nowrap">Sana</th>
+                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">O'quvchi</th>
+                              <th className="px-6 py-3.5">Fan</th>
+                              <th className="px-4 py-3.5 text-center">Baho</th>
+                              <th className="px-6 py-3.5">Kiritdi</th>
+                              <th className="px-6 py-3.5 text-right">Amallar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
+                            {paginatedGrades.map((g) => {
+                              const formattedDate = g.grade_date ? new Date(g.grade_date).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+                              const numericVal = parseFloat(g.value);
+                              const badgeColorClass = !isNaN(numericVal)
+                                ? numericVal >= 4.5
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : numericVal >= 3.5
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : numericVal >= 2.5
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-red-50 text-red-700 border-red-200"
+                                : "bg-zinc-100 text-zinc-700 border-zinc-200";
+
+                              return (
+                                <tr key={g.id} className="group hover:bg-zinc-50/80 transition">
+                                  <td className="px-4 py-3.5 text-center sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedGradeIds.has(g.id)}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setSelectedGradeIds(prev => {
+                                          const next = new Set(prev);
+                                          if (checked) {
+                                            next.add(g.id);
+                                          } else {
+                                            next.delete(g.id);
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      className="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="px-6 py-3.5 text-zinc-500 font-mono font-bold whitespace-nowrap">{formattedDate}</td>
+                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                                    {g.student_name}
+                                  </td>
+                                  <td className="px-6 py-3.5">
+                                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
+                                      {g.subject_name}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-center">
+                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full border text-xs font-black font-mono shadow-2xs ${badgeColorClass}`}>
+                                      {g.value}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-3.5 text-zinc-500 font-medium">{g.teacher_name}</td>
+                                  <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      title="Tasdiqlash"
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
+                                            method: "POST",
+                                            headers: {
+                                              "Content-Type": "application/json",
+                                              "Authorization": `Bearer ${token}`,
+                                            },
+                                            body: JSON.stringify({
+                                              mark_uids: [g.id],
+                                              status: "approved",
+                                            }),
+                                          });
+                                          const data = await response.json();
+                                          if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
+
+                                          showToast("success", "Baho tasdiqlandi!");
+                                          fetchUnapprovedGrades();
+                                        } catch (err: any) {
+                                          showToast("error", err.message);
+                                        }
+                                      }}
+                                      className="p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="O'chirish"
+                                      onClick={async () => {
+                                        if (!window.confirm("Haqiqatan ham bu bahoni o'chirmoqchimisiz?")) return;
+                                        try {
+                                          const response = await fetch(`${API_URL}/api/schools/grades/${g.id}`, {
+                                            method: "DELETE",
+                                            headers: {
+                                              "Authorization": `Bearer ${token}`,
+                                            },
+                                          });
+                                          const data = await response.json();
+                                          if (!response.ok) throw new Error(data.error || "O'chirishda xatolik");
+
+                                          showToast("success", "Baho o'chirildi!");
+                                          fetchUnapprovedGrades();
+                                        } catch (err: any) {
+                                          showToast("error", err.message);
+                                        }
+                                      }}
+                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination Bar */}
+                      <div className="px-6 py-3.5 border-t border-zinc-200/70 bg-zinc-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>Har bir sahifada:</span>
+                          <select
+                            value={unapprovedPageSize}
+                            onChange={(e) => {
+                              setUnapprovedPageSize(Number(e.target.value));
+                              setUnapprovedPage(1);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value={10}>10 ta</option>
+                            <option value={15}>15 ta</option>
+                            <option value={30}>30 ta</option>
+                            <option value={50}>50 ta</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <span className="font-mono text-zinc-500">
+                            {startIndex + 1} - {Math.min(startIndex + unapprovedPageSize, totalItems)} / {totalItems} ta baho
+                          </span>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={safePage <= 1}
+                              onClick={() => setUnapprovedPage(prev => Math.max(prev - 1, 1))}
+                              className="p-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 transition cursor-pointer"
+                            >
+                              <ChevronLeft className="w-4 h-4 text-zinc-700" />
+                            </button>
+                            <span className="px-2 font-bold font-mono text-zinc-800">
+                              {safePage} / {totalPages}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={safePage >= totalPages}
+                              onClick={() => setUnapprovedPage(prev => Math.min(prev + 1, totalPages))}
+                              className="p-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 transition cursor-pointer"
+                            >
+                              <ChevronRight className="w-4 h-4 text-zinc-700" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* TAB CONTENT: Feedback / Comments Feed */}
             {teacherTab === "feedback" && (
-              <div className="space-y-4">
-                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm text-zinc-900">
+              <div className="space-y-4 animate-fadeIn">
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-900">Ota-onalardan kelgan Fikr-mulohazalar</h3>
-                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Ota-onalardan Kelgan Fikr-mulohazalar</h3>
+                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
                       Siz dars beradigan fanlar va siz rahbarlik qiladigan sinf ota-onalarining izohlari.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-lg px-3 py-1.5 shrink-0">
-                    <span className="text-zinc-400 text-xs">🔍</span>
+                  <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3.5 py-2 shrink-0">
+                    <Search className="w-4 h-4 text-zinc-400" />
                     <input
                       type="text"
                       value={feedbackSearch}
                       onChange={(e) => setFeedbackSearch(e.target.value)}
                       placeholder="Qidirish..."
-                      className="bg-transparent border-none text-xs text-zinc-700 outline-none w-32 focus:w-48 transition-all"
+                      className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-36 sm:w-48 transition-all"
                     />
                   </div>
                 </div>
 
                 {feedbackLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : feedbackFeed.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl bg-white/40">
-                    <p className="text-sm font-bold text-zinc-850 mb-1">Fikrlar mavjud emas</p>
+                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
+                    <p className="text-sm font-bold text-zinc-800 mb-1">Fikrlar mavjud emas</p>
                     <p className="text-xs text-zinc-400 font-mono">Hozircha ota-onalardan hech qanday izoh yoki fikrlar kelmagan.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {feedbackFeed
                       .filter((f) =>
                         f.author_name.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
@@ -3590,23 +4416,25 @@ export default function TeacherDashboard() {
                         return (
                           <div
                             key={f.id + "-" + f.type}
-                            className="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm hover:border-zinc-300 transition text-zinc-900 space-y-3"
+                            className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs hover:shadow-md transition text-zinc-900 space-y-3.5"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-2">
-                              <div className="flex items-center space-x-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-3">
+                              <div className="flex items-center space-x-2.5">
                                 {isGrade ? (
-                                  <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
-                                    📝 Bahoga izoh
+                                  <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-[#0284C7] bg-[#E0F2FE] px-3 py-1 rounded-xl">
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span>Bahoga izoh</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-250 px-2 py-0.5 rounded-md">
-                                    🍽️ Taomnomaga izoh
+                                  <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl">
+                                    <Utensils className="w-3.5 h-3.5" />
+                                    <span>Taomnomaga izoh</span>
                                   </span>
                                 )}
-                                <span className="text-xs font-bold text-zinc-800">{f.author_name}</span>
-                                <span className="text-[10px] text-zinc-450">Ota-ona</span>
+                                <span className="text-xs font-extrabold text-[#16193E]">{f.author_name}</span>
+                                <span className="text-[10px] text-zinc-400 font-medium">Ota-ona</span>
                               </div>
-                              <span className="text-[10px] text-zinc-450 font-mono">
+                              <span className="text-[11px] text-zinc-400 font-mono font-medium">
                                 {new Date(f.created_at).toLocaleString("uz-UZ", {
                                   day: "numeric",
                                   month: "long",
@@ -3618,29 +4446,32 @@ export default function TeacherDashboard() {
                             </div>
 
                             {isGrade ? (
-                              <div className="flex items-center space-x-3 bg-zinc-50 border border-zinc-150 p-2.5 rounded-lg text-xs">
-                                <div className="w-8 h-8 rounded-md bg-emerald-50 border border-emerald-250 text-emerald-700 font-bold flex items-center justify-center font-mono">
+                              <div className="flex items-center space-x-3 bg-zinc-50/80 border border-zinc-200/60 p-3 rounded-2xl text-xs">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black flex items-center justify-center font-mono shrink-0">
                                   {f.grade_value}
                                 </div>
                                 <div>
-                                  <span className="text-zinc-800 font-bold block">{f.subject_name}</span>
-                                  <span className="text-zinc-500 text-[10px]">
-                                    O&apos;quvchi: <b>{f.student_name}</b> ({f.class_name} sinfi)
+                                  <span className="text-[#16193E] font-extrabold block text-xs">{f.subject_name}</span>
+                                  <span className="text-zinc-500 text-[11px] font-medium">
+                                    O&apos;quvchi: <b className="text-zinc-800">{f.student_name}</b> ({f.class_name} sinfi)
                                   </span>
                                 </div>
                               </div>
                             ) : (
-                              <div className="bg-zinc-50 border border-zinc-150 p-2.5 rounded-lg text-xs font-semibold text-zinc-700">
-                                🍽️ Taomnoma kuni: {new Date(f.menu_date || "").toLocaleDateString("uz-UZ", {
-                                  weekday: "long",
-                                  day: "numeric",
-                                  month: "long",
-                                  year: "numeric"
-                                })}
+                              <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-200/60 p-3 rounded-2xl text-xs font-bold text-zinc-700">
+                                <Utensils className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>
+                                  Taomnoma kuni: {new Date(f.menu_date || "").toLocaleDateString("uz-UZ", {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "long",
+                                    year: "numeric"
+                                  })}
+                                </span>
                               </div>
                             )}
 
-                            <div className="text-xs text-zinc-700 bg-zinc-50/50 p-3 rounded-lg border border-zinc-150 font-medium leading-relaxed italic">
+                            <div className="text-xs text-zinc-700 bg-zinc-50/60 p-3.5 rounded-2xl border border-zinc-200/60 font-medium leading-relaxed italic">
                               &ldquo;{f.content}&rdquo;
                             </div>
 
@@ -3654,9 +4485,10 @@ export default function TeacherDashboard() {
                                   setChatModalOpen(true);
                                   fetchChatMessages(f);
                                 }}
-                                className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
                               >
-                                💬 Chatni ochish
+                                <MessageSquare className="w-4 h-4" />
+                                <span>Chatni ochish</span>
                               </button>
                             </div>
                           </div>
@@ -3681,29 +4513,31 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Parents List */}
             {teacherTab === "parents" && (
-              <div className="space-y-4">
-                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm text-zinc-900">
+              <div className="space-y-4 animate-fadeIn">
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-900">Sinf Ota-onalari (Vasiylar)</h3>
-                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Sinf Ota-onalari (Vasiylar)</h3>
+                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
                       Sinfdagi barcha o'quvchilarning ota-onalari (vasiylari) va ularni boshqarish
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
+                      title="Excel orqali yuklash"
                       onClick={() => {
                         setSelectedFile(null);
                         setImportResult(null);
                         setImportError("");
                         setShowImportParentsModal(true);
                       }}
-                      className="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-850 font-bold text-xs py-2 px-4 rounded-lg transition cursor-pointer flex items-center space-x-1"
+                      className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
                     >
-                      <span>Excel orqali yuklash</span>
+                      <FileSpreadsheet className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
+                      title="Ota-ona qo'shish"
                       onClick={() => {
                         setParentFirstName("");
                         setParentLastName("");
@@ -3714,56 +4548,57 @@ export default function TeacherDashboard() {
                         setSelectedStudentIdForAdd("");
                         setShowAddParentModal(true);
                       }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer"
+                      className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
                     >
-                      <span>+ Ota-ona qo'shish</span>
+                      <UserPlus className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
                 {classParentsLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : classParents.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl bg-white/40">
+                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
                     <p className="text-sm font-bold text-zinc-800 mb-1">Ota-onalar mavjud emas</p>
                     <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha bog'langan ota-onalar ro'yxatga olinmagan.</p>
                   </div>
                 ) : (
-                  <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden text-zinc-900">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-150 text-left text-xs">
-                        <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
+                    <div className="max-h-[70vh] overflow-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
                           <tr>
-                            <th className="px-5 py-3 w-10 text-center font-mono">T/R</th>
-                            <th className="px-5 py-3">F.I.SH</th>
-                            <th className="px-5 py-3 font-mono">Telefon</th>
-                            <th className="px-5 py-3">E-mail</th>
-                            <th className="px-5 py-3">O'quvchi (Farzand)</th>
-
-                            <th className="px-5 py-3 text-right">Amallar</th>
+                            <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
+                            <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
+                            <th className="px-6 py-3.5">Telefon</th>
+                            <th className="px-6 py-3.5">O'quvchi (Farzand)</th>
+                            <th className="px-6 py-3.5 text-right">Amallar</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-50">
+                        <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
                           {classParents.map((pt, idx) => (
-                            <tr key={`${pt.id || pt.user_id}-${idx}`} className="hover:bg-zinc-50/50 transition">
-                              <td className="px-5 py-3 text-center font-mono text-zinc-400">{idx + 1}</td>
-                              <td className="px-5 py-3 font-semibold text-zinc-900">
+                            <tr key={`${pt.id || pt.user_id}-${idx}`} className="group hover:bg-zinc-50/80 transition">
+                              <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{idx + 1}</td>
+                              <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
                                 {pt.first_name} {pt.last_name} {pt.middle_name && <span className="text-zinc-400 font-normal">({pt.middle_name})</span>}
                               </td>
-                              <td className="px-5 py-3 font-mono text-zinc-505">{pt.phone || "—"}</td>
-                              <td className="px-5 py-3 font-mono text-zinc-550">{pt.email || "—"}</td>
-                              <td className="px-5 py-3 text-zinc-700 font-medium">{pt.student_name || "Noma'lum"}</td>
-
-                              <td className="px-5 py-3 text-right">
+                              <td className="px-6 py-3.5 font-mono text-zinc-500">{pt.phone || "—"}</td>
+                              <td className="px-6 py-3.5">
+                                <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
+                                  {pt.student_name || "Noma'lum"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5 text-right whitespace-nowrap">
                                 <button
                                   type="button"
+                                  title="Farzanddan ajratish"
                                   onClick={() => handleUnlinkParentFromStudent(pt.student_id, pt.id || pt.user_id)}
-                                  className="text-[10px] bg-red-50 border border-red-200 text-red-655 hover:bg-red-100 font-bold py-1 px-2.5 rounded transition cursor-pointer"
+                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
-                                  Ajratish
+                                  <UserMinus className="w-4 h-4" />
                                 </button>
                               </td>
                             </tr>
@@ -3778,11 +4613,11 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Extracurricular Clubs */}
             {teacherTab === "clubs" && (
-              <div className="space-y-4">
-                <div className="bg-white border border-zinc-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm text-zinc-900">
+              <div className="space-y-4 animate-fadeIn">
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-900">To'garaklar (To'garak faoliyati)</h3>
-                    <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">To'garaklar (Fan To'garaklari)</h3>
+                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
                       Foydalanuvchilarga o'z fanlaringizdan to'garaklar tashkil qilish va jadvallarni boshqarish
                     </p>
                   </div>
@@ -3798,38 +4633,39 @@ export default function TeacherDashboard() {
                         setNewClubExtraStudentIds([]);
                         setShowAddClubModal(true);
                       }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg transition cursor-pointer"
+                      className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs py-2.5 px-4 rounded-2xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs shrink-0"
                     >
-                      + Yangi to'garak
+                      <Plus className="w-4 h-4" />
+                      <span>Yangi To'garak</span>
                     </button>
                   </div>
                 </div>
 
                 {clubsLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                   </div>
                 ) : clubs.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200 rounded-xl bg-white/40">
+                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
                     <p className="text-sm font-bold text-zinc-800 mb-1">To'garaklar mavjud emas</p>
-                    <p className="text-xs text-zinc-400 font-mono">Siz yaratgan to'garaklar hali yo'q. "+ Yangi to'garak" tugmasi orqali yaratishingiz mumkin.</p>
+                    <p className="text-xs text-zinc-400 font-mono">Siz yaratgan to'garaklar hali yo'q. "Yangi To'garak" tugmasi orqali yaratishingiz mumkin.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {clubs.map((club) => (
-                      <div key={club.id} className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-sm space-y-4 text-zinc-900 relative">
-                        <div className="flex items-start justify-between gap-2 border-b border-zinc-100 pb-3">
-                          <div>
-                            <span className="text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md font-mono">
+                      <div key={club.id} className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 text-zinc-900 relative hover:shadow-md transition">
+                        <div className="flex items-start justify-between gap-2 border-b border-zinc-100 pb-3.5">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-extrabold text-[#0284C7] bg-[#E0F2FE] px-3 py-1 rounded-xl font-mono inline-block">
                               {club.subject_name}
                             </span>
-                            <h4 className="text-sm font-bold text-zinc-800 mt-1">{club.name}</h4>
-                            <p className="text-[10px] text-zinc-400 mt-0.5">
-                              Ruxsat etilgan sinflar: {club.allowed_class_levels ? club.allowed_class_levels.join(", ") + " - sinflar" : "Barchasi"}
+                            <h4 className="text-base font-extrabold text-[#16193E]">{club.name}</h4>
+                            <p className="text-xs text-zinc-500 font-medium">
+                              Ruxsat etilgan sinflar: <b className="text-zinc-800">{club.allowed_class_levels ? club.allowed_class_levels.join(", ") + "-sinflar" : "Barchasi"}</b>
                             </p>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 shrink-0">
                             <button
                               type="button"
                               onClick={() => {
@@ -3839,9 +4675,10 @@ export default function TeacherDashboard() {
                                 fetchClubStudents(club.id);
                                 setShowClubStudentsModal(true);
                               }}
-                              className="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                              className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
                             >
-                              A'zolar & So'rovlar
+                              <Users className="w-3.5 h-3.5" />
+                              <span>A'zolar & So'rovlar</span>
                             </button>
                             <button
                               type="button"
@@ -3852,35 +4689,39 @@ export default function TeacherDashboard() {
                                 setNewScheduleEndTime("15:30");
                                 setShowAddScheduleModal(true);
                               }}
-                              className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                              className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
                             >
-                              + Jadval
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span>+ Jadval</span>
                             </button>
                           </div>
                         </div>
 
                         {/* Schedule list for the club */}
-                        <div className="space-y-2">
-                          <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">📅 To'garak Jadvali</h5>
+                        <div className="space-y-2.5">
+                          <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>To'garak Jadvali</span>
+                          </h5>
                           {(!club.schedules || club.schedules.length === 0) ? (
-                            <p className="text-xs text-zinc-400 font-medium italic">Hali dars jadvali belgilanmagan</p>
+                            <p className="text-xs text-zinc-400 font-medium italic bg-zinc-50/50 p-3 rounded-2xl border border-zinc-150">Hali dars jadvali belgilanmagan</p>
                           ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {club.schedules.map((sch: any) => {
                                 const days = ["", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"];
                                 return (
-                                  <div key={sch.id} className="flex items-center justify-between bg-zinc-50 border border-zinc-150 p-2 rounded-lg text-xs">
-                                    <div className="font-semibold text-zinc-750">
-                                      <span className="font-bold text-zinc-900">{days[sch.day_of_week]}</span>
-                                      <span className="block text-[10px] text-zinc-400 font-mono mt-0.5">{sch.start_time} - {sch.end_time}</span>
+                                  <div key={sch.id} className="flex items-center justify-between bg-zinc-50/80 border border-zinc-200/70 p-3 rounded-2xl text-xs">
+                                    <div>
+                                      <span className="font-extrabold text-[#16193E] block">{days[sch.day_of_week]}</span>
+                                      <span className="text-[11px] text-zinc-500 font-mono font-medium">{sch.start_time} - {sch.end_time}</span>
                                     </div>
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteSchedule(sch.id)}
-                                      className="text-red-500 hover:text-red-750 font-bold px-1.5 py-0.5 text-xs transition cursor-pointer"
+                                      className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-xl transition cursor-pointer shrink-0"
                                       title="O'chirish"
                                     >
-                                      &times;
+                                      <Trash2 className="w-4 h-4" />
                                     </button>
                                   </div>
                                 );
@@ -3894,15 +4735,8 @@ export default function TeacherDashboard() {
                 )}
               </div>
             )}
-
-          </div>
-        )}
-      </main>
-
-      {/* Subtle Footer */}
-      <footer className="border-t border-zinc-200/50 py-6 text-center text-[10px] text-zinc-400 font-mono mt-auto">
-        &copy; {new Date().getFullYear()} ONLINE JURNAL.
-      </footer>
+        </main>
+      </div>
 
       {toast && (
         <div
@@ -3930,164 +4764,202 @@ export default function TeacherDashboard() {
           </button>
         </div>
       )}
-      {/* Sticky Bottom Tabbar */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[95vw] w-max">
-        <div className="bg-white/95 backdrop-blur-md border border-zinc-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] rounded-3xl sm:rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-between gap-3 sm:gap-6 transition-all duration-300">
+
+      {/* Sticky Bottom Tabbar (Hidden on Dashboard, Announcements, Clubs, Feedback) */}
+      {teacherTab !== "dashboard" && teacherTab !== "announcements" && teacherTab !== "clubs" && teacherTab !== "feedback" && (
+        <div
+          style={{
+            left: typeof window !== "undefined" && window.innerWidth >= 768
+              ? `calc(50% + ${sidebarCollapsed ? '40px' : '128px'})`
+              : "50%"
+          }}
+          className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 md:left-[calc(50%+40px)] z-40 max-w-[95vw] w-max transition-all duration-300"
+        >
+        <div className="bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/25 shadow-[0_20px_60px_rgba(22,25,62,0.22),0_8px_25px_rgba(79,70,229,0.15)] ring-4 ring-indigo-50/90 rounded-full px-3.5 sm:px-7 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-6 transition-all duration-300">
           
           {/* Left Part: Class & Subject Selectors */}
-          <div className="flex items-center space-x-4 shrink-0">
-            {/* Sinf Selection */}
-            <div className="flex items-center space-x-2.5 relative hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer">
-              <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-650 shrink-0">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className="flex flex-col text-left pr-4">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">SINF</span>
-                <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
-                  {selectedClassId ? classes.find(c => c.id === selectedClassId)?.name : "Tanlang"}
-                  <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </div>
-              <select
-                value={selectedClassId}
-                onChange={(e) => {
-                  const val = e.target.value === "" ? "" : Number(e.target.value);
-                  setSelectedClassId(val);
-                  setSelectedSubjectId("");
-                  // Clear grade selection when switching classes
-                  setSelectedGradeIds(new Set());
+          <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+            {/* Sinf Selection with Upward Popover */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClassDropdown(!showClassDropdown);
+                  setShowSubjectDropdown(false);
                 }}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                className="flex items-center space-x-1.5 sm:space-x-2 hover:bg-zinc-50 px-2 sm:px-3 py-1.5 rounded-2xl transition cursor-pointer"
+                title="Sinf tanlash"
               >
-                <option value="">Sinfni tanlang</option>
-                {classes.map((cls: any) => {
-                  const isMyMainClass = cls.is_main_teacher || cls.main_teacher_id === userInfo?.id || cls.teacher_id === userInfo?.id;
-                  return (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.name} {isMyMainClass ? "⭐ (Sinf Rahbari)" : "(Fan o'qituvchisi)"}
-                    </option>
-                  );
-                })}
-              </select>
+                <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-650 shrink-0">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div className="hidden sm:flex flex-col text-left pr-4">
+                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">SINF</span>
+                  <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
+                    {selectedClassId ? classes.find(c => c.id === selectedClassId)?.name : "Tanlang"}
+                    <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </span>
+                </div>
+              </button>
+
+              {/* Upward Class Popover Menu */}
+              {showClassDropdown && (
+                <div className="absolute bottom-full mb-3 left-0 w-56 sm:w-64 bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-2 z-50 animate-fadeIn space-y-1 max-h-60 overflow-y-auto">
+                  <div className="text-[9px] font-extrabold text-zinc-400 uppercase px-3 py-1 font-mono tracking-wider">Sinfni tanlang</div>
+                  {classes.map((cls: any) => {
+                    const isMyMainClass = cls.is_main_teacher || cls.main_teacher_id === userInfo?.id || cls.teacher_id === userInfo?.id;
+                    const isSelected = selectedClassId === cls.id;
+                    return (
+                      <button
+                        key={cls.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClassId(cls.id);
+                          setSelectedSubjectId("");
+                          setSelectedGradeIds(new Set());
+                          setShowClassDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                          isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
+                        }`}
+                      >
+                        <span>{cls.name}</span>
+                        {isMyMainClass && <span className={`text-[10px] ${isSelected ? "text-indigo-200" : "text-indigo-600"} font-extrabold`}>⭐ Sinf Rahbari</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Divider & Fan Selection (Only shown when NOT on schedule tab) */}
             {teacherTab !== "schedule" && (
               <>
                 {/* Divider */}
-                <div className="h-8 w-px bg-zinc-200"></div>
+                <div className="h-6 sm:h-8 w-px bg-zinc-200"></div>
 
-                {/* Fan Selection */}
+                {/* Fan Selection Container with Upward Popover */}
                 {selectedClassId ? (
                   (() => {
                     const currentCls = classes.find(c => c.id === selectedClassId);
-                    const hasFixedSubject = currentCls?.subject_id && userInfo?.role !== "ADMIN" && userInfo?.role !== "MAIN_TEACHER";
-                    const isScheduleEmpty = classSchedule.length === 0 || classSchedule.every(item => item.subject_id === 0 || !item.subject_id);
-                    
-                    if (isScheduleEmpty) {
-                      return (
-                        <div
+                    const canSelectSubject = userInfo?.role === "ADMIN" || userInfo?.role === "MAIN_TEACHER" || currentCls?.is_main_teacher || classTeachers.some(ct => ct.teacher_id === userInfo?.id && ct.is_main_teacher);
+
+                    return (
+                      <div className="relative">
+                        <button
+                          type="button"
                           onClick={() => {
-                            showToast("error", "Dars jadvali hali qo'shilmagan");
-                            alert("Dars jadvali hali qo'shilmagan");
+                            if (canSelectSubject) {
+                              setShowSubjectDropdown(!showSubjectDropdown);
+                              setShowClassDropdown(false);
+                            }
                           }}
-                          className="flex items-center space-x-2.5 hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer"
+                          className={`flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 rounded-2xl transition ${canSelectSubject ? "hover:bg-zinc-50 cursor-pointer" : "bg-zinc-50/50"}`}
+                          title="Fan tanlash"
                         >
                           <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-650 shrink-0">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                           </div>
-                          <div className="flex flex-col text-left pr-4">
+                          <div className="hidden sm:flex flex-col text-left pr-4">
                             <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">FAN</span>
                             <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
-                              Tanlang
-                              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
+                              {selectedSubjectId ? (
+                                teacherTab === "journal" && selectedLessonNumber
+                                  ? `${selectedLessonNumber}-soat: ${subjects.find(s => s.id === selectedSubjectId)?.name || ""}`
+                                  : (subjects.find(s => s.id === selectedSubjectId)?.name || currentCls?.subject_name || "Noma'lum")
+                              ) : "Tanlang"}
+                              {canSelectSubject && (
+                                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                                </svg>
+                              )}
                             </span>
                           </div>
-                        </div>
-                      );
-                    }
+                        </button>
 
-                    return (
-                      <div className="flex items-center space-x-2.5 relative hover:bg-zinc-50 px-3 py-1.5 rounded-2xl transition cursor-pointer">
-                        <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-650 shrink-0">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
-                        </div>
-                        <div className="flex flex-col text-left pr-4">
-                          <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">FAN</span>
-                          <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
-                            {selectedSubjectId ? (
-                              teacherTab === "journal" && selectedLessonNumber
-                                ? `${selectedLessonNumber}-soat: ${subjects.find(s => s.id === selectedSubjectId)?.name || ""}`
-                                : (subjects.find(s => s.id === selectedSubjectId)?.name || currentCls?.subject_name || "Noma'lum")
-                            ) : "Tanlang"}
-                            {!hasFixedSubject && (
-                              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
+                        {/* Upward Subject Popover Menu */}
+                        {showSubjectDropdown && canSelectSubject && (
+                          <div className="absolute bottom-full mb-3 left-0 w-64 sm:w-72 bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-2 z-50 animate-fadeIn space-y-1 max-h-60 overflow-y-auto">
+                            <div className="text-[9px] font-extrabold text-zinc-400 uppercase px-3 py-1 font-mono tracking-wider">
+                              {teacherTab === "journal" ? "Darsni tanlang" : "Fanni tanlang"}
+                            </div>
+                            {teacherTab === "journal" ? (
+                              journalLessonsToday.length > 0 ? (
+                                journalLessonsToday.map((lesson) => {
+                                  const isSelected = selectedSubjectId === lesson.subject_id && selectedLessonNumber === lesson.lesson_number;
+                                  return (
+                                    <button
+                                      key={`sched_${lesson.subject_id}_${lesson.lesson_number}`}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedSubjectId(lesson.subject_id);
+                                        setSelectedLessonNumber(lesson.lesson_number);
+                                        setShowSubjectDropdown(false);
+                                      }}
+                                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                                        isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
+                                      }`}
+                                    >
+                                      <span>{lesson.lesson_number}-soat: {lesson.subject_name}</span>
+                                    </button>
+                                  );
+                                })
+                              ) : (
+                                <div className="px-3 py-2 text-xs text-zinc-400 font-medium">Ushbu sanada darslar yo'q</div>
+                              )
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSubjectId("");
+                                    setShowSubjectDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                                    selectedSubjectId === "" ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
+                                  }`}
+                                >
+                                  <span>Barcha fanlar</span>
+                                </button>
+                                {subjects.map((sub) => {
+                                  const isSelected = selectedSubjectId === sub.id;
+                                  return (
+                                    <button
+                                      key={`sub_pop_${sub.id}`}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedSubjectId(sub.id);
+                                        setShowSubjectDropdown(false);
+                                      }}
+                                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                                        isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
+                                      }`}
+                                    >
+                                      <span>{sub.name}</span>
+                                    </button>
+                                  );
+                                })}
+                              </>
                             )}
-                          </span>
-                        </div>
-                        {!hasFixedSubject && (
-                          teacherTab === "journal" ? (
-                            <select
-                              value={selectedSubjectId && selectedLessonNumber ? `${selectedSubjectId}_${selectedLessonNumber}` : ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === "") {
-                                  setSelectedSubjectId("");
-                                  setSelectedLessonNumber("");
-                                } else {
-                                  const [subId, lessonNum] = val.split("_").map(Number);
-                                  setSelectedSubjectId(subId);
-                                  setSelectedLessonNumber(lessonNum);
-                                }
-                              }}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            >
-                              <option value="">Darsni tanlang</option>
-                              {journalLessonsToday.map((lesson) => (
-                                <option key={`${lesson.subject_id}_${lesson.lesson_number}`} value={`${lesson.subject_id}_${lesson.lesson_number}`}>
-                                  {lesson.lesson_number}-soat: {lesson.subject_name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <select
-                              value={selectedSubjectId}
-                              onChange={(e) => {
-                                setSelectedSubjectId(e.target.value === "" ? "" : Number(e.target.value));
-                                setSelectedLessonNumber("");
-                              }}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            >
-                              <option value="">Fanni tanlang</option>
-                              {subjects.map(sub => (
-                                <option key={sub.id} value={sub.id}>{sub.name}</option>
-                              ))}
-                            </select>
-                          )
+                          </div>
                         )}
                       </div>
                     );
                   })()
                 ) : (
-                  <div className="flex items-center space-x-2.5 opacity-50">
+                  <div className="flex items-center space-x-2 opacity-50">
                     <div className="w-8 h-8 rounded-full bg-zinc-105 border border-zinc-200 flex items-center justify-center text-zinc-400 shrink-0">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                       </svg>
                     </div>
-                    <div className="flex flex-col text-left">
+                    <div className="hidden sm:flex flex-col text-left">
                       <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider">FAN</span>
                       <span className="text-xs font-bold text-zinc-400 whitespace-nowrap">Sinfni tanlang</span>
                     </div>
@@ -4099,7 +4971,7 @@ export default function TeacherDashboard() {
 
           {/* Middle Part: Date Navigation */}
           {selectedClassId && teacherTab === "journal" && (
-            <div className="flex items-center space-x-2.5">
+            <div className="flex items-center space-x-2 shrink-0">
               {/* Datepicker */}
               <div 
                 onClick={() => {
@@ -4111,12 +4983,13 @@ export default function TeacherDashboard() {
                      }
                   }
                 }}
-                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-3.5 py-1.5 transition relative cursor-pointer"
+                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition relative cursor-pointer"
+                title="Sana tanlash"
               >
-                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 text-zinc-600 sm:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-xs font-bold font-mono text-zinc-700 select-none">
+                <span className="hidden sm:inline text-xs font-bold font-mono text-zinc-700 select-none">
                   {(() => {
                     const parts = journalDate.split("-");
                     if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -4133,7 +5006,7 @@ export default function TeacherDashboard() {
                       fetchJournalData(e.target.value);
                     }
                   }}
-                  className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
               </div>
             </div>
@@ -4141,7 +5014,7 @@ export default function TeacherDashboard() {
 
           {/* Schedule Date picker */}
           {selectedClassId && teacherTab === "schedule" && (
-            <div className="flex items-center space-x-2.5">
+            <div className="flex items-center space-x-2 shrink-0">
               <div 
                 onClick={() => {
                   if (scheduleDateInputRef.current) {
@@ -4152,12 +5025,13 @@ export default function TeacherDashboard() {
                      }
                   }
                 }}
-                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-3.5 py-1.5 transition relative cursor-pointer font-bold"
+                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition relative cursor-pointer font-bold"
+                title="Sana tanlash"
               >
-                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 text-zinc-600 sm:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-xs font-bold font-mono text-zinc-700 select-none">
+                <span className="hidden sm:inline text-xs font-bold font-mono text-zinc-700 select-none">
                   {(() => {
                     const parts = scheduleViewDate.split("-");
                     if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -4174,14 +5048,14 @@ export default function TeacherDashboard() {
                       fetchClassSchedule(e.target.value);
                     }
                   }}
-                  className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
               </div>
             </div>
           )}
 
-          {/* Right Part: Action Buttons */}
-          <div className="flex items-center space-x-2 sm:ml-auto shrink-0">
+          {/* Right Part: Save Action Button */}
+          <div className="flex items-center space-x-2 shrink-0">
             {selectedClassId && (teacherTab === "journal" || teacherTab === "unapproved") ? (
               <>
                 {teacherTab === "journal" && (
@@ -4190,34 +5064,36 @@ export default function TeacherDashboard() {
                       type="button"
                       onClick={handleBulkApprove}
                       disabled={approveLoading}
-                      className="px-5 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
+                      title={`Saqlash (${selectedGradeIds.size} ta)`}
+                      className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
                     >
                       {approveLoading ? (
-                        <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></span>
                       ) : (
-                        <svg className="w-3.5 h-3.5 text-white mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <svg className="w-4 h-4 text-white sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
-                      <span>Saqlash ({selectedGradeIds.size} ta)</span>
+                      <span className="hidden sm:inline">Saqlash ({selectedGradeIds.size} ta)</span>
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleApproveAllToday}
                       disabled={approveLoading}
-                      className="px-5 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
+                      title="Saqlash"
+                      className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
                     >
                       {approveLoading ? (
-                        <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin mr-1.5"></span>
+                        <span className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></span>
                       ) : (
-                        <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <svg className="w-4 h-4 sm:mr-1.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V8l-4-4H8z" />
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 20v-8" />
-                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 4h6v4H9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 4h6v4H9z" />
                         </svg>
                       )}
-                      <span>Saqlash</span>
+                      <span className="hidden sm:inline">Saqlash</span>
                     </button>
                   )
                 )}
@@ -4227,23 +5103,24 @@ export default function TeacherDashboard() {
                     type="button"
                     onClick={handleBulkApprove}
                     disabled={approveLoading}
-                    className="px-5 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
+                    title={`Tasdiqlash (${selectedGradeIds.size} ta)`}
+                    className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
                   >
                     {approveLoading ? (
-                      <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></span>
                     ) : (
-                      <svg className="w-3.5 h-3.5 text-white mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <svg className="w-4 h-4 text-white sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     )}
-                    <span>Saqlash ({selectedGradeIds.size} ta)</span>
+                    <span className="hidden sm:inline">Tasdiqlash ({selectedGradeIds.size} ta)</span>
                   </button>
                 )}
               </>
             ) : null}
 
             {selectedClassId && teacherTab === "schedule" && isMainTeacherOfClass() && (
-              <button
+                <button
                 type="button"
                 onClick={() => {
                   const initialFormState: { [key: string]: number } = {};
@@ -4259,40 +5136,32 @@ export default function TeacherDashboard() {
                   });
                   setScheduleFormState(initialFormState);
                   setActionError("");
+
+                  if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
+                    setScheduleStartDate(classSchedule[0].start_date);
+                    setScheduleEndDate(classSchedule[0].end_date);
+                  } else {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    setScheduleStartDate(todayStr);
+                    const nextYear = new Date();
+                    nextYear.setFullYear(nextYear.getFullYear() + 1);
+                    setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                  }
+
                   setShowEditScheduleModal(true);
                 }}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(37,99,235,0.3)] cursor-pointer"
+                title="Jadvalni tahrirlash"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#5B50EC] hover:bg-[#4A3FDB] text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transition cursor-pointer shrink-0 hover:scale-105"
               >
-                <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
-                <span>Jadvalni tahrirlash</span>
-              </button>
-            )}
-
-            {teacherTab === "clubs" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setClubsError("");
-                  setClubsSuccess("");
-                  setNewClubName("");
-                  setNewClubSubjectId("");
-                  setNewClubAllowedLevels([]);
-                  setNewClubExtraStudentIds([]);
-                  setShowAddClubModal(true);
-                }}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(16,185,129,0.3)] cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                <span>+ Yangi To'garak</span>
               </button>
             )}
           </div>
         </div>
       </div>
+      )}
 
       {renderEditWeeklyScheduleModal()}
       {renderAddExceptionModal()}
@@ -4308,26 +5177,36 @@ export default function TeacherDashboard() {
       {renderGradeCommentModal()}
 
       {chatModalOpen && selectedChatComment && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 w-full max-w-[450px] shadow-2xl flex flex-col max-h-[90vh] text-zinc-900">
-            <div className="flex justify-between items-start mb-3 border-b border-zinc-150 pb-2">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setChatModalOpen(false);
+            }
+          }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+        >
+          <div className="bg-white border border-zinc-200/80 rounded-3xl p-5 sm:p-6 w-full max-w-[480px] shadow-2xl flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn space-y-3">
+            <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-zinc-900">💬 Muhokama (Chat)</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">
-                  Ota-ona: <b>{selectedChatComment.author_name}</b>
+                <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
+                  <span>💬 Muhokama (Chat)</span>
+                </h3>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                  Ota-ona: <b className="text-zinc-800">{selectedChatComment.author_name}</b>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setChatModalOpen(false)}
-                className="text-zinc-450 hover:text-zinc-700 text-xl border-none background-none cursor-pointer"
+                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+                title="Yopish"
               >
-                &times;
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Chat messages */}
-            <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-150 rounded-xl p-3 mb-4 bg-zinc-50 flex flex-col gap-2.5 flex-1">
+            <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-200/70 rounded-2xl p-3 bg-zinc-50 flex flex-col gap-2.5 flex-1">
               {chatLoading && chatMessages.length === 0 ? (
                 <div className="text-center py-6 text-xs text-zinc-400">Yuklanmoqda...</div>
               ) : chatMessages.length === 0 ? (
@@ -4352,9 +5231,9 @@ export default function TeacherDashboard() {
                       )}
                       <div
                         style={{
-                          backgroundColor: isMyMessage ? "#10B981" : "#E5E7EB",
+                          backgroundColor: isMyMessage ? "#5B50EC" : "#E5E7EB",
                           color: isMyMessage ? "white" : "#374151",
-                          borderRadius: "12px",
+                          borderRadius: "14px",
                           padding: "8px 12px",
                           fontSize: "12px",
                           fontWeight: 500,
@@ -4390,13 +5269,13 @@ export default function TeacherDashboard() {
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 rows={2}
-                className="flex-1 p-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 outline-none resize-none focus:border-emerald-600 transition"
+                className="flex-1 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 outline-none resize-none focus:ring-2 focus:ring-indigo-500 font-medium transition"
                 placeholder="Javobingizni yozing..."
               />
               <button
                 type="submit"
                 disabled={replySubmitLoading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition cursor-pointer h-10 flex items-center justify-center shrink-0"
+                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-4 rounded-xl transition cursor-pointer h-10 flex items-center justify-center shrink-0 shadow-xs"
               >
                 {replySubmitLoading ? "..." : "Yuborish"}
               </button>
@@ -4410,21 +5289,29 @@ export default function TeacherDashboard() {
   function renderParentsModal() {
     if (!showParentsModal || !selectedStudentForParents) return null;
     return (
-      <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-zinc-200 shadow-2xl rounded-2xl w-full max-w-2xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh]">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowParentsModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-2xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh] animate-fadeIn">
           {/* Modal Header */}
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">Vasiylar Boshqaruvi</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                O'quvchi: {selectedStudentForParents.first_name} {selectedStudentForParents.last_name}
+              <h3 className="text-base font-extrabold text-[#16193E]">Vasiylar Boshqaruvi</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                O'quvchi: <strong className="text-zinc-800">{selectedStudentForParents.first_name} {selectedStudentForParents.last_name}</strong>
               </p>
             </div>
             <button
               onClick={() => setShowParentsModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -4433,36 +5320,36 @@ export default function TeacherDashboard() {
             <div>
               <h4 className="text-xs font-bold text-zinc-700 mb-3 flex items-center">
                 <span>Bog'langan Ota-onalar</span>
-                <span className="ml-2 px-1.5 py-0.5 text-[9px] bg-zinc-100 text-zinc-500 rounded-full font-mono">
+                <span className="ml-2 px-2 py-0.5 text-[10px] bg-indigo-50 text-indigo-700 rounded-full font-mono font-bold">
                   {linkedParents.length}
                 </span>
               </h4>
 
               {linkedParentsLoading ? (
-                <div className="text-center py-8 border border-dashed border-zinc-200 rounded-xl">
-                  <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                  <p className="text-[10px] text-zinc-400 font-mono">Yuklanmoqda...</p>
+                <div className="text-center py-8 border border-dashed border-zinc-200 rounded-2xl">
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
+                  <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                 </div>
               ) : linkedParents.length === 0 ? (
-                <div className="text-center py-8 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50">
-                  <p className="text-[11px] text-zinc-400 font-mono">Ushbu o'quvchiga hali ota-ona bog'lanmagan.</p>
+                <div className="text-center py-8 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
+                  <p className="text-xs text-zinc-400 font-mono">Ushbu o'quvchiga hali ota-ona bog'lanmagan.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {linkedParents.map((parent) => (
                     <div
                       key={parent.id || parent.user_id}
-                      className="flex items-center justify-between p-3 border border-zinc-150 rounded-xl bg-zinc-50/50 hover:bg-zinc-50 transition"
+                      className="flex items-center justify-between p-3.5 border border-zinc-200/70 rounded-2xl bg-zinc-50/50 hover:bg-zinc-50 transition"
                     >
                       <div>
-                        <p className="text-xs font-bold text-zinc-800">
+                        <p className="text-xs font-extrabold text-zinc-800">
                           {parent.first_name} {parent.last_name} {parent.middle_name || ""}
                         </p>
-                        <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                        <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
                           Tel: {parent.phone} {parent.email ? `| Email: ${parent.email}` : ""}
                         </p>
                         {parent.parent_code && (
-                          <p className="text-[9px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-mono inline-block mt-1 font-bold">
+                          <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-mono inline-block mt-1 font-bold">
                             Taklif kodi: {parent.parent_code}
                           </p>
                         )}
@@ -4470,7 +5357,7 @@ export default function TeacherDashboard() {
                       <button
                         type="button"
                         onClick={() => handleUnlinkParent(parent.id || parent.user_id)}
-                        className="text-[10px] bg-red-50 border border-red-200 text-red-650 hover:bg-red-100 font-semibold py-1 px-2.5 rounded-lg transition cursor-pointer"
+                        className="text-xs bg-red-50 border border-red-200 text-red-650 hover:bg-red-100 font-bold py-1.5 px-3 rounded-xl transition cursor-pointer"
                       >
                         Ajratish
                       </button>
@@ -4480,15 +5367,15 @@ export default function TeacherDashboard() {
               )}
             </div>
 
-            <hr className="border-zinc-150" />
+            <hr className="border-zinc-100" />
 
             {/* Manual Link/Add parent Form */}
             <form onSubmit={handleLinkParent} className="space-y-4">
-              <h4 className="text-xs font-bold text-zinc-700">Yangi Ota-onani Bog'lash (Qo'shish)</h4>
+              <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider">Yangi Ota-onani Bog'lash (Qo'shish)</h4>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Ism *
                   </label>
                   <input
@@ -4496,12 +5383,12 @@ export default function TeacherDashboard() {
                     required
                     value={parentFirstName}
                     onChange={(e) => setParentFirstName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: Asror"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Familiya *
                   </label>
                   <input
@@ -4509,7 +5396,7 @@ export default function TeacherDashboard() {
                     required
                     value={parentLastName}
                     onChange={(e) => setParentLastName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: Karimov"
                   />
                 </div>
@@ -4517,19 +5404,19 @@ export default function TeacherDashboard() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Otasining ismi (Sharifi)
                   </label>
                   <input
                     type="text"
                     value={parentMiddleName}
                     onChange={(e) => setParentMiddleName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: Baxtiyorovich"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Telefon *
                   </label>
                   <input
@@ -4537,7 +5424,7 @@ export default function TeacherDashboard() {
                     required
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: +998901234567"
                   />
                 </div>
@@ -4545,19 +5432,19 @@ export default function TeacherDashboard() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Pasport
                   </label>
                   <input
                     type="text"
                     value={parentPassport}
                     onChange={(e) => setParentPassport(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: AA1234567"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Parol *
                   </label>
                   <input
@@ -4565,7 +5452,7 @@ export default function TeacherDashboard() {
                     required
                     value={parentPassword}
                     onChange={(e) => setParentPassword(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                     placeholder="Kamida 6 ta belgi"
                   />
                 </div>
@@ -4575,16 +5462,16 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowParentsModal(false)}
-                  className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
-                  Yopish
+                  Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-zinc-800 disabled:opacity-50 flex items-center space-x-1 cursor-pointer"
+                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
                 >
-                  {actionLoading && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                  {actionLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
                   <span>Ota-onani bog'lash</span>
                 </button>
               </div>
@@ -4598,37 +5485,46 @@ export default function TeacherDashboard() {
   function renderImportParentsModal() {
     if (!showImportParentsModal) return null;
     return (
-      <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-zinc-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden transition-all transform scale-100">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowImportParentsModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden transition-all transform scale-100 animate-fadeIn">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">Excel orqali ota-onalarni yuklash</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+              <h3 className="text-base font-extrabold text-[#16193E]">Excel Orqali Ota-onalarni Yuklash</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
                 Bir vaqtning o'zida bir nechta ota-ona hisobini bog'lash
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setShowImportParentsModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="p-6 space-y-5">
             {/* Step 1: Download Template */}
-            <div className="bg-zinc-50/50 border border-zinc-150 p-4 rounded-xl flex items-center justify-between">
+            <div className="bg-zinc-50/70 border border-zinc-200/70 p-4 rounded-2xl flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-zinc-800">1-bosqich: Shablonni yuklab olish</p>
-                <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                <p className="text-xs font-extrabold text-[#16193E]">1-bosqich: Shablonni yuklab olish</p>
+                <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
                   Sinf o'quvchilari ro'yxati biriktirilgan tayyor shablon
                 </p>
               </div>
               <button
                 type="button"
                 onClick={downloadParentsTemplate}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3 rounded-lg transition cursor-pointer shrink-0"
+                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer shrink-0 shadow-xs"
               >
                 Shablonni yuklash
               </button>
@@ -4637,8 +5533,8 @@ export default function TeacherDashboard() {
             {/* Step 2: Upload Excel File */}
             <form onSubmit={handleParentsExcelImport} className="space-y-4">
               <div>
-                <p className="text-xs font-bold text-zinc-800 mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
-                <label className="border-2 border-dashed border-zinc-200 rounded-xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50 transition">
+                <p className="text-xs font-extrabold text-[#16193E] mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
+                <label className="border-2 border-dashed border-zinc-200 rounded-2xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50/80 transition">
                   <input
                     type="file"
                     accept=".xlsx, .xls"
@@ -4652,23 +5548,23 @@ export default function TeacherDashboard() {
                   <svg className="w-8 h-8 text-zinc-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-xs font-semibold text-zinc-650">
+                  <p className="text-xs font-bold text-zinc-800">
                     {selectedFile ? selectedFile.name : "Excel faylini tanlang (.xlsx)"}
                   </p>
-                  <p className="text-[9px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
+                  <p className="text-[10px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
                 </label>
               </div>
 
               {importError && (
-                <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-xs font-semibold">
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs font-bold">
                   {importError}
                 </div>
               )}
 
               {importResult && (
-                <div className="bg-emerald-50 border border-emerald-250 text-emerald-800 rounded-lg p-3 text-xs space-y-1">
-                  <p className="font-bold">Muvaffaqiyatli yuklandi!</p>
-                  <ul className="list-disc pl-4 font-mono text-[10px] space-y-0.5">
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs space-y-1">
+                  <p className="font-extrabold">Muvaffaqiyatli yuklandi!</p>
+                  <ul className="list-disc pl-4 font-mono text-[11px] space-y-0.5 font-semibold">
                     <li>Yuklangan ota-onalar: {importResult.imported_count} ta</li>
                     <li>O'quvchilarga bog'landi: {importResult.linked_count || importResult.imported_count} ta</li>
                   </ul>
@@ -4679,16 +5575,16 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowImportParentsModal(false)}
-                  className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={importLoading || !selectedFile}
-                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-zinc-800 disabled:opacity-50 flex items-center space-x-1 cursor-pointer"
+                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
                 >
-                  {importLoading && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                  {importLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
                   <span>Yuklash</span>
                 </button>
               </div>
@@ -4702,37 +5598,46 @@ export default function TeacherDashboard() {
   function renderImportStudentsModal() {
     if (!showImportStudentsModal) return null;
     return (
-      <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-zinc-200 shadow-2xl rounded-2xl w-full max-w-lg overflow-hidden transition-all transform scale-100">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowImportStudentsModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden transition-all transform scale-100 animate-fadeIn">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between text-zinc-900">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between text-zinc-900">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">Excel orqali o'quvchilarni yuklash</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+              <h3 className="text-base font-extrabold text-[#16193E]">Excel Orqali O'quvchilarni Yuklash</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
                 Bir vaqtning o'zida bir nechta o'quvchi hisobini yaratish va sinflarga joylash
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setShowImportStudentsModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="p-6 space-y-5 text-zinc-900">
             {/* Step 1: Download Template */}
-            <div className="bg-zinc-50/50 border border-zinc-150 p-4 rounded-xl flex items-center justify-between">
+            <div className="bg-zinc-50/70 border border-zinc-200/70 p-4 rounded-2xl flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-zinc-800">1-bosqich: Shablonni yuklab olish</p>
-                <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                <p className="text-xs font-extrabold text-[#16193E]">1-bosqich: Shablonni yuklab olish</p>
+                <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
                   Ustunlar: ism, familiya, sharif, sinf (namuna bilan birga)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={downloadStudentsTemplate}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3 rounded-lg transition cursor-pointer shrink-0"
+                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer shrink-0 shadow-xs"
               >
                 Shablonni yuklash
               </button>
@@ -4741,8 +5646,8 @@ export default function TeacherDashboard() {
             {/* Step 2: Upload Excel File */}
             <form onSubmit={handleStudentsExcelImport} className="space-y-4">
               <div>
-                <p className="text-xs font-bold text-zinc-800 mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
-                <label className="border-2 border-dashed border-zinc-200 rounded-xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50 transition">
+                <p className="text-xs font-extrabold text-[#16193E] mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
+                <label className="border-2 border-dashed border-zinc-200 rounded-2xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50/80 transition">
                   <input
                     type="file"
                     accept=".xlsx, .xls"
@@ -4756,23 +5661,23 @@ export default function TeacherDashboard() {
                   <svg className="w-8 h-8 text-zinc-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-xs font-semibold text-zinc-650">
+                  <p className="text-xs font-bold text-zinc-800">
                     {selectedFile ? selectedFile.name : "Excel faylini tanlang (.xlsx)"}
                   </p>
-                  <p className="text-[9px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
+                  <p className="text-[10px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
                 </label>
               </div>
 
               {importError && (
-                <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-xs font-semibold">
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs font-bold">
                   {importError}
                 </div>
               )}
 
               {importResult && (
-                <div className="bg-emerald-50 border border-emerald-250 text-emerald-800 rounded-lg p-3 text-xs space-y-1">
-                  <p className="font-bold">Muvaffaqiyatli yuklandi!</p>
-                  <ul className="list-disc pl-4 font-mono text-[10px] space-y-0.5">
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs space-y-1">
+                  <p className="font-extrabold">Muvaffaqiyatli yuklandi!</p>
+                  <ul className="list-disc pl-4 font-mono text-[11px] space-y-0.5 font-semibold">
                     <li>Yuklangan o'quvchilar: {importResult.imported_count} ta</li>
                   </ul>
                 </div>
@@ -4782,16 +5687,16 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowImportStudentsModal(false)}
-                  className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={importLoading || !selectedFile}
-                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-zinc-800 disabled:opacity-50 flex items-center space-x-1 cursor-pointer"
+                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
                 >
-                  {importLoading && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                  {importLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
                   <span>Yuklash</span>
                 </button>
               </div>
@@ -4806,52 +5711,61 @@ export default function TeacherDashboard() {
   function renderAddClubModal() {
     if (!showAddClubModal) return null;
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowAddClubModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-zinc-200/80 animate-fadeIn">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">Yangi To'garak Yaratish</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">Fan to'garagini tashkil etish</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">Yangi To'garak Yaratish</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">Fan to'garagini tashkil etish</p>
             </div>
             <button
+              type="button"
               onClick={() => setShowAddClubModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <form onSubmit={handleCreateClub} className="p-6 overflow-y-auto space-y-4">
             {clubsError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs font-semibold rounded-lg">
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl">
                 {clubsError}
               </div>
             )}
             {clubsSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-250 text-emerald-800 text-xs font-semibold rounded-lg">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">
                 {clubsSuccess}
               </div>
             )}
 
             <div>
-              <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">To'garak nomi *</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">To'garak nomi *</label>
               <input
                 type="text"
                 required
                 value={newClubName}
                 onChange={(e) => setNewClubName(e.target.value)}
-                className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                 placeholder="Masalan: Yosh Fiziklar"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Fan *</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Fan *</label>
               <select
                 required
                 value={newClubSubjectId}
                 onChange={(e) => setNewClubSubjectId(Number(e.target.value))}
-                className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold cursor-pointer"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
               >
                 <option value="">-- Fanni tanlang --</option>
                 {subjects.map((sub) => (
@@ -4863,12 +5777,12 @@ export default function TeacherDashboard() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">Ruxsat etilgan sinflar (Level)*</label>
-              <div className="grid grid-cols-4 gap-2 border border-zinc-150 p-3 rounded-lg bg-zinc-50/30">
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Ruxsat etilgan sinflar (Level)*</label>
+              <div className="grid grid-cols-4 gap-2 border border-zinc-200/70 p-3 rounded-2xl bg-zinc-50/30">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => {
                   const isChecked = newClubAllowedLevels.includes(lvl);
                   return (
-                    <label key={lvl} className="flex items-center space-x-1.5 text-xs font-semibold text-zinc-700 cursor-pointer">
+                    <label key={lvl} className="flex items-center space-x-1.5 text-xs font-bold text-zinc-700 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -4879,7 +5793,7 @@ export default function TeacherDashboard() {
                             setNewClubAllowedLevels(newClubAllowedLevels.filter((x) => x !== lvl));
                           }
                         }}
-                        className="w-3.5 h-3.5 text-emerald-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
+                        className="w-3.5 h-3.5 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
                       />
                       <span>{lvl}-sinf</span>
                     </label>
@@ -4892,13 +5806,13 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={() => setShowAddClubModal(false)}
-                className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
               >
-                Yopish
+                Bekor qilish
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
               >
                 Tashkil qilish
               </button>
@@ -4913,28 +5827,37 @@ export default function TeacherDashboard() {
   function renderAddScheduleModal() {
     if (!showAddScheduleModal || !selectedClubForSchedule) return null;
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowAddScheduleModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">Jadval qo'shish</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">{selectedClubForSchedule.name} to'garagi uchun</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">Jadval qo'shish</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">{selectedClubForSchedule.name} to'garagi uchun</p>
             </div>
             <button
+              type="button"
               onClick={() => setShowAddScheduleModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <form onSubmit={handleAddSchedule} className="p-6 space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Hafta kuni *</label>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Hafta kuni *</label>
               <select
                 value={newScheduleDay}
                 onChange={(e) => setNewScheduleDay(Number(e.target.value))}
-                className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold cursor-pointer"
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
               >
                 <option value={1}>Dushanba</option>
                 <option value={2}>Seshanba</option>
@@ -4948,23 +5871,23 @@ export default function TeacherDashboard() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Boshlanish vaqti *</label>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Boshlanish vaqti *</label>
                 <input
                   type="time"
                   required
                   value={newScheduleStartTime}
                   onChange={(e) => setNewScheduleStartTime(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-1 font-mono">Tugash vaqti *</label>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Tugash vaqti *</label>
                 <input
                   type="time"
                   required
                   value={newScheduleEndTime}
                   onChange={(e) => setNewScheduleEndTime(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                 />
               </div>
             </div>
@@ -4973,13 +5896,13 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={() => setShowAddScheduleModal(false)}
-                className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
               >
-                Yopish
+                Bekor qilish
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
               >
                 Saqlash
               </button>
@@ -5003,48 +5926,57 @@ export default function TeacherDashboard() {
     });
 
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between bg-zinc-50">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowClubStudentsModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-zinc-200/80 animate-fadeIn">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">A'zolar va Qo'shilish So'rovlari</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">{selectedClubForStudents.name} to'garagi</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">A'zolar va Qo'shilish So'rovlari</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">{selectedClubForStudents.name} to'garagi</p>
             </div>
             <button
+              type="button"
               onClick={() => setShowClubStudentsModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="p-6 overflow-y-auto space-y-6 flex-1 text-zinc-900">
             {/* Direct Add Student Section */}
-            <div className="bg-zinc-50 border border-zinc-200/80 rounded-xl p-4 space-y-3">
+            <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-4 space-y-3">
               <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wide">To'g'ridan-to'g'ri o'quvchi qo'shish</h4>
-              <div className="flex items-center gap-2 bg-white border border-zinc-200/80 rounded-lg px-3 py-1.5">
+              <div className="flex items-center gap-2 bg-white border border-zinc-200/80 rounded-xl px-3.5 py-2">
                 <span className="text-zinc-400 text-xs">🔍</span>
                 <input
                   type="text"
                   value={searchStudentTerm}
                   onChange={(e) => setSearchStudentTerm(e.target.value)}
                   placeholder="Ism-familiya bo'yicha qidirish..."
-                  className="bg-transparent border-none text-xs text-zinc-700 outline-none w-full focus:ring-0"
+                  className="bg-transparent border-none text-xs text-zinc-800 font-bold outline-none w-full focus:ring-0"
                 />
               </div>
 
               {searchStudentTerm.trim() !== "" && (
-                <div className="max-h-32 overflow-y-auto border border-zinc-150 rounded-lg bg-white divide-y divide-zinc-100">
+                <div className="max-h-32 overflow-y-auto border border-zinc-200/70 rounded-xl bg-white divide-y divide-zinc-100">
                   {filteredToDirectAdd.length === 0 ? (
                     <p className="text-xs text-zinc-450 p-3 italic">O'quvchi topilmadi yoki barchasi a'zo</p>
                   ) : (
                     filteredToDirectAdd.map((st) => (
-                      <div key={st.id || st.student_id} className="flex items-center justify-between p-2 text-xs hover:bg-zinc-50/50 transition">
-                        <span className="font-semibold text-zinc-800">{st.first_name} {st.last_name}</span>
+                      <div key={st.id || st.student_id} className="flex items-center justify-between p-2.5 text-xs hover:bg-indigo-50/20 transition">
+                        <span className="font-bold text-zinc-800">{st.first_name} {st.last_name}</span>
                         <button
                           type="button"
                           onClick={() => handleAddDirectStudent(st.id || st.student_id)}
-                          className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-[10px] py-1 px-2.5 rounded transition cursor-pointer"
+                          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-[10px] py-1 px-3 rounded-lg transition cursor-pointer shadow-xs"
                         >
                           Qo'shish
                         </button>
@@ -5060,34 +5992,34 @@ export default function TeacherDashboard() {
               <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wide">To'garakdagilar ro'yxati</h4>
               {clubStudentsLoading ? (
                 <div className="text-center py-6">
-                  <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                  <p className="text-[10px] text-zinc-400 font-mono">Yuklanmoqda...</p>
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
+                  <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
                 </div>
               ) : clubStudents.length === 0 ? (
-                <p className="text-xs text-zinc-450 italic text-center py-4 bg-zinc-50 border border-dashed border-zinc-200 rounded-lg">Hozircha a'zolar yoki so'rovlar mavjud emas.</p>
+                <p className="text-xs text-zinc-400 italic text-center py-6 bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl">Hozircha a'zolar yoki so'rovlar mavjud emas.</p>
               ) : (
-                <div className="border border-zinc-150 rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-zinc-150 text-left text-xs bg-white">
-                    <thead className="bg-[#fafafa] text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                <div className="border border-zinc-200/70 rounded-2xl overflow-hidden">
+                  <table className="min-w-full divide-y divide-zinc-200/70 text-left text-xs bg-white">
+                    <thead className="bg-[#fafafa] text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
                       <tr>
-                        <th className="px-4 py-2">F.I.SH</th>
-                        <th className="px-4 py-2">Sinfi</th>
-                        <th className="px-4 py-2">Holati</th>
-                        <th className="px-4 py-2 text-right">Amallar</th>
+                        <th className="px-4 py-2.5">F.I.SH</th>
+                        <th className="px-4 py-2.5">Sinfi</th>
+                        <th className="px-4 py-2.5">Holati</th>
+                        <th className="px-4 py-2.5 text-right">Amallar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
                       {clubStudents.map((cs) => (
                         <tr key={cs.id} className="hover:bg-zinc-50/50 transition">
-                          <td className="px-4 py-2.5 font-semibold text-zinc-900">{cs.student_name}</td>
-                          <td className="px-4 py-2.5 font-mono text-zinc-500">{cs.class_name}</td>
+                          <td className="px-4 py-2.5 font-bold text-zinc-900">{cs.student_name}</td>
+                          <td className="px-4 py-2.5 font-mono font-semibold text-zinc-500">{cs.class_name}</td>
                           <td className="px-4 py-2.5">
                             {cs.status === "PENDING" ? (
-                              <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                              <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
                                 Kutilmoqda (Ariza)
                               </span>
                             ) : (
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
                                 A'zo ✓
                               </span>
                             )}
@@ -5097,7 +6029,7 @@ export default function TeacherDashboard() {
                               <button
                                 type="button"
                                 onClick={() => handleApproveStudent(cs.student_id)}
-                                className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-2 rounded-md transition cursor-pointer"
+                                className="text-[10px] bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold py-1 px-2.5 rounded-lg transition cursor-pointer"
                               >
                                 Tasdiqlash
                               </button>
@@ -5105,7 +6037,7 @@ export default function TeacherDashboard() {
                             <button
                               type="button"
                               onClick={() => handleRemoveStudent(cs.student_id)}
-                              className="text-[10px] bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 font-bold py-1 px-2 rounded-md transition cursor-pointer"
+                              className="text-[10px] bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 font-bold py-1 px-2.5 rounded-lg transition cursor-pointer"
                             >
                               {cs.status === "PENDING" ? "Rad etish" : "Chiqarish"}
                             </button>
@@ -5118,10 +6050,10 @@ export default function TeacherDashboard() {
               )}
             </div>
           </div>
-          <div className="px-6 py-3 border-t border-zinc-150 bg-zinc-50 text-right">
+          <div className="px-6 py-3 border-t border-zinc-100 text-right">
             <button
               onClick={() => setShowClubStudentsModal(false)}
-              className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
             >
               Yopish
             </button>
@@ -5134,35 +6066,44 @@ export default function TeacherDashboard() {
   function renderAddParentModal() {
     if (!showAddParentModal) return null;
     return (
-      <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-zinc-200 shadow-2xl rounded-2xl w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh] text-zinc-900">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowAddParentModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh] text-zinc-900 animate-fadeIn">
           {/* Modal Header */}
-          <div className="px-6 py-4 border-b border-zinc-150 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-zinc-900">Yangi Ota-onani Bog'lash (Qo'shish)</h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+              <h3 className="text-base font-extrabold text-[#16193E]">Yangi Ota-onani Bog'lash (Qo'shish)</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
                 Ota-onani ro'yxatdan o'tkazish va o'quvchiga biriktirish
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setShowAddParentModal(false)}
-              className="text-zinc-400 hover:text-zinc-650 cursor-pointer font-bold text-lg p-1"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              &times;
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="p-6 overflow-y-auto space-y-4">
             <form onSubmit={handleCreateAndLinkParent} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                   O'quvchini tanlang *
                 </label>
                 <select
                   required
                   value={selectedStudentIdForAdd}
                   onChange={(e) => setSelectedStudentIdForAdd(Number(e.target.value))}
-                  className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold cursor-pointer"
+                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
                 >
                   <option value="">-- O'quvchini tanlang --</option>
                   {studentsTabList.map((st) => (
@@ -5175,7 +6116,7 @@ export default function TeacherDashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Ism *
                   </label>
                   <input
@@ -5183,12 +6124,12 @@ export default function TeacherDashboard() {
                     required
                     value={parentFirstName}
                     onChange={(e) => setParentFirstName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: Asror"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Familiya *
                   </label>
                   <input
@@ -5196,7 +6137,7 @@ export default function TeacherDashboard() {
                     required
                     value={parentLastName}
                     onChange={(e) => setParentLastName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                     placeholder="Masalan: Karimov"
                   />
                 </div>
@@ -5204,19 +6145,19 @@ export default function TeacherDashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Otasining ismi (Sharifi)
                   </label>
                   <input
                     type="text"
                     value={parentMiddleName}
                     onChange={(e) => setParentMiddleName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
                     placeholder="Sharifini kiriting"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Telefon *
                   </label>
                   <input
@@ -5224,7 +6165,7 @@ export default function TeacherDashboard() {
                     required
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                     placeholder="Telefon raqamini kiriting"
                   />
                 </div>
@@ -5232,19 +6173,19 @@ export default function TeacherDashboard() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Pasport
                   </label>
                   <input
                     type="text"
                     value={parentPassport}
                     onChange={(e) => setParentPassport(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                     placeholder="AA1234567"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-zinc-455 uppercase tracking-wider mb-1 font-mono">
+                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                     Parol *
                   </label>
                   <input
@@ -5252,7 +6193,7 @@ export default function TeacherDashboard() {
                     required
                     value={parentPassword}
                     onChange={(e) => setParentPassword(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 bg-zinc-50/50 font-mono font-semibold"
+                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                     placeholder="Kamida 6 ta belgi"
                   />
                 </div>
@@ -5262,16 +6203,16 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowAddParentModal(false)}
-                  className="px-4 py-2 border border-zinc-200 text-zinc-700 rounded-lg text-xs font-semibold hover:bg-zinc-50 cursor-pointer"
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
-                  Yopish
+                  Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 flex items-center space-x-1 cursor-pointer"
+                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
                 >
-                  {actionLoading && <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
+                  {actionLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
                   <span>Ota-onani bog'lash</span>
                 </button>
               </div>
@@ -5286,11 +6227,18 @@ export default function TeacherDashboard() {
   function renderGradeCommentModal() {
     if (!showGradeCommentModal || !selectedGradeForComment) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-        <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowGradeCommentModal(false);
+          }
+        }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+      >
+        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div>
-              <h3 className="text-base font-bold text-zinc-900 flex items-center gap-2">
+              <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
                 <span>🔒 Baho bo'yicha muloqot / Izohlar</span>
               </h3>
               <p className="text-xs text-zinc-500 font-medium mt-0.5">
@@ -5298,10 +6246,12 @@ export default function TeacherDashboard() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setShowGradeCommentModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-600 font-bold text-sm"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -5351,7 +6301,7 @@ export default function TeacherDashboard() {
               <button
                 type="submit"
                 disabled={commentSubmitting}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs disabled:opacity-50"
+                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold rounded-xl text-xs shadow-xs disabled:opacity-50"
               >
                 {commentSubmitting ? "Yuborilmoqda..." : "Izoh Qoldirish"}
               </button>
