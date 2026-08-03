@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Trash2, Calendar, Plus, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { ClassItem, UserInfo } from "./types";
 
 interface HolidayItem {
@@ -18,6 +18,12 @@ interface HolidaysSectionProps {
   classes: ClassItem[];
 }
 
+const MONTH_NAMES = [
+  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+];
+const DAY_NAMES = ["Du", "Se", "Ch", "Pa", "Ju", "Sha", "Ya"];
+
 export default function HolidaysSection({
   token,
   API_URL,
@@ -30,13 +36,20 @@ export default function HolidaysSection({
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
-  const [holidayDate, setHolidayDate] = useState("");
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // YYYY-MM-DD[]
   const [holidayName, setHolidayName] = useState("");
   const [targetType, setTargetType] = useState<"all" | "levels" | "classes">("all");
   const [selectedLevels, setSelectedLevels] = useState<number[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+
+  // Calendar state
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-indexed
+  const isSelecting = useRef(false);
+  const selectMode = useRef<"add" | "remove">("add"); // whether dragging adds or removes
 
   // Delete State
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -70,8 +83,8 @@ export default function HolidaysSection({
 
   const handleSaveHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!holidayDate || !holidayName.trim()) {
-      setActionError("Sana va bayram nomini kiritish majburiy");
+    if (selectedDates.length === 0 || !holidayName.trim()) {
+      setActionError("Kamida bitta sana va bayram nomini kiritish majburiy");
       return;
     }
     setActionLoading(true);
@@ -79,44 +92,39 @@ export default function HolidaysSection({
 
     let payloadLevels: number[] = [];
     let payloadClasses: number[] = [];
+    if (targetType === "levels") payloadLevels = selectedLevels;
+    else if (targetType === "classes") payloadClasses = selectedClasses;
 
-    if (targetType === "levels") {
-      payloadLevels = selectedLevels;
-    } else if (targetType === "classes") {
-      payloadClasses = selectedClasses;
+    let failedDates: string[] = [];
+    for (const dateStr of selectedDates) {
+      try {
+        const response = await fetch(`${API_URL}/api/schools/holidays`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            holiday_date: dateStr,
+            name: holidayName.trim(),
+            target_levels: payloadLevels,
+            target_classes: payloadClasses,
+          }),
+        });
+        if (!response.ok) failedDates.push(dateStr);
+      } catch {
+        failedDates.push(dateStr);
+      }
     }
 
-    try {
-      const response = await fetch(`${API_URL}/api/schools/holidays`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          holiday_date: holidayDate,
-          name: holidayName.trim(),
-          target_levels: payloadLevels,
-          target_classes: payloadClasses,
-        }),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setShowAddModal(false);
-        setHolidayDate("");
-        setHolidayName("");
-        setTargetType("all");
-        setSelectedLevels([]);
-        setSelectedClasses([]);
-        fetchHolidays();
-      } else {
-        setActionError(data.error || "Dam olish kunini saqlashda xatolik");
-      }
-    } catch {
-      setActionError("Server bilan bog'lanishda xatolik");
-    } finally {
-      setActionLoading(false);
+    setActionLoading(false);
+    if (failedDates.length > 0) {
+      setActionError(`Quyidagi sanalarni saqlashda xatolik: ${failedDates.join(", ")}`);
+    } else {
+      setShowAddModal(false);
+      setSelectedDates([]);
+      setHolidayName("");
+      setTargetType("all");
+      setSelectedLevels([]);
+      setSelectedClasses([]);
+      fetchHolidays();
     }
   };
 
@@ -156,6 +164,69 @@ export default function HolidaysSection({
     );
   };
 
+  const toggleDate = (dateStr: string) => {
+    setSelectedDates((prev) =>
+      prev.includes(dateStr) ? prev.filter((d) => d !== dateStr) : [...prev, dateStr]
+    );
+  };
+
+  // Calendar helpers
+  const prevMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); }
+    else setCalMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1); }
+    else setCalMonth((m) => m + 1);
+  };
+
+  /** Returns an array of {dateStr, day, isCurrentMonth} for the 6-week grid */
+  const buildCalendarDays = () => {
+    const firstOfMonth = new Date(calYear, calMonth, 1);
+    // Monday-based week: getDay() returns 0=Sun,1=Mon,...
+    let startDow = firstOfMonth.getDay(); // 0=Sun
+    startDow = startDow === 0 ? 6 : startDow - 1; // convert to 0=Mon
+    const start = new Date(firstOfMonth);
+    start.setDate(start.getDate() - startDow);
+
+    const days: { dateStr: string; day: number; isCurrentMonth: boolean; isToday: boolean }[] = [];
+    const todayStr = new Date().toISOString().split("T")[0];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const dateStr = d.toISOString().split("T")[0];
+      days.push({
+        dateStr,
+        day: d.getDate(),
+        isCurrentMonth: d.getMonth() === calMonth,
+        isToday: dateStr === todayStr,
+      });
+    }
+    return days;
+  };
+
+  const calDays = buildCalendarDays();
+
+  const handleDayMouseDown = (dateStr: string) => {
+    isSelecting.current = true;
+    const alreadySelected = selectedDates.includes(dateStr);
+    selectMode.current = alreadySelected ? "remove" : "add";
+    toggleDate(dateStr);
+  };
+
+  const handleDayMouseEnter = (dateStr: string) => {
+    if (!isSelecting.current) return;
+    setSelectedDates((prev) => {
+      if (selectMode.current === "add") {
+        return prev.includes(dateStr) ? prev : [...prev, dateStr];
+      } else {
+        return prev.filter((d) => d !== dateStr);
+      }
+    });
+  };
+
+  const handleMouseUp = () => { isSelecting.current = false; };
+
   // Available unique class levels
   const availableLevels = Array.from(
     new Set(classes.map((c) => c.level).filter((l): l is number => typeof l === "number"))
@@ -178,18 +249,20 @@ export default function HolidaysSection({
         {userInfo?.role === "ADMIN" && (
           <button
             onClick={() => {
-              setHolidayDate("");
+              setSelectedDates([]);
               setHolidayName("");
               setTargetType("all");
               setSelectedLevels([]);
               setSelectedClasses([]);
               setActionError("");
+              setCalYear(new Date().getFullYear());
+              setCalMonth(new Date().getMonth());
               setShowAddModal(true);
             }}
             className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-5 rounded-2xl shadow-xs hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
           >
             <Plus className="w-4 h-4" />
-            + Bayram kuni qo'shish
+            + Bayram kuni qo&apos;shish
           </button>
         )}
       </div>
@@ -304,29 +377,112 @@ export default function HolidaysSection({
               )}
 
               <form onSubmit={handleSaveHoliday} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sana *</label>
-                    <input
-                      type="date"
-                      required
-                      value={holidayDate}
-                      onChange={(e) => setHolidayDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-mono font-bold"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Bayram / Sabab Nomi *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Mustaqillik kuni"
-                      value={holidayName}
-                      onChange={(e) => setHolidayName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
-                    />
+                {/* ── Inline Multi-Date Calendar ── */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">
+                    Sanalarni tanlang *
+                    {selectedDates.length > 0 && (
+                      <span className="ml-2 normal-case text-[#1D1E26] bg-[#D4F562] px-2 py-0.5 rounded-lg">
+                        {selectedDates.length} kun belgilandi
+                      </span>
+                    )}
+                  </label>
+
+                  <div
+                    className="select-none border border-slate-200 rounded-2xl overflow-hidden bg-white"
+                    onMouseLeave={handleMouseUp}
+                    onMouseUp={handleMouseUp}
+                  >
+                    {/* Calendar nav */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+                      <button
+                        type="button"
+                        onClick={prevMonth}
+                        className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-sm font-black text-[#1D1E26]">
+                        {MONTH_NAMES[calMonth]} {calYear}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={nextMonth}
+                        className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Day-of-week headers */}
+                    <div className="grid grid-cols-7 border-b border-slate-100">
+                      {DAY_NAMES.map((d) => (
+                        <div key={d} className="py-2 text-center text-[10px] font-extrabold text-slate-400 font-mono">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Day cells */}
+                    <div className="grid grid-cols-7 p-2 gap-1">
+                      {calDays.map(({ dateStr, day, isCurrentMonth, isToday }) => {
+                        const isSelected = selectedDates.includes(dateStr);
+                        return (
+                          <div
+                            key={dateStr}
+                            onMouseDown={() => handleDayMouseDown(dateStr)}
+                            onMouseEnter={() => handleDayMouseEnter(dateStr)}
+                            className={`
+                              h-8 w-full flex items-center justify-center rounded-xl text-xs font-bold transition cursor-pointer
+                              ${isSelected
+                                ? "bg-[#1D1E26] text-[#D4F562] ring-2 ring-[#D4F562]/50"
+                                : isToday
+                                  ? "ring-2 ring-[#D4F562] text-[#1D1E26] bg-[#D4F562]/10"
+                                  : isCurrentMonth
+                                    ? "text-slate-700 hover:bg-slate-100"
+                                    : "text-slate-300 hover:bg-slate-50"
+                              }
+                            `}
+                          >
+                            {day}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Selected dates summary */}
+                    {selectedDates.length > 0 && (
+                      <div className="px-3 pb-3">
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                          {[...selectedDates].sort().map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => toggleDate(d)}
+                              className="flex items-center gap-1 bg-[#D4F562] text-[#1D1E26] text-[10px] font-extrabold px-2 py-1 rounded-lg hover:bg-red-100 hover:text-red-600 transition cursor-pointer"
+                            >
+                              {d}
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                {/* Bayram nomi */}
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Bayram / Sabab Nomi *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Mustaqillik kuni"
+                    value={holidayName}
+                    onChange={(e) => setHolidayName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
+                  />
                 </div>
 
                 {/* Scope Selection */}

@@ -20,6 +20,7 @@ import {
 // Import modular components
 import BottomNavigation from "../../components/BottomNavigation";
 import DiaryDayCard from "../../components/DiaryDayCard";
+import SmartCalendarModal, { SmartCalendarTrigger } from "../../components/SmartCalendarModal";
 import dynamic from "next/dynamic";
 const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
@@ -391,6 +392,7 @@ export default function ParentDashboard() {
   const [selectedChildId, setSelectedChildId] = useState<number | "">("");
 
   // Grades
+  const [isSmartCalendarOpen, setIsSmartCalendarOpen] = useState(false);
   const [grades, setGrades] = useState<GradeItem[]>([]);
   const [gradesLoading, setGradesLoading] = useState(false);
   const [approveLoading, setApproveLoading] = useState<number | null>(null);
@@ -502,6 +504,64 @@ export default function ParentDashboard() {
 
   const [feedbackFeed, setFeedbackFeed] = useState<any[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  interface ChatThread {
+    key: string;
+    type: "GRADE" | "MENU";
+    grade_id?: number;
+    parent_id: number;
+    menu_date?: string;
+    author_name: string;
+    subject_name?: string;
+    grade_value?: string;
+    student_name?: string;
+    class_name?: string;
+    messages: any[];
+    representative: any;
+  }
+
+  const buildThreads = (items: any[]): ChatThread[] => {
+    const map = new Map<string, ChatThread>();
+
+    for (const item of items) {
+      let key: string;
+      if (item.type === "GRADE") {
+        key = `GRADE-${item.grade_id}`;
+      } else {
+        const d = item.menu_date ? item.menu_date.split("T")[0] : "unknown";
+        key = `MENU-${item.parent_id}-${d}`;
+      }
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          type: item.type,
+          grade_id: item.grade_id,
+          parent_id: item.parent_id,
+          menu_date: item.menu_date,
+          author_name: item.author_name,
+          subject_name: item.subject_name,
+          grade_value: item.grade_value,
+          student_name: item.student_name,
+          class_name: item.class_name,
+          messages: [],
+          representative: item,
+        });
+      }
+      map.get(key)!.messages.push(item);
+    }
+
+    for (const thread of map.values()) {
+      thread.messages.sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      thread.representative = thread.messages[thread.messages.length - 1];
+    }
+
+    return [...map.values()].sort((a, b) =>
+      new Date(b.representative.created_at).getTime() - new Date(a.representative.created_at).getTime()
+    );
+  };
 
   const fetchFeedbackFeed = async () => {
     setFeedbackLoading(true);
@@ -820,7 +880,7 @@ export default function ParentDashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
-      if (response.ok) setGrades(Array.isArray(data) ? data : []);
+      if (response.ok) setGrades(Array.isArray(data) ? data.filter((g: any) => g.lesson_number && g.lesson_number > 0) : []);
     } catch {
       /* noop */
     } finally {
@@ -1692,108 +1752,25 @@ export default function ParentDashboard() {
             {/* Sub-tab: DIARY (Kundalik) */}
             {activeSubTab === "diary" && (
               <div>
-                {/* Week Navigation Header */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    backgroundColor: "#F4EFE6",
-                    border: "1px solid #D8D3C9",
-                    borderRadius: "10px",
-                    padding: "8px 16px",
-                    marginBottom: "16px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-                  }}
-                >
-                  <button
-                    onClick={handlePrevWeek}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: ACCENT,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      backgroundColor: "#EEF2FF",
-                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
-                      transition: "all 0.15s ease",
-                    }}
-                    title="Oldingi hafta"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={3}
-                      stroke="currentColor"
-                      style={{ width: "14px", height: "14px" }}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                    </svg>
-                  </button>
-
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 800,
-                      color: TEXT_DARK,
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                      style={{ width: "14px", height: "14px", marginRight: "4px", color: ACCENT }}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                      />
-                    </svg>
-                    {weekLabel(currentWeekStart)}
-                  </span>
-
-                  <button
-                    onClick={handleNextWeek}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: ACCENT,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      backgroundColor: "#EEF2FF",
-                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
-                      transition: "all 0.15s ease",
-                    }}
-                    title="Keyingi hafta"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={3}
-                      stroke="currentColor"
-                      style={{ width: "14px", height: "14px" }}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </button>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+                  <SmartCalendarTrigger
+                    label={weekLabel(currentWeekStart)}
+                    onOpenCalendar={() => setIsSmartCalendarOpen(true)}
+                    onPrevWeek={handlePrevWeek}
+                    onNextWeek={handleNextWeek}
+                  />
                 </div>
+
+                <SmartCalendarModal
+                  isOpen={isSmartCalendarOpen}
+                  onClose={() => setIsSmartCalendarOpen(false)}
+                  mode="week"
+                  selectedWeekStart={currentWeekStart}
+                  onSelectWeek={(monStr) => {
+                    setCurrentWeekStart(monStr);
+                  }}
+                  title="Haftani tanlash"
+                />
 
                 {gradesLoading || scheduleLoading ? (
                   <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
@@ -2717,7 +2694,6 @@ export default function ParentDashboard() {
               </div>
             )}
 
-            {/* Sub-tab: COMMENTS (Murojaatlar / Chatlar) */}
             {activeSubTab === "comments" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {feedbackLoading ? (
@@ -2744,20 +2720,44 @@ export default function ParentDashboard() {
                     </div>
                   </div>
                 ) : (
-                  feedbackFeed.map((item, index) => {
-                    const isGrade = item.type === "GRADE";
+                  buildThreads(feedbackFeed).map((thread) => {
+                    const isGrade = thread.type === "GRADE";
+                    const rep = thread.representative;
                     return (
                       <div
-                        key={item.id || index}
+                        key={thread.key}
                         style={{
                           backgroundColor: "white",
                           border: "1px solid #E5E7EB",
+                          borderLeft: "4px solid #4F46E5",
                           borderRadius: "16px",
                           padding: "16px",
                           boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
                           display: "flex",
                           flexDirection: "column",
                           gap: "10px",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          if (isGrade) {
+                            setSelectedCommentGrade({ id: thread.grade_id, subject_name: thread.subject_name, value: thread.grade_value });
+                            setCommentTargetType("GRADE");
+                            setCommentText("");
+                            setCommentError("");
+                            setCommentSuccess("");
+                            setCommentModalOpen(true);
+                            fetchChatMessages("GRADE", thread.grade_id);
+                          } else {
+                            const dateOnly = thread.menu_date ? thread.menu_date.split("T")[0] : "";
+                            setSelectedCommentMenuDate(dateOnly);
+                            setSelectedCommentMealLabel("Tushlik");
+                            setCommentTargetType("MENU");
+                            setCommentText("");
+                            setCommentError("");
+                            setCommentSuccess("");
+                            setCommentModalOpen(true);
+                            fetchChatMessages("MENU", dateOnly, userInfo?.id);
+                          }
                         }}
                       >
                         <div
@@ -2769,20 +2769,37 @@ export default function ParentDashboard() {
                             paddingBottom: "8px",
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: "10px",
-                              fontWeight: 700,
-                              color: isGrade ? "#4F46E5" : "#D97706",
-                              backgroundColor: isGrade ? "#EEF2FF" : "#FEF3C7",
-                              padding: "2px 8px",
-                              borderRadius: "6px",
-                            }}
-                          >
-                            {isGrade ? "📝 Bahoga izoh" : "🍽️ Taomnomaga izoh"}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: 700,
+                                color: isGrade ? "#4F46E5" : "#D97706",
+                                backgroundColor: isGrade ? "#EEF2FF" : "#FEF3C7",
+                                padding: "2px 8px",
+                                borderRadius: "6px",
+                              }}
+                            >
+                              {isGrade ? "📝 Bahoga izoh" : "🍽️ Taomnomaga izoh"}
+                            </span>
+                            {thread.messages.length > 1 && (
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 700,
+                                  color: "#4F46E5",
+                                  backgroundColor: "#EEF2FF",
+                                  padding: "2px 8px",
+                                  borderRadius: "12px",
+                                  fontFamily: "monospace",
+                                }}
+                              >
+                                💬 {thread.messages.length} ta xabar
+                              </span>
+                            )}
+                          </div>
                           <span style={{ fontSize: "10px", color: TEXT_MUTED, fontFamily: "monospace" }}>
-                            {new Date(item.created_at).toLocaleDateString("uz-UZ")} {new Date(item.created_at).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(rep.created_at).toLocaleDateString("uz-UZ")} {new Date(rep.created_at).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
 
@@ -2814,14 +2831,14 @@ export default function ParentDashboard() {
                                 fontSize: "14px",
                               }}
                             >
-                              {item.grade_value}
+                              {thread.grade_value || "-"}
                             </div>
                             <div>
                               <span style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, display: "block" }}>
-                                {item.subject_name}
+                                {thread.subject_name}
                               </span>
                               <span style={{ fontSize: "10px", color: TEXT_MUTED }}>
-                                O&apos;quvchi: <b>{item.student_name}</b> ({item.class_name})
+                                O&apos;quvchi: <b>{thread.student_name}</b> ({thread.class_name})
                               </span>
                             </div>
                           </div>
@@ -2837,7 +2854,7 @@ export default function ParentDashboard() {
                               fontWeight: 650,
                             }}
                           >
-                            🍽️ Taomnoma kuni: {new Date(item.menu_date || "").toLocaleDateString("uz-UZ", {
+                            🍽️ Taomnoma kuni: {new Date(thread.menu_date || "").toLocaleDateString("uz-UZ", {
                               weekday: "long",
                               day: "numeric",
                               month: "long",
@@ -2855,49 +2872,15 @@ export default function ParentDashboard() {
                             border: "1px solid #F3F4F6",
                             fontStyle: "italic",
                             lineHeight: "1.4",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
                           }}
                         >
-                          &ldquo;{item.content}&rdquo;
-                        </div>
-
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isGrade) {
-                                setSelectedCommentGrade({ id: item.grade_id, subject_name: item.subject_name, value: item.grade_value });
-                                setCommentTargetType("GRADE");
-                                setCommentText("");
-                                setCommentError("");
-                                setCommentSuccess("");
-                                setCommentModalOpen(true);
-                                fetchChatMessages("GRADE", item.grade_id);
-                              } else {
-                                const dateOnly = item.menu_date ? item.menu_date.split("T")[0] : "";
-                                setSelectedCommentMenuDate(dateOnly);
-                                setSelectedCommentMealLabel("Tushlik");
-                                setCommentTargetType("MENU");
-                                setCommentText("");
-                                setCommentError("");
-                                setCommentSuccess("");
-                                setCommentModalOpen(true);
-                                fetchChatMessages("MENU", dateOnly, userInfo?.id);
-                              }
-                            }}
-                            style={{
-                              border: "none",
-                              backgroundColor: "#EEF2FF",
-                              color: "#4F46E5",
-                              fontWeight: 700,
-                              fontSize: "10px",
-                              padding: "6px 12px",
-                              borderRadius: "8px",
-                              cursor: "pointer",
-                              transition: "background 0.2s",
-                            }}
-                          >
-                            💬 Chatni ochish
-                          </button>
+                          <span>&ldquo;{rep.content}&rdquo;</span>
+                          <span style={{ fontSize: "10px", color: "#4F46E5", fontWeight: 700, fontStyle: "normal" }}>
+                            💬 Chatni ochish &rarr;
+                          </span>
                         </div>
                       </div>
                     );

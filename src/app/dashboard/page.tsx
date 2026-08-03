@@ -16,6 +16,7 @@ import BalanceSection from "@/components/dashboard/BalanceSection";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import FeedbackSection from "@/components/dashboard/FeedbackSection";
 import HolidaysSection from "@/components/dashboard/HolidaysSection";
+import ScheduleOverviewSection from "@/components/dashboard/ScheduleOverviewSection";
 
 // Types
 import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/components/dashboard/types";
@@ -32,7 +33,10 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays">("overview");
+  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview">("overview");
+
+  // Classes section: initial tab when redirecting from schedule overview
+  const [classesInitialTab, setClassesInitialTab] = useState<"students" | "teachers" | "parents" | "schedule" | undefined>(undefined);
 
   // Core Data Lists
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -366,6 +370,7 @@ export default function TenantDashboard() {
               setSelectedClass={setSelectedClass}
               fetchStudentsBalanceData={fetchStudentsBalanceData}
               setSubjects={setSubjects}
+              initialTab={classesInitialTab}
             />
           )}
 
@@ -432,6 +437,20 @@ export default function TenantDashboard() {
               classes={classes}
             />
           )}
+
+          {activeMenu === "schedule-overview" && (
+            <ScheduleOverviewSection
+              classes={classes}
+              token={token}
+              API_URL={API_URL}
+              onEditSchedule={(cls) => {
+                setSelectedClass(cls);
+                setClassesInitialTab("schedule");
+                setActiveMenu("classes");
+              }}
+            />
+          )}
+
           {activeMenu === "announcements" && (
             <AnnouncementsSection
               token={token}

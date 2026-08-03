@@ -2,32 +2,15 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ClassItem, UserInfo } from "./types";
-
-interface StudentAttendanceStat {
-  student_id: number;
-  user_id: number;
-  first_name: string;
-  last_name: string;
-  middle_name?: string;
-  class_id: number;
-  class_name: string;
-  class_level: number;
-  absent_count: number;
-  present_or_tardy_count: number;
-  status: "absent" | "partial" | "present" | "no_data";
-}
-
-interface DailyAttendanceStat {
-  day: string;
-  date: string;
-  attendance_pct: number;
-}
+import { ClassItem, UserInfo, StudentAttendanceStat, DailyAttendanceStat } from "./types";
+import AttendanceDetailModal from "./AttendanceDetailModal";
+import SmartCalendarModal, { SmartCalendarTrigger } from "@/components/SmartCalendarModal";
 
 interface DashboardStatsResponse {
   date: string;
@@ -81,6 +64,7 @@ export default function OverviewSection({
 
   // Filter & Data States
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateStr());
+  const [isOverviewCalendarOpen, setIsOverviewCalendarOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
 
@@ -95,6 +79,44 @@ export default function OverviewSection({
   // Table Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "absent" | "partial" | "present">("all");
+
+  // Modal states for double-clicking attendance bar chart
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalDate, setModalDate] = useState("");
+  const [modalDayName, setModalDayName] = useState("");
+  const [modalStudents, setModalStudents] = useState<StudentAttendanceStat[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const handleBarDoubleClick = async (entry: { day: string; date?: string; qatnashuv: number }) => {
+    const targetDate = entry.date || selectedDate;
+    setModalDate(targetDate);
+    setModalDayName(entry.day);
+    setModalOpen(true);
+
+    if (targetDate === selectedDate && stats?.students) {
+      setModalStudents(stats.students);
+    } else {
+      setModalLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.append("date", targetDate);
+        if (selectedClassId) params.append("class_id", selectedClassId);
+        if (selectedLevel) params.append("level", selectedLevel);
+
+        const statsData = await safeFetchJson(`${API_URL}/api/schools/dashboard/stats?${params.toString()}`);
+        if (statsData && Array.isArray(statsData.students)) {
+          setModalStudents(statsData.students);
+        } else {
+          setModalStudents([]);
+        }
+      } catch (err) {
+        console.error("Modal stats fetch error:", err);
+        setModalStudents([]);
+      } finally {
+        setModalLoading(false);
+      }
+    }
+  };
 
   // Date Navigation Helpers (< > & Today)
   const changeDateByDays = (days: number) => {
@@ -258,6 +280,7 @@ export default function OverviewSection({
     if (stats?.weekly_attendance && stats.weekly_attendance.length > 0) {
       return stats.weekly_attendance.map((wa) => ({
         day: wa.day,
+        date: wa.date,
         qatnashuv: wa.attendance_pct,
       }));
     }
@@ -276,15 +299,26 @@ export default function OverviewSection({
       { day: "Shan", key: 6, baseFactor: 0.86 },
     ];
 
-    const currentWeekDay = new Date(selectedDate || getTodayDateStr()).getDay();
+    const targetDateObj = new Date(selectedDate || getTodayDateStr());
+    const dayOfWeek = targetDateObj.getDay(); // 0 is Sun, 1 is Mon
+    const diffToMon = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+    const mondayObj = new Date(targetDateObj);
+    mondayObj.setDate(targetDateObj.getDate() + diffToMon);
 
-    return weekDays.map((wd) => {
+    const currentWeekDay = dayOfWeek;
+
+    return weekDays.map((wd, i) => {
       let percent = Math.min(100, Math.max(10, Math.round(overallPercent * wd.baseFactor)));
       if (wd.key === (currentWeekDay === 0 ? 7 : currentWeekDay)) {
         percent = overallPercent;
       }
+      const d = new Date(mondayObj);
+      d.setDate(mondayObj.getDate() + i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
       return {
         day: wd.day,
+        date: dateStr,
         qatnashuv: percent,
       };
     });
@@ -431,18 +465,59 @@ export default function OverviewSection({
             </div>
 
             {/* Recharts Bar Chart */}
-            <div className="h-52 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dynamicAttendanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#1D1E26", borderRadius: "12px", color: "#fff", fontSize: "11px" }}
-                    formatter={(value: any) => [`${value}%`, "Darsga qatnashuv"]}
-                  />
-                  <Bar dataKey="qatnashuv" fill="#1D1E26" radius={[6, 6, 0, 0]} barSize={22} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="space-y-1">
+              <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1 justify-end">
+                <span>💡</span> Grafik ustiga 2 marta bossangiz, kirmaganlar va kech qolganlar ro'yxati ochiladi
+              </div>
+              <div className="h-52 w-full outline-none focus:outline-none focus:ring-0 [&_*]:outline-none [&_*]:focus:outline-none select-none">
+                <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none">
+                  <BarChart data={dynamicAttendanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none focus:outline-none">
+                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip
+                      cursor={{ fill: "transparent" }}
+                      contentStyle={{
+                        backgroundColor: "#1D1E26",
+                        borderRadius: "14px",
+                        border: "1px solid #334155",
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
+                        padding: "8px 12px",
+                      }}
+                      labelStyle={{ color: "#FFFFFF", fontWeight: "800", fontSize: "12px", marginBottom: "4px" }}
+                      itemStyle={{ color: "#D4F562", fontWeight: "700", fontSize: "11px" }}
+                      formatter={(value: any) => [`${value}%`, "2 marta bosing"]}
+                    />
+                    <Bar
+                      dataKey="qatnashuv"
+                      radius={[6, 6, 0, 0]}
+                      barSize={24}
+                      stroke="none"
+                      strokeWidth={0}
+                      onDoubleClick={(entry: any) => {
+                        if (entry && entry.day) {
+                          handleBarDoubleClick(entry);
+                        }
+                      }}
+                    >
+                      {dynamicAttendanceData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={selectedDate === entry.date ? "#D4F562" : "#1D1E26"}
+                          stroke="none"
+                          strokeWidth={0}
+                          className="cursor-pointer hover:opacity-80 transition outline-none focus:outline-none"
+                          onClick={() => {
+                            if (entry.date) {
+                              setSelectedDate(entry.date);
+                            }
+                          }}
+                          onDoubleClick={() => handleBarDoubleClick(entry)}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
@@ -456,32 +531,26 @@ export default function OverviewSection({
                 </p>
               </div>
 
-              {/* DATE NAVIGATION CONTROLS (< > BUTTONS & TODAY) */}
-              <div className="flex items-center space-x-1.5 bg-slate-100 p-1.5 rounded-2xl">
-                <button
-                  onClick={() => changeDateByDays(-1)}
-                  className="w-8 h-8 bg-white hover:bg-slate-200 text-[#1D1E26] font-black rounded-xl flex items-center justify-center text-sm shadow-xs transition cursor-pointer"
-                  title="Oldingi kun"
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={handleResetToToday}
-                  className={`px-3.5 py-1.5 font-black text-xs rounded-xl transition cursor-pointer shadow-xs ${
-                    isToday ? "bg-[#D4F562] text-[#1D1E26]" : "bg-white text-slate-700 hover:bg-slate-200"
-                  }`}
-                  title="Bugunga qaytish"
-                >
-                  {isToday ? "Bugun" : "Bugun"}
-                </button>
-                <button
-                  onClick={() => changeDateByDays(1)}
-                  className="w-8 h-8 bg-white hover:bg-slate-200 text-[#1D1E26] font-black rounded-xl flex items-center justify-center text-sm shadow-xs transition cursor-pointer"
-                  title="Keyingi kun"
-                >
-                  ›
-                </button>
+              {/* DATE NAVIGATION CONTROLS WITH SMART CALENDAR */}
+              <div className="flex items-center space-x-2">
+                <SmartCalendarTrigger
+                  label={formatUzbekDate(selectedDate)}
+                  onOpenCalendar={() => setIsOverviewCalendarOpen(true)}
+                  onPrevWeek={() => changeDateByDays(-1)}
+                  onNextWeek={() => changeDateByDays(1)}
+                />
               </div>
+
+              <SmartCalendarModal
+                isOpen={isOverviewCalendarOpen}
+                onClose={() => setIsOverviewCalendarOpen(false)}
+                mode="single"
+                selectedDate={selectedDate}
+                onSelectDate={(dateStr) => {
+                  setSelectedDate(dateStr);
+                }}
+                title="Sana tanlash"
+              />
             </div>
 
             {/* Dynamic List of Class Attendance Cards for Selected Date */}
@@ -848,6 +917,16 @@ export default function OverviewSection({
           </div>
         )}
       </div>
+
+      {/* Attendance Detail Modal for double-clicking chart bar */}
+      <AttendanceDetailModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        dateStr={modalDate}
+        dayName={modalDayName}
+        students={modalStudents}
+        loading={modalLoading}
+      />
     </div>
   );
 }

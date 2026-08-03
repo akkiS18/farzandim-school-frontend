@@ -92,6 +92,28 @@ export interface PollOptionItem {
   user_voted?: boolean;
 }
 
+export interface StudentAttendanceStat {
+  student_id: number;
+  user_id: number;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  class_id: number;
+  class_name: string;
+  class_level: number;
+  absent_count: number;
+  tardy_count?: number;
+  present_count?: number;
+  present_or_tardy_count: number;
+  status: "absent" | "partial" | "tardy" | "present" | "no_data";
+}
+
+export interface DailyAttendanceStat {
+  day: string;
+  date: string;
+  attendance_pct: number;
+}
+
 export interface AnnouncementItem {
   id: number;
   title: string;
@@ -104,4 +126,20 @@ export interface AnnouncementItem {
   level_ids?: number[];
   student_ids?: number[];
   created_at: string;
+}
+
+export interface ClassTeacherHistoryItem {
+  id: number;
+  class_id: number;
+  subject_id: number;
+  subject_name: string;
+  teacher_id: number;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  phone: string;
+  is_main_teacher: boolean;
+  is_deleted: boolean;
+  created_at: string;
+  deleted_at?: string | null;
 }

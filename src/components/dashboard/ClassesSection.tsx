@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Users, Pencil, Trash2, UserMinus } from "lucide-react";
-import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
+import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
 
 interface SearchableSingleSelectProps {
   value: number;
@@ -115,6 +115,7 @@ interface ClassesSectionProps {
   setSelectedClass: (cls: ClassItem | null) => void;
   fetchStudentsBalanceData: (t: string) => Promise<void>;
   setSubjects?: React.Dispatch<React.SetStateAction<SubjectItem[]>>;
+  initialTab?: "students" | "teachers" | "parents" | "schedule";
 }
 
 export default function ClassesSection({
@@ -129,9 +130,15 @@ export default function ClassesSection({
   setSelectedClass,
   fetchStudentsBalanceData,
   setSubjects,
+  initialTab,
 }: ClassesSectionProps) {
   // Navigation
-  const [classDetailsTab, setClassDetailsTab] = useState<"students" | "teachers" | "parents" | "schedule">("students");
+  const [classDetailsTab, setClassDetailsTab] = useState<"students" | "teachers" | "parents" | "schedule">(initialTab || "students");
+
+  // Sync initialTab if it changes (e.g. redirect from schedule overview)
+  useEffect(() => {
+    if (initialTab) setClassDetailsTab(initialTab);
+  }, [initialTab]);
 
   // Quick Add Subject Modal (inside Schedule Modal)
   const [showQuickAddSubjectModal, setShowQuickAddSubjectModal] = useState(false);
@@ -221,6 +228,26 @@ export default function ClassesSection({
   const [showUnassignTeacherModal, setShowUnassignTeacherModal] = useState(false);
   const [unassignClassTeacherId, setUnassignClassTeacherId] = useState<number | null>(null);
 
+  // Edit Class Teacher modal
+  const [showEditClassTeacherModal, setShowEditClassTeacherModal] = useState(false);
+  const [editingClassTeacher, setEditingClassTeacher] = useState<ClassTeacherItem | null>(null);
+  const [editCTSubjectId, setEditCTSubjectId] = useState<number>(0);
+  const [editCTTeacherId, setEditCTTeacherId] = useState<number>(0);
+  const [editCTIsMain, setEditCTIsMain] = useState(false);
+
+  // Class Teacher History modal
+  const [showClassTeacherHistoryModal, setShowClassTeacherHistoryModal] = useState(false);
+  const [classTeacherHistory, setClassTeacherHistory] = useState<ClassTeacherHistoryItem[]>([]);
+  const [classTeacherHistoryLoading, setClassTeacherHistoryLoading] = useState(false);
+
+  // Edit Parent modal
+  const [showEditParentModal, setShowEditParentModal] = useState(false);
+  const [editParentFirstName, setEditParentFirstName] = useState("");
+  const [editParentLastName, setEditParentLastName] = useState("");
+  const [editParentMiddleName, setEditParentMiddleName] = useState("");
+  const [editParentPhone, setEditParentPhone] = useState("");
+  const [editParentPassport, setEditParentPassport] = useState("");
+
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
   const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
@@ -259,6 +286,9 @@ export default function ClassesSection({
         setShowUnassignTeacherModal(false);
         setShowUnlinkParentModal(false);
         setShowAssignTeacherModal(false);
+        setShowEditClassTeacherModal(false);
+        setShowClassTeacherHistoryModal(false);
+        setShowEditParentModal(false);
         setShowEditScheduleModal(false);
         setShowAddExceptionModal(false);
         setShowImportStudentsModal(false);
@@ -519,6 +549,91 @@ export default function ClassesSection({
       setActionLoading(false);
     }
   };
+
+  const handleUpdateParent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingParent) return;
+    setActionLoading(true);
+    setActionError("");
+    try {
+      const response = await fetch(`${API_URL}/api/schools/parents/${editingParent.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          first_name: editParentFirstName.trim(),
+          last_name: editParentLastName.trim(),
+          middle_name: editParentMiddleName.trim() || undefined,
+          phone: editParentPhone.trim(),
+          passport: editParentPassport.trim() || undefined,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Ota-onani yangilab bo'lmadi");
+      setShowEditParentModal(false);
+      setEditingParent(null);
+      fetchClassParents();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateClassTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClassTeacher || !selectedClass) return;
+    setActionLoading(true);
+    setActionError("");
+    try {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/teachers/${editingClassTeacher.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subject_id: editCTSubjectId || undefined,
+          teacher_id: editCTTeacherId || undefined,
+          is_main_teacher: editCTIsMain,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "O'qituvchi biriktiruvi yangilanmadi");
+      setShowEditClassTeacherModal(false);
+      setEditingClassTeacher(null);
+      fetchClassTeachers();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const fetchClassTeacherHistory = async () => {
+    if (!selectedClass) return;
+    setClassTeacherHistoryLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/teachers/history`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setClassTeacherHistory(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setClassTeacherHistory([]);
+    } finally {
+      setClassTeacherHistoryLoading(false);
+    }
+  };
+
+  const handleOpenClassTeacherHistory = () => {
+    setShowClassTeacherHistoryModal(true);
+    fetchClassTeacherHistory();
+  };
+
 
   const handleAddClass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1327,15 +1442,23 @@ export default function ClassesSection({
           {classDetailsTab === "teachers" && (
             <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-black text-[#1D1E26]">Sinf fan o'qituvchilari</h3>
-                {userInfo?.role === "ADMIN" && (
+                <h3 className="text-base font-black text-[#1D1E26]">Sinf fan o&apos;qituvchilari</h3>
+                <div className="flex items-center gap-3 flex-wrap">
                   <button
-                    onClick={() => setShowAssignTeacherModal(true)}
-                    className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    onClick={handleOpenClassTeacherHistory}
+                    className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
                   >
-                    + O'qituvchi biriktirish
+                    📜 Tarix
                   </button>
-                )}
+                  {userInfo?.role === "ADMIN" && (
+                    <button
+                      onClick={() => setShowAssignTeacherModal(true)}
+                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    >
+                      + O&apos;qituvchi biriktirish
+                    </button>
+                  )}
+                </div>
               </div>
 
               {classTeachersLoading ? (
@@ -1383,16 +1506,32 @@ export default function ClassesSection({
                           </td>
                           {userInfo?.role === "ADMIN" && (
                             <td className="px-6 py-4 text-right">
-                              <button
-                                onClick={() => {
-                                  setUnassignClassTeacherId(ct.id);
-                                  setShowUnassignTeacherModal(true);
-                                }}
-                                title="Ajratish"
-                                className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                              >
-                                <UserMinus className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingClassTeacher(ct);
+                                    setEditCTSubjectId(ct.subject_id);
+                                    setEditCTTeacherId(ct.teacher_id);
+                                    setEditCTIsMain(ct.is_main_teacher);
+                                    setActionError("");
+                                    setShowEditClassTeacherModal(true);
+                                  }}
+                                  title="Tahrirlash"
+                                  className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setUnassignClassTeacherId(ct.id);
+                                    setShowUnassignTeacherModal(true);
+                                  }}
+                                  title="Ajratish"
+                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                >
+                                  <UserMinus className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           )}
                         </tr>
@@ -1471,19 +1610,38 @@ export default function ClassesSection({
                           <td className="px-6 py-4 font-mono text-slate-500">{parent.email || "Kiritilmagan"}</td>
                           {userInfo?.role === "ADMIN" && (
                             <td className="px-6 py-4 text-right">
-                              <button
-                                onClick={() => {
-                                  setEditingParent(parent);
-                                  setUnlinkStudentId(parent.student_id || 0);
-                                  setShowUnlinkParentModal(true);
-                                }}
-                                title="Ajratish"
-                                className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                              >
-                                <UserMinus className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingParent(parent);
+                                    setEditParentFirstName(parent.first_name || "");
+                                    setEditParentLastName(parent.last_name || "");
+                                    setEditParentMiddleName(parent.middle_name || "");
+                                    setEditParentPhone(parent.phone || "");
+                                    setEditParentPassport(parent.email || "");
+                                    setActionError("");
+                                    setShowEditParentModal(true);
+                                  }}
+                                  title="Tahrirlash"
+                                  className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingParent(parent);
+                                    setUnlinkStudentId(parent.student_id || 0);
+                                    setShowUnlinkParentModal(true);
+                                  }}
+                                  title="Ajratish"
+                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                >
+                                  <UserMinus className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           )}
+
                         </tr>
                       ))}
                     </tbody>
@@ -3513,6 +3671,231 @@ export default function ClassesSection({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Edit Parent Modal ─── */}
+      {showEditParentModal && editingParent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowEditParentModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <h2 className="text-base font-black text-[#1D1E26]">Vasiy ma&apos;lumotlarini tahrirlash</h2>
+              <button onClick={() => setShowEditParentModal(false)} className="text-slate-400 hover:text-slate-700 transition cursor-pointer text-xl leading-none">✕</button>
+            </div>
+            <form onSubmit={handleUpdateParent} className="p-6 space-y-4">
+              {actionError && <p className="text-red-500 text-xs font-bold bg-red-50 px-3 py-2 rounded-xl">{actionError}</p>}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familya *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editParentLastName}
+                    onChange={(e) => setEditParentLastName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ism *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editParentFirstName}
+                    onChange={(e) => setEditParentFirstName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Sharif</label>
+                <input
+                  type="text"
+                  value={editParentMiddleName}
+                  onChange={(e) => setEditParentMiddleName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon *</label>
+                <input
+                  type="text"
+                  required
+                  value={editParentPhone}
+                  onChange={(e) => setEditParentPhone(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport</label>
+                <input
+                  type="text"
+                  value={editParentPassport}
+                  onChange={(e) => setEditParentPassport(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setShowEditParentModal(false)} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer">Bekor qilish</button>
+                <button type="submit" disabled={actionLoading} className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50">
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Edit Class Teacher Modal ─── */}
+      {showEditClassTeacherModal && editingClassTeacher && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowEditClassTeacherModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <h2 className="text-base font-black text-[#1D1E26]">Biriktiruvni tahrirlash</h2>
+              <button onClick={() => setShowEditClassTeacherModal(false)} className="text-slate-400 hover:text-slate-700 transition cursor-pointer text-xl leading-none">✕</button>
+            </div>
+            <form onSubmit={handleUpdateClassTeacher} className="p-6 space-y-4">
+              {actionError && <p className="text-red-500 text-xs font-bold bg-red-50 px-3 py-2 rounded-xl">{actionError}</p>}
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Fan</label>
+                <SearchableSingleSelect
+                  value={editCTSubjectId}
+                  options={subjects.map((s) => ({ id: s.id, name: s.name }))}
+                  placeholder="Fan tanlang"
+                  onChange={(val) => setEditCTSubjectId(val)}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">O&apos;qituvchi</label>
+                <SearchableSingleSelect
+                  value={editCTTeacherId}
+                  options={teachers.map((t) => ({ id: t.id, name: `${t.last_name} ${t.first_name}` }))}
+                  placeholder="O'qituvchi tanlang"
+                  onChange={(val) => setEditCTTeacherId(val)}
+                />
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <input
+                  type="checkbox"
+                  id="editCTIsMain"
+                  checked={editCTIsMain}
+                  onChange={(e) => setEditCTIsMain(e.target.checked)}
+                  className="w-4 h-4 rounded accent-[#1D1E26] cursor-pointer"
+                />
+                <label htmlFor="editCTIsMain" className="text-xs font-bold text-slate-700 cursor-pointer">
+                  Sinf rahbari sifatida belgilash
+                </label>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setShowEditClassTeacherModal(false)} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer">Bekor qilish</button>
+                <button type="submit" disabled={actionLoading} className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50">
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Class Teacher History Modal ─── */}
+      {showClassTeacherHistoryModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowClassTeacherHistoryModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 shrink-0">
+              <div>
+                <h2 className="text-base font-black text-[#1D1E26]">O&apos;qituvchi biriktiruvi tarixi</h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">{selectedClass?.name} · barcha faol va oldingi biriktirishlar</p>
+              </div>
+              <button onClick={() => setShowClassTeacherHistoryModal(false)} className="text-slate-400 hover:text-slate-700 transition cursor-pointer text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {classTeacherHistoryLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : classTeacherHistory.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-slate-400 text-sm font-medium">Tarix topilmadi.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {classTeacherHistory.map((item) => {
+                    const startDate = new Date(item.created_at).toLocaleDateString("uz-UZ", { day: "2-digit", month: "short", year: "numeric" });
+                    const endDate = item.deleted_at
+                      ? new Date(item.deleted_at).toLocaleDateString("uz-UZ", { day: "2-digit", month: "short", year: "numeric" })
+                      : null;
+                    const isActive = !item.is_deleted;
+                    return (
+                      <div key={item.id} className="px-6 py-4 flex items-start gap-4">
+                        <div className="mt-1 shrink-0">
+                          {isActive ? (
+                            <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-green-100"></span>
+                          ) : (
+                            <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400 ring-2 ring-red-100"></span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-black text-[#1D1E26]">
+                              {item.last_name} {item.first_name} {item.middle_name}
+                            </span>
+                            <span className="bg-[#E0F2FE] text-[#0284C7] font-mono text-[11px] font-bold px-2.5 py-0.5 rounded-lg">
+                              {item.subject_name}
+                            </span>
+                            {item.is_main_teacher && (
+                              <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2 py-0.5 rounded-lg">
+                                Sinf Rahbari
+                              </span>
+                            )}
+                            {isActive ? (
+                              <span className="text-green-600 font-bold text-[11px] bg-green-50 px-2 py-0.5 rounded-lg">● Faol</span>
+                            ) : (
+                              <span className="text-red-500 font-bold text-[11px] bg-red-50 px-2 py-0.5 rounded-lg">● Almashtirilgan</span>
+                            )}
+                          </div>
+                          <div className="mt-1 text-[11px] text-slate-400 font-mono">
+                            {endDate ? (
+                              <span>{startDate} → {endDate}</span>
+                            ) : (
+                              <span>{startDate} → hozirgi kunga qadar</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex justify-end">
+              <button
+                onClick={() => setShowClassTeacherHistoryModal(false)}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
+              >
+                Yopish
+              </button>
+            </div>
           </div>
         </div>
       )}

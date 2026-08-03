@@ -434,6 +434,9 @@ export default function BalanceSection({
           start_date: planStartDate,
           end_date: planEndDate,
           charge_day: parseInt(planChargeDay.toString()),
+          levels: planSelectedLevels,
+          classes: planSelectedClasses,
+          students: planSelectedStudents,
           target_levels: planSelectedLevels,
           target_classes: planSelectedClasses,
           target_students: planSelectedStudents,
@@ -465,9 +468,9 @@ export default function BalanceSection({
     setPlanStartDate(plan.start_date ? new Date(plan.start_date).toISOString().split("T")[0] : "2026-09-01");
     setPlanEndDate(plan.end_date ? new Date(plan.end_date).toISOString().split("T")[0] : "2027-05-31");
     setPlanChargeDay(plan.charge_day || 1);
-    setPlanSelectedLevels(plan.target_levels || plan.levels || []);
-    setPlanSelectedClasses(plan.target_classes || plan.classes || []);
-    setPlanSelectedStudents(plan.target_students || plan.students || []);
+    setPlanSelectedLevels(plan.levels || plan.target_levels || []);
+    setPlanSelectedClasses(plan.classes || plan.target_classes || []);
+    setPlanSelectedStudents(plan.students || plan.target_students || []);
     setShowEditChargePlanModal(true);
   };
 

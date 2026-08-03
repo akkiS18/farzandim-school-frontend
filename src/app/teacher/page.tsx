@@ -5,6 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
+import SmartCalendarModal from "@/components/SmartCalendarModal";
 import {
   LayoutDashboard,
   BookOpen,
@@ -124,6 +125,64 @@ export default function TeacherDashboard() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSearch, setFeedbackSearch] = useState("");
 
+  interface ChatThread {
+    key: string;
+    type: "GRADE" | "MENU";
+    grade_id?: number;
+    parent_id: number;
+    menu_date?: string;
+    author_name: string;
+    subject_name?: string;
+    grade_value?: string;
+    student_name?: string;
+    class_name?: string;
+    messages: any[];
+    representative: any;
+  }
+
+  const buildThreads = (items: any[]): ChatThread[] => {
+    const map = new Map<string, ChatThread>();
+
+    for (const item of items) {
+      let key: string;
+      if (item.type === "GRADE") {
+        key = `GRADE-${item.grade_id}`;
+      } else {
+        const d = item.menu_date ? item.menu_date.split("T")[0] : "unknown";
+        key = `MENU-${item.parent_id}-${d}`;
+      }
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          type: item.type,
+          grade_id: item.grade_id,
+          parent_id: item.parent_id,
+          menu_date: item.menu_date,
+          author_name: item.author_name,
+          subject_name: item.subject_name,
+          grade_value: item.grade_value,
+          student_name: item.student_name,
+          class_name: item.class_name,
+          messages: [],
+          representative: item,
+        });
+      }
+      map.get(key)!.messages.push(item);
+    }
+
+    for (const thread of map.values()) {
+      thread.messages.sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      thread.representative = thread.messages[thread.messages.length - 1];
+    }
+
+    return [...map.values()].sort((a, b) =>
+      new Date(b.representative.created_at).getTime() - new Date(a.representative.created_at).getTime()
+    );
+  };
+
   const fetchFeedbackFeed = async (authToken: string) => {
     setTeacherTab("feedback");
     setFeedbackLoading(true);
@@ -169,10 +228,25 @@ export default function TeacherDashboard() {
   const [clubsError, setClubsError] = useState("");
   const [clubsSuccess, setClubsSuccess] = useState("");
 
+  const [showEditClubModal, setShowEditClubModal] = useState(false);
+  const [editingClub, setEditingClub] = useState<any>(null);
+  const [editClubName, setEditClubName] = useState("");
+  const [editClubSubjectId, setEditClubSubjectId] = useState<number | "">("");
+  const [editClubAllowedLevels, setEditClubAllowedLevels] = useState<number[]>([]);
+
   const [showClubStudentsModal, setShowClubStudentsModal] = useState(false);
   const [selectedClubForStudents, setSelectedClubForStudents] = useState<any>(null);
   const [clubStudents, setClubStudents] = useState<any[]>([]);
   const [clubStudentsLoading, setClubStudentsLoading] = useState(false);
+
+  // Search & Pagination States for Students and Parents tabs
+  const [studentsSearch, setStudentsSearch] = useState("");
+  const [studentsPage, setStudentsPage] = useState(1);
+  const [studentsPageSize, setStudentsPageSize] = useState(15);
+
+  const [parentsSearch, setParentsSearch] = useState("");
+  const [parentsPage, setParentsPage] = useState(1);
+  const [parentsPageSize, setParentsPageSize] = useState(15);
   const [searchStudentTerm, setSearchStudentTerm] = useState("");
 
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
@@ -255,6 +329,7 @@ export default function TeacherDashboard() {
   };
 
   const handleAddDirectStudent = async (studentId: number) => {
+    if (!selectedClubForStudents || !token) return;
     try {
       const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/add-student`, {
         method: "POST",
@@ -264,15 +339,21 @@ export default function TeacherDashboard() {
         },
         body: JSON.stringify({ student_id: studentId }),
       });
+      const data = await response.json();
       if (response.ok) {
+        setToast({ message: "O'quvchi to'garakka muvaffaqiyatli qo'shildi", type: "success" });
         fetchClubStudents(selectedClubForStudents.id);
+      } else {
+        setToast({ message: data.error || "Qo'shishda xatolik", type: "error" });
       }
     } catch (err) {
       console.error(err);
+      setToast({ message: "Tarmoq xatoligi", type: "error" });
     }
   };
 
   const handleApproveStudent = async (studentId: number) => {
+    if (!selectedClubForStudents || !token) return;
     try {
       const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/approve-student`, {
         method: "POST",
@@ -282,15 +363,21 @@ export default function TeacherDashboard() {
         },
         body: JSON.stringify({ student_id: studentId }),
       });
+      const data = await response.json();
       if (response.ok) {
+        setToast({ message: "Qo'shilish so'rovi tasdiqlandi", type: "success" });
         fetchClubStudents(selectedClubForStudents.id);
+      } else {
+        setToast({ message: data.error || "Tasdiqlashda xatolik", type: "error" });
       }
     } catch (err) {
       console.error(err);
+      setToast({ message: "Tarmoq xatoligi", type: "error" });
     }
   };
 
   const handleRemoveStudent = async (studentId: number) => {
+    if (!selectedClubForStudents || !token) return;
     if (!window.confirm("Ushbu o'quvchini to'garakdan chiqarmoqchimisiz?")) return;
     try {
       const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/remove-student`, {
@@ -301,11 +388,16 @@ export default function TeacherDashboard() {
         },
         body: JSON.stringify({ student_id: studentId }),
       });
+      const data = await response.json();
       if (response.ok) {
+        setToast({ message: "O'quvchi to'garakdan chiqarildi", type: "success" });
         fetchClubStudents(selectedClubForStudents.id);
+      } else {
+        setToast({ message: data.error || "Chiqarishda xatolik", type: "error" });
       }
     } catch (err) {
       console.error(err);
+      setToast({ message: "Tarmoq xatoligi", type: "error" });
     }
   };
 
@@ -334,17 +426,79 @@ export default function TeacherDashboard() {
   };
 
   const handleDeleteSchedule = async (scheduleId: number) => {
-    if (!window.confirm("Ushbu dars vaqtini o'chirmoqchimisiz?")) return;
+    if (!confirm("Haqiqatan ham ushbu jadvalni o'chirmoqchimisiz?")) return;
     try {
       const response = await fetch(`${API_URL}/api/schools/clubs/schedules/${scheduleId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { "Authorization": `Bearer ${token}` },
       });
       if (response.ok) {
+        showToast("success", "Jadval o'chirildi!");
         fetchClubs(token);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleEditClubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClub) return;
+    setActionLoading(true);
+    setActionError("");
+
+    const payload = {
+      name: editClubName,
+      subject_id: Number(editClubSubjectId),
+      allowed_class_levels: editClubAllowedLevels,
+    };
+
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const res = await fetch(`${API_URL}/api/schools/clubs/${editingClub.id}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "To'garakni yangilab bo'lmadi");
+
+      showToast("success", "To'garak muvaffaqiyatli yangilandi!");
+      setShowEditClubModal(false);
+      fetchClubs(token);
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteClub = async (clubId: number) => {
+    if (!confirm("Haqiqatan ham ushbu to'garakni o'chirmoqchimisiz? (Barcha a'zolar va jadvallar bekor qilinadi)")) return;
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const res = await fetch(`${API_URL}/api/schools/clubs/${clubId}`, {
+        method: "DELETE",
+        headers,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "To'garakni o'chirib bo'lmadi");
+
+      showToast("success", "To'garak o'chirildi!");
+      fetchClubs(token);
+    } catch (err: any) {
+      showToast("error", err.message);
     }
   };
 
@@ -445,6 +599,8 @@ export default function TeacherDashboard() {
   // Weekly Schedule States
   const [classSchedule, setClassSchedule] = useState<any[]>([]);
   const [classScheduleLoading, setClassScheduleLoading] = useState(false);
+  const [overallSchedule, setOverallSchedule] = useState<{ [key: string]: Array<{ class_id: number; class_name: string; subject_id: number; subject_name: string }> }>({});
+  const [overallScheduleLoading, setOverallScheduleLoading] = useState(false);
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
   const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
@@ -470,6 +626,10 @@ export default function TeacherDashboard() {
   const [selectedGradeIds, setSelectedGradeIds] = useState<Set<number>>(new Set());
   const [approveLoading, setApproveLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Smart Calendar State
+  const [isTeacherCalendarOpen, setIsTeacherCalendarOpen] = useState(false);
+  const [teacherCalendarTarget, setTeacherCalendarTarget] = useState<"journal" | "schedule" | "exception">("journal");
 
   // Journal View States (day-based grid)
   const [journalDate, setJournalDate] = useState(getInitialDate());
@@ -640,6 +800,7 @@ export default function TeacherDashboard() {
 
   const dateInputRef = React.useRef<HTMLInputElement>(null);
   const scheduleDateInputRef = React.useRef<HTMLInputElement>(null);
+  const exceptionsSectionRef = React.useRef<HTMLDivElement>(null);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -900,14 +1061,14 @@ export default function TeacherDashboard() {
 
   // Students tab data load: reload when class or active tab changes to "students"
   useEffect(() => {
-    if (selectedClassId && token && teacherTab === 'students') {
+    if (token && teacherTab === 'students') {
       fetchStudentsTabList();
     }
   }, [selectedClassId, token, teacherTab]);
 
   // Parents tab data load: reload when class or active tab changes to "parents"
   useEffect(() => {
-    if (selectedClassId && token && teacherTab === 'parents') {
+    if (token && teacherTab === 'parents') {
       fetchClassParents();
     }
   }, [selectedClassId, token, teacherTab]);
@@ -936,7 +1097,7 @@ export default function TeacherDashboard() {
     if (!selectedClassId || !selectedSubjectId || !selectedLessonNumber || !journalDate) return;
     
     const existingGrade = journalAllGrades.find(g => {
-      const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+      const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
       return g.subject_id === Number(selectedSubjectId) &&
              g.lesson_number === Number(selectedLessonNumber) &&
              gDate === journalDate;
@@ -1004,6 +1165,76 @@ export default function TeacherDashboard() {
       setClassScheduleLoading(false);
     }
   };
+
+  const fetchOverallTeacherSchedule = async (targetDate?: string) => {
+    if (!classes.length || !token) return;
+    setOverallScheduleLoading(true);
+    const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const results: { [key: string]: Array<{ class_id: number; class_name: string; subject_id: number; subject_name: string }> } = {};
+
+      await Promise.all(
+        classes.map(async (cls) => {
+          try {
+            const [schRes, tchRes] = await Promise.all([
+              fetch(`${API_URL}/api/schools/classes/${cls.id}/schedule?date=${dateQuery}`, { headers }),
+              fetch(`${API_URL}/api/schools/classes/${cls.id}/teachers`, { headers }),
+            ]);
+
+            if (schRes.ok) {
+              const schData = await schRes.json();
+              const tchData = tchRes.ok ? await tchRes.json() : [];
+
+              const myTeacherSubjects = new Set(
+                Array.isArray(tchData)
+                  ? tchData.filter((t: any) => t.teacher_id === userInfo?.id).map((t: any) => t.subject_id)
+                  : []
+              );
+
+              const isMyClass = cls.main_teacher_id === userInfo?.id || cls.is_main_teacher || userInfo?.role === "ADMIN" || userInfo?.role === "MAIN_TEACHER";
+
+              if (Array.isArray(schData)) {
+                schData.forEach((item: any) => {
+                  if (!item.subject_id || item.subject_id === 0) return;
+                  const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN";
+
+                  if (isMySubject) {
+                    const slotKey = `${item.day_of_week}-${item.lesson_number}`;
+                    if (!results[slotKey]) results[slotKey] = [];
+                    if (!results[slotKey].some(r => r.class_id === cls.id && r.subject_id === item.subject_id)) {
+                      results[slotKey].push({
+                        class_id: cls.id,
+                        class_name: cls.name,
+                        subject_id: item.subject_id,
+                        subject_name: item.subject_name,
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching class schedule for", cls.id, e);
+          }
+        })
+      );
+      setOverallSchedule(results);
+    } catch (err) {
+      console.error("Error fetching overall schedule", err);
+    } finally {
+      setOverallScheduleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (teacherTab === "schedule" && !selectedClassId && token && classes.length > 0) {
+      fetchOverallTeacherSchedule();
+    }
+  }, [teacherTab, selectedClassId, scheduleViewDate, token, classes]);
 
   const fetchScheduleExceptions = async () => {
     if (!selectedClassId) return;
@@ -1176,7 +1407,7 @@ export default function TeacherDashboard() {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const gradeData = await gradeRes.json();
-      setExistingGrades(Array.isArray(gradeData) ? gradeData : []);
+      setExistingGrades(Array.isArray(gradeData) ? gradeData.filter((g: any) => g.lesson_number && g.lesson_number > 0) : []);
 
       // Initialize inputs empty
       const inputs: { [studentId: number]: string } = {};
@@ -1324,7 +1555,7 @@ export default function TeacherDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const gradesData = await gradesRes.json();
-      const gradesList = Array.isArray(gradesData) ? gradesData : [];
+      const gradesList = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.lesson_number && g.lesson_number > 0) : [];
       setJournalAllGrades(gradesList);
 
       // Load active columns
@@ -1357,7 +1588,7 @@ export default function TeacherDashboard() {
           cols.forEach((col) => {
             const key = `${st.id}_${lesson.subject_id}_${lesson.lesson_number}_${col.id}`;
             const grade = gradesList.find((g: any) => {
-              const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+              const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
               return g.student_id === st.id && 
                      g.subject_id === lesson.subject_id && 
                      g.lesson_number === lesson.lesson_number && 
@@ -1373,7 +1604,7 @@ export default function TeacherDashboard() {
                 let defaultAtt = "+";
                 for (let prevL = lesson.lesson_number - 1; prevL >= 1; prevL--) {
                   const prevGrade = gradesList.find((g: any) => {
-                    const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+                    const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
                     return g.student_id === st.id && 
                            g.lesson_number === prevL && 
                            g.grade_type === "ATTENDANCE" &&
@@ -1408,7 +1639,7 @@ export default function TeacherDashboard() {
 
   const findGradeForDayAndType = (studentId: number, subjectId: number, lessonNumber: number, gradeType: string): GradeItem | undefined => {
     return journalAllGrades.find(g => {
-      const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+      const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
       return g.student_id === studentId && 
              g.subject_id === subjectId && 
              gDate === journalDate && 
@@ -1424,7 +1655,7 @@ export default function TeacherDashboard() {
     
     // Find if there is an existing grade for this cell on the selected day
     const existingGrade = journalAllGrades.find(g => {
-      const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+      const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
       return g.student_id === studentId && 
              g.subject_id === subjectId && 
              g.lesson_number === lessonNumber && 
@@ -1503,7 +1734,7 @@ export default function TeacherDashboard() {
         // If the teacher marked the student absent (-), delete all other marks (behavior, mastery, custom columns)
         if (gradeType === "ATTENDANCE" && value === "-") {
           const otherGrades = journalAllGrades.filter(g => {
-            const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+            const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
             return g.student_id === studentId &&
                    g.subject_id === subjectId &&
                    g.lesson_number === lessonNumber &&
@@ -1543,7 +1774,7 @@ export default function TeacherDashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      const gradesList = Array.isArray(data) ? data : [];
+      const gradesList = Array.isArray(data) ? data.filter((g: any) => g.lesson_number && g.lesson_number > 0) : [];
 
       // Filter by role/subject assignment:
       // If SUBJECT_TEACHER (and not advisor/admin), only show their assigned subjects in this class
@@ -1563,10 +1794,13 @@ export default function TeacherDashboard() {
 
   // Students list for CRUD operations
   const fetchStudentsTabList = async () => {
-    if (!selectedClassId || !token) return;
+    if (!token) return;
     setStudentsTabLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}`, {
+      const url = selectedClassId
+        ? `${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}`
+        : `${API_URL}/api/schools/users?role=STUDENT`;
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -1666,13 +1900,16 @@ export default function TeacherDashboard() {
   };
 
   const fetchClassParents = async () => {
-    if (!selectedClassId) return;
+    if (!token) return;
     setClassParentsLoading(true);
     try {
       if (studentsTabList.length === 0) {
         fetchStudentsTabList();
       }
-      const response = await fetch(`${API_URL}/api/schools/users?role=PARENT&class_id=${selectedClassId}`, {
+      const url = selectedClassId
+        ? `${API_URL}/api/schools/users?role=PARENT&class_id=${selectedClassId}`
+        : `${API_URL}/api/schools/users?role=PARENT`;
+      const response = await fetch(url, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -2325,15 +2562,41 @@ export default function TeacherDashboard() {
 
           <form onSubmit={handleAddExceptionSubmit} className="space-y-4">
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Kun (Sana)</label>
-              <input
-                type="date"
+              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Sinf *</label>
+              <select
                 required
-                value={excDate}
-                min={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setExcDate(e.target.value)}
-                className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2.5 text-xs outline-none transition"
-              />
+                value={selectedClassId || ""}
+                onChange={(e) => {
+                  const clsId = e.target.value === "" ? "" : Number(e.target.value);
+                  setSelectedClassId(clsId);
+                }}
+                className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2.5 text-xs outline-none transition cursor-pointer"
+              >
+                <option value="">Sinfni tanlang</option>
+                {classes.map((cls: any) => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Kun (Sana) *</label>
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherCalendarTarget("exception");
+                  setIsTeacherCalendarOpen(true);
+                }}
+                className="w-full bg-zinc-50 border border-zinc-200 hover:border-indigo-300 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2.5 text-xs outline-none transition flex items-center justify-between cursor-pointer"
+              >
+                <span className="font-mono text-xs">
+                  {excDate ? (() => {
+                    const parts = excDate.split("-");
+                    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : excDate;
+                  })() : "Sana tanlang"}
+                </span>
+                <Calendar className="w-4 h-4 text-[#5B50EC]" />
+              </button>
             </div>
 
             <div>
@@ -3360,10 +3623,18 @@ export default function TeacherDashboard() {
 
                       {/* Right: Date & Category Badges */}
                       <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-500">
-                        <span className="bg-zinc-100/80 text-zinc-700 px-3 py-1 rounded-xl flex items-center gap-1.5 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTeacherCalendarTarget("journal");
+                            setIsTeacherCalendarOpen(true);
+                          }}
+                          className="bg-zinc-100/80 hover:bg-zinc-200/80 text-zinc-700 px-3 py-1 rounded-xl flex items-center gap-1.5 font-medium transition cursor-pointer"
+                          title="Sana tanlash (Smart Calendar)"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-[#5B50EC]" />
                           <span>{journalDate} {dayName ? `(${dayName})` : ""}</span>
-                        </span>
+                        </button>
                         <span className="bg-purple-50 text-purple-700 border border-purple-100/80 px-2.5 py-1 rounded-xl text-[11px] font-bold">
                           {selectedGradeCategory === "DAILY" ? "Kundalik" : selectedGradeCategory === "QUARTERLY_EXAM" ? "🏆 Choraklik" : "🎓 Imtihon"}
                         </span>
@@ -3432,7 +3703,7 @@ export default function TeacherDashboard() {
 
                         {(() => {
                           const hasApprovedOrAnyGradesForToday = journalAllGrades.some(g => {
-                            const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+                            const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
                             return g.subject_id === Number(selectedSubjectId) &&
                                    g.lesson_number === Number(selectedLessonNumber) &&
                                    gDate === journalDate;
@@ -3510,7 +3781,7 @@ export default function TeacherDashboard() {
                                 <div>{col.name}</div>
                                 {col.id !== "ATTENDANCE" && (() => {
                                   const hasGradesInThisColumn = journalAllGrades.some(g => {
-                                    const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
+                                    const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
                                     return g.subject_id === Number(selectedSubjectId) &&
                                            g.lesson_number === Number(selectedLessonNumber) &&
                                            g.grade_type === col.id &&
@@ -3789,104 +4060,196 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Class Schedule */}
             {teacherTab === "schedule" && (
-              <div className="space-y-6">
+              <div className="space-y-6 pb-40">
                 <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100/80 pb-3">
                     <div className="space-y-1">
                       <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100 px-3.5 py-1 rounded-full text-indigo-700 text-xs font-bold">
                         <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                        <span>Sinf Haftalik Dars Jadvali • {classes.find(c => c.id === selectedClassId)?.name || "Sinf"}</span>
+                        <span>
+                          {!selectedClassId
+                            ? "🌐 Mening Shaxsiy Dars Jadvalim (Umumiy)"
+                            : isMainTeacherOfClass()
+                            ? `⭐ Sinf Rahbari: ${classes.find(c => c.id === selectedClassId)?.name || "Sinf"} Haftalik Dars Jadvali`
+                            : `📚 ${classes.find(c => c.id === selectedClassId)?.name || "Sinf"} Dars Jadvali (Fan o'qituvchisi ko'rinishi)`}
+                        </span>
                       </div>
-                      {scheduleStartDate && scheduleEndDate ? (
-                        <div className="flex items-center space-x-2 pt-1 flex-wrap gap-y-1">
-                          <p className="text-xs text-zinc-500 font-medium">
-                            Faol dars jadvali davri: <span className="text-emerald-700 font-bold font-mono">{scheduleStartDate}</span> dan <span className="text-emerald-700 font-bold font-mono">{scheduleEndDate}</span> gacha
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setShowPeriodsModal(true)}
-                            className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-bold cursor-pointer"
-                          >
-                            Barcha jadvallar ro'yxati
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-zinc-500 font-medium">Ushbu sinf uchun dars jadvali va kunlik o'zgarishlar.</p>
-                      )}
+                      <p className="text-xs text-zinc-500 font-medium">
+                        {!selectedClassId
+                          ? "Siz dars beradigan barcha sinflarning haftalik rejasi. Bir xil vaqtda 2 ta sinf darsi bo'lsa, sariq rang bilan ziddiyat ko'rsatiladi."
+                          : isMainTeacherOfClass()
+                          ? "Sinfingizdagi barcha fanlar va dars jadvali."
+                          : "Ushbu sinfda siz kiradigan darslar alohida ta'kidlab ko'rsatilgan."}
+                      </p>
+                    </div>
+
+                    {/* Quick Header Action Button for Daily Exceptions */}
+                    <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          exceptionsSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
+                        title="Pastdagi o'zgarishlar jadvaliga silliq tushish"
+                      >
+                        <span>O'zgarishlarni ko'rish ({scheduleExceptions.length})</span>
+                      </button>
                     </div>
                   </div>
 
-                  {classScheduleLoading ? (
-                    <div className="text-center py-10">
-                      <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
-                      <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
-                        <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
-                          <tr>
-                            <th className="px-3 py-3 w-16 text-center bg-[#fafafa]">Soat</th>
-                            <th className="px-3 py-3">Dushanba</th>
-                            <th className="px-3 py-3">Seshanba</th>
-                            <th className="px-3 py-3">Chorshanba</th>
-                            <th className="px-3 py-3">Payshanba</th>
-                            <th className="px-3 py-3">Juma</th>
-                            <th className="px-3 py-3">Shanba</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
-                          {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                            <tr key={period} className="hover:bg-indigo-50/20 transition">
-                              <td className="px-2.5 py-3 font-mono font-bold text-zinc-400 bg-[#fafafa]">
-                                {period}-dars
-                              </td>
-                              {[1, 2, 3, 4, 5, 6].map((day) => {
-                                const lesson = classSchedule.find(
-                                  (item) => item.day_of_week === day && item.lesson_number === period
-                                );
-                                return (
-                                  <td key={day} className="px-2.5 py-3 border-l border-zinc-100">
-                                    {lesson ? (
-                                      <span className={lesson.subject_id === 0 || lesson.subject_name === "Bekor qilingan" ? "text-red-500 font-bold line-through block italic text-xs" : "text-zinc-900 font-extrabold block text-xs"}>
-                                        {lesson.subject_name}
-                                      </span>
-                                    ) : (
-                                      <span className="text-zinc-300 italic text-xs font-mono">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
+                  {!selectedClassId ? (
+                    /* OVERALL TEACHER SCHEDULE VIEW */
+                    overallScheduleLoading ? (
+                      <div className="text-center py-10">
+                        <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
+                        <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
+                          <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
+                            <tr>
+                              <th className="px-3 py-3 w-16 text-center bg-[#fafafa]">Soat</th>
+                              <th className="px-3 py-3">Dushanba</th>
+                              <th className="px-3 py-3">Seshanba</th>
+                              <th className="px-3 py-3">Chorshanba</th>
+                              <th className="px-3 py-3">Payshanba</th>
+                              <th className="px-3 py-3">Juma</th>
+                              <th className="px-3 py-3">Shanba</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
+                              <tr key={period} className="hover:bg-indigo-50/20 transition">
+                                <td className="px-2.5 py-3 font-mono font-bold text-zinc-400 bg-[#fafafa]">
+                                  {period}-dars
+                                </td>
+                                {[1, 2, 3, 4, 5, 6].map((day) => {
+                                  const items = overallSchedule[`${day}-${period}`] || [];
+                                  const hasConflict = items.length >= 2;
+
+                                  return (
+                                    <td key={day} className="px-2 py-2 border-l border-zinc-100 align-middle">
+                                      {items.length === 0 ? (
+                                        <span className="text-zinc-300 italic text-xs font-mono">-</span>
+                                      ) : hasConflict ? (
+                                        <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 p-2 rounded-xl text-center shadow-xs">
+                                          <span className="text-[9px] font-black uppercase text-amber-800 tracking-tight block">⚠️ 2 TA DARS ZIDDIYATI</span>
+                                          {items.map((it, idx) => (
+                                            <div key={idx} className="text-[10px] font-black text-amber-950 border-t border-amber-300/60 pt-0.5 mt-0.5">
+                                              {it.class_name} — {it.subject_name}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="bg-indigo-50/90 border border-indigo-200/80 p-2 rounded-xl text-center shadow-2xs">
+                                          <span className="text-[10px] font-black text-indigo-700 block font-mono uppercase">{items[0].class_name}</span>
+                                          <span className="text-[11px] font-black text-zinc-900 block">{items[0].subject_name}</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  ) : (
+                    /* SPECIFIC CLASS SCHEDULE VIEW */
+                    classScheduleLoading ? (
+                      <div className="text-center py-10">
+                        <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
+                        <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
+                          <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
+                            <tr>
+                              <th className="px-3 py-3 w-16 text-center bg-[#fafafa]">Soat</th>
+                              <th className="px-3 py-3">Dushanba</th>
+                              <th className="px-3 py-3">Seshanba</th>
+                              <th className="px-3 py-3">Chorshanba</th>
+                              <th className="px-3 py-3">Payshanba</th>
+                              <th className="px-3 py-3">Juma</th>
+                              <th className="px-3 py-3">Shanba</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
+                              <tr key={period} className="hover:bg-indigo-50/20 transition">
+                                <td className="px-2.5 py-3 font-mono font-bold text-zinc-400 bg-[#fafafa]">
+                                  {period}-dars
+                                </td>
+                                {[1, 2, 3, 4, 5, 6].map((day) => {
+                                  const lesson = classSchedule.find(
+                                    (item) => item.day_of_week === day && item.lesson_number === period
+                                  );
+
+                                  const isMyClass = isMainTeacherOfClass();
+                                  const isMyTaughtSubject = lesson && classTeachers.some(ct => ct.teacher_id === userInfo?.id && ct.subject_id === lesson.subject_id);
+
+                                  return (
+                                    <td key={day} className="px-2.5 py-3 border-l border-zinc-100 align-middle">
+                                      {lesson ? (
+                                        lesson.subject_id === 0 || lesson.subject_name === "Bekor qilingan" ? (
+                                          <span className="text-red-500 font-bold line-through block italic text-xs">
+                                            Bekor qilingan
+                                          </span>
+                                        ) : isMyClass ? (
+                                          /* Main Teacher View: Full details */
+                                          <span className="text-zinc-900 font-extrabold block text-xs">
+                                            {lesson.subject_name}
+                                          </span>
+                                        ) : isMyTaughtSubject ? (
+                                          /* Subject Teacher View: My own lesson in this class */
+                                          <div className="bg-emerald-50 border-2 border-emerald-300 p-2 rounded-xl text-center shadow-2xs">
+                                            <span className="text-[9px] font-black text-emerald-600 uppercase block tracking-wider font-mono">Darsim</span>
+                                            <span className="text-xs font-black text-emerald-950 block">{lesson.subject_name}</span>
+                                          </div>
+                                        ) : (
+                                          /* Subject Teacher View: Another teacher's lesson */
+                                          <div className="bg-zinc-50/90 border border-zinc-200/80 p-2 rounded-xl text-center">
+                                            <span className="text-xs font-bold text-zinc-700 block">{lesson.subject_name}</span>
+                                          </div>
+                                        )
+                                      ) : (
+                                        <span className="text-zinc-300 italic text-xs font-mono">-</span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
                   )}
                 </div>
 
                 {/* Exceptions manager */}
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
+                <div ref={exceptionsSectionRef} className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">Kunlik Dars Jadvali O'zgarishlari</h3>
-                      <p className="text-xs text-zinc-500 font-medium mt-1">Sinf o'qituvchisi tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.</p>
+                      <p className="text-xs text-zinc-500 font-medium mt-1">Sinf o'qituvchisi yoki fan o'qituvchilari tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.</p>
                     </div>
-                    {isMainTeacherOfClass() && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExcDate(new Date().toISOString().split("T")[0]);
-                          setExcLesson(1);
-                          setExcType("replace");
-                          setExcSubjectId("");
-                          setActionError("");
-                          setShowAddExceptionModal(true);
-                        }}
-                        className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
-                      >
-                        <span>+ O'zgarish kiritish</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExcDate(new Date().toISOString().split("T")[0]);
+                        setExcLesson(1);
+                        setExcType("replace");
+                        setExcSubjectId("");
+                        setActionError("");
+                        setShowAddExceptionModal(true);
+                      }}
+                      className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
+                    >
+                      <span>+ O'zgarish kiritish</span>
+                    </button>
                   </div>
 
                   {scheduleExceptionsLoading ? (
@@ -3929,7 +4292,7 @@ export default function TeacherDashboard() {
                                   {new Date(exc.created_at).toLocaleString()}
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  {!exc.is_deleted && !isPast && isMainTeacherOfClass() && (
+                                  {!exc.is_deleted && !isPast && (
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteException(exc.id)}
@@ -3951,144 +4314,263 @@ export default function TeacherDashboard() {
             )}
 
             {/* TAB CONTENT: Student Management */}
-            {teacherTab === "students" && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Sinf O'quvchilari</h3>
-                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                      Sinf rahbari sifatida o'quvchilarni qo'shishingiz va boshqarishingiz mumkin
-                    </p>
-                  </div>
+            {teacherTab === "students" && (() => {
+              const filteredStudents = studentsTabList.filter((st) => {
+                const q = studentsSearch.toLowerCase().trim();
+                if (!q) return true;
+                const name = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+                const phone = (st.phone || "").toLowerCase();
+                const cls = (st.class_name || "").toLowerCase();
+                return name.includes(q) || phone.includes(q) || cls.includes(q);
+              });
+              const totalStudentsPages = Math.ceil(filteredStudents.length / studentsPageSize) || 1;
+              const currentPage = Math.min(studentsPage, totalStudentsPages);
+              const paginatedStudents = filteredStudents.slice((currentPage - 1) * studentsPageSize, currentPage * studentsPageSize);
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      title="Excel orqali yuklash"
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setImportResult(null);
-                        setImportError("");
-                        setShowImportStudentsModal(true);
-                      }}
-                      className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      title="O'quvchi qo'shish"
-                      onClick={() => {
-                        setStudentModalMode("create");
-                        setStudentForm({
-                          first_name: "",
-                          last_name: "",
-                          middle_name: "",
-                          phone: "",
-                          password: "123456", // default password
-                          address: "",
-                          birthdate: "",
-                          ina: ""
-                        });
-                        setShowStudentModal(true);
-                      }}
-                      className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+              return (
+                <div className="space-y-4 animate-fadeIn pb-36">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
+                    <div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">
+                        {selectedClassId ? "Sinf O'quvchilari" : "Barcha O'quvchilar"}
+                      </h3>
+                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                        {selectedClassId
+                          ? "Sinf rahbari sifatida o'quvchilarni qo'shishingiz va boshqarishingiz mumkin"
+                          : "Maktabdagi barcha sinf o'quvchilarining umumiy ro'yxati"}
+                      </p>
+                    </div>
 
-                {studentsTabLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                  </div>
-                ) : studentsTabList.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                    <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha o'quvchilar yo'q.</p>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden">
-                    <div className="max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-290px)] overflow-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
-                          <tr>
-                            <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
-                            <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
-                            <th className="px-6 py-3.5">Telefon</th>
-                            <th className="px-6 py-3.5">Tug'ilgan sana</th>
-                            <th className="px-6 py-3.5 text-right">Amallar</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
-                          {studentsTabList.map((st, idx) => (
-                            <tr key={st.id} className="group hover:bg-zinc-50/80 transition">
-                              <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{idx + 1}</td>
-                              <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
-                                {st.first_name} {st.last_name} {st.middle_name && <span className="text-zinc-400 font-normal">({st.middle_name})</span>}
-                              </td>
-                              <td className="px-6 py-3.5 font-mono text-zinc-500">{st.phone || "—"}</td>
-                              <td className="px-6 py-3.5 font-mono text-zinc-500">{st.birthdate ? st.birthdate.split("T")[0] : "—"}</td>
-                              <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  title="Vasiylar (Ota-onalar)"
-                                  onClick={() => {
-                                    setSelectedStudentForParents(st);
-                                    setParentFirstName("");
-                                    setParentLastName("");
-                                    setParentMiddleName("");
-                                    setParentPhone("");
-                                    setParentEmail("");
-                                    setParentPassword("password123");
-                                    fetchLinkedParents(st.id || st.student_id);
-                                    setShowParentsModal(true);
-                                  }}
-                                  className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                >
-                                  <Users className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="Tahrirlash"
-                                  onClick={() => {
-                                    setEditingStudent(st);
-                                    setStudentModalMode("edit");
-                                    setStudentForm({
-                                      first_name: st.first_name || "",
-                                      last_name: st.last_name || "",
-                                      middle_name: st.middle_name || "",
-                                      phone: st.phone || "",
-                                      password: "",
-                                      address: st.address || "",
-                                      birthdate: st.birthdate ? st.birthdate.split("T")[0] : "",
-                                      ina: st.ina || ""
-                                    });
-                                    setShowStudentModal(true);
-                                  }}
-                                  className="p-2 bg-zinc-100 hover:bg-zinc-200 text-[#16193E] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="O'chirish"
-                                  onClick={() => handleDeleteStudent(st.student_id || st.id)}
-                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3 py-2">
+                        <Search className="w-4 h-4 text-zinc-400" />
+                        <input
+                          type="text"
+                          value={studentsSearch}
+                          onChange={(e) => {
+                            setStudentsSearch(e.target.value);
+                            setStudentsPage(1);
+                          }}
+                          placeholder="O'quvchi qidirish..."
+                          className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-32 sm:w-44 transition-all"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        title="Excel orqali yuklash"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setImportResult(null);
+                          setImportError("");
+                          setShowImportStudentsModal(true);
+                        }}
+                        className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        title="O'quvchi qo'shish"
+                        onClick={() => {
+                          setStudentModalMode("create");
+                          setStudentForm({
+                            first_name: "",
+                            last_name: "",
+                            middle_name: "",
+                            phone: "",
+                            password: "123456",
+                            address: "",
+                            birthdate: "",
+                            ina: ""
+                          });
+                          setShowStudentModal(true);
+                        }}
+                        className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {studentsTabLoading ? (
+                    <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+                    </div>
+                  ) : filteredStudents.length === 0 ? (
+                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
+                      <p className="text-xs text-zinc-400 font-mono">
+                        {studentsSearch
+                          ? "Qidiruv bo'yicha hech qanday o'quvchi topilmadi."
+                          : selectedClassId
+                          ? "Ushbu sinfda hozircha o'quvchilar yo'q."
+                          : "Maktabda hozircha o'quvchilar ro'yxatga olinmagan."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
+                            <tr>
+                              <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
+                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
+                              <th className="px-6 py-3.5">Sinf</th>
+                              <th className="px-6 py-3.5">Telefon</th>
+                              <th className="px-6 py-3.5">Tug'ilgan sana</th>
+                              <th className="px-6 py-3.5 text-right">Amallar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
+                            {paginatedStudents.map((st, idx) => {
+                              const globalIndex = (currentPage - 1) * studentsPageSize + idx + 1;
+                              return (
+                                <tr key={st.id} className="group hover:bg-zinc-50/80 transition">
+                                  <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{globalIndex}</td>
+                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                                    {st.first_name} {st.last_name} {st.middle_name && <span className="text-zinc-400 font-normal">({st.middle_name})</span>}
+                                  </td>
+                                  <td className="px-6 py-3.5 font-mono">
+                                    <span className="px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 inline-block">
+                                      {st.class_name || "—"}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-3.5 font-mono text-zinc-500">{st.phone || "—"}</td>
+                                  <td className="px-6 py-3.5 font-mono text-zinc-500">{st.birthdate ? st.birthdate.split("T")[0] : "—"}</td>
+                                  <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      title="Vasiylar (Ota-onalar)"
+                                      onClick={() => {
+                                        setSelectedStudentForParents(st);
+                                        setParentFirstName("");
+                                        setParentLastName("");
+                                        setParentMiddleName("");
+                                        setParentPhone("");
+                                        setParentEmail("");
+                                        setParentPassword("password123");
+                                        fetchLinkedParents(st.id || st.student_id);
+                                        setShowParentsModal(true);
+                                      }}
+                                      className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <Users className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="Tahrirlash"
+                                      onClick={() => {
+                                        setEditingStudent(st);
+                                        setStudentModalMode("edit");
+                                        setStudentForm({
+                                          first_name: st.first_name || "",
+                                          last_name: st.last_name || "",
+                                          middle_name: st.middle_name || "",
+                                          phone: st.phone || "",
+                                          password: "",
+                                          address: st.address || "",
+                                          birthdate: st.birthdate ? st.birthdate.split("T")[0] : "",
+                                          ina: st.ina || ""
+                                        });
+                                        setShowStudentModal(true);
+                                      }}
+                                      className="p-2 bg-zinc-100 hover:bg-zinc-200 text-[#16193E] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title="O'chirish"
+                                      onClick={() => handleDeleteStudent(st.student_id || st.id)}
+                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination Bar */}
+                      <div className="bg-zinc-50 border-t border-zinc-200/70 px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
+                        <div className="flex items-center gap-3">
+                          <span>
+                            Jami <b>{filteredStudents.length}</b> ta o'quvchidan{" "}
+                            <b>{(currentPage - 1) * studentsPageSize + 1}</b>-
+                            <b>{Math.min(currentPage * studentsPageSize, filteredStudents.length)}</b> ko'rsatilmoqda
+                          </span>
+
+                          <select
+                            value={studentsPageSize}
+                            onChange={(e) => {
+                              setStudentsPageSize(Number(e.target.value));
+                              setStudentsPage(1);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-700 outline-none cursor-pointer"
+                          >
+                            <option value={15}>15 tadan</option>
+                            <option value={25}>25 tadan</option>
+                            <option value={50}>50 tadan</option>
+                            <option value={100}>100 tadan</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={currentPage <= 1}
+                            onClick={() => setStudentsPage((p) => Math.max(p - 1, 1))}
+                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Oldingi</span>
+                          </button>
+
+                          <div className="flex items-center gap-1 px-1">
+                            {Array.from({ length: totalStudentsPages }, (_, i) => i + 1)
+                              .filter((p) => p === 1 || p === totalStudentsPages || Math.abs(p - currentPage) <= 1)
+                              .map((p, idx, arr) => {
+                                const prev = arr[idx - 1];
+                                const showEllipsis = prev && p - prev > 1;
+                                return (
+                                  <React.Fragment key={p}>
+                                    {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
+                                    <button
+                                      type="button"
+                                      onClick={() => setStudentsPage(p)}
+                                      className={`w-8 h-8 rounded-xl font-extrabold text-xs transition cursor-pointer ${
+                                        currentPage === p
+                                          ? "bg-[#5B50EC] text-white shadow-xs"
+                                          : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                                      }`}
+                                    >
+                                      {p}
+                                    </button>
+                                  </React.Fragment>
+                                );
+                              })}
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={currentPage >= totalStudentsPages}
+                            onClick={() => setStudentsPage((p) => Math.min(p + 1, totalStudentsPages))}
+                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
+                          >
+                            <span className="hidden sm:inline">Keyingi</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* TAB CONTENT: Unapproved Grades List */}
             {teacherTab === "unapproved" && (() => {
@@ -4404,19 +4886,31 @@ export default function TeacherDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {feedbackFeed
-                      .filter((f) =>
-                        f.author_name.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
-                        f.content.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
-                        (f.subject_name && f.subject_name.toLowerCase().includes(feedbackSearch.toLowerCase())) ||
-                        (f.student_name && f.student_name.toLowerCase().includes(feedbackSearch.toLowerCase()))
-                      )
-                      .map((f) => {
-                        const isGrade = f.type === "GRADE";
+                    {buildThreads(feedbackFeed)
+                      .filter((thread) => {
+                        const q = feedbackSearch.toLowerCase();
+                        return (
+                          thread.author_name.toLowerCase().includes(q) ||
+                          thread.messages.some((m: any) => m.content.toLowerCase().includes(q)) ||
+                          (thread.student_name && thread.student_name.toLowerCase().includes(q)) ||
+                          (thread.subject_name && thread.subject_name.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((thread) => {
+                        const isGrade = thread.type === "GRADE";
+                        const rep = thread.representative;
+
                         return (
                           <div
-                            key={f.id + "-" + f.type}
-                            className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs hover:shadow-md transition text-zinc-900 space-y-3.5"
+                            key={thread.key}
+                            onClick={() => {
+                              setSelectedChatComment(rep);
+                              setReplyText("");
+                              setReplyError("");
+                              setChatModalOpen(true);
+                              fetchChatMessages(rep);
+                            }}
+                            className="bg-white border border-zinc-200/70 border-l-4 border-l-[#5B50EC] rounded-3xl p-5 shadow-xs hover:shadow-md transition text-zinc-900 space-y-3.5 cursor-pointer"
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-3">
                               <div className="flex items-center space-x-2.5">
@@ -4431,11 +4925,16 @@ export default function TeacherDashboard() {
                                     <span>Taomnomaga izoh</span>
                                   </span>
                                 )}
-                                <span className="text-xs font-extrabold text-[#16193E]">{f.author_name}</span>
+                                <span className="text-xs font-extrabold text-[#16193E]">{thread.author_name}</span>
                                 <span className="text-[10px] text-zinc-400 font-medium">Ota-ona</span>
+                                {thread.messages.length > 1 && (
+                                  <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full font-mono">
+                                    💬 {thread.messages.length} ta xabar
+                                  </span>
+                                )}
                               </div>
                               <span className="text-[11px] text-zinc-400 font-mono font-medium">
-                                {new Date(f.created_at).toLocaleString("uz-UZ", {
+                                {new Date(rep.created_at).toLocaleString("uz-UZ", {
                                   day: "numeric",
                                   month: "long",
                                   year: "numeric",
@@ -4448,12 +4947,12 @@ export default function TeacherDashboard() {
                             {isGrade ? (
                               <div className="flex items-center space-x-3 bg-zinc-50/80 border border-zinc-200/60 p-3 rounded-2xl text-xs">
                                 <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black flex items-center justify-center font-mono shrink-0">
-                                  {f.grade_value}
+                                  {thread.grade_value || "-"}
                                 </div>
                                 <div>
-                                  <span className="text-[#16193E] font-extrabold block text-xs">{f.subject_name}</span>
+                                  <span className="text-[#16193E] font-extrabold block text-xs">{thread.subject_name}</span>
                                   <span className="text-zinc-500 text-[11px] font-medium">
-                                    O&apos;quvchi: <b className="text-zinc-800">{f.student_name}</b> ({f.class_name} sinfi)
+                                    O&apos;quvchi: <b className="text-zinc-800">{thread.student_name}</b> {thread.class_name && `(${thread.class_name})`}
                                   </span>
                                 </div>
                               </div>
@@ -4461,7 +4960,7 @@ export default function TeacherDashboard() {
                               <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-200/60 p-3 rounded-2xl text-xs font-bold text-zinc-700">
                                 <Utensils className="w-4 h-4 text-amber-600 shrink-0" />
                                 <span>
-                                  Taomnoma kuni: {new Date(f.menu_date || "").toLocaleDateString("uz-UZ", {
+                                  Taomnoma kuni: {new Date(thread.menu_date || "").toLocaleDateString("uz-UZ", {
                                     weekday: "long",
                                     day: "numeric",
                                     month: "long",
@@ -4471,25 +4970,11 @@ export default function TeacherDashboard() {
                               </div>
                             )}
 
-                            <div className="text-xs text-zinc-700 bg-zinc-50/60 p-3.5 rounded-2xl border border-zinc-200/60 font-medium leading-relaxed italic">
-                              &ldquo;{f.content}&rdquo;
-                            </div>
-
-                            <div className="flex justify-end pt-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedChatComment(f);
-                                  setReplyText("");
-                                  setReplyError("");
-                                  setChatModalOpen(true);
-                                  fetchChatMessages(f);
-                                }}
-                                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
-                              >
-                                <MessageSquare className="w-4 h-4" />
-                                <span>Chatni ochish</span>
-                              </button>
+                            <div className="text-xs text-zinc-700 bg-zinc-50/60 p-3.5 rounded-2xl border border-zinc-200/60 font-medium leading-relaxed italic flex items-center justify-between">
+                              <span>&ldquo;{rep.content}&rdquo;</span>
+                              <span className="text-[10px] text-indigo-600 font-bold not-italic hover:underline cursor-pointer shrink-0 ml-2">
+                                💬 Chatni ochish &rarr;
+                              </span>
                             </div>
                           </div>
                         );
@@ -4510,106 +4995,220 @@ export default function TeacherDashboard() {
                 currentUserId={userInfo?.id}
               />
             )}
-
             {/* TAB CONTENT: Parents List */}
-            {teacherTab === "parents" && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Sinf Ota-onalari (Vasiylar)</h3>
-                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                      Sinfdagi barcha o'quvchilarning ota-onalari (vasiylari) va ularni boshqarish
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      title="Excel orqali yuklash"
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setImportResult(null);
-                        setImportError("");
-                        setShowImportParentsModal(true);
-                      }}
-                      className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Ota-ona qo'shish"
-                      onClick={() => {
-                        setParentFirstName("");
-                        setParentLastName("");
-                        setParentMiddleName("");
-                        setParentPhone("");
-                        setParentEmail("");
-                        setParentPassword("password123");
-                        setSelectedStudentIdForAdd("");
-                        setShowAddParentModal(true);
-                      }}
-                      className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+            {teacherTab === "parents" && (() => {
+              const filteredParents = classParents.filter((pt) => {
+                const q = parentsSearch.toLowerCase().trim();
+                if (!q) return true;
+                const name = `${pt.first_name || ""} ${pt.last_name || ""} ${pt.middle_name || ""}`.toLowerCase();
+                const phone = (pt.phone || "").toLowerCase();
+                const child = (pt.student_name || "").toLowerCase();
+                const cls = (pt.class_name || "").toLowerCase();
+                return name.includes(q) || phone.includes(q) || child.includes(q) || cls.includes(q);
+              });
+              const totalParentsPages = Math.ceil(filteredParents.length / parentsPageSize) || 1;
+              const currentPage = Math.min(parentsPage, totalParentsPages);
+              const paginatedParents = filteredParents.slice((currentPage - 1) * parentsPageSize, currentPage * parentsPageSize);
 
-                {classParentsLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                  </div>
-                ) : classParents.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                    <p className="text-sm font-bold text-zinc-800 mb-1">Ota-onalar mavjud emas</p>
-                    <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha bog'langan ota-onalar ro'yxatga olinmagan.</p>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
-                    <div className="max-h-[70vh] overflow-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
-                          <tr>
-                            <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
-                            <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
-                            <th className="px-6 py-3.5">Telefon</th>
-                            <th className="px-6 py-3.5">O'quvchi (Farzand)</th>
-                            <th className="px-6 py-3.5 text-right">Amallar</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
-                          {classParents.map((pt, idx) => (
-                            <tr key={`${pt.id || pt.user_id}-${idx}`} className="group hover:bg-zinc-50/80 transition">
-                              <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{idx + 1}</td>
-                              <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
-                                {pt.first_name} {pt.last_name} {pt.middle_name && <span className="text-zinc-400 font-normal">({pt.middle_name})</span>}
-                              </td>
-                              <td className="px-6 py-3.5 font-mono text-zinc-500">{pt.phone || "—"}</td>
-                              <td className="px-6 py-3.5">
-                                <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
-                                  {pt.student_name || "Noma'lum"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-3.5 text-right whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  title="Farzanddan ajratish"
-                                  onClick={() => handleUnlinkParentFromStudent(pt.student_id, pt.id || pt.user_id)}
-                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                >
-                                  <UserMinus className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              return (
+                <div className="space-y-4 animate-fadeIn pb-36">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
+                    <div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">
+                        {selectedClassId ? "Sinf Ota-onalari (Vasiylar)" : "Barcha Ota-onalar (Vasiylar)"}
+                      </h3>
+                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                        {selectedClassId
+                          ? "Sinfdagi barcha o'quvchilarning ota-onalari (vasiylari) va ularni boshqarish"
+                          : "Maktabdagi barcha o'quvchilarning ota-onalari (vasiylari) ro'yxati"}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3 py-2">
+                        <Search className="w-4 h-4 text-zinc-400" />
+                        <input
+                          type="text"
+                          value={parentsSearch}
+                          onChange={(e) => {
+                            setParentsSearch(e.target.value);
+                            setParentsPage(1);
+                          }}
+                          placeholder="Ota-ona qidirish..."
+                          className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-32 sm:w-44 transition-all"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        title="Excel orqali yuklash"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setImportResult(null);
+                          setImportError("");
+                          setShowImportParentsModal(true);
+                        }}
+                        className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Ota-ona qo'shish"
+                        onClick={() => {
+                          setParentFirstName("");
+                          setParentLastName("");
+                          setParentMiddleName("");
+                          setParentPhone("");
+                          setParentEmail("");
+                          setParentPassword("password123");
+                          setSelectedStudentIdForAdd("");
+                          setShowAddParentModal(true);
+                        }}
+                        className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {classParentsLoading ? (
+                    <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+                    </div>
+                  ) : filteredParents.length === 0 ? (
+                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
+                      <p className="text-sm font-bold text-zinc-800 mb-1">Ota-onalar mavjud emas</p>
+                      <p className="text-xs text-zinc-400 font-mono">
+                        {parentsSearch
+                          ? "Qidiruv bo'yicha hech qanday ota-ona topilmadi."
+                          : selectedClassId
+                          ? "Ushbu sinfda hozircha bog'langan ota-onalar ro'yxatga olinmagan."
+                          : "Maktabda hozircha bog'langan ota-onalar ro'yxatga olinmagan."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
+                            <tr>
+                              <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
+                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
+                              <th className="px-6 py-3.5">Telefon</th>
+                              <th className="px-6 py-3.5">O'quvchi (Farzand)</th>
+                              <th className="px-6 py-3.5 text-right">Amallar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
+                            {paginatedParents.map((pt, idx) => {
+                              const globalIndex = (currentPage - 1) * parentsPageSize + idx + 1;
+                              return (
+                                <tr key={`${pt.id || pt.user_id}-${idx}`} className="group hover:bg-zinc-50/80 transition">
+                                  <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{globalIndex}</td>
+                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                                    {pt.first_name} {pt.last_name} {pt.middle_name && <span className="text-zinc-400 font-normal">({pt.middle_name})</span>}
+                                  </td>
+                                  <td className="px-6 py-3.5 font-mono text-zinc-500">{pt.phone || "—"}</td>
+                                  <td className="px-6 py-3.5">
+                                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
+                                      {pt.student_name || "Noma'lum"} {pt.class_name && <span className="font-mono text-zinc-500 text-[10px]">({pt.class_name})</span>}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      title="Farzanddan ajratish"
+                                      onClick={() => handleUnlinkParentFromStudent(pt.student_id, pt.id || pt.user_id)}
+                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                    >
+                                      <UserMinus className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination Bar */}
+                      <div className="bg-zinc-50 border-t border-zinc-200/70 px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
+                        <div className="flex items-center gap-3">
+                          <span>
+                            Jami <b>{filteredParents.length}</b> ta ota-onadan{" "}
+                            <b>{(currentPage - 1) * parentsPageSize + 1}</b>-
+                            <b>{Math.min(currentPage * parentsPageSize, filteredParents.length)}</b> ko'rsatilmoqda
+                          </span>
+
+                          <select
+                            value={parentsPageSize}
+                            onChange={(e) => {
+                              setParentsPageSize(Number(e.target.value));
+                              setParentsPage(1);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-700 outline-none cursor-pointer"
+                          >
+                            <option value={15}>15 tadan</option>
+                            <option value={25}>25 tadan</option>
+                            <option value={50}>50 tadan</option>
+                            <option value={100}>100 tadan</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={currentPage <= 1}
+                            onClick={() => setParentsPage((p) => Math.max(p - 1, 1))}
+                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span className="hidden sm:inline">Oldingi</span>
+                          </button>
+
+                          <div className="flex items-center gap-1 px-1">
+                            {Array.from({ length: totalParentsPages }, (_, i) => i + 1)
+                              .filter((p) => p === 1 || p === totalParentsPages || Math.abs(p - currentPage) <= 1)
+                              .map((p, idx, arr) => {
+                                const prev = arr[idx - 1];
+                                const showEllipsis = prev && p - prev > 1;
+                                return (
+                                  <React.Fragment key={p}>
+                                    {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
+                                    <button
+                                      type="button"
+                                      onClick={() => setParentsPage(p)}
+                                      className={`w-8 h-8 rounded-xl font-extrabold text-xs transition cursor-pointer ${
+                                        currentPage === p
+                                          ? "bg-[#5B50EC] text-white shadow-xs"
+                                          : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                                      }`}
+                                    >
+                                      {p}
+                                    </button>
+                                  </React.Fragment>
+                                );
+                              })}
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={currentPage >= totalParentsPages}
+                            onClick={() => setParentsPage((p) => Math.min(p + 1, totalParentsPages))}
+                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
+                          >
+                            <span className="hidden sm:inline">Keyingi</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* TAB CONTENT: Extracurricular Clubs */}
             {teacherTab === "clubs" && (
@@ -4665,7 +5264,30 @@ export default function TeacherDashboard() {
                               Ruxsat etilgan sinflar: <b className="text-zinc-800">{club.allowed_class_levels ? club.allowed_class_levels.join(", ") + "-sinflar" : "Barchasi"}</b>
                             </p>
                           </div>
-                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingClub(club);
+                                setEditClubName(club.name);
+                                setEditClubSubjectId(club.subject_id);
+                                setEditClubAllowedLevels(club.allowed_class_levels || []);
+                                setActionError("");
+                                setShowEditClubModal(true);
+                              }}
+                              className="p-2 sm:p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-800 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                              title="To'garakni tahrirlash"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClub(club.id)}
+                              className="p-2 sm:p-2.5 bg-red-50 hover:bg-red-100 border border-red-200/80 text-red-600 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                              title="To'garakni o'chirish"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -4673,12 +5295,16 @@ export default function TeacherDashboard() {
                                 setSearchStudentTerm("");
                                 setClubStudents([]);
                                 fetchClubStudents(club.id);
+                                if (token) {
+                                  if (allStudents.length === 0) fetchAllStudents(token);
+                                  if (studentsTabList.length === 0) fetchStudentsTabList();
+                                }
                                 setShowClubStudentsModal(true);
                               }}
-                              className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                              className="p-2 sm:p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                              title="A'zolar & So'rovlar"
                             >
-                              <Users className="w-3.5 h-3.5" />
-                              <span>A'zolar & So'rovlar</span>
+                              <Users className="w-4 h-4" />
                             </button>
                             <button
                               type="button"
@@ -4689,10 +5315,10 @@ export default function TeacherDashboard() {
                                 setNewScheduleEndTime("15:30");
                                 setShowAddScheduleModal(true);
                               }}
-                              className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                              className="p-2 sm:p-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                              title="Jadval qo'shish"
                             >
-                              <Calendar className="w-3.5 h-3.5" />
-                              <span>+ Jadval</span>
+                              <Calendar className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -4810,6 +5436,20 @@ export default function TeacherDashboard() {
               {showClassDropdown && (
                 <div className="absolute bottom-full mb-3 left-0 w-56 sm:w-64 bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-2 z-50 animate-fadeIn space-y-1 max-h-60 overflow-y-auto">
                   <div className="text-[9px] font-extrabold text-zinc-400 uppercase px-3 py-1 font-mono tracking-wider">Sinfni tanlang</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedClassId("");
+                      setSelectedSubjectId("");
+                      setSelectedGradeIds(new Set());
+                      setShowClassDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                      selectedClassId === "" ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
+                    }`}
+                  >
+                    <span>🌐 Umumiy (Mening dars jadvalim)</span>
+                  </button>
                   {classes.map((cls: any) => {
                     const isMyMainClass = cls.is_main_teacher || cls.main_teacher_id === userInfo?.id || cls.teacher_id === userInfo?.id;
                     const isSelected = selectedClassId === cls.id;
@@ -4975,18 +5615,13 @@ export default function TeacherDashboard() {
               {/* Datepicker */}
               <div 
                 onClick={() => {
-                  if (dateInputRef.current) {
-                     if (typeof dateInputRef.current.showPicker === 'function') {
-                       dateInputRef.current.showPicker();
-                     } else {
-                       dateInputRef.current.click();
-                     }
-                  }
+                  setTeacherCalendarTarget("journal");
+                  setIsTeacherCalendarOpen(true);
                 }}
-                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition relative cursor-pointer"
-                title="Sana tanlash"
+                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition cursor-pointer"
+                title="Sana tanlash (Smart Calendar)"
               >
-                <svg className="w-4 h-4 text-zinc-600 sm:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 text-[#5B50EC]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="hidden sm:inline text-xs font-bold font-mono text-zinc-700 select-none">
@@ -4996,18 +5631,6 @@ export default function TeacherDashboard() {
                     return journalDate;
                   })()}
                 </span>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  value={journalDate}
-                  onChange={(e) => {
-                    setJournalDate(e.target.value);
-                    if (e.target.value) {
-                      fetchJournalData(e.target.value);
-                    }
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
               </div>
             </div>
           )}
@@ -5017,18 +5640,13 @@ export default function TeacherDashboard() {
             <div className="flex items-center space-x-2 shrink-0">
               <div 
                 onClick={() => {
-                  if (scheduleDateInputRef.current) {
-                     if (typeof scheduleDateInputRef.current.showPicker === 'function') {
-                       scheduleDateInputRef.current.showPicker();
-                     } else {
-                       scheduleDateInputRef.current.click();
-                     }
-                  }
+                  setTeacherCalendarTarget("schedule");
+                  setIsTeacherCalendarOpen(true);
                 }}
-                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition relative cursor-pointer font-bold"
-                title="Sana tanlash"
+                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition cursor-pointer font-bold"
+                title="Jadval sanasini tanlash (Smart Calendar)"
               >
-                <svg className="w-4 h-4 text-zinc-600 sm:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 text-[#5B50EC]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="hidden sm:inline text-xs font-bold font-mono text-zinc-700 select-none">
@@ -5038,18 +5656,6 @@ export default function TeacherDashboard() {
                     return scheduleViewDate;
                   })()}
                 </span>
-                <input
-                  ref={scheduleDateInputRef}
-                  type="date"
-                  value={scheduleViewDate}
-                  onChange={(e) => {
-                    setScheduleViewDate(e.target.value);
-                    if (e.target.value) {
-                      fetchClassSchedule(e.target.value);
-                    }
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
               </div>
             </div>
           )}
@@ -5172,9 +5778,41 @@ export default function TeacherDashboard() {
       {renderImportStudentsModal()}
       {renderAddParentModal()}
       {renderAddClubModal()}
+      {renderEditClubModal()}
       {renderAddScheduleModal()}
       {renderClubStudentsModal()}
       {renderGradeCommentModal()}
+
+      <SmartCalendarModal
+        isOpen={isTeacherCalendarOpen}
+        onClose={() => setIsTeacherCalendarOpen(false)}
+        mode="single"
+        selectedDate={
+          teacherCalendarTarget === "journal"
+            ? journalDate
+            : teacherCalendarTarget === "exception"
+            ? excDate
+            : scheduleViewDate
+        }
+        onSelectDate={(dateStr) => {
+          if (teacherCalendarTarget === "journal") {
+            setJournalDate(dateStr);
+            fetchJournalData(dateStr);
+          } else if (teacherCalendarTarget === "exception") {
+            setExcDate(dateStr);
+          } else {
+            setScheduleViewDate(dateStr);
+            fetchClassSchedule(dateStr);
+          }
+        }}
+        title={
+          teacherCalendarTarget === "journal"
+            ? "Jurnal sanasini tanlash"
+            : teacherCalendarTarget === "exception"
+            ? "O'zgarish sanasini tanlash"
+            : "Jadval sanasini tanlash"
+        }
+      />
 
       {chatModalOpen && selectedChatComment && (
         <div 
@@ -5823,6 +6461,117 @@ export default function TeacherDashboard() {
     );
   };
 
+  function renderEditClubModal() {
+    if (!showEditClubModal || !editingClub) return null;
+
+    return (
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowEditClubModal(false);
+          }
+        }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      >
+        <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn text-zinc-900">
+          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-extrabold text-[#16193E]">To'garakni tahrirlash</h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">To'garak nomi, fani va sinf darajalarini o'zgartirish</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowEditClubModal(false)}
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {actionError && (
+            <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-2xl">
+              {actionError}
+            </div>
+          )}
+
+          <form onSubmit={handleEditClubSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">To'garak nomi *</label>
+              <input
+                type="text"
+                required
+                value={editClubName}
+                onChange={(e) => setEditClubName(e.target.value)}
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                placeholder="Masalan: IT scratch to'garagi"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Biriktirilgan fan *</label>
+              <select
+                required
+                value={editClubSubjectId}
+                onChange={(e) => setEditClubSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
+              >
+                <option value="">Fanni tanlang</option>
+                {subjects.map((sub) => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Ruxsat etilgan sinflar *</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => {
+                  const isSelected = editClubAllowedLevels.includes(lvl);
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setEditClubAllowedLevels(editClubAllowedLevels.filter(l => l !== lvl));
+                        } else {
+                          setEditClubAllowedLevels([...editClubAllowedLevels, lvl].sort((a, b) => a - b));
+                        }
+                      }}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
+                        isSelected ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                      }`}
+                    >
+                      {lvl}-sinf
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setShowEditClubModal(false)}
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+              >
+                {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   // 2. Add Schedule Modal
   function renderAddScheduleModal() {
     if (!showAddScheduleModal || !selectedClubForSchedule) return null;
@@ -5917,12 +6666,26 @@ export default function TeacherDashboard() {
   function renderClubStudentsModal() {
     if (!showClubStudentsModal || !selectedClubForStudents) return null;
 
-    // Filter students to search in all school students or class students to directly add
-    const filteredToDirectAdd = studentsTabList.filter((st) => {
-      const fullName = `${st.first_name} ${st.last_name}`.toLowerCase();
-      // Already a member?
-      const isMember = clubStudents.some((cs) => cs.student_id === st.id || cs.student_id === st.student_id);
-      return fullName.includes(searchStudentTerm.toLowerCase()) && !isMember;
+    // Combine all students roster
+    const studentSourceMap = new Map<number, any>();
+    allStudents.forEach((st) => studentSourceMap.set(st.id || st.student_id, st));
+    studentsTabList.forEach((st) => {
+      const id = st.id || st.student_id;
+      if (!studentSourceMap.has(id)) studentSourceMap.set(id, st);
+    });
+    const combinedStudents = Array.from(studentSourceMap.values());
+
+    // Filter students to directly add (excluding existing club members or pending applicants)
+    const filteredToDirectAdd = combinedStudents.filter((st) => {
+      const stId = st.id || st.student_id;
+      const isMember = clubStudents.some((cs) => cs.student_id === stId || cs.student_id === st.id);
+      if (isMember) return false;
+
+      const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+      const clsName = (st.class_name || "").toLowerCase();
+      if (!searchStudentTerm.trim()) return true;
+      const q = searchStudentTerm.toLowerCase().trim();
+      return fullName.includes(q) || clsName.includes(q);
     });
 
     return (
@@ -5965,26 +6728,35 @@ export default function TeacherDashboard() {
                 />
               </div>
 
-              {searchStudentTerm.trim() !== "" && (
-                <div className="max-h-32 overflow-y-auto border border-zinc-200/70 rounded-xl bg-white divide-y divide-zinc-100">
-                  {filteredToDirectAdd.length === 0 ? (
-                    <p className="text-xs text-zinc-450 p-3 italic">O'quvchi topilmadi yoki barchasi a'zo</p>
-                  ) : (
-                    filteredToDirectAdd.map((st) => (
-                      <div key={st.id || st.student_id} className="flex items-center justify-between p-2.5 text-xs hover:bg-indigo-50/20 transition">
+              <div className="max-h-44 overflow-y-auto border border-zinc-200/70 rounded-xl bg-white divide-y divide-zinc-100">
+                {filteredToDirectAdd.length === 0 ? (
+                  <p className="text-xs text-zinc-400 p-3 italic text-center">
+                    {searchStudentTerm.trim()
+                      ? "Qidiruv bo'yicha o'quvchi topilmadi"
+                      : "Barcha o'quvchilar ushbu to'garakka a'zo bo'lgan"}
+                  </p>
+                ) : (
+                  filteredToDirectAdd.map((st) => (
+                    <div key={st.id || st.student_id} className="flex items-center justify-between p-2.5 text-xs hover:bg-indigo-50/20 transition">
+                      <div className="flex items-center gap-2">
                         <span className="font-bold text-zinc-800">{st.first_name} {st.last_name}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleAddDirectStudent(st.id || st.student_id)}
-                          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-[10px] py-1 px-3 rounded-lg transition cursor-pointer shadow-xs"
-                        >
-                          Qo'shish
-                        </button>
+                        {st.class_name && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-50 text-indigo-700 font-mono border border-indigo-100">
+                            {st.class_name}
+                          </span>
+                        )}
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
+                      <button
+                        type="button"
+                        onClick={() => handleAddDirectStudent(st.id || st.student_id)}
+                        className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-[10px] py-1 px-3 rounded-lg transition cursor-pointer shadow-xs"
+                      >
+                        + Qo'shish
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             {/* List of current requests & members */}

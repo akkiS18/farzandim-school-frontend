@@ -2,8 +2,8 @@ import React from "react";
 import { ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays";
-  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays") => void;
+  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview";
+  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   mobileOpen?: boolean;
@@ -100,6 +100,20 @@ export default function Sidebar({
             <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
         );
+      case "schedule-overview":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <line x1="8" y1="14" x2="8" y2="14" strokeWidth="3" strokeLinecap="round" />
+            <line x1="12" y1="14" x2="12" y2="14" strokeWidth="3" strokeLinecap="round" />
+            <line x1="16" y1="14" x2="16" y2="14" strokeWidth="3" strokeLinecap="round" />
+            <line x1="8" y1="18" x2="8" y2="18" strokeWidth="3" strokeLinecap="round" />
+            <line x1="12" y1="18" x2="12" y2="18" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -108,6 +122,7 @@ export default function Sidebar({
   const menuItems = [
     { id: "overview", label: "Dashboard", badge: null },
     { id: "classes", label: "Sinflar", badge: null },
+    { id: "schedule-overview", label: "Dars jadvali", badge: null },
     { id: "teachers", label: "O'qituvchilar", badge: null },
     { id: "subjects", label: "Fanlar", badge: null },
     { id: "grading-systems", label: "Baholash Tizimi", badge: null },

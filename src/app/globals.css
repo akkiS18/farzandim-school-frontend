@@ -43,3 +43,29 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Disable outline, focus border, and focus ring on Recharts & SVG elements */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-layer,
+.recharts-layer:focus,
+.recharts-responsive-container,
+.recharts-responsive-container:focus,
+.recharts-cartesian-grid,
+.recharts-bar-rectangle,
+.recharts-bar-rectangle:focus,
+svg,
+svg:focus,
+svg:focus-visible,
+path,
+path:focus,
+rect,
+rect:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+

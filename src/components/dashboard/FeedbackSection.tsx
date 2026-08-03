@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { MessageSquare, X } from "lucide-react";
 
 interface FeedbackComment {
   id: number;
@@ -27,6 +28,25 @@ interface ChatMessage {
   created_at: string;
 }
 
+// A "chat thread" is a group of FeedbackComments that share the same context
+interface ChatThread {
+  key: string;
+  type: "GRADE" | "MENU";
+  grade_id?: number;
+  parent_id: number;
+  menu_date?: string;
+  // Representative metadata (from first/latest message)
+  author_name: string;
+  subject_name?: string;
+  grade_value?: string;
+  student_name?: string;
+  class_name?: string;
+  // Messages sorted by time, latest last
+  messages: FeedbackComment[];
+  // The representative comment for opening the chat
+  representative: FeedbackComment;
+}
+
 interface FeedbackSectionProps {
   token: string;
   apiUrl: string;
@@ -39,35 +59,37 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
 
   // Admin Chat States
   const [chatModalOpen, setChatModalOpen] = useState(false);
-  const [selectedChatComment, setSelectedChatComment] = useState<FeedbackComment | null>(null);
+  const [selectedThread, setSelectedThread] = useState<ChatThread | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replyError, setReplyError] = useState("");
   const [replySubmitLoading, setReplySubmitLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const safeFetchHeaders = () => {
     const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-    };
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (sId) headers["X-School-ID"] = sId;
     return headers;
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setChatModalOpen(false);
-      }
+      if (e.key === "Escape") setChatModalOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => { fetchFeedback(); }, []);
+
+  // Auto-scroll to bottom of chat
   useEffect(() => {
-    fetchFeedback();
-  }, []);
+    if (chatModalOpen) {
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  }, [chatMessages, chatModalOpen]);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -76,11 +98,7 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
         headers: safeFetchHeaders(),
       });
       const data = await response.json();
-      if (response.ok) {
-        setFeed(Array.isArray(data) ? data : []);
-      } else {
-        console.error("Failed to fetch feedback feed:", data.error);
-      }
+      if (response.ok) setFeed(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching feedback:", err);
     } finally {
@@ -88,23 +106,19 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
     }
   };
 
-  const fetchChatMessages = async (comment: FeedbackComment) => {
+  const fetchChatMessages = async (thread: ChatThread) => {
     setChatLoading(true);
     try {
       let url = "";
-      if (comment.type === "GRADE") {
-        url = `${apiUrl}/api/schools/grades/${comment.grade_id}/comments`;
+      if (thread.type === "GRADE") {
+        url = `${apiUrl}/api/schools/grades/${thread.grade_id}/comments`;
       } else {
-        const dateStr = comment.menu_date ? comment.menu_date.split("T")[0] : "";
-        url = `${apiUrl}/api/schools/menu/comments?menu_date=${dateStr}&parent_id=${comment.parent_id}`;
+        const dateStr = thread.menu_date ? thread.menu_date.split("T")[0] : "";
+        url = `${apiUrl}/api/schools/menu/comments?menu_date=${dateStr}&parent_id=${thread.parent_id}`;
       }
-      const response = await fetch(url, {
-        headers: safeFetchHeaders(),
-      });
+      const response = await fetch(url, { headers: safeFetchHeaders() });
       const data = await response.json();
-      if (response.ok) {
-        setChatMessages(Array.isArray(data) ? data : []);
-      }
+      if (response.ok) setChatMessages(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching chat:", err);
     } finally {
@@ -114,39 +128,31 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
 
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim() || !selectedChatComment) return;
+    if (!replyText.trim() || !selectedThread) return;
 
     setReplySubmitLoading(true);
     setReplyError("");
     try {
       let url = "";
       let body = {};
-      if (selectedChatComment.type === "GRADE") {
-        url = `${apiUrl}/api/schools/grades/${selectedChatComment.grade_id}/comments`;
+      if (selectedThread.type === "GRADE") {
+        url = `${apiUrl}/api/schools/grades/${selectedThread.grade_id}/comments`;
         body = { content: replyText.trim() };
       } else {
-        const dateStr = selectedChatComment.menu_date ? selectedChatComment.menu_date.split("T")[0] : "";
+        const dateStr = selectedThread.menu_date ? selectedThread.menu_date.split("T")[0] : "";
         url = `${apiUrl}/api/schools/menu/comments`;
-        body = {
-          menu_date: dateStr,
-          parent_id: selectedChatComment.parent_id,
-          content: replyText.trim(),
-        };
+        body = { menu_date: dateStr, parent_id: selectedThread.parent_id, content: replyText.trim() };
       }
 
       const headers = safeFetchHeaders();
       headers["Content-Type"] = "application/json";
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-      });
-
+      const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
       const data = await response.json();
       if (response.ok) {
         setReplyText("");
-        fetchChatMessages(selectedChatComment);
+        fetchChatMessages(selectedThread);
+        fetchFeedback();
       } else {
         setReplyError(data.error || "Xatolik yuz berdi");
       }
@@ -167,15 +173,76 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
     return "text-red-600 bg-red-50 border-red-200";
   };
 
-  const filteredFeed = feed.filter(
-    (item) =>
-      item.author_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.student_name && item.student_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // ── Group feed items into ChatThread[] ────────────────────────────
+  const buildThreads = (items: FeedbackComment[]): ChatThread[] => {
+    const map = new Map<string, ChatThread>();
+
+    for (const item of items) {
+      let key: string;
+      if (item.type === "GRADE") {
+        key = `GRADE-${item.grade_id}`;
+      } else {
+        const d = item.menu_date ? item.menu_date.split("T")[0] : "unknown";
+        key = `MENU-${item.parent_id}-${d}`;
+      }
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          type: item.type,
+          grade_id: item.grade_id,
+          parent_id: item.parent_id,
+          menu_date: item.menu_date,
+          author_name: item.author_name,
+          subject_name: item.subject_name,
+          grade_value: item.grade_value,
+          student_name: item.student_name,
+          class_name: item.class_name,
+          messages: [],
+          representative: item,
+        });
+      }
+      map.get(key)!.messages.push(item);
+    }
+
+    // Sort messages within each thread by time ascending
+    for (const thread of map.values()) {
+      thread.messages.sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      // Use the latest message as the "preview" representative
+      thread.representative = thread.messages[thread.messages.length - 1];
+    }
+
+    // Sort threads by latest message time (most recent first)
+    return [...map.values()].sort((a, b) =>
+      new Date(b.representative.created_at).getTime() - new Date(a.representative.created_at).getTime()
+    );
+  };
+
+  const allThreads = buildThreads(feed);
+
+  const filteredThreads = allThreads.filter((thread) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      thread.author_name.toLowerCase().includes(q) ||
+      thread.messages.some((m) => m.content.toLowerCase().includes(q)) ||
+      (thread.student_name && thread.student_name.toLowerCase().includes(q)) ||
+      (thread.subject_name && thread.subject_name.toLowerCase().includes(q))
+    );
+  });
+
+  const openThread = (thread: ChatThread) => {
+    setSelectedThread(thread);
+    setChatModalOpen(true);
+    fetchChatMessages(thread);
+    setReplyText("");
+    setReplyError("");
+  };
 
   return (
-    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+    <div className="space-y-6 font-sans text-[#1D1E26]">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#1D1E26] tracking-tight">Fikr-mulohazalar va Izohlar</h2>
@@ -183,7 +250,6 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
             Ota-onalar tomonidan baholar hamda taomnomalarga qoldirilgan barcha izohlar lenti va javob berish paneli.
           </p>
         </div>
-
         <input
           type="text"
           placeholder="Fikr-mulohazalarni izlash..."
@@ -194,176 +260,211 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
       </div>
 
       {loading ? (
-        <div className="py-20 text-center text-slate-400 font-mono text-xs">
-          Izohlar yuklanmoqda...
+        <div className="py-20 text-center">
+          <div className="w-8 h-8 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-slate-400 font-mono text-xs">Izohlar yuklanmoqda...</p>
         </div>
-      ) : filteredFeed.length === 0 ? (
+      ) : filteredThreads.length === 0 ? (
         <div className="py-20 text-center text-slate-400 font-medium text-xs italic border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
           Hozircha hech qanday fikr-mulohaza kelib tushmagan.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredFeed.map((item) => (
-            <div
-              key={`${item.type}-${item.id}`}
-              className="bg-white border border-slate-100/80 rounded-3xl p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 rounded-full bg-[#1D1E26] text-white flex items-center justify-center text-xs font-black">
-                      {item.author_name ? item.author_name[0] : "P"}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredThreads.map((thread) => {
+            const latest = thread.representative;
+            const msgCount = thread.messages.length;
+            const latestTime = new Date(latest.created_at);
+
+            return (
+              <div
+                key={thread.key}
+                onClick={() => openThread(thread)}
+                className="bg-white border border-slate-100/80 rounded-3xl p-4 shadow-xs flex flex-col gap-3 hover:shadow-md hover:border-[#D4F562]/50 transition-all duration-200 cursor-pointer group select-none"
+              >
+                {/* Thread header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    {/* Avatar */}
+                    <div className="w-9 h-9 rounded-2xl bg-[#1D1E26] text-white flex items-center justify-center text-sm font-black shrink-0 group-hover:bg-[#D4F562] group-hover:text-[#1D1E26] transition-colors">
+                      {thread.author_name ? thread.author_name[0] : "P"}
                     </div>
                     <div>
-                      <h4 className="text-xs font-black text-[#1D1E26]">{item.author_name}</h4>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        {new Date(item.created_at).toLocaleString()}
+                      <h4 className="text-xs font-black text-[#1D1E26] leading-tight">{thread.author_name}</h4>
+                      <p className="text-[9px] text-slate-400 font-mono">
+                        {latestTime.toLocaleDateString("uz-UZ", { day: "2-digit", month: "short", year: "numeric" })}
+                        {" · "}
+                        {latestTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
                   </div>
 
-                  <span
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase font-mono border ${
-                      item.type === "GRADE"
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Message count badge */}
+                    <span className="flex items-center gap-1 bg-slate-100 text-slate-500 text-[9px] font-extrabold px-2 py-1 rounded-lg">
+                      <MessageSquare className="w-2.5 h-2.5" />
+                      {msgCount}
+                    </span>
+                    {/* Type badge */}
+                    <span className={`px-2 py-1 rounded-lg text-[9px] font-extrabold uppercase font-mono border ${
+                      thread.type === "GRADE"
                         ? "bg-[#E0F2FE] text-[#0284C7] border-sky-200"
                         : "bg-[#FFEADB] text-[#FF7A00] border-orange-200"
-                    }`}
-                  >
-                    {item.type === "GRADE" ? "Baho izohi" : "Taomnoma izohi"}
-                  </span>
+                    }`}>
+                      {thread.type === "GRADE" ? "Baho" : "Taom"}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Content details */}
-                {item.type === "GRADE" ? (
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold text-[#1D1E26]">
-                        {item.student_name} ({item.class_name})
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border ${getGradeColor(item.grade_value)}`}>
-                        Baho: {item.grade_value}
-                      </span>
+                {/* Context info */}
+                {thread.type === "GRADE" ? (
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                    <div>
+                      <p className="text-[11px] font-extrabold text-[#1D1E26] leading-tight">
+                        {thread.student_name}
+                        {thread.class_name && <span className="text-slate-400 font-normal"> · {thread.class_name}</span>}
+                      </p>
+                      {thread.subject_name && (
+                        <p className="text-[9px] text-slate-400 font-medium mt-0.5">{thread.subject_name}</p>
+                      )}
                     </div>
-                    <p className="text-[10px] text-slate-400 font-medium">Fan: {item.subject_name}</p>
+                    {thread.grade_value && (
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-black border ${getGradeColor(thread.grade_value)}`}>
+                        {thread.grade_value}
+                      </span>
+                    )}
                   </div>
                 ) : (
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3">
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
                     <p className="text-[11px] font-extrabold text-[#1D1E26]">
-                      Sana: {item.menu_date ? new Date(item.menu_date).toLocaleDateString() : "Bugun"}
+                      Sana: {thread.menu_date
+                        ? new Date(thread.menu_date).toLocaleDateString("uz-UZ", { day: "2-digit", month: "long" })
+                        : "Bugun"}
                     </p>
                   </div>
                 )}
 
-                <p className="text-xs text-slate-700 font-medium leading-relaxed bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
-                  "{item.content}"
-                </p>
-              </div>
+                {/* Message preview strip — last 2 messages */}
+                <div className="space-y-1.5">
+                  {thread.messages.slice(-2).map((msg, idx) => (
+                    <div key={msg.id} className="flex items-start gap-2">
+                      <div className={`w-1 h-full rounded-full self-stretch shrink-0 ${idx === thread.messages.length - 2 && thread.messages.length > 1 ? "bg-slate-200" : "bg-[#D4F562]"}`} style={{ minHeight: 16 }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] text-slate-400 font-mono leading-tight">{msg.author_name}</p>
+                        <p className="text-[11px] text-slate-700 font-medium leading-snug truncate">
+                          &ldquo;{msg.content}&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
-                <button
-                  onClick={() => {
-                    setSelectedChatComment(item);
-                    setChatModalOpen(true);
-                    fetchChatMessages(item);
-                  }}
-                  className="bg-[#D4F562] text-[#1D1E26] font-black text-xs px-4 py-2 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
-                >
-                  Muloqotni ko'rish / Javob berish
-                </button>
+                {/* Footer */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[9px] text-slate-400 font-mono">
+                    {msgCount > 1 ? `${msgCount} ta xabar` : "1 ta xabar"}
+                  </span>
+                  <span className="text-[10px] font-extrabold text-[#1D1E26] group-hover:text-[#65A30D] transition-colors">
+                    Ochish →
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Chat Dialog Modal */}
-      {chatModalOpen && selectedChatComment && (
+      {/* Chat Modal */}
+      {chatModalOpen && selectedThread && (
         <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setChatModalOpen(false);
-          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setChatModalOpen(false); }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl space-y-4 text-[#1D1E26] max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-[#1D1E26]">
-                  Muloqot: {selectedChatComment.author_name}
-                </h3>
-                <p className="text-[10px] text-slate-400 font-mono">
-                  {selectedChatComment.type === "GRADE" ? `Baho: ${selectedChatComment.grade_value}` : "Taomnoma"}
-                </p>
+          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl shadow-2xl text-[#1D1E26] max-h-[85vh] flex flex-col overflow-hidden">
+            {/* Modal header */}
+            <div className="flex items-center justify-between border-b border-slate-100 p-5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-[#1D1E26] text-white flex items-center justify-center text-sm font-black shrink-0">
+                  {selectedThread.author_name[0]}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-[#1D1E26] leading-tight">
+                    {selectedThread.author_name}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    {selectedThread.type === "GRADE"
+                      ? `${selectedThread.subject_name} · Baho: ${selectedThread.grade_value} · ${selectedThread.student_name}`
+                      : `Taomnoma · ${selectedThread.menu_date ? new Date(selectedThread.menu_date).toLocaleDateString("uz-UZ") : ""}`}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setChatModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0 transition"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Chat messages scrollable */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-80">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {chatLoading ? (
-                <div className="py-8 text-center text-slate-400 text-xs font-mono">
-                  Suhbat ma'lumotlari yuklanmoqda...
+                <div className="py-10 text-center">
+                  <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-slate-400 text-xs font-mono">Suhbat yuklanmoqda...</p>
                 </div>
               ) : chatMessages.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs font-medium italic">
+                <div className="py-10 text-center text-slate-400 text-xs font-medium italic">
                   Hali muloqot xabarlari mavjud emas.
                 </div>
               ) : (
                 chatMessages.map((msg) => {
-                  const isAdmin = msg.role === "ADMIN" || msg.role === "TEACHER" || msg.role === "MAIN_TEACHER";
+                  const isAdmin = msg.role === "ADMIN" || msg.role === "TEACHER" || msg.role === "MAIN_TEACHER" || msg.role === "SUBJECT_TEACHER";
                   return (
                     <div
                       key={msg.id}
-                      className={`flex flex-col space-y-1 max-w-[80%] ${
-                        isAdmin ? "ml-auto items-end" : "mr-auto items-start"
-                      }`}
+                      className={`flex flex-col gap-0.5 max-w-[80%] ${isAdmin ? "ml-auto items-end" : "mr-auto items-start"}`}
                     >
-                      <span className="text-[9px] text-slate-400 font-mono">
-                        {msg.author_name} ({msg.role})
+                      <span className="text-[9px] text-slate-400 font-mono px-1">
+                        {msg.author_name}
                       </span>
-                      <div
-                        className={`p-3 rounded-2xl text-xs font-medium shadow-xs ${
-                          isAdmin
-                            ? "bg-[#1D1E26] text-white rounded-br-none"
-                            : "bg-slate-100 text-slate-800 border border-slate-200/60 rounded-bl-none"
-                        }`}
-                      >
+                      <div className={`px-3.5 py-2.5 rounded-2xl text-xs font-medium shadow-xs leading-relaxed ${
+                        isAdmin
+                          ? "bg-[#1D1E26] text-white rounded-br-sm"
+                          : "bg-slate-100 text-slate-800 border border-slate-200/60 rounded-bl-sm"
+                      }`}>
                         {msg.content}
                       </div>
-                      <span className="text-[9px] text-slate-400 font-mono">
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="text-[9px] text-slate-400 font-mono px-1">
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                   );
                 })
               )}
+              <div ref={chatEndRef} />
             </div>
 
-            {/* Reply Input Form */}
-            <form onSubmit={handleReplySubmit} className="pt-3 border-t border-slate-100 space-y-2">
+            {/* Reply form */}
+            <form onSubmit={handleReplySubmit} className="p-4 border-t border-slate-100 space-y-2 shrink-0 bg-slate-50/50">
               {replyError && <div className="text-xs text-red-500 font-bold">{replyError}</div>}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   placeholder="Javob xabarini yozing..."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-200 text-xs text-slate-800 px-3.5 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-[#D4F562]"
+                  className="flex-1 bg-white border border-slate-200 text-xs text-slate-800 px-3.5 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-[#D4F562]"
                 />
                 <button
                   type="submit"
                   disabled={replySubmitLoading || !replyText.trim()}
-                  className="bg-[#D4F562] text-[#1D1E26] font-black text-xs px-4 py-2.5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="bg-[#D4F562] text-[#1D1E26] font-black text-xs px-4 py-2.5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50 shrink-0"
                 >
                   {replySubmitLoading ? "..." : "Yuborish"}
                 </button>
               </div>
-            </form>
+               </form>
           </div>
         </div>
       )}
