@@ -144,7 +144,7 @@ export default function TenantDashboard() {
     setSchoolId(sId);
 
     if (!savedToken || !savedUser) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -153,17 +153,17 @@ export default function TenantDashboard() {
       const parsed = JSON.parse(savedUser);
       if (parsed.role !== "ADMIN" && parsed.role !== "SUPER_ADMIN") {
         if (parsed.role === "PARENT") {
-          router.push("/parents");
+          router.replace("/parents");
         } else if (parsed.role === "MAIN_TEACHER" || parsed.role === "SUBJECT_TEACHER") {
-          router.push("/teacher");
+          router.replace("/teacher");
         } else {
-          router.push("/login");
+          router.replace("/login");
         }
         return;
       }
       setUserInfo(parsed);
     } catch (e) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 

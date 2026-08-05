@@ -726,7 +726,7 @@ export default function ParentDashboard() {
     const savedUserStr = localStorage.getItem("school_user");
 
     if (!savedToken || !savedSchoolId || !savedUserStr) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -736,11 +736,11 @@ export default function ParentDashboard() {
       const parsedUser = JSON.parse(savedUserStr);
       if (parsedUser.role !== "PARENT") {
         if (parsedUser.role === "ADMIN" || parsedUser.role === "SUPER_ADMIN") {
-          router.push("/dashboard");
+          router.replace("/dashboard");
         } else if (parsedUser.role === "MAIN_TEACHER" || parsedUser.role === "SUBJECT_TEACHER") {
-          router.push("/teacher");
+          router.replace("/teacher");
         } else {
-          router.push("/login");
+          router.replace("/login");
         }
         return;
       }
@@ -751,7 +751,7 @@ export default function ParentDashboard() {
       fetchAnnouncements(savedToken, savedSchoolId);
       fetchTelegramConfig(savedToken, savedSchoolId);
     } catch {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [router]);
 

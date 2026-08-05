@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import SmartCalendarModal from "@/components/SmartCalendarModal";
+import DateRangePresets from "@/components/DateRangePresets";
 import {
   LayoutDashboard,
   BookOpen,
@@ -919,7 +920,7 @@ export default function TeacherDashboard() {
     const savedUserStr = localStorage.getItem("school_user");
 
     if (!savedToken || !savedSchoolId || !savedUserStr) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -929,16 +930,16 @@ export default function TeacherDashboard() {
       const parsedUser = JSON.parse(savedUserStr);
       if (parsedUser.role !== "MAIN_TEACHER" && parsedUser.role !== "SUBJECT_TEACHER" && parsedUser.role !== "ADMIN") {
         if (parsedUser.role === "PARENT") {
-          router.push("/parents");
+          router.replace("/parents");
         } else {
-          router.push("/login");
+          router.replace("/login");
         }
         return;
       }
       setUserInfo(parsedUser);
       loadInitialData(savedToken, savedSchoolId);
     } catch (e) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [router]);
 
@@ -2428,28 +2429,16 @@ export default function TeacherDashboard() {
           )}
 
           <form onSubmit={handleSaveSchedule} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-indigo-50/40 border border-indigo-100 p-4.5 rounded-2xl">
-              <div>
-                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Jadval boshlanish sanasi (Start Date)</label>
-                <input
-                  type="date"
-                  value={scheduleStartDate}
-                  onChange={(e) => setScheduleStartDate(e.target.value)}
-                  required
-                  className="w-full bg-white border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2 text-xs outline-none transition"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Jadval tugash sanasi (End Date)</label>
-                <input
-                  type="date"
-                  value={scheduleEndDate}
-                  onChange={(e) => setScheduleEndDate(e.target.value)}
-                  required
-                  className="w-full bg-white border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2 text-xs outline-none transition"
-                />
-              </div>
-            </div>
+            <DateRangePresets
+              startDate={scheduleStartDate}
+              endDate={scheduleEndDate}
+              onStartDateChange={setScheduleStartDate}
+              onEndDateChange={setScheduleEndDate}
+              token={token}
+              apiUrl={API_URL}
+              category="schedule"
+              theme="indigo"
+            />
 
             <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
               <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">

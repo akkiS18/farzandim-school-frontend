@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Users, Pencil, Trash2, UserMinus } from "lucide-react";
+import DateRangePresets from "../DateRangePresets";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
 
 interface SearchableSingleSelectProps {
@@ -3051,28 +3052,16 @@ export default function ClassesSection({
               )}
 
               <form onSubmit={handleSaveSchedule} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-slate-200/80 p-4 rounded-2xl">
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Jadval boshlanish sanasi (Start Date)</label>
-                    <input
-                      type="date"
-                      value={scheduleStartDate}
-                      onChange={(e) => setScheduleStartDate(e.target.value)}
-                      required
-                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Jadval tugash sanasi (End Date)</label>
-                    <input
-                      type="date"
-                      value={scheduleEndDate}
-                      onChange={(e) => setScheduleEndDate(e.target.value)}
-                      required
-                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
-                    />
-                  </div>
-                </div>
+                <DateRangePresets
+                  startDate={scheduleStartDate}
+                  endDate={scheduleEndDate}
+                  onStartDateChange={setScheduleStartDate}
+                  onEndDateChange={setScheduleEndDate}
+                  token={token}
+                  apiUrl={API_URL}
+                  category="schedule"
+                  theme="slate"
+                />
 
                 <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
                   <table className="min-w-full divide-y divide-slate-100 text-center table-fixed">

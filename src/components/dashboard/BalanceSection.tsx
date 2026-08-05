@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { History, Pencil, Trash2 } from "lucide-react";
+import DateRangePresets from "../DateRangePresets";
+import TargetPresets from "../TargetPresets";
 import { ImportResult } from "./types";
 
 interface SearchableMultiSelectOption {
@@ -1252,28 +1254,18 @@ export default function BalanceSection({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Boshlanish Sanasi</label>
-                  <input
-                    type="date"
-                    required
-                    value={planStartDate}
-                    onChange={(e) => setPlanStartDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tugash Sanasi</label>
-                  <input
-                    type="date"
-                    required
-                    value={planEndDate}
-                    onChange={(e) => setPlanEndDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
-                  />
-                </div>
-              </div>
+              <DateRangePresets
+                startDate={planStartDate}
+                endDate={planEndDate}
+                onStartDateChange={setPlanStartDate}
+                onEndDateChange={setPlanEndDate}
+                token={token}
+                apiUrl={API_URL}
+                category="charge_plan"
+                theme="slate"
+                startLabel="Boshlanish Sanasi"
+                endLabel="Tugash Sanasi"
+              />
 
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Har Oyning Qaysi Kuni (1-31)</label>
@@ -1287,6 +1279,20 @@ export default function BalanceSection({
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
                 />
               </div>
+
+              {/* O'quvchilar To'plamlari (Target Presets) Selection */}
+              <TargetPresets
+                selectedLevels={planSelectedLevels}
+                selectedClasses={planSelectedClasses}
+                selectedStudents={planSelectedStudents}
+                onLevelsChange={setPlanSelectedLevels}
+                onClassesChange={setPlanSelectedClasses}
+                onStudentsChange={setPlanSelectedStudents}
+                token={token}
+                apiUrl={API_URL}
+                label="O'quvchilar To'plami (Mavjud shablonlar)"
+                theme="slate"
+              />
 
               {/* Sinf Levellari Selection */}
               <SearchableMultiSelect

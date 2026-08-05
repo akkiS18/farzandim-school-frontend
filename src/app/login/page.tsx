@@ -13,6 +13,7 @@ export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     // Redirect if already logged in
@@ -21,19 +22,27 @@ export default function TenantLoginPage() {
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.role === "ADMIN") {
-          router.push("/dashboard");
+        if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
+          router.replace("/dashboard");
+          return;
         } else if (user.role === "MAIN_TEACHER" || user.role === "SUBJECT_TEACHER") {
-          router.push("/teacher");
+          router.replace("/teacher");
+          return;
         } else if (user.role === "PARENT") {
-          router.push("/parents");
+          router.replace("/parents");
+          return;
         } else {
-          localStorage.clear();
+          localStorage.removeItem("school_token");
+          localStorage.removeItem("school_user");
+          localStorage.removeItem("school_id");
         }
       } catch (e) {
-        localStorage.clear();
+        localStorage.removeItem("school_token");
+        localStorage.removeItem("school_user");
+        localStorage.removeItem("school_id");
       }
     }
+    setIsCheckingAuth(false);
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -57,7 +66,7 @@ export default function TenantLoginPage() {
       }
 
       const role = data.user.role;
-      if (role !== "ADMIN" && role !== "MAIN_TEACHER" && role !== "SUBJECT_TEACHER" && role !== "PARENT") {
+      if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "MAIN_TEACHER" && role !== "SUBJECT_TEACHER" && role !== "PARENT") {
         throw new Error("O'quvchilar uchun tizimga kirish taqiqlangan");
       }
 
@@ -66,12 +75,12 @@ export default function TenantLoginPage() {
       localStorage.setItem("school_id", data.user.school_id);
       localStorage.setItem("school_user", JSON.stringify(data.user));
 
-      if (role === "ADMIN") {
-        router.push("/dashboard");
+      if (role === "ADMIN" || role === "SUPER_ADMIN") {
+        router.replace("/dashboard");
       } else if (role === "MAIN_TEACHER" || role === "SUBJECT_TEACHER") {
-        router.push("/teacher");
+        router.replace("/teacher");
       } else if (role === "PARENT") {
-        router.push("/parents");
+        router.replace("/parents");
       }
     } catch (err: any) {
       setError(err.message || "Ulanishda xatolik. Ma'lumotlarni tekshirib qayta urinib ko'ring.");
@@ -79,6 +88,17 @@ export default function TenantLoginPage() {
       setLoading(false);
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <main className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-400 font-medium">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          <p className="text-sm">Tizimga kirish tekshirilmoqda...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[#f5f5f7] px-4 relative overflow-hidden">

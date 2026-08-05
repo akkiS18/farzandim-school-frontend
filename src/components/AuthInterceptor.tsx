@@ -22,7 +22,7 @@ export default function AuthInterceptor({ children }: { children: React.ReactNod
         localStorage.removeItem("school_token");
         localStorage.removeItem("school_id");
         localStorage.removeItem("school_user");
-        window.location.href = "/login";
+              window.location.replace("/login");
       } else if (!response.ok) {
         // Inspect response body for token expiration error messages
         try {
@@ -39,7 +39,7 @@ export default function AuthInterceptor({ children }: { children: React.ReactNod
               localStorage.removeItem("school_token");
               localStorage.removeItem("school_id");
               localStorage.removeItem("school_user");
-              window.location.href = "/login";
+                    window.location.replace("/login");
             }
           }
         } catch (_) {
