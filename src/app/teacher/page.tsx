@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import SmartCalendarModal from "@/components/SmartCalendarModal";
+import CustomDialogModal from "@/components/CustomDialogModal";
 import DateRangePresets from "@/components/DateRangePresets";
 import {
   LayoutDashboard,
@@ -16,7 +17,7 @@ import {
   CheckSquare,
   MessageSquare,
   Megaphone,
-  FolderKanban,
+  Sun,
   Search,
   Bell,
   LogOut,
@@ -377,29 +378,38 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleRemoveStudent = async (studentId: number) => {
+  const handleRemoveStudent = (studentId: number) => {
     if (!selectedClubForStudents || !token) return;
-    if (!window.confirm("Ushbu o'quvchini to'garakdan chiqarmoqchimisiz?")) return;
-    try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/remove-student`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ student_id: studentId }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setToast({ message: "O'quvchi to'garakdan chiqarildi", type: "success" });
-        fetchClubStudents(selectedClubForStudents.id);
-      } else {
-        setToast({ message: data.error || "Chiqarishda xatolik", type: "error" });
-      }
-    } catch (err) {
-      console.error(err);
-      setToast({ message: "Tarmoq xatoligi", type: "error" });
-    }
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "O'quvchini to'garakdan chiqarish",
+      message: "Ushbu o'quvchini to'garakdan chiqarmoqchimisiz?",
+      confirmText: "Ha, chiqarish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        try {
+          const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/remove-student`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ student_id: studentId }),
+          });
+          const data = await response.json();
+          if (response.ok) {
+            setToast({ message: "O'quvchi to'garakdan chiqarildi", type: "success" });
+            fetchClubStudents(selectedClubForStudents.id);
+          } else {
+            setToast({ message: data.error || "Chiqarishda xatolik", type: "error" });
+          }
+        } catch (err) {
+          console.error(err);
+          setToast({ message: "Tarmoq xatoligi", type: "error" });
+        }
+      },
+    });
   };
 
   const handleAddSchedule = async (e: React.FormEvent) => {
@@ -426,20 +436,29 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId: number) => {
-    if (!confirm("Haqiqatan ham ushbu jadvalni o'chirmoqchimisiz?")) return;
-    try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/schedules/${scheduleId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      if (response.ok) {
-        showToast("success", "Jadval o'chirildi!");
-        fetchClubs(token);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteSchedule = (scheduleId: number) => {
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Jadvalni o'chirish",
+      message: "Haqiqatan ham ushbu jadvalni o'chirmoqchimisiz?",
+      confirmText: "Ha, o'chirish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        try {
+          const response = await fetch(`${API_URL}/api/schools/clubs/schedules/${scheduleId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          if (response.ok) {
+            showToast("success", "Jadval o'chirildi!");
+            fetchClubs(token);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+    });
   };
 
   const handleEditClubSubmit = async (e: React.FormEvent) => {
@@ -481,26 +500,32 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleDeleteClub = async (clubId: number) => {
-    if (!confirm("Haqiqatan ham ushbu to'garakni o'chirmoqchimisiz? (Barcha a'zolar va jadvallar bekor qilinadi)")) return;
-    try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
-      if (sId) headers["X-School-ID"] = sId;
-
-      const res = await fetch(`${API_URL}/api/schools/clubs/${clubId}`, {
-        method: "DELETE",
-        headers,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "To'garakni o'chirib bo'lmadi");
-
-      showToast("success", "To'garak o'chirildi!");
-      fetchClubs(token);
-    } catch (err: any) {
-      showToast("error", err.message);
-    }
+  const handleDeleteClub = (clubId: number) => {
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "To'garakni o'chirish",
+      message: "Haqiqatan ham ushbu to'garakni o'chirmoqchimisiz? (Barcha a'zolar va jadvallar bekor qilinadi)",
+      confirmText: "Ha, o'chirish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        try {
+          const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+          const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
+          if (sId) headers["X-School-ID"] = sId;
+          const res = await fetch(`${API_URL}/api/schools/clubs/${clubId}`, {
+            method: "DELETE",
+            headers,
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "To'garakni o'chirib bo'lmadi");
+          showToast("success", "To'garak o'chirildi!");
+          fetchClubs(token);
+        } catch (err: any) {
+          showToast("error", err.message);
+        }
+      },
+    });
   };
 
   // Teacher Chat States
@@ -810,6 +835,16 @@ export default function TeacherDashboard() {
   // Active Grading System rules (for user guidance)
   const [activeGS, setActiveGS] = useState<any | null>(null);
   const [gradingSystemsList, setGradingSystemsList] = useState<any[]>([]);
+
+  // Teacher Custom Dialog State
+  const [teacherDialog, setTeacherDialog] = useState<{
+    isOpen: boolean;
+    type?: "alert" | "confirm" | "danger";
+    title: string;
+    message: string;
+    confirmText?: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
 
   const getGradeColorClasses = (valStr: string, isApproved: boolean, isParentApproved: boolean) => {
     const val = parseFloat(valStr);
@@ -1313,31 +1348,36 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleDeleteException = async (exceptionId: number) => {
+  const handleDeleteException = (exceptionId: number) => {
     if (!selectedClassId) return;
-    if (!confirm("Haqiqatan ham ushbu dars o'zgarishini bekor qilmoqchimisiz? (Jadval haftalik shablondagi holatiga qaytadi)")) return;
-
-    setActionLoading(true);
-    setActionError("");
-
-    try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions/${exceptionId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "O'zgarishni o'chirib bo'lmadi");
-
-      showToast("success", "Dars o'zgarishi muvaffaqiyatli o'chirildi!");
-      fetchClassSchedule();
-      fetchScheduleExceptions();
-    } catch (err: any) {
-      showToast("error", err.message);
-    } finally {
-      setActionLoading(false);
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Dars o'zgarishini bekor qilish",
+      message: "Haqiqatan ham ushbu dars o'zgarishini bekor qilmoqchimisiz? (Jadval haftalik shablondagi holatiga qaytadi)",
+      confirmText: "Ha, bekor qilish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        setActionError("");
+        try {
+          const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions/${exceptionId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "O'zgarishni o'chirib bo'lmadi");
+          showToast("success", "Dars o'zgarishi muvaffaqiyatli o'chirildi!");
+          fetchClassSchedule();
+          fetchScheduleExceptions();
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
     }
   };
 
@@ -1861,22 +1901,30 @@ export default function TeacherDashboard() {
   };
 
   // Student soft delete handler
-  const handleDeleteStudent = async (studentId: number) => {
-    if (!window.confirm("Haqiqatan ham bu o'quvchini o'chirmoqchimisiz?")) return;
-    try {
-      const res = await fetch(`${API_URL}/api/schools/students/${studentId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "O'chirishda xatolik");
-
-      showToast("success", "O'quvchi muvaffaqiyatli o'chirildi");
-      fetchStudentsTabList();
-      fetchJournalData();
-    } catch (err: any) {
-      showToast("error", err.message);
-    }
+  const handleDeleteStudent = (studentId: number) => {
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "O'quvchini o'chirish",
+      message: "Haqiqatan ham bu o'quvchini o'chirmoqchimisiz?",
+      confirmText: "Ha, o'chirish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        try {
+          const res = await fetch(`${API_URL}/api/schools/students/${studentId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "O'chirishda xatolik");
+          showToast("success", "O'quvchi muvaffaqiyatli o'chirildi");
+          fetchStudentsTabList();
+          fetchJournalData();
+        } catch (err: any) {
+          showToast("error", err.message);
+        }
+      },
+    });
   };
 
   // Parent Management API Calls
@@ -1976,23 +2024,32 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleUnlinkParentFromStudent = async (studentId: number, parentId: number) => {
-    if (!window.confirm("Haqiqatan ham ushbu ota-onani o'quvchidan ajratmoqchisiz?")) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/students/${studentId}/parents/${parentId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Ajratishda xatolik yuz berdi");
-      showToast("success", "Ota-ona muvaffaqiyatli ajratildi");
-      fetchClassParents();
-    } catch (err: any) {
-      showToast("error", err.message);
-    } finally {
-      setActionLoading(false);
-    }
+  const handleUnlinkParentFromStudent = (studentId: number, parentId: number) => {
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Ota-onani ajratish",
+      message: "Haqiqatan ham ushbu ota-onani o'quvchidan ajratmoqchisiz?",
+      confirmText: "Ha, ajratish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/students/${studentId}/parents/${parentId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Ajratishda xatolik yuz berdi");
+          showToast("success", "Ota-ona muvaffaqiyatli ajratildi");
+          fetchClassParents();
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const handleLinkParent = async (e: React.FormEvent) => {
@@ -2042,29 +2099,35 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleUnlinkParent = async (parentId: number) => {
+  const handleUnlinkParent = (parentId: number) => {
     if (!selectedStudentForParents) return;
-    if (!confirm("Haqiqatan ham ushbu ota-onani o'quvchidan ajratmoqchisiz?")) return;
-
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id || selectedStudentForParents.user_id}/parents/${parentId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "O'chirishda xatolik yuz berdi");
-      }
-
-      fetchLinkedParents(selectedStudentForParents.id || selectedStudentForParents.user_id);
-      showToast("success", "Bog'liqlik muvaffaqiyatli o'chirildi");
-    } catch (err: any) {
-      showToast("error", err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Ota-onani ajratish",
+      message: "Haqiqatan ham ushbu ota-onani o'quvchidan ajratmoqchisiz?",
+      confirmText: "Ha, ajratish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id || selectedStudentForParents.user_id}/parents/${parentId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "O'chirishda xatolik yuz berdi");
+          }
+          fetchLinkedParents(selectedStudentForParents.id || selectedStudentForParents.user_id);
+          showToast("success", "Bog'liqlik muvaffaqiyatli o'chirildi");
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const handleParentsExcelImport = async (e: React.FormEvent) => {
@@ -2300,57 +2363,63 @@ export default function TeacherDashboard() {
       return;
     }
 
-    if (!window.confirm(`Haqiqatan ham darsdagi barcha ${totalToSave} ta bahoni saqlamoqchimisiz? Saqlangandan so'ng ularni o'zgartirib bo'lmaydi.`)) {
-      return;
-    }
+    setTeacherDialog({
+      isOpen: true,
+      type: "confirm",
+      title: "Baholarni saqlash va tasdiqlash",
+      message: `Haqiqatan ham darsdagi barcha ${totalToSave} ta bahoni saqlamoqchimisiz? Saqlangandan so'ng ularni o'zgartirib bo'lmaydi.`,
+      confirmText: "Ha, saqlash",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setApproveLoading(true);
+        try {
+          if (gradesToCreate.length > 0) {
+            const createRes = await fetch(`${API_URL}/api/schools/grades/batch`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+              },
+              body: JSON.stringify({ grades: gradesToCreate }),
+            });
+            const createdData = await createRes.json();
+            if (!createRes.ok) {
+              throw new Error(createdData.error || "Yangi baholarni saqlashda xatolik yuz berdi");
+            }
+            if (Array.isArray(createdData)) {
+              createdData.forEach((g: any) => {
+                gradesToApprove.push(g.id);
+              });
+            }
+          }
 
-    setApproveLoading(true);
-    try {
-      if (gradesToCreate.length > 0) {
-        const createRes = await fetch(`${API_URL}/api/schools/grades/batch`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({ grades: gradesToCreate }),
-        });
-        const createdData = await createRes.json();
-        if (!createRes.ok) {
-          throw new Error(createdData.error || "Yangi baholarni saqlashda xatolik yuz berdi");
-        }
-        if (Array.isArray(createdData)) {
-          createdData.forEach((g: any) => {
-            gradesToApprove.push(g.id);
-          });
-        }
-      }
+          if (gradesToApprove.length > 0) {
+            const approveRes = await fetch(`${API_URL}/api/schools/grades/change-status`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                mark_uids: gradesToApprove,
+                status: "approved",
+              }),
+            });
+            const approveData = await approveRes.json();
+            if (!approveRes.ok) {
+              throw new Error(approveData.error || "Baholarni tasdiqlashda xatolik yuz berdi");
+            }
+          }
 
-      if (gradesToApprove.length > 0) {
-        const approveRes = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            mark_uids: gradesToApprove,
-            status: "approved",
-          }),
-        });
-        const approveData = await approveRes.json();
-        if (!approveRes.ok) {
-          throw new Error(approveData.error || "Baholarni tasdiqlashda xatolik yuz berdi");
+          showToast("success", `Barcha ${totalToSave} ta baho muvaffaqiyatli saqlandi va tasdiqlandi (🔒 qulflab saqlandi)!`);
+          fetchJournalData(journalDate);
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setApproveLoading(false);
         }
-      }
-
-      showToast("success", `Barcha ${totalToSave} ta baho muvaffaqiyatli saqlandi va tasdiqlandi (🔒 qulflab saqlandi)!`);
-      fetchJournalData(journalDate);
-    } catch (err: any) {
-      showToast("error", err.message);
-    } finally {
-      setApproveLoading(false);
-    }
+      },
+    });
   };
 
   // 4. Download Excel Template
@@ -2885,6 +2954,8 @@ export default function TeacherDashboard() {
     );
   };
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const handleLogout = () => {
     localStorage.removeItem("school_token");
     localStorage.removeItem("school_id");
@@ -3111,7 +3182,7 @@ export default function TeacherDashboard() {
                   { id: "unapproved", label: "Tasdiqlanmagan", icon: CheckSquare, badge: unapprovedGrades.length },
                   { id: "feedback", label: "Izoh va Fikrlar", icon: MessageSquare },
                   { id: "announcements", label: "E'lonlar", icon: Megaphone },
-                  { id: "clubs", label: "To'garaklar", icon: FolderKanban },
+                  { id: "clubs", label: "To'garaklar", icon: Sparkles },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = teacherTab === item.id;
@@ -3173,7 +3244,7 @@ export default function TeacherDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleLogout}
+                    onClick={() => setShowLogoutModal(true)}
                     title="Tizimdan chiqish"
                     className="w-8 h-8 flex items-center justify-center text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
                   >
@@ -3193,7 +3264,7 @@ export default function TeacherDashboard() {
                   </div>
                   <button
                     type="button"
-                    onClick={handleLogout}
+                    onClick={() => setShowLogoutModal(true)}
                     title="Chiqish"
                     className="p-2 text-indigo-300 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
                   >
@@ -4758,23 +4829,31 @@ export default function TeacherDashboard() {
                                     <button
                                       type="button"
                                       title="O'chirish"
-                                      onClick={async () => {
-                                        if (!window.confirm("Haqiqatan ham bu bahoni o'chirmoqchimisiz?")) return;
-                                        try {
-                                          const response = await fetch(`${API_URL}/api/schools/grades/${g.id}`, {
-                                            method: "DELETE",
-                                            headers: {
-                                              "Authorization": `Bearer ${token}`,
-                                            },
-                                          });
-                                          const data = await response.json();
-                                          if (!response.ok) throw new Error(data.error || "O'chirishda xatolik");
-
-                                          showToast("success", "Baho o'chirildi!");
-                                          fetchUnapprovedGrades();
-                                        } catch (err: any) {
-                                          showToast("error", err.message);
-                                        }
+                                      onClick={() => {
+                                        setTeacherDialog({
+                                          isOpen: true,
+                                          type: "danger",
+                                          title: "Bahoni o'chirish",
+                                          message: "Haqiqatan ham bu bahoni o'chirmoqchimisiz?",
+                                          confirmText: "Ha, o'chirish",
+                                          onConfirm: async () => {
+                                            setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+                                            try {
+                                              const response = await fetch(`${API_URL}/api/schools/grades/${g.id}`, {
+                                                method: "DELETE",
+                                                headers: {
+                                                  "Authorization": `Bearer ${token}`,
+                                                },
+                                              });
+                                              const data = await response.json();
+                                              if (!response.ok) throw new Error(data.error || "O'chirishda xatolik");
+                                              showToast("success", "Baho o'chirildi!");
+                                              fetchUnapprovedGrades();
+                                            } catch (err: any) {
+                                              showToast("error", err.message);
+                                            }
+                                          },
+                                        });
                                       }}
                                       className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                     >
@@ -6978,6 +7057,33 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             </form>
+
+            {/* LOGOUT CONFIRMATION MODAL */}
+            <CustomDialogModal
+              isOpen={showLogoutModal}
+              type="danger"
+              title="Tizimdan chiqish"
+              message="Haqiqatan ham o'qituvchi portalidan chiqmoqchimisiz?"
+              confirmText="Ha, chiqish"
+              cancelText="Bekor qilish"
+              onConfirm={() => {
+                setShowLogoutModal(false);
+                handleLogout();
+              }}
+              onCancel={() => setShowLogoutModal(false)}
+            />
+
+            {/* TEACHER GENERAL CONFIRM DIALOG */}
+            <CustomDialogModal
+              isOpen={teacherDialog.isOpen}
+              type={teacherDialog.type}
+              title={teacherDialog.title}
+              message={teacherDialog.message}
+              confirmText={teacherDialog.confirmText}
+              cancelText="Bekor qilish"
+              onConfirm={teacherDialog.onConfirm}
+              onCancel={() => setTeacherDialog((prev) => ({ ...prev, isOpen: false }))}
+            />
           </div>
         </div>
       </div>

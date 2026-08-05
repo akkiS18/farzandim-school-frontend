@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { Users, Pencil, Trash2, UserMinus } from "lucide-react";
 import DateRangePresets from "../DateRangePresets";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
@@ -17,6 +19,7 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
   onChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -100,6 +103,18 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 };
@@ -425,7 +440,7 @@ export default function ClassesSection({
     e.preventDefault();
     if (!selectedStudentForParents) return;
     if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
-      alert("Majburiy maydonlarni to'ldiring");
+      showAlert("Majburiy maydonlarni to'ldiring");
       return;
     }
 
@@ -463,9 +478,9 @@ export default function ClassesSection({
 
       fetchLinkedParents(selectedStudentForParents.id);
       fetchClassParents();
-      alert("Ota-ona muvaffaqiyatli bog'landi");
+      showAlert("Ota-ona muvaffaqiyatli bog'landi");
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -474,11 +489,11 @@ export default function ClassesSection({
   const handleAddParentDirect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudentIdForAdd) {
-      alert("Iltimos, o'quvchini tanlang");
+      showAlert("Iltimos, o'quvchini tanlang");
       return;
     }
     if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
-      alert("Majburiy maydonlarni to'ldiring");
+      showAlert("Majburiy maydonlarni to'ldiring");
       return;
     }
 
@@ -517,7 +532,7 @@ export default function ClassesSection({
 
       setShowAddParentModal(false);
       fetchClassParents();
-      alert("Ota-ona muvaffaqiyatli qo'shildi!");
+      showAlert("Ota-ona muvaffaqiyatli qo'shildi!");
     } catch (err: any) {
       setActionError(err.message);
     } finally {
@@ -525,30 +540,32 @@ export default function ClassesSection({
     }
   };
 
-  const handleUnlinkParent = async (parentId: number) => {
+  const handleUnlinkParent = (parentId: number) => {
     if (!selectedStudentForParents) return;
-    if (!confirm("Haqiqatan ham ushbu ota-onani o'quvchidan ajratmoqchisiz?")) return;
-
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id}/parents/${parentId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "O'chirishda xatolik yuz berdi");
-      }
-
-      fetchLinkedParents(selectedStudentForParents.id);
-      fetchClassParents();
-      alert("Bog'liqlik muvaffaqiyatli o'chirildi");
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    showConfirm(
+      "Haqiqatan ham ushbu ota-onani o'quvchidan ajratmoqchisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id}/parents/${parentId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "O'chirishda xatolik yuz berdi");
+          }
+          fetchLinkedParents(selectedStudentForParents.id);
+          fetchClassParents();
+          showAlert("Bog'liqlik muvaffaqiyatli o'chirildi");
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Ota-onani ajratish", type: "danger", confirmText: "Ha, ajratish" }
+    );
   };
 
   const handleUpdateParent = async (e: React.FormEvent) => {
@@ -716,7 +733,7 @@ export default function ClassesSection({
       setSelectedClass(null);
       setShowDeleteClassModal(false);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -820,7 +837,7 @@ export default function ClassesSection({
       fetchClassStudents();
       fetchStudentsBalanceData(token);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -864,7 +881,7 @@ export default function ClassesSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Dars jadvalini saqlab bo'lmadi");
 
-      alert("Dars jadvali muvaffaqiyatli saqlandi!");
+      showAlert("Dars jadvali muvaffaqiyatli saqlandi!");
       setShowEditScheduleModal(false);
       fetchClassSchedule();
     } catch (err: any) {
@@ -957,7 +974,7 @@ export default function ClassesSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Dars jadvali o'zgarishini saqlab bo'lmadi");
 
-      alert("Dars jadvali o'zgarishi muvaffaqiyatli kiritildi!");
+      showAlert("Dars jadvali o'zgarishi muvaffaqiyatli kiritildi!");
       setShowAddExceptionModal(false);
       setExcSubjectId("");
       fetchClassSchedule();
@@ -969,30 +986,32 @@ export default function ClassesSection({
     }
   };
 
-  const handleDeleteException = async (exceptionId: number) => {
+  const handleDeleteException = (exceptionId: number) => {
     if (!selectedClass) return;
-    if (!confirm("Haqiqatan ham ushbu dars jadvali o'zgarishini o'chirmoqchisiz?")) return;
-    setActionLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions/${exceptionId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "O'zgarishni o'chirib bo'lmadi");
-
-      alert("Dars o'zgarishi muvaffaqiyatli o'chirildi!");
-      fetchClassSchedule();
-      fetchScheduleExceptions();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    showConfirm(
+      "Haqiqatan ham ushbu dars jadvali o'zgarishini o'chirmoqchisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions/${exceptionId}`, {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+            },
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "O'zgarishni o'chirib bo'lmadi");
+          showAlert("Dars o'zgarishi muvaffaqiyatli o'chirildi!");
+          fetchClassSchedule();
+          fetchScheduleExceptions();
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Dars jadvali o'zgarishini o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+    );
   };
 
   const handleUnlinkParentFromTab = async () => {
@@ -1011,7 +1030,7 @@ export default function ClassesSection({
       setUnlinkStudentId(null);
       fetchClassParents();
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -1071,11 +1090,11 @@ export default function ClassesSection({
         a.click();
         a.remove();
       } else {
-        alert("Shablon yuklab olishda xatolik");
+        showAlert("Shablon yuklab olishda xatolik");
       }
     } catch (err) {
       console.error(err);
-      alert("Serverga bog'lanishda xatolik");
+      showAlert("Serverga bog'lanishda xatolik");
     }
   };
 

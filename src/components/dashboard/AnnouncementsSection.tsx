@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
+import TargetPresets from "../TargetPresets";
 import { AnnouncementItem, ClassItem } from "./types";
 import { 
   Megaphone, 
@@ -35,6 +38,7 @@ export default function AnnouncementsSection({
   currentUserId,
 }: AnnouncementsSectionProps) {
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [votingOptionId, setVotingOptionId] = useState<number | null>(null);
@@ -231,33 +235,36 @@ export default function AnnouncementsSection({
         fetchAnnouncements();
       } else {
         const data = await response.json();
-        alert(data.error || "Ovoz berishda xatolik yuz berdi");
+        showAlert(data.error || "Ovoz berishda xatolik yuz berdi");
       }
     } catch {
-      alert("Server bilan bog'lanishda xatolik");
+      showAlert("Server bilan bog'lanishda xatolik");
     } finally {
       setVotingOptionId(null);
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Ushbu e'lonni o'chirishni xohlaysizmi?")) return;
-
-    try {
-      const response = await fetch(`${apiUrl}/api/schools/announcements/${id}`, {
-        method: "DELETE",
-        headers: safeFetchHeaders(),
-      });
-
-      if (response.ok) {
-        setAnnouncements((prev) => prev.filter((ann) => ann.id !== id));
-      } else {
-        const data = await response.json();
-        alert(data.error || "O'chirishda xatolik yuz berdi");
-      }
-    } catch (err) {
-      alert("Server bilan aloqa uzildi");
-    }
+  const handleDelete = (id: number) => {
+    showConfirm(
+      "Ushbu e'lonni o'chirishni xohlaysizmi?",
+      async () => {
+        try {
+          const response = await fetch(`${apiUrl}/api/schools/announcements/${id}`, {
+            method: "DELETE",
+            headers: safeFetchHeaders(),
+          });
+          if (response.ok) {
+            setAnnouncements((prev) => prev.filter((ann) => ann.id !== id));
+          } else {
+            const data = await response.json();
+            showAlert(data.error || "O'chirishda xatolik yuz berdi");
+          }
+        } catch (err) {
+          showAlert("Server bilan aloqa uzildi");
+        }
+      },
+      { title: "E'lonni o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+    );
   };
 
   const getTargetLabel = (ann: AnnouncementItem) => {
@@ -529,7 +536,7 @@ export default function AnnouncementsSection({
                               if (canVote) {
                                 handleVote(ann.id, opt.id);
                               } else {
-                                alert("Admin va o'qituvchilar so'rovnomada ovoz bera olmaydilar. Faqat ota-onalar va o'quvchilar ovoz berishi mumkin.");
+                                showAlert("Admin va o'qituvchilar so'rovnomada ovoz bera olmaydilar. Faqat ota-onalar va o'quvchilar ovoz berishi mumkin.");
                               }
                             }}
                             disabled={votingOptionId === opt.id}
@@ -712,7 +719,28 @@ export default function AnnouncementsSection({
                 )}
 
                 {/* Target Scope Selection */}
-                <div className="space-y-2 pt-2 border-t border-zinc-100">
+                <div className="space-y-3 pt-2 border-t border-zinc-100">
+                  <TargetPresets
+                    selectedLevels={selectedLevelIds}
+                    selectedClasses={selectedClassIds}
+                    selectedStudents={selectedStudentIds}
+                    onLevelsChange={(levels) => {
+                      setSelectedLevelIds(levels);
+                      if (levels.length > 0) setTargetType("levels");
+                    }}
+                    onClassesChange={(cls) => {
+                      setSelectedClassIds(cls);
+                      if (cls.length > 0) setTargetType("classes");
+                    }}
+                    onStudentsChange={(stus) => {
+                      setSelectedStudentIds(stus);
+                      if (stus.length > 0) setTargetType("students");
+                    }}
+                    token={token}
+                    apiUrl={apiUrl}
+                    label="O'quvchilar To'plami (Mavjud shablonlar)"
+                    theme="indigo"
+                  />
                   <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono">Kimlarga Yuboriladi?</label>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     {!isTeacher && (
@@ -870,6 +898,18 @@ export default function AnnouncementsSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

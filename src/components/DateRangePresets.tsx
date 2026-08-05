@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Bookmark, Plus, Trash2, Calendar, Check, FolderPlus, Loader2 } from "lucide-react";
+import CustomDialogModal from "./CustomDialogModal";
 
 export interface DateRangePresetItem {
   id: number;
@@ -83,6 +84,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; id: number; name: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -208,11 +210,8 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
     }
   };
 
-  const handleDeletePreset = async (id: number, name: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!window.confirm(`"${name}" to'plamini o'chirishni tasdiqlaysizmi?`)) return;
-
+  const doDeletePreset = async (id: number) => {
+    setConfirmDialog(null);
     setDeletingId(id);
     const targetUrl = getEffectiveApiUrl();
     try {
@@ -221,9 +220,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
         headers: safeFetchHeaders(token),
       });
       if (res.ok) {
-        if (selectedPresetId === id) {
-          setSelectedPresetId("");
-        }
+        if (selectedPresetId === id) setSelectedPresetId("");
         setPresets((prev) => prev.filter((p) => p.id !== id));
         setFeedbackMsg({ text: "To'plam o'chirildi", type: "success" });
       }
@@ -232,6 +229,12 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleDeletePreset = (id: number, name: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirmDialog({ isOpen: true, id, name });
   };
 
   const themeStyles = {
@@ -483,6 +486,17 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
         </div>,
         document.body
       )}
+
+      <CustomDialogModal
+        isOpen={!!confirmDialog?.isOpen}
+        type="danger"
+        title="To'plamni o'chirish"
+        message={`"${confirmDialog?.name}" to'plamini o'chirishni tasdiqlaysizmi?`}
+        confirmText="Ha, o'chirish"
+        cancelText="Bekor qilish"
+        onConfirm={() => confirmDialog && doDeletePreset(confirmDialog.id)}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };

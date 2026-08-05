@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { History, Pencil, Trash2 } from "lucide-react";
 import DateRangePresets from "../DateRangePresets";
 import TargetPresets from "../TargetPresets";
@@ -28,6 +30,7 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
   hintText,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -331,17 +334,17 @@ export default function BalanceSection({
     const totalVal = paidVal + bonusVal;
 
     if (!paymentStudentId) {
-      alert("Iltimos, o'quvchini tanlang");
+      showAlert("Iltimos, o'quvchini tanlang");
       return;
     }
 
     if (paymentTransactionType === "PAYMENT" && totalVal <= 0) {
-      alert("To'lov summasi yoki bonus summa musbat bo'lishi kerak");
+      showAlert("To'lov summasi yoki bonus summa musbat bo'lishi kerak");
       return;
     }
 
     if (paymentTransactionType === "CHARGE" && (!paymentAmount || parseFloat(paymentAmount) <= 0)) {
-      alert("Ayirish summasi majburiy va musbat bo'lishi kerak");
+      showAlert("Ayirish summasi majburiy va musbat bo'lishi kerak");
       return;
     }
 
@@ -367,7 +370,7 @@ export default function BalanceSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Tranzaksiya bajarilmadi");
 
-      alert(paymentTransactionType === "PAYMENT" ? "To'lov va bonus muvaffaqiyatli qabul qilindi!" : "To'lov (yechim) muvaffaqiyatli bajarildi!");
+      showAlert(paymentTransactionType === "PAYMENT" ? "To'lov va bonus muvaffaqiyatli qabul qilindi!" : "To'lov (yechim) muvaffaqiyatli bajarildi!");
       setShowAddPaymentModal(false);
       setPaymentAmount("");
       setPaymentBonusAmount("");
@@ -377,7 +380,7 @@ export default function BalanceSection({
       fetchStudentsBalanceData();
       fetchGlobalTransactionsData();
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -418,7 +421,7 @@ export default function BalanceSection({
   const handleCreateChargePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!planName.trim() || !planAmount) {
-      alert("Nomi va summa majburiy");
+      showAlert("Nomi va summa majburiy");
       return;
     }
     setActionLoading(true);
@@ -448,7 +451,7 @@ export default function BalanceSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "To'lov rejasini saqlab bo'lmadi");
 
-      alert("Yangi to'lov rejasi yaratildi!");
+      showAlert("Yangi to'lov rejasi yaratildi!");
       setShowAddChargePlanModal(false);
       setPlanName("");
       setPlanAmount("");
@@ -457,7 +460,7 @@ export default function BalanceSection({
       setPlanSelectedStudents([]);
       fetchChargePlansData();
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -482,7 +485,7 @@ export default function BalanceSection({
 
     const todayStr = new Date().toISOString().split("T")[0];
     if (planEndDate < todayStr) {
-      alert("Tugash sanasi bugungi sanadan oldin bo'lishi mumkin emas!");
+      showAlert("Tugash sanasi bugungi sanadan oldin bo'lishi mumkin emas!");
       return;
     }
 
@@ -509,12 +512,12 @@ export default function BalanceSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Yangilab bo'lmadi");
 
-      alert("To'lov rejasi muvaffaqiyatli tahrirlandi!");
+      showAlert("To'lov rejasi muvaffaqiyatli tahrirlandi!");
       setShowEditChargePlanModal(false);
       setEditingPlanId(null);
       fetchChargePlansData();
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -535,71 +538,75 @@ export default function BalanceSection({
       if (!response.ok) throw new Error(data.error || "Tarixni yuklab bo'lmadi");
       setChargePlanHistoryList(data || []);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setChargePlanHistoryLoading(false);
     }
   };
 
-  const handleRevertToOldState = async (planId: number, oldState: any) => {
+  const handleRevertToOldState = (planId: number, oldState: any) => {
     if (!oldState || !planId) return;
-    if (!confirm("Haqiqatdan ham to'lov rejasini ushbu eski holatiga qaytarmoqchimisiz?")) return;
-
-    setActionLoading(true);
-    try {
-      const headers = safeFetchHeaders();
-      headers["Content-Type"] = "application/json";
-
-      const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/${planId}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({
-          name: oldState.name,
-          amount: oldState.amount,
-          start_date: oldState.start_date,
-          end_date: oldState.end_date,
-          charge_day: oldState.charge_day,
-          levels: oldState.levels || [],
-          classes: oldState.classes || [],
-          students: oldState.students || [],
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Eski holatga qaytarib bo'lmadi");
-
-      alert("To'lov rejasi muvaffaqiyatli eski holatiga qaytarildi!");
-      setShowRevertButtonRecordId(null);
-      setShowChargePlanHistoryModal(false);
-      fetchChargePlansData();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    showConfirm(
+      "Haqiqatdan ham to'lov rejasini ushbu eski holatiga qaytarmoqchimisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const headers = safeFetchHeaders();
+          headers["Content-Type"] = "application/json";
+          const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/${planId}`, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify({
+              name: oldState.name,
+              amount: oldState.amount,
+              start_date: oldState.start_date,
+              end_date: oldState.end_date,
+              charge_day: oldState.charge_day,
+              levels: oldState.levels || [],
+              classes: oldState.classes || [],
+              students: oldState.students || [],
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Eski holatga qaytarib bo'lmadi");
+          showAlert("To'lov rejasi muvaffaqiyatli eski holatiga qaytarildi!");
+          setShowRevertButtonRecordId(null);
+          setShowChargePlanHistoryModal(false);
+          fetchChargePlansData();
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Eski holatga qaytarish", type: "confirm", confirmText: "Ha, qaytarish" }
+    );
   };
 
-  const handleDeleteChargePlan = async (id: number) => {
-    if (!confirm("Ushbu to'lov rejasini o'chirmoqchimisiz?")) return;
-    setActionLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/${id}`, {
-        method: "DELETE",
-        headers: safeFetchHeaders(),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "O'chirib bo'lmadi");
-      }
-
-      alert("To'lov rejasi o'chirildi!");
-      fetchChargePlansData();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDeleteChargePlan = (id: number) => {
+    showConfirm(
+      "Ushbu to'lov rejasini o'chirmoqchimisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/${id}`, {
+            method: "DELETE",
+            headers: safeFetchHeaders(),
+          });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "O'chirib bo'lmadi");
+          }
+          showAlert("To'lov rejasi o'chirildi!");
+          fetchChargePlansData();
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "To'lov rejasini o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+    );
   };
 
   const handleRunChargesManually = async () => {
@@ -612,11 +619,11 @@ export default function BalanceSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "To'lovlarni hisoblashda xatolik");
 
-      alert(`To'lov rejasi bo'yicha yechimlar muvaffaqiyatli bajarildi! Jami yechilgan to'lovlar soni: ${data.processed_charge_count}`);
+      showAlert(`To'lov rejasi bo'yicha yechimlar muvaffaqiyatli bajarildi! Jami yechilgan to'lovlar soni: ${data.processed_charge_count}`);
       fetchStudentsBalanceData();
       fetchGlobalTransactionsData();
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -1777,6 +1784,18 @@ export default function BalanceSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

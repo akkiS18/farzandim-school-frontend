@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { GradingSystem } from "./types";
 
 interface GradingSystemsSectionProps {
@@ -15,6 +17,7 @@ export default function GradingSystemsSection({
   setGradingSystems,
 }: GradingSystemsSectionProps) {
   const [showAddGSModal, setShowAddGSModal] = useState(false);
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [gsNameInput, setGsNameInput] = useState("");
   const [gsTypeInput, setGsTypeInput] = useState("NUMERIC"); // "NUMERIC" | "PERCENTAGE" | "LETTER"
   const [gsMinInput, setGsMinInput] = useState("1");
@@ -45,52 +48,58 @@ export default function GradingSystemsSection({
     return headers;
   };
 
-  const handleActivateGS = async (gsId: number) => {
-    if (!confirm("Ushbu baholash tizimini faollashtirmoqchimisiz?")) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/grading-systems/${gsId}/activate`, {
-        method: "POST",
-        headers: safeFetchHeaders(),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Tizimni faollashtirib bo'lmadi");
-
-      // Reload
-      const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: safeFetchHeaders(),
-      });
-      const resData = await res.json();
-      if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setActionLoading(false);
-    }
+  const handleActivateGS = (gsId: number) => {
+    showConfirm(
+      "Ushbu baholash tizimini faollashtirmoqchimisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/grading-systems/${gsId}/activate`, {
+            method: "POST",
+            headers: safeFetchHeaders(),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Tizimni faollashtirib bo'lmadi");
+          const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
+            headers: safeFetchHeaders(),
+          });
+          const resData = await res.json();
+          if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
+        } catch (e: any) {
+          showAlert(e.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Baholash tizimini faollashtirish", type: "confirm", confirmText: "Ha, faollashtirish" }
+    );
   };
 
-  const handleDeleteGS = async (gsId: number) => {
-    if (!confirm("Ushbu baholash tizimini o'chirmoqchimisiz?")) return;
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/grading-systems/${gsId}`, {
-        method: "DELETE",
-        headers: safeFetchHeaders(),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Tizimni o'chirib bo'lmadi");
-
-      // Reload
-      const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: safeFetchHeaders(),
-      });
-      const resData = await res.json();
-      if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDeleteGS = (gsId: number) => {
+    showConfirm(
+      "Ushbu baholash tizimini o'chirmoqchimisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/grading-systems/${gsId}`, {
+            method: "DELETE",
+            headers: safeFetchHeaders(),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Tizimni o'chirib bo'lmadi");
+          const res = await fetch(`${API_URL}/api/schools/grading-systems`, {
+            headers: safeFetchHeaders(),
+          });
+          const resData = await res.json();
+          if (res.ok) setGradingSystems(Array.isArray(resData) ? resData : []);
+        } catch (e: any) {
+          showAlert(e.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Baholash tizimini o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+    );
   };
 
   const handleCreateGS = async (e: React.FormEvent) => {
@@ -383,6 +392,18 @@ export default function GradingSystemsSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { Pencil, Trash2 } from "lucide-react";
 import { TenantUser, UserInfo, ImportResult } from "./types";
 
@@ -18,6 +20,7 @@ export default function TeachersSection({
   setTeachers,
 }: TeachersSectionProps) {
   const [teacherSearch, setTeacherSearch] = useState("");
+  const { dialogState, showAlert, showConfirm } = useDialog();
 
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
   const [teacherFirstName, setTeacherFirstName] = useState("");
@@ -73,7 +76,7 @@ export default function TeachersSection({
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacherFirstName.trim() || !teacherLastName.trim() || !teacherPhone.trim() || !teacherPassword.trim()) {
-      alert("Iltimos, barcha majburiy maydonlarni to'ldiring");
+      showAlert("Iltimos, barcha majburiy maydonlarni to'ldiring");
       return;
     }
     setActionLoading(true);
@@ -99,7 +102,7 @@ export default function TeachersSection({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "O'qituvchini qo'shib bo'lmadi");
 
-      alert("O'qituvchi muvaffaqiyatli qo'shildi!");
+      showAlert("O'qituvchi muvaffaqiyatli qo'shildi!");
       
       // Refresh teacher list
       const resList = await fetch(`${API_URL}/api/schools/teachers`, {
@@ -126,7 +129,7 @@ export default function TeachersSection({
     e.preventDefault();
     if (!editingTeacher) return;
     if (!editTeacherFirstName.trim() || !editTeacherLastName.trim() || !editTeacherPhone.trim()) {
-      alert("Iltimos, barcha majburiy maydonlarni to'ldiring");
+      showAlert("Iltimos, barcha majburiy maydonlarni to'ldiring");
       return;
     }
     setActionLoading(true);
@@ -195,7 +198,7 @@ export default function TeachersSection({
       setShowDeleteTeacherModal(false);
       setDeletingTeacherId(null);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -253,11 +256,11 @@ export default function TeachersSection({
         a.click();
         a.remove();
       } else {
-        alert("Shablon yuklab olishda xatolik");
+        showAlert("Shablon yuklab olishda xatolik");
       }
     } catch (err) {
       console.error(err);
-      alert("Serverga bog'lanishda xatolik");
+      showAlert("Serverga bog'lanishda xatolik");
     }
   };
 
@@ -847,6 +850,18 @@ export default function TeachersSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

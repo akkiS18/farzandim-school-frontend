@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { Trash2 } from "lucide-react";
 import { SubjectItem } from "./types";
 
@@ -16,6 +18,7 @@ export default function SubjectsSection({
   setSubjects,
 }: SubjectsSectionProps) {
   const [subjectSearch, setSubjectSearch] = useState("");
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
   const [subjectNameInput, setSubjectNameInput] = useState("");
   const [selectedLevels, setSelectedLevels] = useState<number[]>([]);
@@ -95,10 +98,10 @@ export default function SubjectsSection({
         setSubjects((prev) => prev.filter((s) => s.id !== id));
       } else {
         const data = await response.json();
-        alert(data.error || "Fanni o'chirishda xatolik yuz berdi");
+        showAlert(data.error || "Fanni o'chirishda xatolik yuz berdi");
       }
     } catch {
-      alert("Server bilan bog'lanishda xatolik");
+      showAlert("Server bilan bog'lanishda xatolik");
     } finally {
       setDeletingId(null);
     }
@@ -313,6 +316,18 @@ export default function SubjectsSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

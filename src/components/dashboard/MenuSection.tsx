@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { ImportResult } from "./types";
 
 interface MenuSectionProps {
@@ -8,6 +10,7 @@ interface MenuSectionProps {
 
 export default function MenuSection({ token, API_URL }: MenuSectionProps) {
   const [activeMenuSubTab, setActiveMenuSubTab] = useState<"cycle" | "exception">("cycle");
+  const { dialogState, showAlert, showConfirm } = useDialog();
   
   // State lists
   const [menuIntervals, setMenuIntervals] = useState<any[]>([]);
@@ -163,41 +166,43 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Intervalni saqlab bo'lmadi");
 
-      alert("Yangi interval muvaffaqiyatli qo'shildi!");
+      showAlert("Yangi interval muvaffaqiyatli qo'shildi!");
       setShowAddIntervalModal(false);
       setNewIntervalName("");
       setNewIntervalWeeks(4);
       fetchMenuIntervals();
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteMenuInterval = async (id: number) => {
-    if (!confirm("Ushbu intervalni o'chirmoqchisiz? Tizim undagi aylanma shablonlarni ham o'chirib yuboradi.")) return;
-    setActionLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/schools/menu/intervals/${id}`, {
-        method: "DELETE",
-        headers: safeFetchHeaders(),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "O'chirib bo'lmadi");
-      }
-
-      alert("Interval muvaffaqiyatli o'chirildi!");
-      if (selectedIntervalId === id) setSelectedIntervalId(null);
-      fetchMenuIntervals();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDeleteMenuInterval = (id: number) => {
+    showConfirm(
+      "Ushbu intervalni o'chirmoqchisiz? Tizim undagi aylanma shablonlarni ham o'chirib yuboradi.",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/menu/intervals/${id}`, {
+            method: "DELETE",
+            headers: safeFetchHeaders(),
+          });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "O'chirib bo'lmadi");
+          }
+          showAlert("Interval muvaffaqiyatli o'chirildi!");
+          if (selectedIntervalId === id) setSelectedIntervalId(null);
+          fetchMenuIntervals();
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Intervalni o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+    );
   };
 
   const handleSaveMenuCycle = async (e: React.FormEvent) => {
@@ -233,9 +238,9 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       setMenuSnack("");
       setMenuDinner("");
       fetchMenuCycles();
-      alert("Kunlik taom aylanma shablonga kiritildi!");
+      showAlert("Kunlik taom aylanma shablonga kiritildi!");
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -287,7 +292,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
         fetchMenuCycles();
       }
     } catch (e: any) {
-      alert(e.message);
+      showAlert(e.message);
     } finally {
       setEditingCell(null);
     }
@@ -324,36 +329,38 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
       setMenuExcDinner("");
       setShowAddExceptionModal(false);
       fetchMenuExceptions();
-      alert("Kunlik istisno taomnomasi muvaffaqiyatli saqlandi!");
+      showAlert("Kunlik istisno taomnomasi muvaffaqiyatli saqlandi!");
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteMenuException = async (id: number) => {
-    if (!confirm("Ushbu istisnoni o'chirmoqchisiz?")) return;
-    setActionLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/schools/menu/exceptions/${id}`, {
-        method: "DELETE",
-        headers: safeFetchHeaders(),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "O'chirib bo'lmadi");
-      }
-
-      alert("Istisno muvaffaqiyatli o'chirildi!");
-      fetchMenuExceptions();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDeleteMenuException = (id: number) => {
+    showConfirm(
+      "Ushbu istisnoni o'chirmoqchisiz?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/menu/exceptions/${id}`, {
+            method: "DELETE",
+            headers: safeFetchHeaders(),
+          });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "O'chirib bo'lmadi");
+          }
+          showAlert("Istisno muvaffaqiyatli o'chirildi!");
+          fetchMenuExceptions();
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      { title: "Istisnoni o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+    );
   };
 
   const closeMenuExcelModal = () => {
@@ -881,6 +888,18 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

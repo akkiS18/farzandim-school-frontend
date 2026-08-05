@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// Sub-components
+import CustomDialogModal from "@/components/CustomDialogModal";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import OverviewSection from "@/components/dashboard/OverviewSection";
@@ -306,6 +306,8 @@ export default function TenantDashboard() {
     }
   };
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const handleLogout = () => {
     localStorage.removeItem("school_token");
     localStorage.removeItem("school_id");
@@ -342,7 +344,7 @@ export default function TenantDashboard() {
             <Header
               userInfo={userInfo}
               setShowChangePasswordModal={setShowChangePasswordModal}
-              handleLogout={handleLogout}
+              handleLogout={() => setShowLogoutModal(true)}
               mobileOpen={mobileSidebarOpen}
               setMobileOpen={setMobileSidebarOpen}
             />
@@ -631,6 +633,21 @@ export default function TenantDashboard() {
           </div>
         </div>
       )}
+
+      {/* LOGOUT CONFIRMATION MODAL */}
+      <CustomDialogModal
+        isOpen={showLogoutModal}
+        type="danger"
+        title="Tizimdan chiqish"
+        message="Haqiqatan ham ma'muriyat panelidan chiqmoqchimisiz?"
+        confirmText="Ha, chiqish"
+        cancelText="Bekor qilish"
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        onCancel={() => setShowLogoutModal(false)}
+      />
     </main>
   );
 }

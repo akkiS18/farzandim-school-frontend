@@ -21,6 +21,7 @@ import {
 import BottomNavigation from "../../components/BottomNavigation";
 import DiaryDayCard from "../../components/DiaryDayCard";
 import SmartCalendarModal, { SmartCalendarTrigger } from "../../components/SmartCalendarModal";
+import CustomDialogModal from "../../components/CustomDialogModal";
 import dynamic from "next/dynamic";
 const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
@@ -283,6 +284,59 @@ function CustomTooltip({ active, payload, label, gradeType }: any) {
 }
 
 /* ─────────────────────────────────────────
+   Standardized Tab Icons
+───────────────────────────────────────── */
+const TabIconDiary = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+
+const TabIconDynamics = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+  </svg>
+);
+
+const TabIconAnnouncements = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+  </svg>
+);
+
+const TabIconMenu = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v7M10 4v7M7 8h3M7 11a3 3 0 003 3v6M17 4v16M17 4a4 4 0 00-4 4v3h4" />
+  </svg>
+);
+
+const TabIconBalance = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h16.5A2.25 2.25 0 0122.5 6.75v10.5a2.25 2.25 0 01-2.25 2.25H3.75a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 013.75 4.5z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+  </svg>
+);
+
+const TabIconComments = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const TabIconClubs = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+  </svg>
+);
+
+const TabIconSettings = ({ size = 18 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: size, height: size, flexShrink: 0 }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0Z" />
+  </svg>
+);
+
+/* ─────────────────────────────────────────
    Main Component
 ───────────────────────────────────────── */
 export default function ParentDashboard() {
@@ -340,25 +394,35 @@ export default function ParentDashboard() {
 
   const handleCancelClubRequest = async (clubId: number) => {
     if (!selectedChildId) return;
-    if (!window.confirm("Haqiqatan ham so'rovni bekor qilmoqchimisiz yoki to'garakdan chiqmoqchimisiz?")) return;
-    setJoinRequestLoading(clubId);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/${clubId}/cancel-request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ student_id: Number(selectedChildId) }),
-      });
-      if (response.ok) {
-        fetchClubs(token, Number(selectedChildId));
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setJoinRequestLoading(null);
-    }
+    setDialogState({
+      isOpen: true,
+      type: "danger",
+      title: "To'garak so'rovini bekor qilish",
+      message: "Haqiqatan ham so'rovni bekor qilmoqchimisiz yoki to'garakdan chiqmoqchimisiz?",
+      confirmText: "Ha, bekor qilish",
+      cancelText: "Yo'q, qolsin",
+      onConfirm: async () => {
+        setDialogState((prev) => ({ ...prev, isOpen: false }));
+        setJoinRequestLoading(clubId);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/clubs/${clubId}/cancel-request`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ student_id: Number(selectedChildId) }),
+          });
+          if (response.ok) {
+            fetchClubs(token, Number(selectedChildId));
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setJoinRequestLoading(null);
+        }
+      },
+    });
   };
 
   // Auth
@@ -445,6 +509,26 @@ export default function ParentDashboard() {
       setNextChargeLoading(false);
     }
   };
+
+  // Mobile drawer menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Logout & Custom Dialog Modal States
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    type?: "alert" | "confirm" | "danger";
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   // Edit profile states
   const [showEditStudentModal, setShowEditStudentModal] = useState(false);
@@ -1064,6 +1148,10 @@ export default function ParentDashboard() {
     }
   };
 
+  const promptLogout = () => {
+    setShowLogoutModal(true);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("school_token");
     localStorage.removeItem("school_id");
@@ -1083,8 +1171,18 @@ export default function ParentDashboard() {
     return g.student_name ? g.student_name.toLowerCase().trim() === childFullName : true;
   });
 
+  // Check if Saturday (dayIdx 5, day_of_week 6) has any schedule lessons or grades
+  const hasSaturdayContent = (() => {
+    const satSchedule = schedule.filter((item: any) => item.day_of_week === 6);
+    const satDateStr = getDayDate(currentWeekStart, 5);
+    const satGrades = selectedChildGrades.filter((g) => g.grade_date.split("T")[0] === satDateStr);
+    return satSchedule.length > 0 || satGrades.length > 0;
+  })();
+
+  const activeDayIndices = hasSaturdayContent ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4];
+
   // Calculate day-by-day rows for active week
-  const daysOfWeek = [0, 1, 2, 3, 4, 5].map((dayIdx) => {
+  const daysOfWeek = activeDayIndices.map((dayIdx) => {
     const dayDateStr = getDayDate(currentWeekStart, dayIdx);
     const dayName = UZ_DAYS[parseLocalDate(dayDateStr).getDay()];
     const dayLabel = `${dayName}, ${fmtDate(dayDateStr)}`;
@@ -1111,10 +1209,11 @@ export default function ParentDashboard() {
 
     // 4. Map to DiaryDayCard row format
     const rows = subjects.map((subject) => {
-      const grade = dayGrades.find((g) => g.subject_name === subject);
+      const allSubjectGrades = dayGrades.filter((g) => g.subject_name === subject);
       return {
         subjectName: subject,
-        grade,
+        grade: allSubjectGrades[0],
+        grades: allSubjectGrades,
       };
     });
 
@@ -1222,7 +1321,7 @@ export default function ParentDashboard() {
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
           }}
         >
-          <span style={{ fontSize: "24px" }}>⚠️</span>
+          
           <div>
             <h4 style={{ margin: 0, fontWeight: 700, fontSize: "13px" }}>To'lov bo'yicha qarzdorlik!</h4>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
@@ -1260,7 +1359,7 @@ export default function ParentDashboard() {
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
               }}
             >
-              <span style={{ fontSize: "24px" }}>🔔</span>
+              
               <div>
                 <h4 style={{ margin: 0, fontWeight: 700, fontSize: "13px" }}>Kutilayotgan to'lov eslatmasi</h4>
                 <p style={{ margin: "4px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
@@ -1285,11 +1384,9 @@ export default function ParentDashboard() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#F3F4F6",
+        backgroundColor: "#EFF3F0",
         fontFamily: "'Roboto', sans-serif",
-        color: TEXT_DARK,
-        display: "flex",
-        justifyContent: "center",
+        color: "#1E293B",
       }}
     >
       {/* CSS Rules */}
@@ -1307,148 +1404,443 @@ export default function ParentDashboard() {
           background: #F1F1F1;
         }
         ::-webkit-scrollbar-thumb {
-          background: #C7D2FE;
+          background: #CBD5E1;
           border-radius: 999px;
         }
 
-        .child-pill {
-          padding: 6px 14px;
-          border-radius: 999px;
-          border: 1px solid #E5E7EB;
-          background: white;
-          font-family: 'Roboto', sans-serif;
-          font-size: 11px;
-          font-weight: 600;
-          color: ${TEXT_DARK};
-          cursor: pointer;
-          transition: all 0.15s;
-          white-space: nowrap;
-        }
-        .child-pill.selected {
-          background: ${ACCENT};
-          border-color: ${ACCENT};
-          color: white;
-          box-shadow: 0 2px 8px rgba(79,70,229,0.2);
+        .sidebar-column {
+          width: 60px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          margin: 16px 0 16px 16px;
+          position: sticky;
+          top: 16px;
+          z-index: 50;
+          flex-shrink: 0;
+          height: calc(100vh - 32px);
         }
 
-        .section-title {
-          font-size: 11px;
-          font-weight: 750;
-          color: #9CA3AF;
-          text-transform: uppercase;
-          letter-spacing: 0.8px;
-          margin-bottom: 12px;
-        }
-
-        /* App container expanding on desktop screens */
-        .app-container {
-          max-width: 480px;
-          transition: max-width 0.3s ease;
-        }
-        @media (min-width: 768px) {
-          .app-container {
-            max-width: 960px !important;
+        @media (max-width: 767px) {
+          .sidebar-column {
+            display: none !important;
+          }
+          .top-subtab-bar {
+            display: none !important;
+          }
+          .mobile-brand-logo {
+            display: flex !important;
           }
         }
 
-        /* 3x2 Grid for PC, 2x3 for Android */
+        .mobile-brand-logo {
+          display: none;
+        }
+
+        .sidebar-btn {
+          width: 44px;
+          height: 44px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          background-color: transparent;
+          color: #64748B;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .sidebar-btn:hover {
+          background-color: #F1F5F9;
+          color: #0F172A;
+        }
+        .sidebar-btn.active {
+          background-color: #F5C542 !important;
+          color: #0F172A !important;
+          box-shadow: 0 4px 12px rgba(245, 197, 66, 0.35);
+        }
+
         .diary-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(1, minmax(0, 1fr));
           gap: 16px;
           margin-bottom: 24px;
         }
         @media (min-width: 768px) {
           .diary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (min-width: 1200px) {
+          .diary-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
 
-        /* Sub-tab navigation */
         .sub-tab-btn {
-          flex: 1;
-          padding: 10px 0;
-          border: none;
-          background: transparent;
+          padding: 8px 16px;
+          border-radius: 999px;
+          border: 1px solid #E2E8F0;
+          background: #FFFFFF;
           font-family: 'Roboto', sans-serif;
           font-size: 12px;
           font-weight: 600;
-          color: ${TEXT_MUTED};
+          color: #64748B;
           cursor: pointer;
-          border-bottom: 2px solid transparent;
           transition: all 0.15s;
-          text-align: center;
           display: inline-flex;
           align-items: center;
-          justify-content: center;
           gap: 6px;
+          white-space: nowrap;
         }
         .sub-tab-btn.active {
-          color: ${ACCENT};
-          border-bottom: 2px solid ${ACCENT};
-          font-weight: 755;
+          background: #00A389;
+          border-color: #00A389;
+          color: #FFFFFF;
+          box-shadow: 0 2px 8px rgba(0,163,137,0.25);
         }
       `}</style>
 
-      {/* Viewport wrapper (max-width: 480px, responsive to 960px on PC) */}
-      <div
-        className="app-container"
-        style={{
-          width: "100%",
-          background: "#FFFFFF",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          paddingBottom: "80px", // space for bottom navigation bar
-          boxShadow: "0 0 20px rgba(0,0,0,0.03)",
-          borderLeft: "1px solid #E5E7EB",
-          borderRight: "1px solid #E5E7EB",
-        }}
-      >
-        {/* ── TOP COMPACT HEADER ── */}
-        <header
-          style={{
-            height: "56px",
-            borderBottom: "1px solid #E5E7EB",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "sticky",
-            top: 0,
-            backgroundColor: "#FFFFFF",
-            zIndex: 40,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      {/* Modern Dashboard Wrapper */}
+      <div style={{ display: "flex", width: "100%", maxWidth: "1500px", margin: "0 auto", minHeight: "100vh" }}>
+        
+        {/* ── LEFT VERTICAL SIDEBAR COLUMN ── */}
+        <aside className="sidebar-column">
+          {/* 1. Standalone Site Brand Logo (outside cards) */}
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "16px",
+              background: "linear-gradient(135deg, #00A389 0%, #0F766E 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontWeight: 900,
+              fontSize: "20px",
+              boxShadow: "0 4px 14px rgba(0,163,137,0.35)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+            onClick={() => { setActiveTab("home"); setActiveSubTab("diary"); }}
+            title="Online Jurnal"
+          >
+            ✦
+          </div>
+
+          {/* 2. Top Navigation Tabs Card */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "22px",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+              padding: "8px 4px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              alignItems: "center",
+              width: "100%",
+            }}
+          >
+            {/* 1. Kundalik */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "diary" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("diary"); }}
+              title="Kundalik"
+            >
+              <TabIconDiary size={20} />
+            </button>
+
+            {/* 2. Dinamika */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "dynamics" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("dynamics"); }}
+              title="Dinamika"
+            >
+              <TabIconDynamics size={20} />
+            </button>
+
+            {/* 3. E'lonlar */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "announcements" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("announcements"); }}
+              title="E'lonlar"
+            >
+              <TabIconAnnouncements size={20} />
+            </button>
+
+            {/* 4. Taomnoma */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "menu" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("menu"); }}
+              title="Taomnoma"
+            >
+              <TabIconMenu size={20} />
+            </button>
+
+            {/* 5. Balans */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "balance" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("balance"); }}
+              title="Balans"
+            >
+              <TabIconBalance size={20} />
+            </button>
+
+            {/* 6. Murojaatlar */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "comments" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("comments"); }}
+              title="Murojaatlar"
+            >
+              <TabIconComments size={20} />
+            </button>
+
+            {/* 7. To'garaklar */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "clubs" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("clubs"); }}
+              title="To'garaklar"
+            >
+              <TabIconClubs size={20} />
+            </button>
+          </div>
+
+          {/* 3. Bottom Settings & Logout Card */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "20px",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
+              padding: "8px 4px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              alignItems: "center",
+              width: "100%",
+              marginTop: "auto",
+            }}
+          >
+            {/* Sozlamalar */}
+            <button
+              className={`sidebar-btn${activeTab === "settings" ? " active" : ""}`}
+              onClick={() => setActiveTab("settings")}
+              title="Sozlamalar"
+            >
+              <TabIconSettings size={20} />
+            </button>
+
+            {/* Chiqish (Logout) */}
+            <button
+              className="sidebar-btn"
+              onClick={promptLogout}
+              title="Tizimdan chiqish"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+              </svg>
+            </button>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT AREA ── */}
+        <main style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: "16px", minWidth: 0, paddingBottom: "80px" }}>
+          
+          {/* ── TOP HEADER ROW (Mobile Logo + Balance Card + Child Switcher + Profile Pill) ── */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              width: "100%",
+              flexWrap: "wrap",
+            }}
+          >
+            {/* Left: Mobile Logo + Balance Card + Child Switcher */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              {/* Mobile Brand Site Logo & Menu Trigger (Only displayed on screens <= 767px) */}
+              <button
+                type="button"
+                className="mobile-brand-logo"
+                onClick={() => setIsMobileMenuOpen(true)}
+                style={{
+                  display: "none",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "14px",
+                  background: "linear-gradient(135deg, #00A389 0%, #0F766E 100%)",
+                  border: "none",
+                  color: "white",
+                  fontWeight: 900,
+                  fontSize: "14px",
+                  boxShadow: "0 4px 12px rgba(0,163,137,0.35)",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  transition: "transform 0.15s ease",
+                }}
+                title="Menyu"
+              >
+                <span style={{ fontSize: "16px" }}>✦</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+              </button>
+
+              {/* Balance Card (Red warning if minus) */}
+              {selectedChild && (
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("home"); setActiveSubTab("balance"); }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 16px",
+                    borderRadius: "999px",
+                    backgroundColor: (selectedChild.balance || 0) < 0 ? "#FEF2F2" : "#ECFDF5",
+                    border: `1.5px solid ${(selectedChild.balance || 0) < 0 ? "#FECACA" : "#A7F3D0"}`,
+                    color: (selectedChild.balance || 0) < 0 ? "#991B1B" : "#0F766E",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    boxShadow: (selectedChild.balance || 0) < 0 ? "0 2px 10px rgba(220,38,38,0.15)" : "0 2px 8px rgba(0,163,137,0.08)",
+                    whiteSpace: "nowrap",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Balans va to'lovlar sahifasiga o'tish"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px", flexShrink: 0 }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 8.25h15m-15.5-12.75h16.5A2.25 2.25 0 0122 7.5v11.25A2.25 2.25 0 0119.5 21H4.5A2.25 2.25 0 013 17.25V7.5A2.25 2.25 0 014.5 5.25z" />
+                  </svg>
+                  <span>
+                    Balans: {(selectedChild.balance || 0) > 0 ? "+" : ""}{(selectedChild.balance || 0).toLocaleString()} so&apos;m
+                    {(selectedChild.balance || 0) < 0 ? " (Qarzdorlik)" : ""}
+                  </span>
+                </button>
+              )}
+
+              {/* Child Switcher Pills */}
+              {children.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", overflowX: "auto" }}>
+                  {children.map((child) => {
+                    const isSelected = selectedChildId === child.id;
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => setSelectedChildId(child.id)}
+                        style={{
+                          padding: "6px 14px",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          border: isSelected ? "2px solid #00A389" : "1px solid #E2E8F0",
+                          backgroundColor: isSelected ? "#ECFDF5" : "#FFFFFF",
+                          color: isSelected ? "#0F766E" : "#64748B",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {child.first_name} ({child.class_name})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Floating Compact Card for Notification Bell & Profile Pill */}
             <div
               style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "6px",
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #7C3AED 100%)`,
+                backgroundColor: "#FFFFFF",
+                borderRadius: "999px",
+                border: "1px solid #E2E8F0",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
+                padding: "4px 8px 4px 10px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: 900,
-                fontSize: "11px",
+                gap: "8px",
+                marginLeft: "auto",
               }}
             >
-              OJ
+              {/* Notification Bell */}
+              <button
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "50%",
+                  backgroundColor: "#F8FAFC",
+                  border: "1px solid #F1F5F9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#64748B",
+                  transition: "all 0.15s ease",
+                }}
+                title="E'lonlar va bildirishnomalar"
+                onClick={() => { setActiveTab("home"); setActiveSubTab("announcements"); }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "17px", height: "17px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
+              </button>
+
+              <div style={{ width: "1px", height: "20px", backgroundColor: "#E2E8F0" }} />
+
+              {/* Profile Pill */}
+              <button
+                type="button"
+                onClick={() => setActiveTab("settings")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "2px 4px",
+                }}
+                title="Profil sozlamalari"
+              >
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: "#00A389",
+                    color: "#FFFFFF",
+                    fontWeight: 800,
+                    fontSize: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 6px rgba(0,163,137,0.3)",
+                  }}
+                >
+                  {userInfo?.first_name ? userInfo.first_name.charAt(0).toUpperCase() : "O"}
+                </div>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B", lineHeight: 1.2 }}>
+                    {userInfo ? `${userInfo.first_name} ${userInfo.last_name}` : "Ota-ona"}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#00A389", fontWeight: 600 }}>
+                    Ota-ona
+                  </div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#64748B" style={{ width: "12px", height: "12px", marginLeft: "2px" }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
             </div>
-            <span
-              style={{
-                fontSize: "14px",
-                fontWeight: 800,
-                color: TEXT_DARK,
-                letterSpacing: "-0.3px",
-              }}
-            >
-              Online Jurnal
-            </span>
           </div>
-        </header>
 
         {/* ── MAIN TAB: HOME ── */}
         {activeTab === "home" && (
@@ -1656,7 +2048,7 @@ export default function ParentDashboard() {
                     transition: "background 0.2s",
                   }}
                 >
-                  📝 Ma'lumotlarni tahrirlash
+                  Ma'lumotlarni tahrirlash
                 </button>
               </div>
             )}
@@ -1665,7 +2057,7 @@ export default function ParentDashboard() {
 
             {/* Sub-tab Navigation */}
             <div
-              className="scrollbar-hidden"
+              className="top-subtab-bar scrollbar-hidden"
               style={{
                 display: "flex",
                 borderBottom: "1px solid #E5E7EB",
@@ -1682,9 +2074,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("diary")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
+                <TabIconDiary size={15} />
                 Kundalik
               </button>
               <button
@@ -1692,9 +2082,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("dynamics")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-                </svg>
+                <TabIconDynamics size={15} />
                 Dinamika
               </button>
               <button
@@ -1702,9 +2090,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("announcements")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a9.049 9.049 0 01-5.197-3.093M14.857 17.082a9.049 9.049 0 005.197-3.093M9 18.75a3 3 0 006 0M19.5 10.5a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
-                </svg>
+                <TabIconAnnouncements size={15} />
                 E&apos;lonlar
               </button>
               <button
@@ -1712,9 +2098,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("menu")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
+                <TabIconMenu size={15} />
                 Taomnoma
               </button>
               <button
@@ -1722,9 +2106,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("balance")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 8.25h15m-15.5-12.75h16.5A2.25 2.25 0 0122 7.5v11.25A2.25 2.25 0 0119.5 21H4.5A2.25 2.25 0 012 18.75V7.5A2.25 2.25 0 014.5 5.25z" />
-                </svg>
+                <TabIconBalance size={15} />
                 Balans
               </button>
               <button
@@ -1732,9 +2114,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("comments")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                </svg>
+                <TabIconComments size={15} />
                 Murojaatlar
               </button>
               <button
@@ -1742,9 +2122,7 @@ export default function ParentDashboard() {
                 onClick={() => setActiveSubTab("clubs")}
                 style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "13px", height: "13px" }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
-                </svg>
+                <TabIconClubs size={15} />
                 To'garaklar
               </button>
             </div>
@@ -1942,7 +2320,7 @@ export default function ParentDashboard() {
                       color: TEXT_MUTED,
                     }}
                   >
-                    <span style={{ fontSize: "24px", display: "block", marginBottom: "8px" }}>📊</span>
+                    
                     <span style={{ fontSize: "12px" }}>Grafik chizish uchun baholar yetarli emas.</span>
                   </div>
                 ) : (
@@ -2233,7 +2611,7 @@ export default function ParentDashboard() {
                               </ResponsiveContainer>
                             ) : (
                               <div style={{ textAlign: "center", padding: "16px", color: TEXT_MUTED, fontSize: "11px" }}>
-                                📊 {points.length === 1 
+                                {points.length === 1 
                                   ? `${filter.type === "ATTENDANCE" ? (points[0].value === 1 ? "Bor (+)" : points[0].value === 0.5 ? "Kechikdi (k)" : "Kelmagan (-)") : `Baho: ${points[0].value}`} (grafik uchun kamida 2 ta nuqta kerak)` 
                                   : "Ushbu filtr bo'yicha ma'lumotlar mavjud emas"}
                               </div>
@@ -2252,7 +2630,7 @@ export default function ParentDashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {announcementsLoading ? (
                   <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED, fontSize: "12px" }}>
-                    🔄 E'lonlar yuklanmoqda...
+                    E'lonlar yuklanmoqda...
                   </div>
                 ) : announcements.length === 0 ? (
                   <div
@@ -2266,7 +2644,7 @@ export default function ParentDashboard() {
                       fontSize: "12px",
                     }}
                   >
-                    📭 Hali hech qanday e'lonlar chop etilmagan.
+                    Hali hech qanday e'lonlar chop etilmagan.
                   </div>
                 ) : (
                   announcements.map((ann: any) => {
@@ -2292,7 +2670,7 @@ export default function ParentDashboard() {
                           </div>
                           {ann.is_poll && (
                             <span style={{ fontSize: "10px", fontWeight: 700, color: "#4F46E5", backgroundColor: "#EEF2FF", padding: "2px 6px", borderRadius: "6px" }}>
-                              📊 So'rovnoma
+                              So'rovnoma
                             </span>
                           )}
                         </div>
@@ -2384,108 +2762,36 @@ export default function ParentDashboard() {
             {/* Sub-tab: MENU (Taomnoma) */}
             {activeSubTab === "menu" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {/* Week Navigation Controls */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <button
-                    onClick={() => {
-                      handlePrevWeek();
-                      const d = new Date(selectedMenuDate);
-                      d.setDate(d.getDate() - 7);
-                      setSelectedMenuDate(d.toISOString().split("T")[0]);
+                {/* Centered Date Controls (matching Kundalik style) */}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "4px" }}>
+                  <SmartCalendarTrigger
+                    label={`${fmtDayName(selectedMenuDate)}, ${fmtDate(selectedMenuDate)}`}
+                    onOpenCalendar={() => setIsSmartCalendarOpen(true)}
+                    onPrevWeek={() => {
+                      const d = parseLocalDate(selectedMenuDate);
+                      d.setDate(d.getDate() - 1);
+                      setSelectedMenuDate(toLocalDateStr(d));
                     }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: ACCENT,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      backgroundColor: "#EEF2FF",
-                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
-                      transition: "all 0.15s ease",
+                    onNextWeek={() => {
+                      const d = parseLocalDate(selectedMenuDate);
+                      d.setDate(d.getDate() + 1);
+                      setSelectedMenuDate(toLocalDateStr(d));
                     }}
-                    title="Oldingi hafta"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={3}
-                      stroke="currentColor"
-                      style={{ width: "13px", height: "13px" }}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                    </svg>
-                  </button>
-
-                  <span style={{ fontSize: "11px", fontWeight: 850, color: ACCENT, textTransform: "uppercase", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center" }}>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                      style={{ width: "13px", height: "13px", marginRight: "4px" }}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                      />
-                    </svg>
-                    {weekLabel(currentWeekStart)}
-                  </span>
-
-                  <button
-                    onClick={() => {
-                      handleNextWeek();
-                      const d = new Date(selectedMenuDate);
-                      d.setDate(d.getDate() + 7);
-                      setSelectedMenuDate(d.toISOString().split("T")[0]);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: ACCENT,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      backgroundColor: "#EEF2FF",
-                      boxShadow: "0 1px 3px rgba(79,70,229,0.08)",
-                      transition: "all 0.15s ease",
-                    }}
-                    title="Keyingi hafta"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={3}
-                      stroke="currentColor"
-                      style={{ width: "13px", height: "13px" }}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </button>
+                  />
                 </div>
 
-                {/* Day selector pills for the current week */}
+                {/* Week Day selector pills */}
                 <div
                   style={{
                     display: "flex",
+                    justifyContent: "flex-start",
+                    gap: "6px",
                     overflowX: "auto",
-                    gap: "8px",
                     paddingBottom: "8px",
-                    borderBottom: "1px solid #F3F4F6",
+                    paddingLeft: "4px",
+                    paddingRight: "4px",
                     scrollbarWidth: "none",
+                    width: "100%",
                   }}
                   className="scrollbar-hidden"
                 >
@@ -2497,89 +2803,127 @@ export default function ParentDashboard() {
                         key={dayOffset}
                         onClick={() => setSelectedMenuDate(dateStr)}
                         style={{
-                          flexShrink: 0,
-                          padding: "8px 12px",
-                          borderRadius: "10px",
-                          border: isSelected ? `1.5px solid ${ACCENT}` : "1px solid #E5E7EB",
-                          backgroundColor: isSelected ? ACCENT_LIGHT : "white",
-                          color: isSelected ? ACCENT : TEXT_DARK,
-                          fontSize: "11px",
+                          padding: "6px 14px",
+                          borderRadius: "999px",
+                          border: isSelected ? "2px solid #00A389" : "1px solid #E2E8F0",
+                          backgroundColor: isSelected ? "#ECFDF5" : "#FFFFFF",
+                          color: isSelected ? "#0F766E" : "#64748B",
+                          fontSize: "12px",
                           fontWeight: 700,
                           cursor: "pointer",
-                          transition: "all 0.15s",
+                          transition: "all 0.15s ease",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        {fmtDayName(dateStr)} ({fmtDate(dateStr)})
+                        {fmtDayName(dateStr).slice(0, 2)} ({parseLocalDate(dateStr).getDate()})
                       </button>
                     );
                   })}
                 </div>
 
                 {menuLoading ? (
-                  <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
-                    Yuklanmoqda...
-                  </div>
-                ) : menuData && menuData.meals ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div style={{ textAlign: "center", padding: "40px", color: "#94A3B8" }}>
                     <div
                       style={{
-                        backgroundColor: "#FFFBEB",
-                        border: "1px solid #FDE68A",
-                        borderRadius: "14px",
-                        padding: "16px",
-                        boxShadow: "0 2px 8px rgba(245, 158, 11, 0.05)",
+                        width: "24px",
+                        height: "24px",
+                        border: "2px solid #CBD5E1",
+                        borderTopColor: "#00A389",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                        margin: "0 auto 12px",
                       }}
-                    >
-                      <h4 style={{ fontSize: "14px", fontWeight: 800, color: "#92400E", marginBottom: "12px" }}>
-                        🍽️ {fmtDayName(selectedMenuDate)} Taomnomasi
-                      </h4>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        {Object.entries(menuData.meals).map(([mealType, description]: [string, any]) => {
-                          const emoji = mealType.toLowerCase().includes("breakfast") ? "🍳" :
-                                        mealType.toLowerCase().includes("lunch") ? "🍲" : "🍎";
-                          const label = mealType.toLowerCase().includes("breakfast") ? "Nonushta" :
-                                        mealType.toLowerCase().includes("lunch") ? "Tushlik" : "Meva / Shirinlik";
-                          return (
+                    />
+                    Taomnoma yuklanmoqda...
+                  </div>
+                ) : menuData && menuData.meals && Object.keys(menuData.meals).length > 0 ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+                    {Object.entries(menuData.meals).map(([mealType, description]: [string, any]) => {
+                      const isBreakfast = mealType.toLowerCase().includes("breakfast");
+                      const isLunch = mealType.toLowerCase().includes("lunch");
+                      
+                      const emoji = isBreakfast ? "🍳" : isLunch ? "🍲" : "🍎";
+                      const label = isBreakfast ? "Nonushta" : isLunch ? "Tushlik" : "Kechki ovqat / Meva";
+                      
+                      const badgeBg = isBreakfast ? "#FEF3C7" : isLunch ? "#CCFBF1" : "#FCE7F3";
+                      const badgeColor = isBreakfast ? "#B45309" : isLunch ? "#0F766E" : "#9D174D";
+                      const badgeBorder = isBreakfast ? "#FDE68A" : isLunch ? "#99F6E4" : "#FBCFE8";
+
+                      return (
+                        <div
+                          key={mealType}
+                          onDoubleClick={() => handleMenuDoubleClick(selectedMenuDate, label)}
+                          style={{
+                            backgroundColor: "#FFFFFF",
+                            borderRadius: "20px",
+                            border: "1px solid #E2E8F0",
+                            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+                            padding: "20px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "14px",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                          title="Izoh qoldirish uchun 2 marta bosing"
+                        >
+                          {/* Card Header */}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <div
-                              key={mealType}
-                              onDoubleClick={() => handleMenuDoubleClick(selectedMenuDate, label)}
                               style={{
                                 display: "flex",
-                                gap: "12px",
-                                borderBottom: "1px solid #FEF3C7",
-                                paddingBottom: "10px",
-                                cursor: "pointer",
+                                alignItems: "center",
+                                gap: "8px",
+                                padding: "6px 14px",
+                                borderRadius: "999px",
+                                backgroundColor: badgeBg,
+                                color: badgeColor,
+                                border: `1px solid ${badgeBorder}`,
+                                fontSize: "12px",
+                                fontWeight: 800,
                               }}
-                              title="Fikr-mulohaza yozish uchun ikki marta bosing"
                             >
-                              <div style={{ fontSize: "20px" }}>{emoji}</div>
-                              <div>
-                                <span style={{ fontSize: "11px", fontWeight: 700, color: "#B45309", display: "block" }}>
-                                  {label}
-                                </span>
-                                <span style={{ fontSize: "13px", color: "#78350F", fontWeight: 500 }}>
-                                  {description}
-                                </span>
-                              </div>
+                              <span>{emoji}</span>
+                              <span>{label}</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "#94A3B8",
+                                fontWeight: 600,
+                              }}
+                            >
+                              Izoh yozish
+                            </span>
+                          </div>
+
+                          {/* Description Body */}
+                          <div style={{ fontSize: "13px", color: "#334155", fontWeight: 500, lineHeight: 1.6 }}>
+                            {String(description).split("\n").map((line, i) => (
+                              <p key={i} style={{ margin: "2px 0" }}>
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div
                     style={{
                       textAlign: "center",
-                      padding: "32px",
-                      backgroundColor: "#F9FAFB",
-                      borderRadius: "14px",
-                      border: "1px dashed #E5E7EB",
-                      color: TEXT_MUTED,
-                      fontSize: "12px",
+                      padding: "48px 20px",
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: "20px",
+                      border: "1px dashed #CBD5E1",
+                      color: "#64748B",
+                      fontSize: "13px",
+                      fontWeight: 600,
                     }}
                   >
-                    📭 Ushbu kunda taomnoma belgilanmagan.
+                    Ushbu kunda taomnoma belgilanmagan.
                   </div>
                 )}
               </div>
@@ -2625,12 +2969,12 @@ export default function ParentDashboard() {
                       </h3>
                     </div>
                     <div style={{ fontSize: "28px" }}>
-                      {(selectedChild.balance || 0) >= 0 ? "🟢" : "🔴"}
+                      {(selectedChild.balance || 0) >= 0 ? "" : ""}
                     </div>
                   </div>
                 )}
 
-                <div className="section-title">🕒 To'lovlar va Xarajatlar Tarixi</div>
+                <div className="section-title">To'lovlar va Xarajatlar Tarixi</div>
 
                 {balanceLoading ? (
                   <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED }}>
@@ -2688,7 +3032,7 @@ export default function ParentDashboard() {
                       fontSize: "12px",
                     }}
                   >
-                    💸 Hali hech qanday to'lovlar amalga oshirilmagan.
+                    Hali hech qanday to'lovlar amalga oshirilmagan.
                   </div>
                 )}
               </div>
@@ -2698,7 +3042,7 @@ export default function ParentDashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {feedbackLoading ? (
                   <div style={{ textAlign: "center", padding: "32px", color: TEXT_MUTED, fontSize: "12px" }}>
-                    🔄 Yuklanmoqda...
+                    Yuklanmoqda...
                   </div>
                 ) : feedbackFeed.length === 0 ? (
                   <div
@@ -2713,8 +3057,8 @@ export default function ParentDashboard() {
                     }}
                   >
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: "24px", height: "24px", color: TEXT_MUTED }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.008 1.24l.885 1.77a2.25 2.25 0 002.007 1.24h1.98a2.25 2.25 0 002.007-1.24l.885-1.77a2.25 2.25 0 012.007-1.24h3.86m-18 0h18a2.25 2.25 0 012.25 2.25v4.5A2.25 2.25 0 0119.5 21h-15a2.25 2.25 0 01-2.25-2.25v-4.5a2.25 2.25 0 012.25-2.25zM13.5 3h.008v.008H13.5V3zm0 3.75h.008v.008H13.5V6.75zM10.5 5.25h.008v.008H10.5V5.25zm6 0h.008v.008H16.5V5.25z" />
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: "32px", height: "32px", color: "#00A389" }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                       </svg>
                       <span>Hozircha hech qanday fikr-mulohazalar yubormagansiz.</span>
                     </div>
@@ -2780,7 +3124,7 @@ export default function ParentDashboard() {
                                 borderRadius: "6px",
                               }}
                             >
-                              {isGrade ? "📝 Bahoga izoh" : "🍽️ Taomnomaga izoh"}
+                              {isGrade ? "Bahoga izoh" : "Taomnomaga izoh"}
                             </span>
                             {thread.messages.length > 1 && (
                               <span
@@ -2794,7 +3138,7 @@ export default function ParentDashboard() {
                                   fontFamily: "monospace",
                                 }}
                               >
-                                💬 {thread.messages.length} ta xabar
+                                {thread.messages.length} ta xabar
                               </span>
                             )}
                           </div>
@@ -2854,7 +3198,7 @@ export default function ParentDashboard() {
                               fontWeight: 650,
                             }}
                           >
-                            🍽️ Taomnoma kuni: {new Date(thread.menu_date || "").toLocaleDateString("uz-UZ", {
+                            Taomnoma kuni: {new Date(thread.menu_date || "").toLocaleDateString("uz-UZ", {
                               weekday: "long",
                               day: "numeric",
                               month: "long",
@@ -2879,7 +3223,7 @@ export default function ParentDashboard() {
                         >
                           <span>&ldquo;{rep.content}&rdquo;</span>
                           <span style={{ fontSize: "10px", color: "#4F46E5", fontWeight: 700, fontStyle: "normal" }}>
-                            💬 Chatni ochish &rarr;
+                            Chatni ochish &rarr;
                           </span>
                         </div>
                       </div>
@@ -3032,7 +3376,7 @@ export default function ParentDashboard() {
                                       cursor: "pointer",
                                     }}
                                   >
-                                    A'zo ✓ (Chiqish)
+                                    A'zo (Chiqish)
                                   </button>
                                 ) : status === "PENDING" ? (
                                   <button
@@ -3143,104 +3487,107 @@ export default function ParentDashboard() {
 
         {/* ── MAIN TAB: SETTINGS ── */}
         {activeTab === "settings" && (
-          <div style={{ padding: "16px" }}>
-            <div className="section-title">Tizim Sozlamalari</div>
+          <div style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ fontSize: "18px", fontWeight: 800, color: "#1E293B" }}>Tizim Sozlamalari</div>
 
             {/* User Profile Card */}
             {userInfo && (
               <div
                 style={{
                   backgroundColor: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
-                  borderRadius: "14px",
-                  padding: "16px",
-                  marginBottom: "16px",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "24px",
+                  padding: "24px",
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
                 }}
               >
                 <span
                   style={{
-                    fontSize: "10px",
-                    fontWeight: 750,
-                    color: ACCENT,
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    color: "#00A389",
                     textTransform: "uppercase",
+                    letterSpacing: "0.5px",
                     display: "block",
-                    marginBottom: "8px",
                   }}
                 >
-                  Foydalanuvchi Profili
+                  FOYDALANUVCHI PROFILI
                 </span>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px", marginTop: "8px" }}>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
                   {/* Ism Field */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EEF2FF", color: ACCENT }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "10px", backgroundColor: "#ECFDF5", color: "#00A389" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>F.I.SH.</div>
-                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{userInfo.first_name} {userInfo.last_name}</div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>F.I.SH.</div>
+                      <div style={{ fontSize: "13px", fontWeight: 750, color: "#1E293B" }}>{userInfo.first_name} {userInfo.last_name}</div>
                     </div>
                   </div>
 
                   {/* Telefon Field */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "10px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.502-5.127-3.805-6.63-6.63l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Telefon raqam</div>
-                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, fontFamily: "monospace" }}>{userInfo.phone || "+998908000002"}</div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Telefon raqam</div>
+                      <div style={{ fontSize: "13px", fontWeight: 750, color: "#1E293B", fontFamily: "monospace" }}>{userInfo.phone || "+998908000002"}</div>
                     </div>
                   </div>
 
                   {/* Pasport Field */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#FFFBEB", color: "#D97706" }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "10px", backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Pasport seriya</div>
-                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, fontFamily: "monospace" }}>{userInfo.passport || "Kiritilmagan"}</div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Pasport seriya</div>
+                      <div style={{ fontSize: "13px", fontWeight: 750, color: "#1E293B", fontFamily: "monospace" }}>{userInfo.passport || "Kiritilmagan"}</div>
                     </div>
                   </div>
 
                   {/* Roli Field */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#F5F3FF", color: "#7C3AED" }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "10px", backgroundColor: "#F5F3FF", color: "#7C3AED" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Roli</div>
-                      <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>Vasiy (Ota-ona)</div>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Roli</div>
+                      <div style={{ fontSize: "13px", fontWeight: 750, color: "#1E293B" }}>Vasiy (Ota-ona)</div>
                     </div>
                   </div>
 
                   {/* Telegram Bot Field */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: userInfo.telegram_id ? "#F0FDF4" : "#FEF2F2", color: userInfo.telegram_id ? "#16A34A" : "#DC2626" }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "10px", backgroundColor: userInfo.telegram_id ? "#ECFDF5" : "#FEF2F2", color: userInfo.telegram_id ? "#16A34A" : "#DC2626" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 18.661a1 1 0 01-.225-.67c.03-.083.06-.168.086-.254a6.437 6.437 0 00.32-1.921c0-.445-.193-.863-.526-1.156C3.03 13.75 2.25 11.25 2.25 8.25 2.25 5.25 3.03 2.75 5.065 1.761a6.437 6.437 0 00.32-1.921A1 1 0 015.61.51c.026-.086.056-.17.086-.254a5.97 5.97 0 012.87 2.428A9.764 9.764 0 0112 3.75c4.97 0 9 3.694 9 8.25z" />
                       </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Telegram Xabarnoma</div>
-                      <div style={{ fontSize: "12px", fontWeight: 700 }}>
+                      <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Telegram Xabarnoma</div>
+                      <div style={{ fontSize: "13px", fontWeight: 750 }}>
                         {userInfo.telegram_id ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#16A34A" }}>
-                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16A34A" }}></span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#16A34A" }}>
+                            <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#16A34A" }}></span>
                             Ulangan
                           </span>
                         ) : (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#DC2626" }}>
-                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#DC2626" }}></span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#DC2626" }}>
+                            <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#DC2626" }}></span>
                             Ulanmagan
                           </span>
                         )}
@@ -3255,16 +3602,16 @@ export default function ParentDashboard() {
                     setShowEditParentModal(true);
                   }}
                   style={{
-                    marginTop: "12px",
                     width: "100%",
-                    padding: "8px",
-                    backgroundColor: ACCENT_LIGHT,
-                    border: `1px solid ${ACCENT_MID}`,
-                    borderRadius: "10px",
-                    color: ACCENT,
-                    fontWeight: 700,
-                    fontSize: "11px",
+                    padding: "10px 16px",
+                    backgroundColor: "#ECFDF5",
+                    border: "1px solid #A7F3D0",
+                    borderRadius: "14px",
+                    color: "#0F766E",
+                    fontWeight: 800,
+                    fontSize: "12px",
                     cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}
                 >
                   Pasport ma'lumotini tahrirlash
@@ -3273,34 +3620,29 @@ export default function ParentDashboard() {
                 {!userInfo.telegram_id && (
                   <div
                     style={{
-                      marginTop: "12px",
-                      backgroundColor: "#EEF2FF",
-                      border: "1px solid #C7D2FE",
-                      borderRadius: "12px",
-                      padding: "14px",
-                      fontSize: "11px",
-                      color: TEXT_DARK,
-                      lineHeight: "1.6",
+                      backgroundColor: "#F0FDFA",
+                      border: "1px solid #CCFBF1",
+                      borderRadius: "16px",
+                      padding: "16px",
+                      fontSize: "12px",
+                      color: "#0F766E",
+                      lineHeight: 1.6,
                     }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "12px", height: "12px", marginRight: "4px", display: "inline-block", verticalAlign: "middle" }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                    </svg>
-                    <b>Telegram Bildirishnomalari:</b><br />
+                    <b style={{ color: "#0F766E", display: "block", marginBottom: "6px" }}>
+                      Telegram Bildirishnomalari:
+                    </b>
                     {telegramConfig?.has_token ? (
-                      <>
+                      <div>
                         Farzandlaringiz baholari va maktab e'lonlarini Telegramda olishingiz mumkin. Buning uchun:
-                        <ol style={{ paddingLeft: "16px", marginTop: "6px" }}>
-                          <li>1. Telegramda <a href={`https://t.me/${telegramConfig.bot_username}`} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, fontWeight: 700, textDecoration: "underline" }}>@{telegramConfig.bot_username}</a> botiga kiring.</li>
+                        <ol style={{ paddingLeft: "18px", marginTop: "6px", margin: "6px 0 0 0" }}>
+                          <li>1. Telegramda <a href={`https://t.me/${telegramConfig.bot_username}`} target="_blank" rel="noopener noreferrer" style={{ color: "#00A389", fontWeight: 800, textDecoration: "underline" }}>@{telegramConfig.bot_username}</a> botiga kiring.</li>
                           <li>2. Botga <b>/start</b> buyrug'ini yuboring.</li>
                           <li>3. Telefon raqamingiz (<b>{userInfo.phone || "tizimdagi telefon raqam"}</b>) va shaxsiy parolingizni kiritib tizimga kiring.</li>
                         </ol>
-                      </>
+                      </div>
                     ) : (
                       <span style={{ color: "#B45309", fontWeight: 600 }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#B45309" style={{ width: "12px", height: "12px", marginRight: "4px", display: "inline-block", verticalAlign: "middle" }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                        </svg>
                         Maktab ma'muriyati shaxsiy Telegram botni hali sozlamagan. Sozlangandan so'ng, bu yerda bot havolasi ko'rinadi.
                       </span>
                     )}
@@ -3314,114 +3656,116 @@ export default function ParentDashboard() {
               <div
                 style={{
                   backgroundColor: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
-                  borderRadius: "14px",
-                  padding: "16px",
-                  marginBottom: "24px",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "24px",
+                  padding: "24px",
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
                 }}
               >
                 <span
                   style={{
-                    fontSize: "10px",
-                    fontWeight: 750,
-                    color: ACCENT,
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    color: "#00A389",
                     textTransform: "uppercase",
+                    letterSpacing: "0.5px",
                     display: "block",
-                    marginBottom: "8px",
                   }}
                 >
-                  O&apos;quvchilar Ma&apos;lumotlari
+                  O&apos;QUVCHILAR MA&apos;LUMOTLARI
                 </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   {children.map((child, index) => (
                     <div
                       key={child.id}
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: "6px",
-                        borderBottom: index === children.length - 1 ? "none" : "1px solid #F3F4F6",
-                        paddingBottom: index === children.length - 1 ? "0" : "12px"
+                        gap: "10px",
+                        borderBottom: index === children.length - 1 ? "none" : "1px solid #F1F5F9",
+                        paddingBottom: index === children.length - 1 ? "0" : "16px"
                       }}
                     >
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
                         {/* F.I.SH */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EEF2FF", color: ACCENT }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px solid #E2E8F0" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", borderRadius: "8px", backgroundColor: "#ECFDF5", color: "#00A389" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342M22.25 9.375a.375.375 0 100-.75.375.375 0 000 .75z" />
                             </svg>
                           </div>
                           <div>
-                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>F.I.SH.</div>
-                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.first_name} {child.last_name}</div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>F.I.SH.</div>
+                            <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B" }}>{child.first_name} {child.last_name}</div>
                           </div>
                         </div>
 
                         {/* Sinf */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#ECFDF5", color: "#059669" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px solid #E2E8F0" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", borderRadius: "8px", backgroundColor: "#ECFDF5", color: "#059669" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.68 0-5.302.2-7.862.582V21M3 21h18" />
                             </svg>
                           </div>
                           <div>
-                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Sinf</div>
-                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.class_name}</div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Sinf</div>
+                            <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B" }}>{child.class_name}</div>
                           </div>
                         </div>
 
                         {/* Manzil */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#FFF1F2", color: "#E11D48" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px solid #E2E8F0" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", borderRadius: "8px", backgroundColor: "#FFF1F2", color: "#E11D48" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" />
                             </svg>
                           </div>
                           <div>
-                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Manzil</div>
-                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.address || "Kiritilmagan"}</div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Manzil</div>
+                            <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B" }}>{child.address || "Kiritilmagan"}</div>
                           </div>
                         </div>
 
                         {/* Tug'ilgan sana */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#FFFBEB", color: "#D97706" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px solid #E2E8F0" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", borderRadius: "8px", backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                             </svg>
                           </div>
                           <div>
-                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Tug'ilgan sana</div>
-                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK }}>{child.birthdate ? child.birthdate.split("T")[0] : "Kiritilmagan"}</div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Tug'ilgan sana</div>
+                            <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B" }}>{child.birthdate ? child.birthdate.split("T")[0] : "Kiritilmagan"}</div>
                           </div>
                         </div>
 
                         {/* Guvohnoma */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px solid #E2E8F0" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", borderRadius: "8px", backgroundColor: "#EFF6FF", color: "#2563EB" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                             </svg>
                           </div>
                           <div>
-                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Guvohnoma (INA)</div>
-                            <div style={{ fontSize: "12px", fontWeight: 700, color: TEXT_DARK, fontFamily: "monospace" }}>{child.ina || "Kiritilmagan"}</div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Guvohnoma (INA)</div>
+                            <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B", fontFamily: "monospace" }}>{child.ina || "Kiritilmagan"}</div>
                           </div>
                         </div>
 
                         {/* Balans */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", backgroundColor: "#F9FAFB", borderRadius: "10px", border: "1px solid #E5E7EB" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "26px", height: "26px", borderRadius: "6px", backgroundColor: (child.balance || 0) >= 0 ? "#F0FDF4" : "#FEF2F2", color: (child.balance || 0) >= 0 ? "#16A34A" : "#DC2626" }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px solid #E2E8F0" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px", borderRadius: "8px", backgroundColor: (child.balance || 0) >= 0 ? "#ECFDF5" : "#FEF2F2", color: (child.balance || 0) >= 0 ? "#16A34A" : "#DC2626" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "14px", height: "14px" }}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.214.172a2.25 2.25 0 003.11-.168L12 15M9 7.818l.214-.172a2.25 2.25 0 013.11.168L12 9" />
                             </svg>
                           </div>
                           <div>
-                            <div style={{ fontSize: "10px", fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase" }}>Balans</div>
-                            <div style={{ fontSize: "12px", fontWeight: 800, color: (child.balance || 0) >= 0 ? "#16A34A" : "#DC2626" }}>{new Intl.NumberFormat("uz-UZ").format(child.balance || 0)} UZS</div>
+                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Balans</div>
+                            <div style={{ fontSize: "12px", fontWeight: 850, color: (child.balance || 0) >= 0 ? "#16A34A" : "#DC2626" }}>{new Intl.NumberFormat("uz-UZ").format(child.balance || 0)} UZS</div>
                           </div>
                         </div>
                       </div>
@@ -3438,17 +3782,16 @@ export default function ParentDashboard() {
                         style={{
                           marginTop: "8px",
                           width: "100%",
-                          padding: "8px",
-                          backgroundColor: ACCENT_LIGHT,
-                          border: `1px solid ${ACCENT_MID}`,
-                          borderRadius: "10px",
-                          color: ACCENT,
-                          fontWeight: 700,
-                          fontSize: "11px",
+                          padding: "10px",
+                          backgroundColor: "#ECFDF5",
+                          border: "1px solid #A7F3D0",
+                          borderRadius: "12px",
+                          color: "#0F766E",
+                          fontWeight: 800,
+                          fontSize: "12px",
                           cursor: "pointer",
                           transition: "all 0.15s ease",
                         }}
-                        className="active:scale-95"
                       >
                         Farzand ma'lumotlarini tahrirlash
                       </button>
@@ -3460,28 +3803,188 @@ export default function ParentDashboard() {
 
             {/* Logout button */}
             <button
-              onClick={handleLogout}
+              onClick={promptLogout}
               style={{
                 width: "100%",
-                padding: "12px",
+                padding: "14px",
                 backgroundColor: "#FEF2F2",
                 border: "1px solid #FEE2E2",
-                borderRadius: "12px",
-                color: "#EF4444",
-                fontWeight: 700,
+                borderRadius: "16px",
+                color: "#991B1B",
+                fontWeight: 800,
                 fontSize: "13px",
                 cursor: "pointer",
                 textAlign: "center",
+                boxShadow: "0 2px 8px rgba(220,38,38,0.06)",
                 transition: "all 0.15s ease",
               }}
             >
-              Chiqish (Tizimdan ketish)
+              Tizimdan chiqish
             </button>
           </div>
         )}
+        </main>
 
-        {/* Bottom Navigation Component */}
-        <BottomNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        {/* ── MOBILE SIDE NAVIGATION DRAWER (Slide-over menu on small screens) ── */}
+        {isMobileMenuOpen && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(15, 23, 42, 0.55)",
+              backdropFilter: "blur(4px)",
+              WebkitBackdropFilter: "blur(4px)",
+              zIndex: 2000,
+              display: "flex",
+            }}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <div
+              style={{
+                width: "290px",
+                height: "100%",
+                backgroundColor: "#FFFFFF",
+                boxShadow: "8px 0 32px rgba(0,0,0,0.15)",
+                display: "flex",
+                flexDirection: "column",
+                padding: "20px",
+                gap: "16px",
+                zIndex: 2001,
+                overflowY: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drawer Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      borderRadius: "12px",
+                      background: "linear-gradient(135deg, #00A389 0%, #0F766E 100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: 900,
+                      fontSize: "16px",
+                      boxShadow: "0 4px 10px rgba(0,163,137,0.3)",
+                    }}
+                  >
+                    ✦
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: 800, color: "#1E293B" }}>Online Jurnal</div>
+                    <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Ota-ona Portali</div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: "#F1F5F9",
+                    border: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#64748B",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ height: "1px", backgroundColor: "#E2E8F0" }} />
+
+              {/* Navigation Items List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
+                {[
+                  { id: "diary", isSettings: false, label: "Kundalik", icon: <TabIconDiary /> },
+                  { id: "dynamics", isSettings: false, label: "Dinamika", icon: <TabIconDynamics /> },
+                  { id: "announcements", isSettings: false, label: "E'lonlar", icon: <TabIconAnnouncements /> },
+                  { id: "menu", isSettings: false, label: "Taomnoma", icon: <TabIconMenu /> },
+                  { id: "balance", isSettings: false, label: "Balans", icon: <TabIconBalance /> },
+                  { id: "comments", isSettings: false, label: "Murojaatlar", icon: <TabIconComments /> },
+                  { id: "clubs", isSettings: false, label: "To'garaklar", icon: <TabIconClubs /> },
+                  { id: "settings", isSettings: true, label: "Sozlamalar", icon: <TabIconSettings /> },
+                ].map((item) => {
+                  const isActive = item.isSettings ? activeTab === "settings" : (activeTab === "home" && activeSubTab === item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (item.isSettings) {
+                          setActiveTab("settings");
+                        } else {
+                          setActiveTab("home");
+                          setActiveSubTab(item.id as any);
+                        }
+                        setIsMobileMenuOpen(false);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "12px 14px",
+                        borderRadius: "14px",
+                        border: "none",
+                        backgroundColor: isActive ? "#F5C542" : "transparent",
+                        color: isActive ? "#0F172A" : "#475569",
+                        fontWeight: isActive ? 800 : 600,
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        boxShadow: isActive ? "0 4px 12px rgba(245, 197, 66, 0.35)" : "none",
+                        transition: "all 0.15s ease",
+                        textAlign: "left",
+                        width: "100%",
+                      }}
+                    >
+                      <div style={{ width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {item.icon}
+                      </div>
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ height: "1px", backgroundColor: "#E2E8F0" }} />
+
+              {/* Logout Button */}
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "12px",
+                  backgroundColor: "#FEF2F2",
+                  border: "1px solid #FEE2E2",
+                  borderRadius: "14px",
+                  color: "#991B1B",
+                  fontWeight: 800,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                Tizimdan chiqish
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* EDIT STUDENT PROFILE MODAL */}
         {showEditStudentModal && (
@@ -3515,7 +4018,7 @@ export default function ParentDashboard() {
               </h3>
               {editError && (
                 <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
-                  ⚠️ {editError}
+                  {editError}
                 </div>
               )}
               {showMapPicker ? (
@@ -3545,7 +4048,7 @@ export default function ParentDashboard() {
                           padding: 0
                         }}
                       >
-                        🗺️ Xaritadan tanlash
+                        Xaritadan tanlash
                       </button>
                     </div>
                     <input
@@ -3673,7 +4176,7 @@ export default function ParentDashboard() {
               </h3>
               {editParentError && (
                 <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
-                  ⚠️ {editParentError}
+                  {editParentError}
                 </div>
               )}
               <form onSubmit={handleUpdateParentProfile}>
@@ -3771,7 +4274,7 @@ export default function ParentDashboard() {
               <div style={{ display: "flex", justifySelf: "stretch", justifyContent: "between", alignItems: "start", marginBottom: "8px" }}>
                 <div style={{ flex: 1 }}>
                   <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_DARK, marginBottom: "4px" }}>
-                    💬 Muhokama (Chat)
+                    Muhokama (Chat)
                   </h3>
                   <p style={{ fontSize: "11px", color: TEXT_MUTED, lineHeight: "1.4" }}>
                     {commentTargetType === "GRADE" ? (
@@ -3881,7 +4384,7 @@ export default function ParentDashboard() {
 
               {commentError && (
                 <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
-                  ⚠️ {commentError}
+                  {commentError}
                 </div>
               )}
 
@@ -3926,6 +4429,32 @@ export default function ParentDashboard() {
             </div>
           </div>
         )}
+        {/* LOGOUT CONFIRMATION MODAL */}
+        <CustomDialogModal
+          isOpen={showLogoutModal}
+          type="danger"
+          title="Tizimdan chiqish"
+          message="Haqiqatan ham ota-ona portalidan chiqmoqchimisiz?"
+          confirmText="Ha, chiqish"
+          cancelText="Bekor qilish"
+          onConfirm={() => {
+            setShowLogoutModal(false);
+            handleLogout();
+          }}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+
+        {/* GENERIC CONFIRM / ALERT MODAL */}
+        <CustomDialogModal
+          isOpen={dialogState.isOpen}
+          type={dialogState.type}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmText={dialogState.confirmText}
+          cancelText={dialogState.cancelText}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        />
       </div>
     </div>
   );

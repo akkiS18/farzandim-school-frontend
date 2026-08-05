@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { ClassItem, UserInfo } from "./types";
 
@@ -31,6 +33,7 @@ export default function HolidaysSection({
   classes,
 }: HolidaysSectionProps) {
   const [holidays, setHolidays] = useState<HolidayItem[]>([]);
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -143,10 +146,10 @@ export default function HolidaysSection({
         fetchHolidays();
       } else {
         const data = await response.json();
-        alert(data.error || "O'chirishda xatolik yuz berdi");
+        showAlert(data.error || "O'chirishda xatolik yuz berdi");
       }
     } catch {
-      alert("Server bilan bog'lanishda xatolik");
+      showAlert("Server bilan bog'lanishda xatolik");
     } finally {
       setDeletingId(null);
     }
@@ -594,6 +597,18 @@ export default function HolidaysSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }
