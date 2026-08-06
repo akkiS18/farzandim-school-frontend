@@ -2,8 +2,8 @@ import React from "react";
 import { ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview";
-  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview") => void;
+  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books";
+  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   mobileOpen?: boolean;
@@ -50,6 +50,13 @@ export default function Sidebar({
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+        );
+      case "books":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
           </svg>
         );
       case "grading-systems":
@@ -125,6 +132,7 @@ export default function Sidebar({
     { id: "schedule-overview", label: "Dars jadvali", badge: null },
     { id: "teachers", label: "O'qituvchilar", badge: null },
     { id: "subjects", label: "Fanlar", badge: null },
+    { id: "books", label: "Kitobxonlik", badge: null },
     { id: "grading-systems", label: "Baholash Tizimi", badge: null },
     { id: "menu", label: "Taomnoma", badge: null },
     { id: "balance", label: "Balans boshqaruvi", badge: null },

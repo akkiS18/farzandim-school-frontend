@@ -17,6 +17,7 @@ import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import FeedbackSection from "@/components/dashboard/FeedbackSection";
 import HolidaysSection from "@/components/dashboard/HolidaysSection";
 import ScheduleOverviewSection from "@/components/dashboard/ScheduleOverviewSection";
+import BooksSection from "@/components/dashboard/BooksSection";
 
 // Types
 import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/components/dashboard/types";
@@ -33,7 +34,7 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview">("overview");
+  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books">("overview");
 
   // Classes section: initial tab when redirecting from schedule overview
   const [classesInitialTab, setClassesInitialTab] = useState<"students" | "teachers" | "parents" | "schedule" | undefined>(undefined);
@@ -460,6 +461,13 @@ export default function TenantDashboard() {
               students={studentsBalanceList}
               apiUrl={API_URL}
               userRole={userInfo?.role}
+            />
+          )}
+
+          {activeMenu === "books" && (
+            <BooksSection
+              token={token}
+              API_URL={API_URL}
             />
           )}
 

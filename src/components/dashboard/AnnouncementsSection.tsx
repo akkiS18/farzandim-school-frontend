@@ -332,15 +332,15 @@ export default function AnnouncementsSection({
   });
 
   return (
-    <div className="space-y-5 font-sans text-zinc-900 select-none animate-fadeIn pb-12">
+    <div className="space-y-5 font-sans text-[#1D1E26] select-none animate-fadeIn pb-12">
       {/* Top Header Card with Primary Action Button */}
       <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg sm:text-2xl font-extrabold text-[#16193E] tracking-tight flex items-center gap-2">
-            <Megaphone className="w-6 h-6 text-indigo-600 shrink-0" />
+          <h1 className="text-lg sm:text-2xl font-black text-[#1D1E26] tracking-tight flex items-center gap-2">
+            <Megaphone className="w-6 h-6 text-[#1D1E26] shrink-0" />
             <span>E'lonlar & So'rovnomalar</span>
           </h1>
-          <p className="text-xs text-zinc-500 font-medium mt-1">
+          <p className="text-xs text-slate-400 font-medium mt-1">
             Maktab jamoasi, ota-onalar va o'quvchilar uchun e'lonlar va so'rovnomalar (polls) yuborish hamda boshqarish.
           </p>
         </div>
@@ -352,7 +352,7 @@ export default function AnnouncementsSection({
             setFormSuccess("");
             setShowCreateModal(true);
           }}
-          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-xs transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
+          className="bg-[#D4F562] text-[#1D1E26] font-black text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-xs hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Yangi E'lon / So'rovnoma Yaratish</span>
@@ -366,15 +366,15 @@ export default function AnnouncementsSection({
           <button
             type="button"
             onClick={() => setActiveFilter("all")}
-            className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeFilter === "all"
-                ? "bg-[#5B50EC] text-white shadow-xs"
+                ? "bg-[#1D1E26] text-white shadow-xs"
                 : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200/60"
             }`}
           >
             <span>Barchasi</span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeFilter === "all" ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-700"
+              activeFilter === "all" ? "bg-[#D4F562] text-[#1D1E26]" : "bg-zinc-200/70 text-zinc-700"
             }`}>
               {announcements.length}
             </span>
@@ -383,16 +383,16 @@ export default function AnnouncementsSection({
           <button
             type="button"
             onClick={() => setActiveFilter("announcements")}
-            className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeFilter === "announcements"
-                ? "bg-[#5B50EC] text-white shadow-xs"
+                ? "bg-[#1D1E26] text-white shadow-xs"
                 : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200/60"
             }`}
           >
             <Megaphone className="w-3.5 h-3.5" />
             <span>E'lonlar</span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeFilter === "announcements" ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-700"
+              activeFilter === "announcements" ? "bg-[#D4F562] text-[#1D1E26]" : "bg-zinc-200/70 text-zinc-700"
             }`}>
               {countAnnouncements}
             </span>
@@ -401,16 +401,16 @@ export default function AnnouncementsSection({
           <button
             type="button"
             onClick={() => setActiveFilter("polls")}
-            className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeFilter === "polls"
-                ? "bg-[#5B50EC] text-white shadow-xs"
+                ? "bg-[#1D1E26] text-white shadow-xs"
                 : "bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200/60"
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
             <span>So'rovnomalar</span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeFilter === "polls" ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-700"
+              activeFilter === "polls" ? "bg-[#D4F562] text-[#1D1E26]" : "bg-zinc-200/70 text-zinc-700"
             }`}>
               {countPolls}
             </span>
@@ -747,9 +747,9 @@ export default function AnnouncementsSection({
                       <button
                         type="button"
                         onClick={() => setTargetType("all")}
-                        className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                        className={`py-2 px-3 rounded-xl text-xs font-black transition text-center cursor-pointer ${
                           targetType === "all"
-                            ? "bg-[#5B50EC] text-white shadow-xs"
+                            ? "bg-[#1D1E26] text-white shadow-xs"
                             : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                         }`}
                       >
@@ -759,9 +759,9 @@ export default function AnnouncementsSection({
                     <button
                       type="button"
                       onClick={() => setTargetType("classes")}
-                      className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                      className={`py-2 px-3 rounded-xl text-xs font-black transition text-center cursor-pointer ${
                         targetType === "classes"
-                          ? "bg-[#5B50EC] text-white shadow-xs"
+                          ? "bg-[#1D1E26] text-white shadow-xs"
                           : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                       }`}
                     >
@@ -770,9 +770,9 @@ export default function AnnouncementsSection({
                     <button
                       type="button"
                       onClick={() => setTargetType("levels")}
-                      className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                      className={`py-2 px-3 rounded-xl text-xs font-black transition text-center cursor-pointer ${
                         targetType === "levels"
-                          ? "bg-[#5B50EC] text-white shadow-xs"
+                          ? "bg-[#1D1E26] text-white shadow-xs"
                           : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                       }`}
                     >
@@ -781,9 +781,9 @@ export default function AnnouncementsSection({
                     <button
                       type="button"
                       onClick={() => setTargetType("students")}
-                      className={`py-2 px-3 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+                      className={`py-2 px-3 rounded-xl text-xs font-black transition text-center cursor-pointer ${
                         targetType === "students"
-                          ? "bg-[#5B50EC] text-white shadow-xs"
+                          ? "bg-[#1D1E26] text-white shadow-xs"
                           : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                       }`}
                     >
@@ -800,13 +800,13 @@ export default function AnnouncementsSection({
                             key={cls.id}
                             type="button"
                             onClick={() => handleClassCheckboxChange(cls.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 border ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
                               isSelected
-                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs"
+                                ? "bg-[#ECFCCA] border-lime-300 text-[#1D1E26] shadow-2xs font-extrabold"
                                 : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-100"
                             }`}
                           >
-                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#1D1E26]" />}
                             <span>{cls.name}</span>
                           </button>
                         );
@@ -823,13 +823,13 @@ export default function AnnouncementsSection({
                             key={lvl}
                             type="button"
                             onClick={() => handleLevelCheckboxChange(lvl)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 border ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
                               isSelected
-                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs"
+                                ? "bg-[#ECFCCA] border-lime-300 text-[#1D1E26] shadow-2xs font-extrabold"
                                 : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-100"
                             }`}
                           >
-                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#1D1E26]" />}
                             <span>{lvl}-sinflar</span>
                           </button>
                         );
@@ -844,7 +844,7 @@ export default function AnnouncementsSection({
                         placeholder="O'quvchini qidirish..."
                         value={studentSearchText}
                         onChange={(e) => setStudentSearchText(e.target.value)}
-                        className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-zinc-800 font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-1.5 text-xs text-zinc-800 font-bold outline-none focus:ring-2 focus:ring-[#D4F562]"
                       />
                       <div className="max-h-36 overflow-y-auto space-y-1.5">
                         {filteredStudentsForSelect.map((s) => {
@@ -855,7 +855,7 @@ export default function AnnouncementsSection({
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => handleStudentCheckboxChange(s.id)}
-                                className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-zinc-300 text-[#1D1E26] focus:ring-[#D4F562]"
                               />
                               <span className="font-bold text-zinc-800">{s.last_name} {s.first_name}</span>
                               <span className="text-zinc-400 text-[10px]">({s.class_name || "Sinfi yo'q"})</span>
@@ -871,18 +871,18 @@ export default function AnnouncementsSection({
                   <button
                     type="button"
                     onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-2xl text-xs font-extrabold cursor-pointer transition"
+                    className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-2xl text-xs font-bold cursor-pointer transition"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={submitLoading}
-                    className="px-6 py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl text-xs font-extrabold disabled:opacity-50 flex items-center space-x-2 cursor-pointer shadow-xs transition"
+                    className="px-6 py-2.5 bg-[#D4F562] text-[#1D1E26] hover:opacity-90 rounded-2xl text-xs font-black disabled:opacity-50 flex items-center space-x-2 cursor-pointer shadow-xs transition"
                   >
                     {submitLoading ? (
                       <>
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0"></span>
+                        <span className="w-3.5 h-3.5 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin shrink-0"></span>
                         <span>Chop etilmoqda...</span>
                       </>
                     ) : (
