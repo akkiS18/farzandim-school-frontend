@@ -796,10 +796,24 @@ export default function ParentDashboard() {
         fetchAnnouncements(token, sId);
       } else {
         const data = await response.json();
-        alert(data.error || "Ovoz berishda xatolik");
+        setDialogState({
+          isOpen: true,
+          type: "alert",
+          title: "Xatolik",
+          message: data.error || "Ovoz berishda xatolik",
+          confirmText: "OK",
+          onConfirm: () => setDialogState((prev) => ({ ...prev, isOpen: false })),
+        });
       }
     } catch {
-      alert("Server bilan bog'lanishda xatolik");
+      setDialogState({
+        isOpen: true,
+        type: "alert",
+        title: "Tarmoq xatoligi",
+        message: "Server bilan bog'lanishda xatolik",
+        confirmText: "OK",
+        onConfirm: () => setDialogState((prev) => ({ ...prev, isOpen: false })),
+      });
     }
   };
 

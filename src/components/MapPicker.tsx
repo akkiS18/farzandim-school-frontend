@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import CustomDialogModal from "./CustomDialogModal";
 
 interface MapPickerProps {
   onSelectAddress: (address: string) => void;
@@ -13,6 +14,11 @@ export default function MapPicker({ onSelectAddress, onClose, initialAddress }: 
   const [loading, setLoading] = useState(false);
   const [selectedAddressText, setSelectedAddressText] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 41.311081, lng: 69.240562 }); // Tashkent default
+  const [mapAlert, setMapAlert] = useState<{ isOpen: boolean; title: string; message: string }>({
+    isOpen: false,
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     let active = true;
@@ -127,7 +133,11 @@ export default function MapPicker({ onSelectAddress, onClose, initialAddress }: 
 
   const handleGPSLocation = () => {
     if (!navigator.geolocation) {
-      alert("GPS bu brauzerda qo'llab-quvvatlanmaydi.");
+      setMapAlert({
+        isOpen: true,
+        title: "GPS Qo'llab-quvvatlanmaydi",
+        message: "GPS bu brauzerda qo'llab-quvvatlanmaydi.",
+      });
       return;
     }
 
@@ -162,7 +172,11 @@ export default function MapPicker({ onSelectAddress, onClose, initialAddress }: 
           } else {
             reason = err2.message;
           }
-          alert(`Joylashuvni aniqlab bo'lmadi.\nSababi: ${reason}`);
+          setMapAlert({
+            isOpen: true,
+            title: "Joylashuv xatosi",
+            message: `Joylashuvni aniqlab bo'lmadi.\nSababi: ${reason}`,
+          });
         },
         { enableHighAccuracy: false, timeout: 8000, maximumAge: 10000 }
       );
@@ -300,6 +314,15 @@ export default function MapPicker({ onSelectAddress, onClose, initialAddress }: 
           Manzilni tasdiqlash
         </button>
       </div>
+
+      <CustomDialogModal
+        isOpen={mapAlert.isOpen}
+        type="alert"
+        title={mapAlert.title}
+        message={mapAlert.message}
+        confirmText="OK"
+        onConfirm={() => setMapAlert({ isOpen: false, title: "", message: "" })}
+      />
     </div>
   );
 }

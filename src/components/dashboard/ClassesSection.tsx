@@ -19,7 +19,6 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
   onChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { dialogState, showAlert, showConfirm } = useDialog();
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -103,18 +102,6 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
           </div>
         </div>
       )}
-
-      {/* Custom Dialog Modal */}
-      <CustomDialogModal
-        isOpen={dialogState.isOpen}
-        type={dialogState.type}
-        title={dialogState.title}
-        message={dialogState.message}
-        confirmText={dialogState.confirmText}
-        cancelText={dialogState.cancelText}
-        onConfirm={dialogState.onConfirm}
-        onCancel={dialogState.onCancel}
-      />
     </div>
   );
 };
@@ -148,6 +135,7 @@ export default function ClassesSection({
   setSubjects,
   initialTab,
 }: ClassesSectionProps) {
+  const { dialogState, showAlert, showConfirm } = useDialog();
   // Navigation
   const [classDetailsTab, setClassDetailsTab] = useState<"students" | "teachers" | "parents" | "schedule">(initialTab || "students");
 
@@ -3907,6 +3895,18 @@ export default function ClassesSection({
           </div>
         </div>
       )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </>
   );
 }

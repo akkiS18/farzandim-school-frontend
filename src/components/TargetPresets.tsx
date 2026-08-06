@@ -226,7 +226,9 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
       if (res.ok) {
         if (selectedPresetId === id) {
           setSelectedPresetId("");
-          onChange?.([]);
+          onLevelsChange([]);
+          onClassesChange([]);
+          onStudentsChange([]);
         }
         setPresets((prev) => prev.filter((p) => p.id !== id));
         setFeedbackMsg({ text: "To'plam o'chirildi", type: "success" });

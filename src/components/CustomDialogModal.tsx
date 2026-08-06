@@ -10,7 +10,7 @@ export interface CustomDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel?: () => void;
 }
 
@@ -21,7 +21,7 @@ export default function CustomDialogModal({
   message,
   confirmText,
   cancelText = "Bekor qilish",
-  onConfirm,
+  onConfirm = () => {},
   onCancel,
 }: CustomDialogProps) {
   if (!isOpen) return null;

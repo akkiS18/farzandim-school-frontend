@@ -30,7 +30,6 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
   hintText,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { dialogState, showAlert, showConfirm } = useDialog();
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -229,6 +228,7 @@ export default function BalanceSection({
   globalTransactionsLoading,
   setGlobalTransactionsLoading,
 }: BalanceSectionProps) {
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [balanceActiveSubTab, setBalanceActiveSubTab] = useState<"balances" | "plans" | "transactions">("balances");
 
   // Modals visibility & Form states

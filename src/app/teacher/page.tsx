@@ -1378,8 +1378,6 @@ export default function TeacherDashboard() {
       },
     });
   };
-    }
-  };
 
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3814,11 +3812,26 @@ export default function TeacherDashboard() {
                               if (toRemove) {
                                 const found = customCols.find(c => c.name.toLowerCase() === toRemove.trim().toLowerCase());
                                 if (found) {
-                                  if (confirm(`Haqiqatan ham "${found.name}" ustunini o'chirmoqchimisiz?`)) {
-                                    handleRemoveJournalColumn(found.id);
-                                  }
+                                  setTeacherDialog({
+                                    isOpen: true,
+                                    type: "danger",
+                                    title: "Ustunni o'chirish",
+                                    message: `Haqiqatan ham "${found.name}" ustunini o'chirmoqchimisiz?`,
+                                    confirmText: "Ha, o'chirish",
+                                    onConfirm: () => {
+                                      setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+                                      handleRemoveJournalColumn(found.id);
+                                    },
+                                  });
                                 } else {
-                                  alert("Bunday baholash turi topilmadi.");
+                                  setTeacherDialog({
+                                    isOpen: true,
+                                    type: "alert",
+                                    title: "Topilmadi",
+                                    message: "Bunday baholash turi topilmadi.",
+                                    confirmText: "OK",
+                                    onConfirm: () => setTeacherDialog((prev) => ({ ...prev, isOpen: false })),
+                                  });
                                 }
                               }
                             }}
