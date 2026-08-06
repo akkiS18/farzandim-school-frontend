@@ -15,6 +15,8 @@ import {
   Filter,
   Bookmark,
   Sparkles,
+  Cloud,
+  Server,
 } from "lucide-react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
@@ -37,6 +39,44 @@ interface BooksSectionProps {
   API_URL: string;
 }
 
+const DefaultBookCover: React.FC<{ title: string; author?: string }> = ({ title, author }) => (
+  <div className="w-full h-full bg-gradient-to-br from-[#1D1E26] via-slate-800 to-[#1D1E26] p-4 flex flex-col justify-between relative overflow-hidden select-none">
+    <div className="absolute -right-4 -bottom-4 opacity-10 pointer-events-none">
+      <BookOpen className="w-28 h-28 text-white" />
+    </div>
+    <div className="w-8 h-8 rounded-xl bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-bold shadow-2xs">
+      <BookOpen className="w-4 h-4" />
+    </div>
+    <div className="relative z-10">
+      <p className="text-white font-extrabold text-xs sm:text-sm line-clamp-2 leading-snug drop-shadow-xs">
+        {title}
+      </p>
+      {author && (
+        <p className="text-slate-400 text-[10px] font-semibold mt-1 truncate">
+          {author}
+        </p>
+      )}
+    </div>
+  </div>
+);
+
+const BookCoverItem: React.FC<{ coverUrl?: string; title: string; author?: string; getFullUrl: (url: string) => string }> = ({ coverUrl, title, author, getFullUrl }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!coverUrl || imgError) {
+    return <DefaultBookCover title={title} author={author} />;
+  }
+
+  return (
+    <img
+      src={getFullUrl(coverUrl)}
+      alt={title}
+      onError={() => setImgError(true)}
+      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+    />
+  );
+};
+
 export default function BooksSection({ token, API_URL }: BooksSectionProps) {
   const { dialogState, showAlert, showConfirm } = useDialog();
 
@@ -45,9 +85,16 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
   const [search, setSearch] = useState("");
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<number | "ALL">("ALL");
 
-  // Modal States
+  // Modal & Notification States
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBook, setEditingBook] = useState<BookItem | null>(null);
+  const [formError, setFormError] = useState("");
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (text: string, type: "success" | "error" = "success") => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   // Form States
   const [title, setTitle] = useState("");
@@ -137,10 +184,10 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
           setCoverUrl(data.url);
         }
       } else {
-        showAlert(data.error || "Faylni yuklashda xatolik");
+        setFormError(data.error || "Faylni yuklashda xatolik");
       }
     } catch {
-      showAlert("Fayl yuklashda server xatoligi");
+      setFormError("Fayl yuklashda server xatoligi");
     } finally {
       if (type === "file") setUploadingFile(false);
       else setUploadingCover(false);
@@ -156,6 +203,7 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
     setFileSize("");
     setCoverUrl("");
     setTargetLevels([]);
+    setFormError("");
     setShowAddModal(true);
   };
 
@@ -168,13 +216,15 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
     setFileSize(book.file_size || "");
     setCoverUrl(book.cover_url || "");
     setTargetLevels(book.target_levels || []);
+    setFormError("");
     setShowAddModal(true);
   };
 
   const handleSaveBook = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
     if (!title.trim() || !fileUrl.trim()) {
-      showAlert("Iltimos, sarlavha va elektron faylni yuklang!");
+      setFormError("Iltimos, sarlavha va elektron faylni yuklang!");
       return;
     }
 
@@ -204,18 +254,19 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
 
       const data = await res.json();
       if (res.ok) {
-        showAlert(
+        showToast(
           editingBook
             ? "Kitob muvaffaqiyatli tahrirlandi!"
-            : "Yangi kitob kutubxonaga qo'shildi!"
+            : "Yangi kitob kutubxonaga qo'shildi!",
+          "success"
         );
         setShowAddModal(false);
         fetchBooks();
       } else {
-        showAlert(data.error || "Kitobni saqlashda xatolik yuz berdi");
+        setFormError(data.error || data.details || "Kitobni saqlashda xatolik yuz berdi");
       }
     } catch {
-      showAlert("Server bilan bog'lanishda xatolik");
+      setFormError("Server bilan bog'lanishda xatolik");
     } finally {
       setSubmitting(false);
     }
@@ -288,8 +339,29 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
     return `${API_URL}${url}`;
   };
 
+  // Esc key listener for modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showAddModal) {
+        setShowAddModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showAddModal]);
+
   return (
-    <div className="space-y-6 font-sans text-[#1D1E26] select-none">
+    <div className="space-y-6 font-sans text-[#1D1E26] select-none relative">
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border font-bold text-xs flex items-center gap-2 animate-fadeIn ${
+          toastMessage.type === "success" ? "bg-[#1D1E26] text-white border-slate-700" : "bg-red-600 text-white border-red-700"
+        }`}>
+          <span className="w-2 h-2 rounded-full bg-[#D4F562]"></span>
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
       {/* Header Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -381,18 +453,12 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
             >
               {/* Cover Image Header */}
               <div className="relative h-48 bg-slate-100 overflow-hidden flex items-center justify-center">
-                {book.cover_url ? (
-                  <img
-                    src={getFullUrl(book.cover_url)}
-                    alt={book.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                    <BookOpen className="w-12 h-12 mb-2 text-slate-300" />
-                    <span className="text-xs font-medium line-clamp-1">{book.title}</span>
-                  </div>
-                )}
+                <BookCoverItem
+                  coverUrl={book.cover_url}
+                  title={book.title}
+                  author={book.author}
+                  getFullUrl={getFullUrl}
+                />
                 {/* Levels Tag */}
                 <div className="absolute top-3 left-3 flex flex-wrap gap-1">
                   {book.target_levels && book.target_levels.length > 0 ? (
@@ -412,6 +478,27 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
                   {book.target_levels && book.target_levels.length > 3 && (
                     <span className="bg-[#ECFCCA] text-[#1D1E26] border border-lime-300 text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
                       +{book.target_levels.length - 3}
+                    </span>
+                  )}
+                </div>
+
+                {/* Storage Provider Badge (Cloud vs Server) */}
+                <div className="absolute top-3 right-3">
+                  {book.file_url && (book.file_url.startsWith("http://") || book.file_url.startsWith("https://")) ? (
+                    <span
+                      className="inline-flex items-center gap-1 bg-[#1D1E26]/90 backdrop-blur-xs text-[#D4F562] text-[10px] font-black px-2 py-0.5 rounded-lg border border-slate-700 shadow-2xs"
+                      title="Cloudflare R2 Bulutida saqlangan"
+                    >
+                      <Cloud className="w-3 h-3 text-[#D4F562]" />
+                      <span>Cloud</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 bg-slate-900/90 backdrop-blur-xs text-sky-300 text-[10px] font-black px-2 py-0.5 rounded-lg border border-slate-700 shadow-2xs"
+                      title="Server diskida saqlangan"
+                    >
+                      <Server className="w-3 h-3 text-sky-300" />
+                      <span>Server</span>
                     </span>
                   )}
                 </div>
@@ -550,7 +637,14 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
 
       {/* Add / Edit Book Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddModal(false);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+        >
           <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 relative flex flex-col max-h-[90vh] my-auto overflow-hidden">
             {/* Modal Header */}
             <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
@@ -578,6 +672,20 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
             {/* Modal Form Body & Actions */}
             <form onSubmit={handleSaveBook} className="flex flex-col min-h-0 flex-1">
               <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Form Error Banner */}
+                {formError && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs font-bold flex items-center justify-between animate-fadeIn">
+                    <span>{formError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormError("")}
+                      className="text-red-500 hover:text-red-800 p-1 rounded-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 {/* Title */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">

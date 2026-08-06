@@ -3587,16 +3587,28 @@ export default function ParentDashboard() {
                           }}
                         >
                           {/* Cover header */}
-                          <div style={{ height: "160px", backgroundColor: "#F3F4F6", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ height: "160px", backgroundColor: "#1D1E26", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {coverFullUrl ? (
                               <img src={coverFullUrl} alt={b.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             ) : (
-                              <div style={{ textAlign: "center", padding: "16px", color: "#9CA3AF" }}>
-                                <div style={{ fontSize: "40px", marginBottom: "4px" }}>📚</div>
+                              <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #1D1E26 0%, #374151 100%)", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
+                                <div style={{ width: "32px", height: "32px", borderRadius: "10px", backgroundColor: "#D4F562", color: "#1D1E26", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "16px" }}>
+                                  📚
+                                </div>
+                                <div>
+                                  <p style={{ color: "#FFFFFF", fontSize: "12px", fontWeight: 800, margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                    {b.title}
+                                  </p>
+                                  {b.author && (
+                                    <p style={{ color: "#9CA3AF", fontSize: "10px", fontWeight: 600, margin: "2px 0 0 0" }}>
+                                      {b.author}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             )}
-                            <div style={{ position: "absolute", top: "10px", left: "10px" }}>
-                              <span style={{ backgroundColor: "rgba(15,23,42,0.8)", color: "#FFFFFF", fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "6px" }}>
+                            <div style={{ position: "absolute", top: "10px", left: "10px", zIndex: 10 }}>
+                              <span style={{ backgroundColor: "#ECFCCA", color: "#1D1E26", border: "1px solid #BEF264", fontSize: "10px", fontWeight: 800, padding: "2px 8px", borderRadius: "6px" }}>
                                 {b.target_levels && b.target_levels.length > 0 ? `${b.target_levels.join(", ")}-sinf` : "Barcha sinflar"}
                               </span>
                             </div>
