@@ -1201,6 +1201,7 @@ export default function ParentDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("school_token");
+    localStorage.removeItem("school_refresh_token");
     localStorage.removeItem("school_id");
     localStorage.removeItem("school_user");
     router.push("/login");

@@ -33,11 +33,13 @@ export default function TenantLoginPage() {
           return;
         } else {
           localStorage.removeItem("school_token");
+          localStorage.removeItem("school_refresh_token");
           localStorage.removeItem("school_user");
           localStorage.removeItem("school_id");
         }
       } catch (e) {
         localStorage.removeItem("school_token");
+        localStorage.removeItem("school_refresh_token");
         localStorage.removeItem("school_user");
         localStorage.removeItem("school_id");
       }
@@ -70,8 +72,11 @@ export default function TenantLoginPage() {
         throw new Error("O'quvchilar uchun tizimga kirish taqiqlangan");
       }
 
-      // Save token, user details, and school ID
+      // Save token, refresh_token, user details, and school ID
       localStorage.setItem("school_token", data.token);
+      if (data.refresh_token) {
+        localStorage.setItem("school_refresh_token", data.refresh_token);
+      }
       localStorage.setItem("school_id", data.user.school_id);
       localStorage.setItem("school_user", JSON.stringify(data.user));
 

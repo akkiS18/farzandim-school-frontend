@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Users, Pencil, Trash2, UserMinus } from "lucide-react";
+import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft } from "lucide-react";
+import TransferStudentsModal from "./TransferStudentsModal";
 import DateRangePresets from "../DateRangePresets";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
 
@@ -201,6 +202,7 @@ export default function ClassesSection({
   const [editStudentINA, setEditStudentINA] = useState("");
 
   const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
+  const [showTransferStudentsModal, setShowTransferStudentsModal] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<number | null>(null);
 
   const [classStudentsPage, setClassStudentsPage] = useState(1);
@@ -1285,6 +1287,15 @@ export default function ClassesSection({
                 <h3 className="text-base font-black text-[#1D1E26]">O'quvchilar ro'yxati</h3>
                 
                 <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowTransferStudentsModal(true)}
+                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ArrowRightLeft className="w-4 h-4" />
+                    <span>Sinfga Ko'chirish</span>
+                  </button>
+
                   {userInfo?.role === "ADMIN" && (
                     <button
                       onClick={() => setShowImportStudentsModal(true)}
@@ -3906,6 +3917,19 @@ export default function ClassesSection({
         cancelText={dialogState.cancelText}
         onConfirm={dialogState.onConfirm}
         onCancel={dialogState.onCancel}
+      />
+
+      {/* Transfer Students Modal */}
+      <TransferStudentsModal
+        isOpen={showTransferStudentsModal}
+        onClose={() => setShowTransferStudentsModal(false)}
+        sourceClassId={selectedClass?.id}
+        sourceClassName={selectedClass?.name}
+        allClasses={classes}
+        allStudents={classStudents}
+        onSuccess={() => {
+          fetchClassStudents();
+        }}
       />
     </>
   );

@@ -18,6 +18,7 @@ import FeedbackSection from "@/components/dashboard/FeedbackSection";
 import HolidaysSection from "@/components/dashboard/HolidaysSection";
 import ScheduleOverviewSection from "@/components/dashboard/ScheduleOverviewSection";
 import BooksSection from "@/components/dashboard/BooksSection";
+import LibrarySection from "@/components/dashboard/LibrarySection";
 
 // Types
 import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/components/dashboard/types";
@@ -311,6 +312,7 @@ export default function TenantDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("school_token");
+    localStorage.removeItem("school_refresh_token");
     localStorage.removeItem("school_id");
     localStorage.removeItem("school_user");
     router.push("/login");
@@ -465,10 +467,7 @@ export default function TenantDashboard() {
           )}
 
           {activeMenu === "books" && (
-            <BooksSection
-              token={token}
-              API_URL={API_URL}
-            />
+            <LibrarySection />
           )}
 
           {activeMenu === "feedback" && (

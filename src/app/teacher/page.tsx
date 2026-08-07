@@ -7,10 +7,12 @@ import { useRouter } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import SmartCalendarModal from "@/components/SmartCalendarModal";
 import CustomDialogModal from "@/components/CustomDialogModal";
+import LibrarySection from "@/components/dashboard/LibrarySection";
 import DateRangePresets from "@/components/DateRangePresets";
 import {
   LayoutDashboard,
   BookOpen,
+  BookMarked,
   Calendar,
   Users,
   UserCheck,
@@ -41,8 +43,11 @@ import {
   Pencil,
   Trash2,
   UserMinus,
-  Utensils
+  Utensils,
+  ArrowRightLeft,
 } from "lucide-react";
+
+import TransferStudentsModal from "@/components/dashboard/TransferStudentsModal";
 
 interface UserInfo {
   id: number;
@@ -117,8 +122,8 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs"
-  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs">("dashboard");
+  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books"
+  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books">("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Default collapsed (icon-only mode)
 
@@ -256,6 +261,94 @@ export default function TeacherDashboard() {
   const [newScheduleDay, setNewScheduleDay] = useState<number>(1);
   const [newScheduleStartTime, setNewScheduleStartTime] = useState("14:00");
   const [newScheduleEndTime, setNewScheduleEndTime] = useState("15:30");
+
+  const [showClubGradingModal, setShowClubGradingModal] = useState(false);
+  const [selectedClubForGrading, setSelectedClubForGrading] = useState<any>(null);
+  const [clubGradingDate, setClubGradingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [clubGradingStudents, setClubGradingStudents] = useState<any[]>([]);
+  const [clubGradingLoading, setClubGradingLoading] = useState(false);
+  const [savingClubGrades, setSavingClubGrades] = useState(false);
+
+  const fetchClubStudentsAndGrades = async (clubId: number, dateStr: string) => {
+    setClubGradingLoading(true);
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const [stRes, grRes] = await Promise.all([
+        fetch(`${API_URL}/api/schools/clubs/${clubId}/students`, { headers }),
+        fetch(`${API_URL}/api/schools/clubs/${clubId}/grades?date=${dateStr}`, { headers }),
+      ]);
+
+      const stData = await stRes.json();
+      const grData = await grRes.json();
+
+      const approvedStudents = Array.isArray(stData) ? stData.filter((s: any) => s.status === "APPROVED") : [];
+      const existingGrades = Array.isArray(grData) ? grData : [];
+
+      const gradesMap = new Map();
+      existingGrades.forEach((g: any) => gradesMap.set(g.student_id, g));
+
+      const combinedList = approvedStudents.map((st: any) => {
+        const existing = gradesMap.get(st.student_id);
+        return {
+          student_id: st.student_id,
+          student_name: st.student_name,
+          class_name: st.class_name,
+          attendance: existing ? existing.attendance : "PRESENT",
+          score_value: existing ? existing.score_value : "",
+          feedback: existing ? existing.feedback : "",
+        };
+      });
+
+      setClubGradingStudents(combinedList);
+    } catch (err) {
+      console.error("Failed to load club grading data:", err);
+    } finally {
+      setClubGradingLoading(false);
+    }
+  };
+
+  const handleSaveClubGradesBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClubForGrading) return;
+    setSavingClubGrades(true);
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const payload = {
+        lesson_date: clubGradingDate,
+        grades: clubGradingStudents.map((st) => ({
+          student_id: st.student_id,
+          attendance: st.attendance,
+          score_value: st.score_value,
+          feedback: st.feedback,
+        })),
+      };
+
+      const res = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForGrading.id}/grades`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Baholarni saqlashda xatolik");
+
+      setToast({ message: "To'garak mashg'uloti baholari va davomati muvaffaqiyatli saqlandi!", type: "success" });
+      setShowClubGradingModal(false);
+    } catch (err: any) {
+      setToast({ message: err.message || "Xatolik yuz berdi", type: "error" });
+    } finally {
+      setSavingClubGrades(false);
+    }
+  };
 
   const fetchClubs = async (authToken: string) => {
     setClubsLoading(true);
@@ -1194,6 +1287,7 @@ export default function TeacherDashboard() {
             setSelectedSubjectId(currentCls.subject_id ?? "");
           }
         }
+        fetchSchedulePeriods();
       }
     } catch (e) {
       console.error(e);
@@ -2953,9 +3047,11 @@ export default function TeacherDashboard() {
   };
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("school_token");
+    localStorage.removeItem("school_refresh_token");
     localStorage.removeItem("school_id");
     localStorage.removeItem("school_user");
     router.push("/login");
@@ -3181,6 +3277,7 @@ export default function TeacherDashboard() {
                   { id: "feedback", label: "Izoh va Fikrlar", icon: MessageSquare },
                   { id: "announcements", label: "E'lonlar", icon: Megaphone },
                   { id: "clubs", label: "To'garaklar", icon: Sparkles },
+                  { id: "books", label: "Kitobxonlik", icon: BookMarked },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = teacherTab === item.id;
@@ -4156,8 +4253,46 @@ export default function TeacherDashboard() {
                       </p>
                     </div>
 
-                    {/* Quick Header Action Button for Daily Exceptions */}
+                    {/* Quick Header Action Buttons */}
                     <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-2">
+                      {selectedClassId && (isMainTeacherOfClass() || userInfo?.role === "ADMIN") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const initialFormState: { [key: string]: number } = {};
+                            for (let d = 1; d <= 6; d++) {
+                              for (let l = 1; l <= 8; l++) {
+                                initialFormState[`${d}-${l}`] = 0;
+                              }
+                            }
+                            classSchedule.forEach((item) => {
+                              if (item.subject_id > 0) {
+                                initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
+                              }
+                            });
+                            setActionError("");
+
+                            if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
+                              setScheduleStartDate(classSchedule[0].start_date);
+                              setScheduleEndDate(classSchedule[0].end_date);
+                            } else {
+                              const todayStr = new Date().toISOString().split("T")[0];
+                              setScheduleStartDate(todayStr);
+                              const nextYear = new Date();
+                              nextYear.setFullYear(nextYear.getFullYear() + 1);
+                              setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                            }
+
+                            setShowEditScheduleModal(true);
+                          }}
+                          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs hover:scale-105"
+                          title="Sinf haftalik dars jadvalini tahrirlash"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-white" />
+                          <span>Jadvalni tahrirlash</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -4170,6 +4305,71 @@ export default function TeacherDashboard() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Schedule Periods / Quarters Filter Bar */}
+                  {selectedClassId && (
+                    <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/80 border border-indigo-100 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-extrabold text-[#16193E] uppercase font-mono tracking-wider flex items-center gap-1.5 shrink-0">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Dars Jadvali Davrlari (Choraklar):</span>
+                        </span>
+
+                        {schedulePeriods.length === 0 ? (
+                          <span className="text-xs text-zinc-500 font-medium italic">Hali davrlar belgilanmagan</span>
+                        ) : (
+                          schedulePeriods.map((period: any, pIdx: number) => {
+                            const isCurrentActive = scheduleViewDate >= period.start_date && scheduleViewDate <= period.end_date;
+                            return (
+                              <button
+                                key={pIdx}
+                                type="button"
+                                onClick={() => {
+                                  setScheduleViewDate(period.start_date);
+                                  fetchClassSchedule(period.start_date);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                                  isCurrentActive
+                                    ? "bg-[#5B50EC] text-white shadow-xs scale-105"
+                                    : "bg-white text-zinc-700 hover:bg-zinc-100 border border-zinc-200"
+                                }`}
+                              >
+                                <span>{pIdx + 1}-chorak/davr:</span>
+                                <span className="font-mono text-[11px]">{period.start_date} — {period.end_date}</span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {(isMainTeacherOfClass() || userInfo?.role === "ADMIN") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const initialFormState: { [key: string]: number } = {};
+                            for (let d = 1; d <= 6; d++) {
+                              for (let l = 1; l <= 8; l++) {
+                                initialFormState[`${d}-${l}`] = 0;
+                              }
+                            }
+                            setScheduleFormState(initialFormState);
+                            setActionError("");
+                            const todayStr = new Date().toISOString().split("T")[0];
+                            setScheduleStartDate(todayStr);
+                            const nextYear = new Date();
+                            nextYear.setFullYear(nextYear.getFullYear() + 1);
+                            setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                            setShowEditScheduleModal(true);
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] py-1.5 px-3 rounded-xl transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-1"
+                          title="Yangi chorak yoki vaqt oralig'i dars jadvalini qo'shish"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Yangi Davr Jadvali Qo'shish</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {!selectedClassId ? (
                     /* OVERALL TEACHER SCHEDULE VIEW */
@@ -4428,6 +4628,16 @@ export default function TeacherDashboard() {
                           className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-32 sm:w-44 transition-all"
                         />
                       </div>
+
+                      <button
+                        type="button"
+                        title="O'quvchilarni sinfdan sinfga ko'chirish"
+                        onClick={() => setShowTransferModal(true)}
+                        className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      >
+                        <ArrowRightLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">Sinfga Ko'chirish</span>
+                      </button>
 
                       <button
                         type="button"
@@ -5388,19 +5598,33 @@ export default function TeacherDashboard() {
                               <Users className="w-4 h-4" />
                             </button>
                             <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedClubForSchedule(club);
-                                setNewScheduleDay(1);
-                                setNewScheduleStartTime("14:00");
-                                setNewScheduleEndTime("15:30");
-                                setShowAddScheduleModal(true);
-                              }}
-                              className="p-2 sm:p-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                              title="Jadval qo'shish"
-                            >
-                              <Calendar className="w-4 h-4" />
-                            </button>
+                               type="button"
+                               onClick={() => {
+                                 setSelectedClubForSchedule(club);
+                                 setNewScheduleDay(1);
+                                 setNewScheduleStartTime("14:00");
+                                 setNewScheduleEndTime("15:30");
+                                 setShowAddScheduleModal(true);
+                               }}
+                               className="p-2 sm:p-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                               title="Jadval qo'shish"
+                             >
+                               <Calendar className="w-4 h-4" />
+                             </button>
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 setSelectedClubForGrading(club);
+                                 const today = new Date().toISOString().split("T")[0];
+                                 setClubGradingDate(today);
+                                 fetchClubStudentsAndGrades(club.id, today);
+                                 setShowClubGradingModal(true);
+                               }}
+                               className="p-2 sm:p-2.5 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 text-purple-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                               title="Mashg'ulot Jurnali & Baholash"
+                             >
+                               <Award className="w-4 h-4 text-purple-600" />
+                             </button>
                           </div>
                         </div>
 
@@ -5442,6 +5666,9 @@ export default function TeacherDashboard() {
                 )}
               </div>
             )}
+
+            {/* TAB CONTENT: Library & Reading Assignments */}
+            {teacherTab === "books" && <LibrarySection />}
         </main>
       </div>
 
@@ -5858,11 +6085,30 @@ export default function TeacherDashboard() {
       {renderImportParentsModal()}
       {renderImportStudentsModal()}
       {renderAddParentModal()}
+      {renderClubGradingModal()}
+      {renderLogoutModal()}
+      {renderTeacherDialogModal()}
       {renderAddClubModal()}
       {renderEditClubModal()}
       {renderAddScheduleModal()}
       {renderClubStudentsModal()}
       {renderGradeCommentModal()}
+
+      {/* BATCH STUDENT TRANSFER MODAL */}
+      <TransferStudentsModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        sourceClassId={selectedClassId ? Number(selectedClassId) : undefined}
+        sourceClassName={classes.find((c: any) => c.id === Number(selectedClassId))?.name}
+        lockSourceClass={true}
+        allClasses={classes}
+        allStudents={allStudents}
+        onSuccess={() => {
+          if (token && schoolId) {
+            loadInitialData(token, schoolId);
+          }
+        }}
+      />
 
       <SmartCalendarModal
         isOpen={isTeacherCalendarOpen}
@@ -7070,36 +7316,209 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             </form>
-
-            {/* LOGOUT CONFIRMATION MODAL */}
-            <CustomDialogModal
-              isOpen={showLogoutModal}
-              type="danger"
-              title="Tizimdan chiqish"
-              message="Haqiqatan ham o'qituvchi portalidan chiqmoqchimisiz?"
-              confirmText="Ha, chiqish"
-              cancelText="Bekor qilish"
-              onConfirm={() => {
-                setShowLogoutModal(false);
-                handleLogout();
-              }}
-              onCancel={() => setShowLogoutModal(false)}
-            />
-
-            {/* TEACHER GENERAL CONFIRM DIALOG */}
-            <CustomDialogModal
-              isOpen={teacherDialog.isOpen}
-              type={teacherDialog.type}
-              title={teacherDialog.title}
-              message={teacherDialog.message}
-              confirmText={teacherDialog.confirmText}
-              cancelText="Bekor qilish"
-              onConfirm={teacherDialog.onConfirm}
-              onCancel={() => setTeacherDialog((prev) => ({ ...prev, isOpen: false }))}
-            />
           </div>
         </div>
       </div>
+    );
+  }
+
+  function renderClubGradingModal() {
+    if (!showClubGradingModal || !selectedClubForGrading) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-fadeIn">
+        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="px-6 py-4 bg-[#16193E] text-white flex items-center justify-between shrink-0">
+            <div>
+              <h3 className="text-base font-extrabold flex items-center gap-2">
+                <Award className="w-5 h-5 text-purple-400" />
+                <span>To'garak Mashg'uloti Jurnali va Baholash</span>
+              </h3>
+              <p className="text-xs text-zinc-400 font-medium">{selectedClubForGrading.name} ({selectedClubForGrading.subject_name})</p>
+            </div>
+            <button onClick={() => setShowClubGradingModal(false)} className="text-zinc-400 hover:text-white cursor-pointer text-xl font-bold">&times;</button>
+          </div>
+
+          <form onSubmit={handleSaveClubGradesBatch} className="p-6 overflow-y-auto space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-purple-50/60 border border-purple-200/60 p-4 rounded-2xl">
+              <div>
+                <label className="block text-xs font-bold text-purple-950 uppercase tracking-wider mb-1">
+                  Mashg'ulot Sanasi *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={clubGradingDate}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setClubGradingDate(newDate);
+                    fetchClubStudentsAndGrades(selectedClubForGrading.id, newDate);
+                  }}
+                  className="px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-extrabold text-purple-950 outline-none"
+                />
+              </div>
+              <span className="text-xs text-purple-800 font-medium max-w-xs">
+                Sana bo'yicha o'quvchilarning davomatini va ball/bahosini kiritib saqlashingiz mumkin.
+              </span>
+            </div>
+
+            {clubGradingLoading ? (
+              <div className="text-center py-12">
+                <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-xs text-zinc-400 font-mono">Mashg'ulot jurnali yuklanmoqda...</p>
+              </div>
+            ) : clubGradingStudents.length === 0 ? (
+              <div className="p-8 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl text-zinc-400 text-xs font-medium">
+                To'garakda hali rasman tasdiqlangan o'quvchilar yo'q. Avval "A'zolar & So'rovlar" bo'limidan o'quvchilarni qo'shing.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-zinc-200 rounded-2xl">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-700 font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="p-3">O'quvchi (Sinf)</th>
+                      <th className="p-3 text-center">Davomat</th>
+                      <th className="p-3 w-32">Baho / Ball</th>
+                      <th className="p-3">O'qituvchi Izohi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 bg-white">
+                    {clubGradingStudents.map((st, idx) => (
+                      <tr key={st.student_id} className="hover:bg-purple-50/30 transition">
+                        <td className="p-3 font-bold text-zinc-900">
+                          {st.student_name}
+                          <span className="block text-[10px] text-zinc-400 font-medium">{st.class_name}</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setClubGradingStudents((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, attendance: "PRESENT" } : item))
+                                );
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                                st.attendance === "PRESENT" ? "bg-emerald-600 text-white shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
+                              }`}
+                            >
+                              Keldi
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setClubGradingStudents((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, attendance: "ABSENT" } : item))
+                                );
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                                st.attendance === "ABSENT" ? "bg-rose-600 text-white shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
+                              }`}
+                            >
+                              Kelmadi
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setClubGradingStudents((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, attendance: "EXCUSED" } : item))
+                                );
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                                st.attendance === "EXCUSED" ? "bg-amber-500 text-white shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
+                              }`}
+                            >
+                              Sababli
+                            </button>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="text"
+                            placeholder="5"
+                            value={st.score_value}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setClubGradingStudents((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, score_value: val } : item))
+                              );
+                            }}
+                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-black text-zinc-900 outline-none focus:border-purple-600"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="text"
+                            placeholder="Mashg'ulot izohi..."
+                            value={st.feedback}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setClubGradingStudents((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, feedback: val } : item))
+                              );
+                            }}
+                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-800 outline-none focus:border-purple-600"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setShowClubGradingModal(false)}
+                className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="submit"
+                disabled={savingClubGrades || clubGradingStudents.length === 0}
+                className="px-5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingClubGrades && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>}
+                <span>Mashg'ulot Baholarini Saqlash</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  function renderLogoutModal() {
+    return (
+      <CustomDialogModal
+        isOpen={showLogoutModal}
+        type="danger"
+        title="Tizimdan chiqish"
+        message="Haqiqatan ham o'qituvchi portalidan chiqmoqchimisiz?"
+        confirmText="Ha, chiqish"
+        cancelText="Bekor qilish"
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        onCancel={() => setShowLogoutModal(false)}
+      />
+    );
+  }
+
+  function renderTeacherDialogModal() {
+    return (
+      <CustomDialogModal
+        isOpen={teacherDialog.isOpen}
+        type={teacherDialog.type}
+        title={teacherDialog.title}
+        message={teacherDialog.message}
+        confirmText={teacherDialog.confirmText}
+        cancelText="Bekor qilish"
+        onConfirm={teacherDialog.onConfirm}
+        onCancel={() => setTeacherDialog((prev) => ({ ...prev, isOpen: false }))}
+      />
     );
   }
 
