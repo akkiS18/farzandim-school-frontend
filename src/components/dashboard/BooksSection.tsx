@@ -28,6 +28,8 @@ export interface BookItem {
   description: string;
   cover_url: string;
   file_url: string;
+  download_link?: string;
+  location_in_school?: string;
   file_size: string;
   target_levels: number[];
   class_ids: number[];
@@ -524,15 +526,22 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
 
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    <a
-                      href={getFullUrl(book.file_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 bg-[#ECFCCA] hover:bg-[#D4F562] text-[#1D1E26] font-extrabold border border-lime-300 text-xs px-3 py-2 rounded-xl transition cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>O'qish {book.file_size && `(${book.file_size})`}</span>
-                    </a>
+                    {(() => {
+                      const bookLink = (book.download_link || book.file_url || "").trim();
+                      const fullUrl = getFullUrl(bookLink);
+                      if (!fullUrl) return null;
+                      return (
+                        <a
+                          href={fullUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 bg-[#ECFCCA] hover:bg-[#D4F562] text-[#1D1E26] font-extrabold border border-lime-300 text-xs px-3 py-2 rounded-xl transition cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>O'qish {book.file_size && `(${book.file_size})`}</span>
+                        </a>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-1">

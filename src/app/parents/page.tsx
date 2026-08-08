@@ -3571,8 +3571,9 @@ export default function ParentDashboard() {
                 ) : (
                   <div className="diary-grid">
                     {parentBooks.map((b: any) => {
-                      const bookFullUrl = b.file_url ? (b.file_url.startsWith("http") ? b.file_url : `${API_URL}${b.file_url}`) : "#";
-                      const coverFullUrl = b.cover_url ? (b.cover_url.startsWith("http") ? b.cover_url : `${API_URL}${b.cover_url}`) : "";
+                      const rawLink = (b.download_link || b.file_url || "").trim();
+                      const bookFullUrl = rawLink ? (rawLink.startsWith("http://") || rawLink.startsWith("https://") ? rawLink : `${API_URL}${rawLink}`) : "";
+                      const coverFullUrl = b.cover_url ? (b.cover_url.startsWith("http://") || b.cover_url.startsWith("https://") ? b.cover_url : `${API_URL}${b.cover_url}`) : "";
 
                       return (
                         <div
@@ -3633,29 +3634,37 @@ export default function ParentDashboard() {
                               )}
                             </div>
 
-                            <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                              <a
-                                href={bookFullUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  backgroundColor: ACCENT,
-                                  color: "#FFFFFF",
-                                  fontSize: "11px",
-                                  fontWeight: 700,
-                                  padding: "8px 14px",
-                                  borderRadius: "10px",
-                                  textDecoration: "none",
-                                  boxShadow: "0 2px 6px rgba(79,70,229,0.2)",
-                                }}
-                              >
-                                <span>Yuklab olish / O'qish (PDF)</span>
-                                {b.file_size && <span style={{ opacity: 0.8, fontSize: "10px" }}>({b.file_size})</span>}
-                              </a>
-                            </div>
+                            {(bookFullUrl || b.location_in_school) && (
+                              <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                {bookFullUrl ? (
+                                  <a
+                                    href={bookFullUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "6px",
+                                      backgroundColor: ACCENT,
+                                      color: "#FFFFFF",
+                                      fontSize: "11px",
+                                      fontWeight: 700,
+                                      padding: "8px 14px",
+                                      borderRadius: "10px",
+                                      textDecoration: "none",
+                                      boxShadow: "0 2px 6px rgba(79,70,229,0.2)",
+                                    }}
+                                  >
+                                    <span>Yuklab olish / O'qish (PDF)</span>
+                                    {b.file_size && <span style={{ opacity: 0.8, fontSize: "10px" }}>({b.file_size})</span>}
+                                  </a>
+                                ) : b.location_in_school ? (
+                                  <span style={{ fontSize: "11px", color: TEXT_MUTED, fontWeight: 600 }}>
+                                    📍 Kutubxonada: {b.location_in_school}
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
