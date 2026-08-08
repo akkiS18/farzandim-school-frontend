@@ -7075,7 +7075,7 @@ export default function TeacherDashboard() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleAddDirectStudent(st.id || st.student_id)}
+                        onClick={() => handleAddDirectStudent(st.student_id || st.id)}
                         className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-[10px] py-1 px-3 rounded-lg transition cursor-pointer shadow-xs"
                       >
                         + Qo'shish
