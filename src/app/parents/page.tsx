@@ -1655,6 +1655,15 @@ export default function ParentDashboard() {
             >
               <TabIconClubs size={20} />
             </button>
+
+            {/* 8. Kitobxonlik */}
+            <button
+              className={`sidebar-btn${activeTab === "home" && activeSubTab === "books" ? " active" : ""}`}
+              onClick={() => { setActiveTab("home"); setActiveSubTab("books"); }}
+              title="Kitobxonlik"
+            >
+              <TabIconBooks size={20} />
+            </button>
           </div>
 
           {/* 3. Bottom Settings & Logout Card */}
@@ -1709,9 +1718,9 @@ export default function ParentDashboard() {
               flexWrap: "wrap",
             }}
           >
-            {/* Left: Mobile Logo + Balance Card + Child Switcher */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              {/* Mobile Brand Site Logo & Menu Trigger (Only displayed on screens <= 767px) */}
+            {/* Left: Mobile Logo */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Mobile Brand Site Logo & Menu Trigger */}
               <button
                 type="button"
                 className="mobile-brand-logo"
@@ -1739,69 +1748,6 @@ export default function ParentDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                 </svg>
               </button>
-
-              {/* Balance Card (Red warning if minus) */}
-              {selectedChild && (
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab("home"); setActiveSubTab("balance"); }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "8px 16px",
-                    borderRadius: "999px",
-                    backgroundColor: (selectedChild.balance || 0) < 0 ? "#FEF2F2" : "#ECFDF5",
-                    border: `1.5px solid ${(selectedChild.balance || 0) < 0 ? "#FECACA" : "#A7F3D0"}`,
-                    color: (selectedChild.balance || 0) < 0 ? "#991B1B" : "#0F766E",
-                    fontSize: "12px",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    boxShadow: (selectedChild.balance || 0) < 0 ? "0 2px 10px rgba(220,38,38,0.15)" : "0 2px 8px rgba(0,163,137,0.08)",
-                    whiteSpace: "nowrap",
-                    transition: "all 0.15s ease",
-                  }}
-                  title="Balans va to'lovlar sahifasiga o'tish"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" style={{ width: "16px", height: "16px", flexShrink: 0 }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 8.25h15m-15.5-12.75h16.5A2.25 2.25 0 0122 7.5v11.25A2.25 2.25 0 0119.5 21H4.5A2.25 2.25 0 013 17.25V7.5A2.25 2.25 0 014.5 5.25z" />
-                  </svg>
-                  <span>
-                    Balans: {(selectedChild.balance || 0) > 0 ? "+" : ""}{(selectedChild.balance || 0).toLocaleString()} so&apos;m
-                    {(selectedChild.balance || 0) < 0 ? " (Qarzdorlik)" : ""}
-                  </span>
-                </button>
-              )}
-
-              {/* Child Switcher Pills */}
-              {children.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", overflowX: "auto" }}>
-                  {children.map((child) => {
-                    const isSelected = selectedChildId === child.id;
-                    return (
-                      <button
-                        key={child.id}
-                        onClick={() => setSelectedChildId(child.id)}
-                        style={{
-                          padding: "6px 14px",
-                          borderRadius: "999px",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          border: isSelected ? "2px solid #00A389" : "1px solid #E2E8F0",
-                          backgroundColor: isSelected ? "#ECFDF5" : "#FFFFFF",
-                          color: isSelected ? "#0F766E" : "#64748B",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        {child.first_name} ({child.class_name})
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* Right: Floating Compact Card for Notification Bell & Profile Pill */}
@@ -1893,215 +1839,143 @@ export default function ParentDashboard() {
         {/* ── MAIN TAB: HOME ── */}
         {activeTab === "home" && (
           <div style={{ padding: "16px" }}>
-            {/* Child card selector */}
-            {children.length > 1 && (
+            {/* Child & Balance Selector Cards */}
+            {children.length > 0 && (
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "12px",
-                  marginBottom: "24px",
-                  paddingBottom: "16px",
-                  borderBottom: "1px solid #E5E7EB",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "10px",
+                  marginBottom: "20px",
                 }}
               >
                 {children.map((child) => {
                   const isSelected = selectedChildId === child.id;
+                  const balance = child.balance || 0;
+
+                  // Status determination
+                  let isRed = balance < 0;
+                  let isYellow = false;
+
+                  if (!isRed && nextChargeData && nextChargeData.amount > 0) {
+                    try {
+                      const nextChargeDate = parseLocalDate(nextChargeData.charge_date);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      nextChargeDate.setHours(0, 0, 0, 0);
+                      const diffTime = nextChargeDate.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      if (balance < nextChargeData.amount && diffDays >= 0 && diffDays <= 5) {
+                        isYellow = true;
+                      }
+                    } catch (e) {}
+                  }
+
+                  let bg = "#FFFFFF";
+                  let borderColor = "#E5E7EB";
+                  let statusLabel = "Faol";
+                  let statusColor = "#059669";
+                  let iconBg = "#F3F4F6";
+
+                  if (isRed) {
+                    bg = isSelected ? "#FEF2F2" : "#FFF5F5";
+                    borderColor = isSelected ? "#EF4444" : "#FECACA";
+                    statusLabel = "Qarzdorlik";
+                    statusColor = "#DC2626";
+                    iconBg = "#FEE2E2";
+                  } else if (isYellow) {
+                    bg = isSelected ? "#FFFBEB" : "#FEFCE8";
+                    borderColor = isSelected ? "#F59E0B" : "#FDE68A";
+                    statusLabel = "To'lov yaqin";
+                    statusColor = "#D97706";
+                    iconBg = "#FEF3C7";
+                  } else if (isSelected) {
+                    bg = ACCENT_LIGHT;
+                    borderColor = ACCENT;
+                    iconBg = "#E0E7FF";
+                  }
+
                   return (
-                    <button
+                    <div
                       key={child.id}
                       onClick={() => setSelectedChildId(child.id)}
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "12px",
-                        padding: "16px",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
                         borderRadius: "16px",
-                        border: isSelected ? `2px solid ${ACCENT}` : "1px solid #E5E7EB",
-                        backgroundColor: isSelected ? ACCENT_LIGHT : "#FFFFFF",
+                        border: `2px solid ${borderColor}`,
+                        backgroundColor: bg,
                         cursor: "pointer",
-                        textAlign: "left",
                         transition: "all 0.2s ease",
-                        boxShadow: isSelected ? "0 4px 12px rgba(79,70,229,0.08)" : "0 1px 3px rgba(0,0,0,0.02)",
-                        outline: "none",
-                        width: "100%",
+                        boxShadow: isSelected ? "0 4px 12px rgba(0,0,0,0.06)" : "0 1px 3px rgba(0,0,0,0.02)",
+                        gap: "10px",
                       }}
                     >
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "12px",
-                          backgroundColor: isSelected ? ACCENT : "#F3F4F6",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "20px",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        👦
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                        <div
                           style={{
-                            fontSize: "13px",
-                            fontWeight: 700,
-                            color: isSelected ? ACCENT : TEXT_DARK,
-                            margin: 0,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "12px",
+                            backgroundColor: iconBg,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "18px",
+                            flexShrink: 0,
                           }}
                         >
-                          {child.first_name} {child.last_name}
-                        </p>
-                        <p
+                          👦
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 800,
+                              color: isSelected ? (isRed ? "#991B1B" : isYellow ? "#92400E" : ACCENT) : TEXT_DARK,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {child.first_name} {child.last_name}
+                          </div>
+                          <div style={{ fontSize: "10px", fontWeight: 600, color: TEXT_MUTED, marginTop: "1px" }}>
+                            {child.class_name} sinfi
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right side: Balance & Status */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div
                           style={{
-                            fontSize: "11px",
-                            fontWeight: 500,
-                            color: isSelected ? "#6366F1" : TEXT_MUTED,
-                            margin: "2px 0 0 0",
+                            fontSize: "12px",
+                            fontWeight: 900,
+                            color: isRed ? "#DC2626" : isYellow ? "#D97706" : "#059669",
                           }}
                         >
-                          {child.class_name} sinfi
-                        </p>
+                          {balance > 0 ? "+" : ""}{new Intl.NumberFormat("uz-UZ").format(balance)} so&apos;m
+                        </div>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: "9px",
+                            fontWeight: 800,
+                            color: statusColor,
+                            marginTop: "2px",
+                          }}
+                        >
+                          {statusLabel}
+                        </span>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
             )}
-
-            {/* Child Profile Summary Card */}
-            {selectedChild && (
-              <div
-                style={{
-                  background: "linear-gradient(135deg, #4F46E5 0%, #312E81 100%)",
-                  borderRadius: "20px",
-                  padding: "20px",
-                  color: "#FFFFFF",
-                  marginBottom: "20px",
-                  boxShadow: "0 10px 25px rgba(79, 70, 229, 0.25)",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                {/* Decorative blob */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "-20%",
-                    right: "-10%",
-                    width: "150px",
-                    height: "150px",
-                    borderRadius: "50%",
-                    background: "rgba(255,255,255,0.08)",
-                  }}
-                />
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <h2 style={{ fontSize: "18px", fontWeight: 800, margin: 0 }}>
-                      {selectedChild.first_name} {selectedChild.last_name}
-                    </h2>
-                    <p style={{ fontSize: "12px", color: "#E0E7FF", margin: "4px 0 0 0", fontWeight: 500 }}>
-                      Sinf: {selectedChild.class_name}
-                    </p>
-                  </div>
-                  
-                  {/* Balance Badge */}
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{ fontSize: "10px", textTransform: "uppercase", color: "#C7D2FE", display: "block" }}>
-                      Balans
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "18px",
-                        fontWeight: 900,
-                        color: (selectedChild.balance || 0) >= 0 ? "#34D399" : "#F87171",
-                        display: "block",
-                      }}
-                    >
-                      {new Intl.NumberFormat("uz-UZ").format(selectedChild.balance || 0)} UZS
-                    </span>
-                    {nextChargeData && (
-                      <span
-                        style={{
-                          fontSize: "9px",
-                          color: "#C7D2FE",
-                          display: "block",
-                          marginTop: "4px",
-                          opacity: 0.9,
-                          fontWeight: 500,
-                        }}
-                      >
-                        To'lov: {new Date(nextChargeData.charge_date).toLocaleDateString("uz-UZ")} ({new Intl.NumberFormat("uz-UZ").format(nextChargeData.amount)} UZS)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "12px",
-                    marginTop: "16px",
-                    borderTop: "1px solid rgba(255,255,255,0.15)",
-                    paddingTop: "12px",
-                    fontSize: "11px",
-                  }}
-                >
-                  <div>
-                    <span style={{ color: "#C7D2FE", display: "block" }}>Tug'ilgan kuni:</span>
-                    <span style={{ fontWeight: 600 }}>
-                      {selectedChild.birthdate
-                        ? new Date(selectedChild.birthdate).toLocaleDateString("uz-UZ")
-                        : "Kiritilmagan"}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ color: "#C7D2FE", display: "block" }}>Guvohnoma (INA):</span>
-                    <span style={{ fontWeight: 600, fontFamily: "monospace" }}>
-                      {selectedChild.ina || "Kiritilmagan"}
-                    </span>
-                  </div>
-                  <div style={{ gridColumn: "span 2" }}>
-                    <span style={{ color: "#C7D2FE", display: "block" }}>Manzil:</span>
-                    <span style={{ fontWeight: 600 }}>{selectedChild.address || "Kiritilmagan"}</span>
-                  </div>
-                </div>
-
-                {/* Edit profile button */}
-                <button
-                  onClick={() => {
-                    setEditingStudentId(selectedChild.id);
-                    setEditAddress(selectedChild.address || "");
-                    setEditBirthDate(selectedChild.birthdate ? selectedChild.birthdate.split("T")[0] : "");
-                    setEditINA(selectedChild.ina || "");
-                    setShowEditStudentModal(true);
-                  }}
-                  style={{
-                    marginTop: "14px",
-                    width: "100%",
-                    padding: "8px",
-                    backgroundColor: "rgba(255,255,255,0.15)",
-                    border: "none",
-                    borderRadius: "10px",
-                    color: "white",
-                    fontWeight: 700,
-                    fontSize: "11px",
-                    cursor: "pointer",
-                    transition: "background 0.2s",
-                  }}
-                >
-                  Ma'lumotlarni tahrirlash
-                </button>
-              </div>
-            )}
-
-            {renderWarningAlerts()}
 
             {/* Sub-tab Navigation */}
             <div
@@ -4106,6 +3980,7 @@ export default function ParentDashboard() {
                   { id: "balance", isSettings: false, label: "Balans", icon: <TabIconBalance /> },
                   { id: "comments", isSettings: false, label: "Murojaatlar", icon: <TabIconComments /> },
                   { id: "clubs", isSettings: false, label: "To'garaklar", icon: <TabIconClubs /> },
+                  { id: "books", isSettings: false, label: "Kitobxonlik", icon: <TabIconBooks /> },
                   { id: "settings", isSettings: true, label: "Sozlamalar", icon: <TabIconSettings /> },
                 ].map((item) => {
                   const isActive = item.isSettings ? activeTab === "settings" : (activeTab === "home" && activeSubTab === item.id);
