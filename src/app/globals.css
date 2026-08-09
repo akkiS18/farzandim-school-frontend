@@ -56,16 +56,14 @@ body {
 .recharts-responsive-container:focus,
 .recharts-cartesian-grid,
 .recharts-bar-rectangle,
-.recharts-bar-rectangle:focus,
-svg,
-svg:focus,
-svg:focus-visible,
-path,
-path:focus,
-rect,
-rect:focus {
+.recharts-bar-rectangle:focus {
   outline: none !important;
-  border: none !important;
   box-shadow: none !important;
+}
+
+/* Prevent focus outlines on SVG elements (not box-shadow, that would break Tailwind) */
+svg:focus,
+svg:focus-visible {
+  outline: none !important;
 }
 

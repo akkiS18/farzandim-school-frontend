@@ -2,8 +2,8 @@ import React from "react";
 import { ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books";
-  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books") => void;
+  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports";
+  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   mobileOpen?: boolean;
@@ -121,6 +121,16 @@ export default function Sidebar({
             <line x1="12" y1="18" x2="12" y2="18" strokeWidth="3" strokeLinecap="round" />
           </svg>
         );
+      case "ai-reports":
+        return (
+          <svg className="w-4 h-4 text-lime-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="3" y="11" width="18" height="10" rx="2" />
+            <circle cx="12" cy="5" r="2" />
+            <path d="M12 7v4" />
+            <line x1="8" y1="16" x2="8" y2="16" strokeWidth="3" />
+            <line x1="16" y1="16" x2="16" y2="16" strokeWidth="3" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -134,6 +144,7 @@ export default function Sidebar({
     { id: "subjects", label: "Fanlar", badge: null },
     { id: "books", label: "Kitobxonlik", badge: null },
     { id: "grading-systems", label: "Baholash Tizimi", badge: null },
+    { id: "ai-reports", label: "AI Hisobotlar", badge: "New" },
     { id: "menu", label: "Taomnoma", badge: null },
     { id: "balance", label: "Balans boshqaruvi", badge: null },
     { id: "holidays", label: "Dam olish kunlari", badge: null },
@@ -153,15 +164,15 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col justify-between shrink-0 h-screen select-none shadow-2xl font-sans overflow-y-auto transform transition-transform duration-300 ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col shrink-0 h-full max-h-screen select-none shadow-2xl font-sans overflow-hidden transform transition-transform duration-300 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="p-6">
-          {/* Farzandim Logo Header */}
-          <div className="flex items-center justify-between mb-8 px-1">
+        {/* Fixed Farzandim Logo Header */}
+        <div className="p-6 pb-4 shrink-0">
+          <div className="flex items-center justify-between px-1">
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-full bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-sm shadow-md">
+              <div className="w-9 h-9 rounded-full bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-sm shadow-md shrink-0">
                 <svg className="w-5 h-5 text-[#1D1E26]" fill="currentColor" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="3" />
                   <circle cx="12" cy="12" r="4" fill="currentColor" />
@@ -176,7 +187,7 @@ export default function Sidebar({
             {setMobileOpen && (
               <button
                 onClick={() => setMobileOpen(false)}
-                className="md:hidden text-slate-400 hover:text-white p-1"
+                className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg transition"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M6 18L18 6M6 6l12 12" />
@@ -184,9 +195,11 @@ export default function Sidebar({
               </button>
             )}
           </div>
+        </div>
 
-          {/* Navigation Items List */}
-          <nav className="space-y-1.5">
+        {/* Scrollable Navigation Items List */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-2">
+          <nav className="space-y-1.5 pb-8">
             {menuItems.map((item) => {
               const isActive = activeMenu === item.id;
               return (

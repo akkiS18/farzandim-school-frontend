@@ -9,6 +9,7 @@ import SmartCalendarModal from "@/components/SmartCalendarModal";
 import CustomDialogModal from "@/components/CustomDialogModal";
 import LibrarySection from "@/components/dashboard/LibrarySection";
 import DateRangePresets from "@/components/DateRangePresets";
+import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 import {
   LayoutDashboard,
   BookOpen,
@@ -126,6 +127,13 @@ export default function TeacherDashboard() {
   const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books">("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Default collapsed (icon-only mode)
+
+  // Mobile Swipe Gesture Handler
+  useSwipeMobileMenu({
+    isOpen: sidebarOpen,
+    onOpen: () => setSidebarOpen(true),
+    onClose: () => setSidebarOpen(false),
+  });
 
   // Feedback/Comments States
   const [feedbackFeed, setFeedbackFeed] = useState<any[]>([]);

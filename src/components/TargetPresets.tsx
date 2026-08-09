@@ -431,9 +431,15 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs space-y-1">
                 <div className="text-slate-500 font-semibold">Tanlangan targetlar statistikasi:</div>
                 <div className="font-extrabold text-indigo-600 space-y-0.5">
-                  <div>Sinf Levellari: {selectedLevels.length > 0 ? selectedLevels.map((l) => `${l}-sinf`).join(", ") : "Barchasi"}</div>
-                  <div>Sinflar: {selectedClasses.length > 0 ? `${selectedClasses.length} ta sinf tanlangan` : "Barchasi"}</div>
-                  <div>Alohida O'quvchilar: {selectedStudents.length > 0 ? `${selectedStudents.length} ta o'quvchi tanlangan` : "Barchasi"}</div>
+                  {selectedLevels.length > 0 || selectedClasses.length > 0 || selectedStudents.length > 0 ? (
+                    <>
+                      <div>Sinf Levellari: {selectedLevels.length > 0 ? selectedLevels.map((l) => `${l}-sinf`).join(", ") : "Tanlanmagan"}</div>
+                      <div>Sinflar: {selectedClasses.length > 0 ? `${selectedClasses.length} ta sinf tanlangan` : "Tanlanmagan"}</div>
+                      <div>Alohida O'quvchilar: {selectedStudents.length > 0 ? `${selectedStudents.length} ta o'quvchi tanlangan` : "Tanlanmagan"}</div>
+                    </>
+                  ) : (
+                    <div className="text-amber-700">Maktabdagi barcha o'quvchilar qamrab olingan</div>
+                  )}
                 </div>
               </div>
 

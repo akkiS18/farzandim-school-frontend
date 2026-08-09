@@ -22,6 +22,9 @@ import BottomNavigation from "../../components/BottomNavigation";
 import DiaryDayCard from "../../components/DiaryDayCard";
 import SmartCalendarModal, { SmartCalendarTrigger } from "../../components/SmartCalendarModal";
 import CustomDialogModal from "../../components/CustomDialogModal";
+import useSwipeMobileMenu from "../../hooks/useSwipeMobileMenu";
+import ParentSidebar, { TabIconAIReport } from "../../components/ParentSidebar";
+import AIReportSection from "../../components/parents/AIReportSection";
 import dynamic from "next/dynamic";
 const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
@@ -351,8 +354,8 @@ export default function ParentDashboard() {
   // Bottom navigation state: "home" | "settings"
   const [activeTab, setActiveTab] = useState<"home" | "settings">("home");
 
-  // Home view sub-tabs: "diary" | "dynamics" | "announcements" | "menu" | "balance" | "comments" | "clubs" | "books"
-  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "announcements" | "menu" | "balance" | "comments" | "clubs" | "books">("diary");
+  // Home view sub-tabs: "diary" | "dynamics" | "ai_report" | "announcements" | "menu" | "balance" | "comments" | "clubs" | "books"
+  const [activeSubTab, setActiveSubTab] = useState<"diary" | "dynamics" | "ai_report" | "announcements" | "menu" | "balance" | "comments" | "clubs" | "books">("diary");
 
   // Extracurricular Clubs States for parents
   const [clubs, setClubs] = useState<any[]>([]);
@@ -543,6 +546,13 @@ export default function ParentDashboard() {
 
   // Mobile drawer menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Mobile Swipe Gesture Handler
+  useSwipeMobileMenu({
+    isOpen: isMobileMenuOpen,
+    onOpen: () => setIsMobileMenuOpen(true),
+    onClose: () => setIsMobileMenuOpen(false),
+  });
 
   // Logout & Custom Dialog Modal States
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -1441,7 +1451,7 @@ export default function ParentDashboard() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap');
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; }
 
         /* Scrollbar styles */
         ::-webkit-scrollbar {
@@ -1457,24 +1467,29 @@ export default function ParentDashboard() {
         }
 
         .sidebar-column {
-          width: 60px;
+          width: 80px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
           margin: 16px 0 16px 16px;
+          padding: 20px 0;
           position: sticky;
           top: 16px;
           z-index: 50;
           flex-shrink: 0;
           height: calc(100vh - 32px);
+          background-color: #FFFFFF;
+          border-radius: 24px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        .mobile-brand-logo {
+          display: none;
         }
 
         @media (max-width: 767px) {
           .sidebar-column {
-            display: none !important;
-          }
-          .top-subtab-bar {
             display: none !important;
           }
           .mobile-brand-logo {
@@ -1482,14 +1497,14 @@ export default function ParentDashboard() {
           }
         }
 
-        .mobile-brand-logo {
-          display: none;
+        .top-subtab-bar {
+          display: flex !important;
         }
 
         .sidebar-btn {
-          width: 44px;
-          height: 44px;
-          border-radius: 14px;
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1498,15 +1513,18 @@ export default function ParentDashboard() {
           color: #64748B;
           cursor: pointer;
           transition: all 0.2s ease;
+          margin: 0 auto;
+          flex-shrink: 0;
+          position: relative;
         }
         .sidebar-btn:hover {
           background-color: #F1F5F9;
           color: #0F172A;
         }
         .sidebar-btn.active {
-          background-color: #F5C542 !important;
-          color: #0F172A !important;
-          box-shadow: 0 4px 12px rgba(245, 197, 66, 0.35);
+          background-color: #00A389 !important;
+          color: #FFFFFF !important;
+          box-shadow: 0 3px 10px rgba(0, 163, 137, 0.35);
         }
 
         .diary-grid {
@@ -1554,172 +1572,29 @@ export default function ParentDashboard() {
       <div style={{ display: "flex", width: "100%", maxWidth: "1500px", margin: "0 auto", minHeight: "100vh" }}>
         
         {/* ── LEFT VERTICAL SIDEBAR COLUMN ── */}
-        <aside className="sidebar-column">
-          {/* 1. Standalone Site Brand Logo (outside cards) */}
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "16px",
-              background: "linear-gradient(135deg, #00A389 0%, #0F766E 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontWeight: 900,
-              fontSize: "20px",
-              boxShadow: "0 4px 14px rgba(0,163,137,0.35)",
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-            onClick={() => { setActiveTab("home"); setActiveSubTab("diary"); }}
-            title="Online Jurnal"
-          >
-            ✦
-          </div>
-
-          {/* 2. Top Navigation Tabs Card */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "22px",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
-              padding: "8px 4px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              alignItems: "center",
-              width: "100%",
-            }}
-          >
-            {/* 1. Kundalik */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "diary" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("diary"); }}
-              title="Kundalik"
-            >
-              <TabIconDiary size={20} />
-            </button>
-
-            {/* 2. Dinamika */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "dynamics" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("dynamics"); }}
-              title="Dinamika"
-            >
-              <TabIconDynamics size={20} />
-            </button>
-
-            {/* 3. E'lonlar */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "announcements" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("announcements"); }}
-              title="E'lonlar"
-            >
-              <TabIconAnnouncements size={20} />
-            </button>
-
-            {/* 4. Taomnoma */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "menu" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("menu"); }}
-              title="Taomnoma"
-            >
-              <TabIconMenu size={20} />
-            </button>
-
-            {/* 5. Balans */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "balance" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("balance"); }}
-              title="Balans"
-            >
-              <TabIconBalance size={20} />
-            </button>
-
-            {/* 6. Murojaatlar */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "comments" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("comments"); }}
-              title="Murojaatlar"
-            >
-              <TabIconComments size={20} />
-            </button>
-
-            {/* 7. To'garaklar */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "clubs" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("clubs"); }}
-              title="To'garaklar"
-            >
-              <TabIconClubs size={20} />
-            </button>
-
-            {/* 8. Kitobxonlik */}
-            <button
-              className={`sidebar-btn${activeTab === "home" && activeSubTab === "books" ? " active" : ""}`}
-              onClick={() => { setActiveTab("home"); setActiveSubTab("books"); }}
-              title="Kitobxonlik"
-            >
-              <TabIconBooks size={20} />
-            </button>
-          </div>
-
-          {/* 3. Bottom Settings & Logout Card */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "20px",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
-              padding: "8px 4px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              alignItems: "center",
-              width: "100%",
-              marginTop: "auto",
-            }}
-          >
-            {/* Sozlamalar */}
-            <button
-              className={`sidebar-btn${activeTab === "settings" ? " active" : ""}`}
-              onClick={() => setActiveTab("settings")}
-              title="Sozlamalar"
-            >
-              <TabIconSettings size={20} />
-            </button>
-
-            {/* Chiqish (Logout) */}
-            <button
-              className="sidebar-btn"
-              onClick={promptLogout}
-              title="Tizimdan chiqish"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </aside>
+        <ParentSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          activeSubTab={activeSubTab}
+          setActiveSubTab={setActiveSubTab}
+          setShowLogoutModal={setShowLogoutModal}
+        />
 
         {/* ── MAIN CONTENT AREA ── */}
         <main style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: "16px", minWidth: 0, paddingBottom: "80px" }}>
           
-          {/* ── TOP HEADER ROW (Mobile Logo + Balance Card + Child Switcher + Profile Pill) ── */}
+          {/* ── TOP HEADER ROW (Mobile Logo + Bell + Profile Pill) ── */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              gap: "12px",
+              gap: "8px",
               width: "100%",
-              flexWrap: "wrap",
             }}
           >
             {/* Left: Mobile Logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
               {/* Mobile Brand Site Logo & Menu Trigger */}
               <button
                 type="button"
@@ -1760,8 +1635,10 @@ export default function ParentDashboard() {
                 padding: "4px 8px 4px 10px",
                 display: "flex",
                 alignItems: "center",
-                gap: "8px",
+                gap: "6px",
                 marginLeft: "auto",
+                flexShrink: 1,
+                minWidth: 0,
               }}
             >
               {/* Notification Bell */}
@@ -1778,6 +1655,7 @@ export default function ParentDashboard() {
                   cursor: "pointer",
                   color: "#64748B",
                   transition: "all 0.15s ease",
+                  flexShrink: 0,
                 }}
                 title="E'lonlar va bildirishnomalar"
                 onClick={() => { setActiveTab("home"); setActiveSubTab("announcements"); }}
@@ -1787,7 +1665,7 @@ export default function ParentDashboard() {
                 </svg>
               </button>
 
-              <div style={{ width: "1px", height: "20px", backgroundColor: "#E2E8F0" }} />
+              <div style={{ width: "1px", height: "20px", backgroundColor: "#E2E8F0", flexShrink: 0 }} />
 
               {/* Profile Pill */}
               <button
@@ -1796,11 +1674,12 @@ export default function ParentDashboard() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "10px",
+                  gap: "8px",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
                   padding: "2px 4px",
+                  minWidth: 0,
                 }}
                 title="Profil sozlamalari"
               >
@@ -1817,19 +1696,31 @@ export default function ParentDashboard() {
                     alignItems: "center",
                     justifyContent: "center",
                     boxShadow: "0 2px 6px rgba(0,163,137,0.3)",
+                    flexShrink: 0,
                   }}
                 >
                   {userInfo?.first_name ? userInfo.first_name.charAt(0).toUpperCase() : "O"}
                 </div>
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 750, color: "#1E293B", lineHeight: 1.2 }}>
+                <div style={{ textAlign: "left", minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 750,
+                      color: "#1E293B",
+                      lineHeight: 1.2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "100px", // Shrunk slightly for better mobile fit
+                    }}
+                  >
                     {userInfo ? `${userInfo.first_name} ${userInfo.last_name}` : "Ota-ona"}
                   </div>
                   <div style={{ fontSize: "10px", color: "#00A389", fontWeight: 600 }}>
                     Ota-ona
                   </div>
                 </div>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#64748B" style={{ width: "12px", height: "12px", marginLeft: "2px" }}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#64748B" style={{ width: "12px", height: "12px", marginLeft: "2px", flexShrink: 0 }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                 </svg>
               </button>
@@ -1838,15 +1729,16 @@ export default function ParentDashboard() {
 
         {/* ── MAIN TAB: HOME ── */}
         {activeTab === "home" && (
-          <div style={{ padding: "16px" }}>
+          <div>
             {/* Child & Balance Selector Cards */}
             {children.length > 0 && (
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  display: "flex",
+                  flexWrap: "wrap",
                   gap: "10px",
                   marginBottom: "20px",
+                  width: "100%",
                 }}
               >
                 {children.map((child) => {
@@ -1872,69 +1764,78 @@ export default function ParentDashboard() {
                   }
 
                   let bg = "#FFFFFF";
-                  let borderColor = "#E5E7EB";
+                  let borderColor = isSelected ? "#4F46E5" : "#E2E8F0";
                   let statusLabel = "Faol";
                   let statusColor = "#059669";
-                  let iconBg = "#F3F4F6";
+                  let statusBg = "#ECFDF5";
+                  let avatarBg = isSelected ? "#EEF2FF" : "#F8FAFC";
+                  let avatarColor = isSelected ? "#4F46E5" : "#64748B";
+                  let avatarBorder = isSelected ? "1px solid #C7D2FE" : "1px solid #E2E8F0";
 
                   if (isRed) {
-                    bg = isSelected ? "#FEF2F2" : "#FFF5F5";
+                    bg = "#FFFFFF";
                     borderColor = isSelected ? "#EF4444" : "#FECACA";
                     statusLabel = "Qarzdorlik";
                     statusColor = "#DC2626";
-                    iconBg = "#FEE2E2";
+                    statusBg = "#FEF2F2";
+                    avatarBg = "#FEF2F2";
+                    avatarColor = "#DC2626";
                   } else if (isYellow) {
-                    bg = isSelected ? "#FFFBEB" : "#FEFCE8";
+                    bg = "#FFFFFF";
                     borderColor = isSelected ? "#F59E0B" : "#FDE68A";
                     statusLabel = "To'lov yaqin";
                     statusColor = "#D97706";
-                    iconBg = "#FEF3C7";
-                  } else if (isSelected) {
-                    bg = ACCENT_LIGHT;
-                    borderColor = ACCENT;
-                    iconBg = "#E0E7FF";
+                    statusBg = "#FFFBEB";
+                    avatarBg = "#FFFBEB";
+                    avatarColor = "#D97706";
                   }
 
                   return (
                     <div
                       key={child.id}
                       onClick={() => setSelectedChildId(child.id)}
+                      className="w-full sm:w-auto"
                       style={{
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        padding: "10px 14px",
-                        borderRadius: "16px",
-                        border: `2px solid ${borderColor}`,
+                        padding: "12px 16px",
+                        borderRadius: "18px",
+                        border: isSelected ? `2px solid ${borderColor}` : `1px solid ${borderColor}`,
                         backgroundColor: bg,
                         cursor: "pointer",
                         transition: "all 0.2s ease",
-                        boxShadow: isSelected ? "0 4px 12px rgba(0,0,0,0.06)" : "0 1px 3px rgba(0,0,0,0.02)",
-                        gap: "10px",
+                        boxShadow: isSelected ? "0 4px 16px rgba(79,70,229,0.12)" : "0 2px 6px rgba(0,0,0,0.02)",
+                        gap: "16px",
+                        flex: "1 1 100%", // Expands to 100% on mobile
+                        maxWidth: "400px", // Don't let it grow too huge on desktop
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
                         <div
                           style={{
-                            width: "36px",
-                            height: "36px",
+                            width: "38px",
+                            height: "38px",
                             borderRadius: "12px",
-                            backgroundColor: iconBg,
+                            backgroundColor: avatarBg,
+                            color: avatarColor,
+                            border: avatarBorder,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: "18px",
+                            fontSize: "15px",
+                            fontWeight: 800,
                             flexShrink: 0,
                           }}
                         >
-                          👦
+                          {child.first_name ? child.first_name.charAt(0).toUpperCase() : "O"}
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div
                             style={{
-                              fontSize: "13px",
+                              fontSize: "14px",
                               fontWeight: 800,
-                              color: isSelected ? (isRed ? "#991B1B" : isYellow ? "#92400E" : ACCENT) : TEXT_DARK,
+                              color: isSelected ? "#4F46E5" : "#1E293B",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -1942,7 +1843,7 @@ export default function ParentDashboard() {
                           >
                             {child.first_name} {child.last_name}
                           </div>
-                          <div style={{ fontSize: "10px", fontWeight: 600, color: TEXT_MUTED, marginTop: "1px" }}>
+                          <div style={{ fontSize: "11px", fontWeight: 600, color: "#64748B", marginTop: "1px" }}>
                             {child.class_name} sinfi
                           </div>
                         </div>
@@ -1952,7 +1853,7 @@ export default function ParentDashboard() {
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
                         <div
                           style={{
-                            fontSize: "12px",
+                            fontSize: "13px",
                             fontWeight: 900,
                             color: isRed ? "#DC2626" : isYellow ? "#D97706" : "#059669",
                           }}
@@ -1965,7 +1866,10 @@ export default function ParentDashboard() {
                             fontSize: "9px",
                             fontWeight: 800,
                             color: statusColor,
-                            marginTop: "2px",
+                            backgroundColor: statusBg,
+                            padding: "2px 8px",
+                            borderRadius: "999px",
+                            marginTop: "3px",
                           }}
                         >
                           {statusLabel}
@@ -1976,6 +1880,53 @@ export default function ParentDashboard() {
                 })}
               </div>
             )}
+
+            {/* Active Sub-tab Title Indicator */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "10px",
+                padding: "0 2px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "8px",
+                    backgroundColor: activeSubTab === "ai_report" ? "#EEF2FF" : "#E6F6F4",
+                    color: activeSubTab === "ai_report" ? "#4F46E5" : "#00A389",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {activeSubTab === "diary" && <TabIconDiary size={16} />}
+                  {activeSubTab === "dynamics" && <TabIconDynamics size={16} />}
+                  {activeSubTab === "ai_report" && <TabIconAIReport size={16} />}
+                  {activeSubTab === "announcements" && <TabIconAnnouncements size={16} />}
+                  {activeSubTab === "menu" && <TabIconMenu size={16} />}
+                  {activeSubTab === "balance" && <TabIconBalance size={16} />}
+                  {activeSubTab === "comments" && <TabIconComments size={16} />}
+                  {activeSubTab === "clubs" && <TabIconClubs size={16} />}
+                  {activeSubTab === "books" && <TabIconBooks size={16} />}
+                </div>
+                <span style={{ fontSize: "15px", fontWeight: 800, color: "#1E293B" }}>
+                  {activeSubTab === "diary" && "Kundalik"}
+                  {activeSubTab === "dynamics" && "Dinamika"}
+                  {activeSubTab === "ai_report" && "AI Hisobot"}
+                  {activeSubTab === "announcements" && "E'lonlar"}
+                  {activeSubTab === "menu" && "Taomnoma"}
+                  {activeSubTab === "balance" && "Balans"}
+                  {activeSubTab === "comments" && "Murojaatlar"}
+                  {activeSubTab === "clubs" && "To'garaklar"}
+                  {activeSubTab === "books" && "Kitobxonlik"}
+                </span>
+              </div>
+            </div>
 
             {/* Sub-tab Navigation */}
             <div
@@ -2006,6 +1957,14 @@ export default function ParentDashboard() {
               >
                 <TabIconDynamics size={15} />
                 Dinamika
+              </button>
+              <button
+                className={`sub-tab-btn${activeSubTab === "ai_report" ? " active" : ""}`}
+                onClick={() => setActiveSubTab("ai_report")}
+                style={{ flexShrink: 0, paddingLeft: "12px", paddingRight: "12px" }}
+              >
+                <TabIconAIReport size={15} />
+                AI Hisobot
               </button>
               <button
                 className={`sub-tab-btn${activeSubTab === "announcements" ? " active" : ""}`}
@@ -2553,6 +2512,16 @@ export default function ParentDashboard() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Sub-tab: AI_REPORT (AI Hisobot) */}
+            {activeSubTab === "ai_report" && (
+              <AIReportSection
+                token={token}
+                API_URL={API_URL}
+                studentId={selectedChild?.id || (children.length > 0 ? children[0].id : 0)}
+                studentName={selectedChild?.first_name ? `${selectedChild.first_name} ${selectedChild.last_name}` : "Farzandingiz"}
+              />
             )}
 
             {/* Sub-tab: ANNOUNCEMENTS (E'lonlar) */}
@@ -3975,6 +3944,7 @@ export default function ParentDashboard() {
                 {[
                   { id: "diary", isSettings: false, label: "Kundalik", icon: <TabIconDiary /> },
                   { id: "dynamics", isSettings: false, label: "Dinamika", icon: <TabIconDynamics /> },
+                  { id: "ai_report", isSettings: false, label: "AI Hisobot", icon: <TabIconAIReport /> },
                   { id: "announcements", isSettings: false, label: "E'lonlar", icon: <TabIconAnnouncements /> },
                   { id: "menu", isSettings: false, label: "Taomnoma", icon: <TabIconMenu /> },
                   { id: "balance", isSettings: false, label: "Balans", icon: <TabIconBalance /> },

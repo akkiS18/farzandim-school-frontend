@@ -19,6 +19,8 @@ import HolidaysSection from "@/components/dashboard/HolidaysSection";
 import ScheduleOverviewSection from "@/components/dashboard/ScheduleOverviewSection";
 import BooksSection from "@/components/dashboard/BooksSection";
 import LibrarySection from "@/components/dashboard/LibrarySection";
+import AIReportsSection from "@/components/dashboard/AIReportsSection";
+import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 
 // Types
 import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/components/dashboard/types";
@@ -35,7 +37,7 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books">("overview");
+  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports">("overview");
 
   // Classes section: initial tab when redirecting from schedule overview
   const [classesInitialTab, setClassesInitialTab] = useState<"students" | "teachers" | "parents" | "schedule" | undefined>(undefined);
@@ -138,6 +140,13 @@ export default function TenantDashboard() {
 
   // Initialize
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Mobile Swipe Gesture Handler
+  useSwipeMobileMenu({
+    isOpen: mobileSidebarOpen,
+    onOpen: () => setMobileSidebarOpen(true),
+    onClose: () => setMobileSidebarOpen(false),
+  });
 
   useEffect(() => {
     const savedToken = localStorage.getItem("school_token");
@@ -468,6 +477,14 @@ export default function TenantDashboard() {
 
           {activeMenu === "books" && (
             <LibrarySection />
+          )}
+
+          {activeMenu === "ai-reports" && (
+            <AIReportsSection
+              token={token}
+              API_URL={API_URL}
+              classes={classes}
+            />
           )}
 
           {activeMenu === "feedback" && (
