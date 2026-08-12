@@ -112,11 +112,17 @@ export default function AuthInterceptor({ children }: { children: React.ReactNod
         isRefreshing = true;
 
         try {
+          const schoolId = localStorage.getItem("school_id") || "";
+          const refreshHeaders: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          if (schoolId) {
+            refreshHeaders["X-School-ID"] = schoolId;
+          }
+
           const refreshRes = await originalFetch(`${API_URL}/api/schools/refresh`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: refreshHeaders,
             body: JSON.stringify({ refresh_token: refreshToken }),
           });
 

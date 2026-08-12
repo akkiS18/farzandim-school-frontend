@@ -164,7 +164,7 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col shrink-0 h-full max-h-screen select-none shadow-2xl font-sans overflow-hidden transform transition-transform duration-300 ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col shrink-0 h-[100dvh] max-h-[100dvh] select-none shadow-2xl font-sans overflow-hidden transform transition-transform duration-300 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
@@ -187,7 +187,7 @@ export default function Sidebar({
             {setMobileOpen && (
               <button
                 onClick={() => setMobileOpen(false)}
-                className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg transition"
+                className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M6 18L18 6M6 6l12 12" />
@@ -199,7 +199,7 @@ export default function Sidebar({
 
         {/* Scrollable Navigation Items List */}
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-2">
-          <nav className="space-y-1.5 pb-8">
+          <nav className="space-y-1.5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
             {menuItems.map((item) => {
               const isActive = activeMenu === item.id;
               return (

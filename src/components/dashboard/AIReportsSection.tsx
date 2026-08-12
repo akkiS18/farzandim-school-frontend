@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ClassItem } from "./types";
 import { TargetPresets } from "@/components/TargetPresets";
+import SmartCalendarModal, { getMondayOfDate, formatDateISO, formatWeekRangeLabel } from "@/components/SmartCalendarModal";
+import CustomDialogModal from "@/components/CustomDialogModal";
+import { Sparkles, Calendar, X, Search, Check, Trash2, ArrowLeft, ArrowRight, Eye, UserCheck, ShieldAlert, CheckCircle2, ChevronRight, Sliders, History, RotateCcw, Save, Bot, FileText, SlidersHorizontal, Layers, Cpu } from "lucide-react";
 
 interface GroupedWeekItem {
   year: number;
@@ -69,7 +72,62 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
   const [genStatusMessage, setGenStatusMessage] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Week selection states for report generation
+  const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(formatDateISO(getMondayOfDate(new Date())));
+  const [selectedWeekLabel, setSelectedWeekLabel] = useState<string>(formatWeekRangeLabel(getMondayOfDate(new Date())));
+
+  // Confirm Dialog State for deletion
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // AI Instructions & Settings States
+  const [isAISettingsOpen, setIsAISettingsOpen] = useState<boolean>(false);
+  const [aiSettingsLoading, setAISettingsLoading] = useState<boolean>(false);
+  const [aiSettingsSaving, setAISettingsSaving] = useState<boolean>(false);
+  const [systemInstructionText, setSystemInstructionText] = useState<string>("");
+  const [maxTokensVal, setMaxTokensVal] = useState<number>(1000);
+  const [temperatureVal, setTemperatureVal] = useState<number>(0.7);
+  const [changeReasonText, setChangeReasonText] = useState<string>("");
+
+  // AI Prompt History States
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+
   const storyScrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleInsertTag = (tag: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setSystemInstructionText((prev) => prev + " " + tag);
+      setToastMessage(`Teg promptga qo'shildi: ${tag}`);
+      setTimeout(() => setToastMessage(null), 2500);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? systemInstructionText.length;
+    const end = textarea.selectionEnd ?? systemInstructionText.length;
+    const text = systemInstructionText;
+
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    const newText = before + tag + after;
+
+    setSystemInstructionText(newText);
+    setToastMessage(`Teg promptga qo'shildi: ${tag}`);
+    setTimeout(() => setToastMessage(null), 2500);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + tag.length, start + tag.length);
+    }, 10);
+  };
 
   const resetGenerateModal = () => {
     setIsGenerateModalOpen(false);
@@ -80,17 +138,144 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     setGenerating(false);
   };
 
+  // Fetch AI Instruction Settings
+  const fetchAIInstruction = async () => {
+    setAISettingsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-instructions`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.instruction) {
+          setSystemInstructionText(data.instruction.system_instruction || "");
+          setMaxTokensVal(data.instruction.max_tokens || 1000);
+          setTemperatureVal(data.instruction.temperature || 0.7);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching AI instruction:", err);
+    } finally {
+      setAISettingsLoading(false);
+    }
+  };
+
+  // Save AI Instruction Settings
+  const handleSaveAIInstruction = async () => {
+    if (!systemInstructionText.trim()) {
+      setToastMessage("System Instruction matni bo'sh bo'lishi mumkin emas!");
+      setTimeout(() => setToastMessage(null), 4000);
+      return;
+    }
+    setAISettingsSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-instructions`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+        body: JSON.stringify({
+          title: "Haftalik Pedagogik Tahlil Prompti",
+          system_instruction: systemInstructionText,
+          max_tokens: Number(maxTokensVal),
+          temperature: Number(temperatureVal),
+          change_reason: changeReasonText.trim() || "Admin AI prompt sozlamalarini yangiladi",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setToastMessage(data.message || "AI Prompt sozlamalari saqlandi!");
+        setTimeout(() => setToastMessage(null), 4000);
+        setChangeReasonText("");
+        setIsAISettingsOpen(false);
+      } else {
+        setToastMessage(`Xatolik: ${data.error || "Saqlashda xatolik"}`);
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch (err: any) {
+      setToastMessage(`Server bilan bog'lanishda xatolik: ${err.message || err}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setAISettingsSaving(false);
+    }
+  };
+
+  // Fetch AI Instruction History
+  const fetchAIInstructionHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-instructions/history`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Error fetching AI instruction history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Revert to History Version
+  const handleRevertInstruction = async (logId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-instructions/revert/${logId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setToastMessage(data.message || `Version #${logId} ga qaytarildi!`);
+        setTimeout(() => setToastMessage(null), 4000);
+        setIsHistoryOpen(false);
+        fetchAIInstruction();
+      } else {
+        setToastMessage(`Xatolik: ${data.error || "Promptni qaytarishda xatolik"}`);
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch (err: any) {
+      setToastMessage(`Ulanishda xatolik: ${err.message || err}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  };
+
   // Close modals on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (isGenerateModalOpen) resetGenerateModal();
-        if (previewReport) setPreviewReport(null);
+        if (isHistoryOpen) {
+          setIsHistoryOpen(false);
+        } else if (isAISettingsOpen) {
+          setIsAISettingsOpen(false);
+        } else if (isCalendarOpen) {
+          setIsCalendarOpen(false);
+        } else if (isGenerateModalOpen) {
+          resetGenerateModal();
+        } else if (previewReport) {
+          setPreviewReport(null);
+        } else if (confirmDialog?.isOpen) {
+          setConfirmDialog(null);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isGenerateModalOpen, previewReport]);
+  }, [isHistoryOpen, isAISettingsOpen, isCalendarOpen, isGenerateModalOpen, previewReport, confirmDialog]);
 
   // Reset active story index when opening report preview
   useEffect(() => {
@@ -206,6 +391,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         body: JSON.stringify({
           student_ids: selectedStudentIds,
           class_id: classIdParam,
+          target_date: selectedWeekStart,
         }),
       });
 
@@ -243,60 +429,74 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     }
   };
 
-  const handleDeleteWeek = async (e: React.MouseEvent, week: GroupedWeekItem) => {
+  const handleDeleteWeek = (e: React.MouseEvent, week: GroupedWeekItem) => {
     e.stopPropagation();
-    if (!window.confirm(`${week.year}-yil ${week.week_number}-haftaga tegishli barcha (${week.report_count} ta) AI hisobotlarni o'chirmoqchimisiz?`)) {
-      return;
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "Haftalik hisobotlarni o'chirish",
+      message: `${week.year}-yil ${week.week_number}-haftaga tegishli barcha (${week.report_count} ta) AI hisobotlarni o'chirmoqchimisiz?`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/week?year=${week.year}&week_number=${week.week_number}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-School-ID": localStorage.getItem("school_id") || "",
+            },
+          });
 
-    try {
-      const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/week?year=${week.year}&week_number=${week.week_number}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-School-ID": localStorage.getItem("school_id") || "",
-        },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setToastMessage(data.message || "Hafta hisobotlari o'chirildi!");
-        setTimeout(() => setToastMessage(null), 4000);
-        fetchGroupedWeeks();
-      } else {
-        alert("Haftani o'chirishda xatolik yuz berdi");
-      }
-    } catch (err) {
-      console.error("Error deleting week reports:", err);
-    }
+          if (res.ok) {
+            const data = await res.json();
+            setToastMessage(data.message || "Hafta hisobotlari o'chirildi!");
+            setTimeout(() => setToastMessage(null), 4000);
+            fetchGroupedWeeks();
+          } else {
+            setToastMessage("Haftani o'chirishda xatolik yuz berdi");
+            setTimeout(() => setToastMessage(null), 4000);
+          }
+        } catch (err) {
+          console.error("Error deleting week reports:", err);
+          setToastMessage("Server bilan bog'lanishda xatolik");
+          setTimeout(() => setToastMessage(null), 4000);
+        }
+      },
+    });
   };
 
-  const handleDeleteSingleReport = async (e: React.MouseEvent, reportId: string, studentName: string) => {
+  const handleDeleteSingleReport = (e: React.MouseEvent, reportId: string, studentName: string) => {
     e.stopPropagation();
-    if (!window.confirm(`${studentName} o'quvchining AI hisobotini o'chirmoqchimisiz?`)) {
-      return;
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "Hisobotni o'chirish",
+      message: `${studentName} o'quvchining AI hisobotini o'chirmoqchimisiz?`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/${reportId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-School-ID": localStorage.getItem("school_id") || "",
+            },
+          });
 
-    try {
-      const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/${reportId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-School-ID": localStorage.getItem("school_id") || "",
-        },
-      });
-
-      if (res.ok) {
-        setToastMessage("O'quvchi hisoboti o'chirildi!");
-        setTimeout(() => setToastMessage(null), 4000);
-        fetchReportsByWeek();
-        fetchGroupedWeeks();
-      } else {
-        alert("Hisobotni o'chirishda xatolik yuz berdi");
-      }
-    } catch (err) {
-      console.error("Error deleting report:", err);
-    }
+          if (res.ok) {
+            setToastMessage("O'quvchi hisoboti o'chirildi!");
+            setTimeout(() => setToastMessage(null), 4000);
+            fetchReportsByWeek();
+            fetchGroupedWeeks();
+          } else {
+            setToastMessage("Hisobotni o'chirishda xatolik yuz berdi");
+            setTimeout(() => setToastMessage(null), 4000);
+          }
+        } catch (err) {
+          console.error("Error deleting report:", err);
+          setToastMessage("Server bilan bog'lanishda xatolik");
+          setTimeout(() => setToastMessage(null), 4000);
+        }
+      },
+    });
   };
 
   // Helper to parse markdown into story sections cleanly
@@ -364,16 +564,14 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] max-w-lg w-full px-4">
           <div className="bg-[#1D1E26] text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-400/80 font-black text-sm flex items-center justify-between gap-3 animate-bounce">
             <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               <span>{toastMessage}</span>
             </div>
             <button
               onClick={() => setToastMessage(null)}
               className="text-slate-400 hover:text-white font-black text-base cursor-pointer ml-3"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -383,9 +581,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
       <div className="bg-[#1D1E26] text-white rounded-3xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4F562] text-[#1D1E26] text-[11px] font-black uppercase tracking-wider">
-            <svg className="w-3.5 h-3.5 text-[#1D1E26]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
+            <Sparkles className="w-3.5 h-3.5 text-[#1D1E26]" />
             Gemini AI Tahlilchi
           </div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight">AI Hisobotlar Boshqaruvi</h2>
@@ -394,21 +590,34 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setSelectedStudentIds([]);
-            setGenClassId("");
-            setGenStudentSearch("");
-            setGenStatusMessage("");
-            setIsGenerateModalOpen(true);
-          }}
-          className="px-5 py-3 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-extrabold text-xs tracking-wide shadow-lg shadow-lime-500/10 hover:bg-[#c2e84d] transition cursor-pointer flex items-center gap-2 shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path d="M12 4v16m8-8H4" />
-          </svg>
-          Yangi AI Hisobot Yaratish
-        </button>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              fetchAIInstruction();
+              setIsAISettingsOpen(true);
+            }}
+            className="px-5 py-3 rounded-2xl bg-slate-800 text-white hover:bg-slate-700 font-extrabold text-xs tracking-wide shadow-lg transition cursor-pointer flex items-center gap-2 border border-slate-700"
+          >
+            <Sliders className="w-4 h-4 text-[#D4F562]" />
+            <span>AI Prompt & Sozlamalar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedStudentIds([]);
+              setGenClassId("");
+              setGenStudentSearch("");
+              setGenStatusMessage("");
+              setIsGenerateModalOpen(true);
+            }}
+            className="px-5 py-3 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-extrabold text-xs tracking-wide shadow-lg shadow-lime-500/10 hover:bg-[#c2e84d] transition cursor-pointer flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Yangi AI Hisobot Yaratish</span>
+          </button>
+        </div>
       </div>
 
       {/* Main View: Grouped Weeks Folders */}
@@ -416,9 +625,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-[#1D1E26] uppercase tracking-wider flex items-center gap-2">
-              <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-              </svg>
+              <Calendar className="w-4 h-4 text-indigo-600" />
               Haftalik Guruhlangan Hisobotlar
             </h3>
             <span className="text-xs font-bold text-slate-500">
@@ -434,9 +641,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           ) : groupedWeeks.length === 0 ? (
             <div className="bg-white rounded-3xl p-10 border border-slate-200/80 text-center space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121 12v.75m-18 0A2.25 2.25 0 004.5 15h15a2.25 2.25 0 002.25-2.25m-18 0v6.75A2.25 2.25 0 004.5 21h15a2.25 2.25 0 002.25-2.25V12.75" />
-                </svg>
+                <Calendar className="w-6 h-6" />
               </div>
               <h4 className="text-sm font-bold text-slate-800">Hali hech qanday AI hisobot yaratilmagan.</h4>
               <p className="text-xs text-slate-400">
@@ -470,7 +675,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
 
                   <div className="flex items-center justify-between text-xs text-indigo-600 font-bold pt-2 border-t border-slate-100">
                     <span className="flex items-center gap-1">
-                      O'quvchilar ro'yxati <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      O'quvchilar ro'yxati <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </span>
                     <button
                       type="button"
@@ -478,9 +683,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       title="Haftani o'chirish"
                       className="p-1.5 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                      </svg>
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -497,9 +700,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
             <button
               onClick={() => setViewMode("grouped")}
-              className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#1D1E26] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#1D1E26] transition cursor-pointer"
             >
-              ← Haftalar ro'yxatiga qaytish
+              <ArrowLeft className="w-4 h-4" />
+              <span>Haftalar ro'yxatiga qaytish</span>
             </button>
             <div className="text-xs font-extrabold text-indigo-950">
               {selectedWeek.year}-yil / {selectedWeek.week_number}-hafta ({selectedWeek.start_date} — {selectedWeek.end_date})
@@ -520,10 +724,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 }}
                 className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
               />
-              <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
 
             {/* Class Filter */}
@@ -607,10 +808,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                                 }}
                                 className="p-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white transition cursor-pointer"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.573 16.49 16.638 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
+                                <Eye className="w-4 h-4" />
                               </button>
                               <button
                                 type="button"
@@ -618,9 +816,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                                 onClick={(e) => handleDeleteSingleReport(e, rep.id, rep.student_name)}
                                 className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition cursor-pointer"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                </svg>
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -640,16 +836,18 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer flex items-center gap-1"
                 >
-                  ← Avvalgisi
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Avvalgisi</span>
                 </button>
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer flex items-center gap-1"
                 >
-                  Keyingisi →
+                  <span>Keyingisi</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -663,30 +861,70 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           onClick={(e) => {
             if (e.target === e.currentTarget) resetGenerateModal();
           }}
-          className="fixed inset-0 bg-[#0B0C10]/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl border border-slate-200 animate-fadeIn max-h-[90vh] flex flex-col"
+            className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-black text-[#1D1E26] flex items-center gap-2">
-                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                </svg>
-                AI Hisobot Generatsiyasi
-              </h3>
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-indigo-600" />
+                  <span>AI Hisobot Yaratish</span>
+                </h3>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                  Haftani va kerakli o'quvchilarni tanlab AI hisobot shakllantiring
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={resetGenerateModal}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+                title="Yopish"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar flex-1">
+              {/* Week Selection Component */}
+              <div className="bg-gradient-to-r from-indigo-50/80 via-purple-50/40 to-zinc-50 p-4 rounded-2xl border border-indigo-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-extrabold text-indigo-950 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-indigo-600" />
+                    <span>Hisobot Haftasi</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCalendarOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Haftani Tanlash</span>
+                  </button>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-indigo-200/70 flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs shrink-0">
+                      W
+                    </div>
+                    <div>
+                      <div className="text-xs font-extrabold text-zinc-900">{selectedWeekLabel}</div>
+                      <div className="text-[10px] font-bold text-zinc-400">Boshlanish sanasi: {selectedWeekStart}</div>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
+                    Tanlandi
+                  </span>
+                </div>
+              </div>
+
               {/* Target Presets Component */}
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+              <div className="bg-zinc-50/80 p-3.5 rounded-2xl border border-zinc-200/80">
                 <TargetPresets
                   selectedLevels={[]}
                   selectedClasses={genClassId && genClassId !== "ALL" ? [Number(genClassId)] : []}
@@ -701,13 +939,13 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 />
               </div>
 
-              {/* Class selector */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Sinfni tanlang:</label>
+              {/* Class Selector Dropdown */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-zinc-700">Sinfni tanlang:</label>
                 <select
                   value={genClassId}
                   onChange={(e) => setGenClassId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500 bg-white cursor-pointer"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-800 focus:outline-none focus:border-indigo-500 bg-white cursor-pointer shadow-2xs"
                 >
                   <option value="">Sinfni tanlang...</option>
                   <option value="ALL">Barcha sinflar ({studentsList.length} ta o'quvchi)</option>
@@ -719,9 +957,9 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 </select>
               </div>
 
-              {/* Student selection checkbox list */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+              {/* Student Checkbox List Section */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-zinc-700">
                   <span>
                     O'quvchilar ({selectedStudentIds.length} ta tanlandi):
                   </span>
@@ -734,45 +972,42 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         setSelectedStudentIds(filteredStudents.map((s) => s.id));
                       }
                     }}
-                    className="text-indigo-600 hover:underline text-[11px] cursor-pointer font-bold"
+                    className="text-indigo-600 hover:text-indigo-800 text-[11px] cursor-pointer font-bold transition"
                   >
-                    {selectedStudentIds.length === filteredStudents.length ? "Barchasini bekor qilish" : "Natijalarni barchasini tanlash"}
+                    {selectedStudentIds.length === filteredStudents.length ? "Barchasini bekor qilish" : "Barchasini tanlash"}
                   </button>
                 </div>
 
-                {/* Student Name Search Input */}
+                {/* Search input */}
                 <div className="relative">
                   <input
                     type="text"
                     placeholder="O'quvchi ismi bo'yicha qidirish..."
                     value={genStudentSearch}
                     onChange={(e) => setGenStudentSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 bg-white"
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-zinc-200 text-xs font-medium focus:outline-none focus:border-indigo-500 bg-white shadow-2xs"
                   />
-                  <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
+                  <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                 </div>
 
-                <div className="text-[11px] font-bold text-slate-500 px-1">
+                <div className="text-[11px] font-bold text-zinc-400 px-1">
                   {genStudentSearch.trim()
                     ? `Qidiruv natijasi: ${displayStudents.length} ta o'quvchi`
                     : `Dastlabki ${displayStudents.length} ta o'quvchi ko'rsatildi (Jami: ${studentsList.length} ta). Boshqa o'quvchini topish uchun qidiruvdan foydalaning.`}
                 </div>
 
-                <div className="border border-slate-200 rounded-2xl p-3 max-h-48 overflow-y-auto space-y-1.5 bg-slate-50/50">
+                <div className="border border-zinc-200 rounded-2xl p-3 max-h-48 overflow-y-auto space-y-1 bg-zinc-50/60 custom-scrollbar">
                   {studentsLoading ? (
-                    <p className="text-xs text-slate-400 text-center py-4">O'quvchilar ro'yxati yuklanmoqda...</p>
+                    <p className="text-xs text-zinc-400 text-center py-4 font-medium">O'quvchilar ro'yxati yuklanmoqda...</p>
                   ) : displayStudents.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-4">O'quvchilar topilmadi.</p>
+                    <p className="text-xs text-zinc-400 text-center py-4 font-medium">O'quvchilar topilmadi.</p>
                   ) : (
                     displayStudents.map((s) => {
                       const isChecked = selectedStudentIds.includes(s.id);
                       return (
                         <label
                           key={s.id}
-                          className="flex items-center space-x-2 text-xs text-slate-700 font-medium cursor-pointer hover:bg-slate-100 p-1.5 rounded-lg transition"
+                          className="flex items-center space-x-2.5 text-xs text-zinc-800 font-medium cursor-pointer hover:bg-zinc-100/80 p-2 rounded-xl transition"
                         >
                           <input
                             type="checkbox"
@@ -784,7 +1019,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                                 setSelectedStudentIds((prev) => [...prev, s.id]);
                               }
                             }}
-                            className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4"
                           />
                           <span>
                             {s.first_name} {s.last_name} ({s.class_name || "Sinf"})
@@ -797,18 +1032,19 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               </div>
 
               {genStatusMessage && (
-                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-900 text-xs font-bold border border-indigo-200">
-                  {genStatusMessage}
+                <div className="p-3.5 rounded-2xl bg-indigo-50 text-indigo-900 text-xs font-bold border border-indigo-200 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>{genStatusMessage}</span>
                 </div>
               )}
             </div>
 
-            {/* Modal Actions */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+            {/* Modal Actions Footer */}
+            <div className="px-6 py-4 bg-zinc-50/80 border-t border-zinc-100 flex items-center justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={resetGenerateModal}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-200/80 transition cursor-pointer"
               >
                 Bekor qilish
               </button>
@@ -816,9 +1052,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 type="button"
                 disabled={generating}
                 onClick={handleBatchGenerate}
-                className="px-5 py-2.5 rounded-xl bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
-                {generating ? "Generatsiya qilinmoqda..." : "Generatsiya qilish ✨"}
+                <Sparkles className="w-4 h-4 text-[#1D1E26]" />
+                <span>{generating ? "Generatsiya qilinmoqda..." : "Generatsiya qilish"}</span>
               </button>
             </div>
           </div>
@@ -896,9 +1133,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 onClick={() => setPreviewReport(null)}
                 className="absolute top-7 right-5 z-30 p-2 rounded-full bg-black/40 text-white/80 hover:text-white hover:bg-black/60 backdrop-blur-md border border-white/10 transition cursor-pointer"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
 
               {/* Vertical Scroll Snap Container */}
@@ -969,9 +1204,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/50 block">
                       Pastga suring
                     </span>
-                    <svg className="w-5 h-5 mx-auto text-white/70" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
+                    <ArrowRight className="w-5 h-5 mx-auto text-white/70 rotate-90" />
                   </div>
                 </div>
 
@@ -1024,9 +1257,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-slate-900 font-black text-xs hover:bg-slate-100 transition cursor-pointer shadow-lg"
                           >
                             <span>Keyingisi</span>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                            </svg>
+                            <ArrowRight className="w-3.5 h-3.5 rotate-90" />
                           </button>
                         ) : (
                           <button
@@ -1045,6 +1276,342 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           </div>
         );
       })()}
+
+      {/* ── MODAL 3: Smart Calendar Week Selector Modal ── */}
+      {isCalendarOpen && (
+        <SmartCalendarModal
+          isOpen={isCalendarOpen}
+          onClose={() => setIsCalendarOpen(false)}
+          mode="week"
+          selectedWeekStart={selectedWeekStart}
+          onSelectWeek={(startStr, _endStr, label) => {
+            setSelectedWeekStart(startStr);
+            setSelectedWeekLabel(label);
+            setIsCalendarOpen(false);
+          }}
+          title="AI Hisobot uchun Haftani Tanlang"
+        />
+      )}
+
+      {/* ── MODAL 4: Custom Dialog Confirm Modal ── */}
+      {confirmDialog && (
+        <CustomDialogModal
+          isOpen={confirmDialog.isOpen}
+          type="danger"
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      {/* ── MODAL 5: AI System Prompt & Token Settings Modal ── */}
+      {isAISettingsOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAISettingsOpen(false);
+          }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-md z-[99990] flex items-center justify-center p-4 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#1D1E26] border border-slate-800 text-white rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto animate-fadeIn"
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-lime-500/10 text-[#D4F562] border border-lime-500/20">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold tracking-tight flex items-center gap-2">
+                    AI System Prompt & Token Sozlamalari
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Gemini AI haftalik tahlillari va feedbacklari uchun asosiy pedagogik yo'riqnoma
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAISettingsOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-5 overflow-y-auto font-sans">
+              {aiSettingsLoading ? (
+                <div className="py-12 text-center text-slate-400 text-xs font-mono">
+                  <div className="w-7 h-7 border-2 border-lime-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  AI Prompt sozlamalari yuklanmoqda...
+                </div>
+              ) : (
+                <>
+                  {/* Dynamic Tags Helper Banner */}
+                  <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between text-xs font-extrabold text-[#D4F562] gap-2">
+                      <span className="flex items-center gap-2">
+                        <Bot className="w-4 h-4" />
+                        Dinamik Teglar (Bosib prompt matniga joylashtiring)
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 font-normal">
+                        Teg ustiga bosing → Prompt matniga joylanadi
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {[
+                        "{StudentName}",
+                        "{ClassName}",
+                        "{WeekStartDate}",
+                        "{WeekEndDate}",
+                        "{CurrentAverageGrade}",
+                        "{Grades}",
+                        "{TeacherComments}",
+                        "{BooksRead}",
+                        "{PrevAverageGrade}",
+                      ].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleInsertTag(tag)}
+                          title={`${tag} tegini prompt matniga qo'shish uchun bosing`}
+                          className="bg-slate-800 hover:bg-[#D4F562] hover:text-[#1D1E26] text-slate-200 text-[11px] font-mono font-bold px-2.5 py-1 rounded-xl border border-slate-700 hover:border-[#D4F562] transition cursor-pointer flex items-center gap-1 shadow-xs active:scale-95 group"
+                        >
+                          <span className="text-lime-400 group-hover:text-[#1D1E26] font-bold text-xs">+</span>
+                          <span>{tag}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Textarea Instruction */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-extrabold text-slate-300 uppercase tracking-wider text-[11px]">
+                        AI System Instruction / Prompt Matni *
+                      </label>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {systemInstructionText.length} belgi (~{Math.ceil(systemInstructionText.length / 4)} token)
+                      </span>
+                    </div>
+                    <textarea
+                      ref={textareaRef}
+                      rows={10}
+                      value={systemInstructionText}
+                      onChange={(e) => setSystemInstructionText(e.target.value)}
+                      placeholder="AI uchun pedagogik yo'riqnomani kiriting..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-slate-200 outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 transition leading-relaxed resize-none"
+                    />
+                  </div>
+
+                  {/* Settings Grid: Max Tokens & Temperature */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-extrabold text-slate-300 uppercase tracking-wider">
+                        Max Tokens Limit (100 - 8000) *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={100}
+                          max={8000}
+                          value={maxTokensVal}
+                          onChange={(e) => setMaxTokensVal(Number(e.target.value))}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-mono text-white outline-none focus:border-lime-400 transition"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-400">Generatsiya uchun maksimal javob uzunligi tokenlarda</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-extrabold text-slate-300 uppercase tracking-wider">
+                        Temperature (Ijodkorlik ko'rsatkichi: 0.0 - 1.0)
+                      </label>
+                      <input
+                        type="number"
+                        step={0.1}
+                        min={0.0}
+                        max={1.0}
+                        value={temperatureVal}
+                        onChange={(e) => setTemperatureVal(Number(e.target.value))}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-mono text-white outline-none focus:border-lime-400 transition"
+                      />
+                      <p className="text-[10px] text-slate-400">0.7 - balanslangan va pedagogik izchil feedback uchun</p>
+                    </div>
+                  </div>
+
+                  {/* Change Reason optional input */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-extrabold text-slate-300 uppercase tracking-wider">
+                      O'zgarish Sababi (Tarix logi uchun izoh)
+                    </label>
+                    <input
+                      type="text"
+                      value={changeReasonText}
+                      onChange={(e) => setChangeReasonText(e.target.value)}
+                      placeholder="Masalan: Yangi o'quv yili uchun prompt qoidalari kuchaytirildi..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white outline-none focus:border-lime-400 transition"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer Controls */}
+            <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <button
+                type="button"
+                onClick={() => {
+                  fetchAIInstructionHistory();
+                  setIsHistoryOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs flex items-center gap-2 transition cursor-pointer border border-slate-700"
+              >
+                <History className="w-4 h-4 text-sky-400" />
+                <span>Prompt Versiyalar Tarixi</span>
+              </button>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAISettingsOpen(false)}
+                  className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold text-xs transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="button"
+                  disabled={aiSettingsSaving}
+                  onClick={handleSaveAIInstruction}
+                  className="px-5 py-2.5 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:bg-[#c2e84d] transition cursor-pointer disabled:opacity-50"
+                >
+                  {aiSettingsSaving ? (
+                    <div className="w-4 h-4 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>Saqlash va Qo'llash</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 6: AI Prompt Version History Drawer/Modal ── */}
+      {isHistoryOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsHistoryOpen(false);
+          }}
+          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99995] flex items-center justify-center p-4 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#1D1E26] border border-slate-800 text-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto animate-fadeIn"
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold tracking-tight">
+                    AI Promptlar O'zgarish Tarixi
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Istalgan o'tgan prompt versiyasiga 1-bosishda qayta olasiz
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsHistoryOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Logs List */}
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[65vh]">
+              {historyLoading ? (
+                <div className="py-12 text-center text-slate-400 text-xs font-mono">
+                  <div className="w-7 h-7 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Versiyalar tarixi yuklanmoqda...
+                </div>
+              ) : historyLogs.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs font-mono space-y-2">
+                  <FileText className="w-8 h-8 mx-auto text-slate-600" />
+                  <p>Hali hech qanday o'tgan prompt tarixi mavjud emas</p>
+                </div>
+              ) : (
+                historyLogs.map((logItem) => (
+                  <div
+                    key={logItem.id}
+                    className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3 hover:border-slate-700 transition"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 text-[11px] font-mono font-bold border border-sky-500/20">
+                          Version #{logItem.id}
+                        </span>
+                        <span className="text-xs text-slate-300 font-extrabold">
+                          {logItem.changed_by_user_name || "Admin"}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          • {new Date(logItem.created_at).toLocaleString("uz-UZ")}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-mono text-slate-400">
+                          Max Tokens: {logItem.max_tokens}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRevertInstruction(logItem.id)}
+                          className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer border border-sky-500/30"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Ushbu versiyaga qaytarish</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {logItem.change_reason && (
+                      <p className="text-xs text-slate-400 font-medium">
+                        <strong className="text-slate-300">Izoh:</strong> {logItem.change_reason}
+                      </p>
+                    )}
+
+                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
+                      {logItem.system_instruction}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-800 flex justify-end bg-slate-900/50">
+              <button
+                type="button"
+                onClick={() => setIsHistoryOpen(false)}
+                className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+              >
+                Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

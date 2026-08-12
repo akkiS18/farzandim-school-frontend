@@ -284,14 +284,14 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
             headers: safeFetchHeaders(),
           });
           if (res.ok) {
-            showAlert("Kitob o'chirildi!");
+            showToast("Kitob o'chirildi!", "success");
             fetchBooks();
           } else {
             const data = await res.json();
-            showAlert(data.error || "O'chirishda xatolik");
+            showToast(data.error || "O'chirishda xatolik", "error");
           }
         } catch {
-          showAlert("Server bilan bog'lanishda xatolik");
+          showToast("Server bilan bog'lanishda xatolik", "error");
         }
       },
       { title: "Kitobni o'chirish", type: "danger", confirmText: "Ha, o'chirish" }

@@ -95,9 +95,9 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
     if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
     if (typeof window !== "undefined") {
       const host = window.location.hostname;
-      return `${window.location.protocol}//${host}:6500`;
+      return `${window.location.protocol}//${host}:6560`;
     }
-    return "http://localhost:6500";
+    return "http://localhost:6560";
   }, [apiUrl]);
 
   // Fetch presets from Database

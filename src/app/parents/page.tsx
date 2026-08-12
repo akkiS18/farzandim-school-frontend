@@ -25,6 +25,7 @@ import CustomDialogModal from "../../components/CustomDialogModal";
 import useSwipeMobileMenu from "../../hooks/useSwipeMobileMenu";
 import ParentSidebar, { TabIconAIReport } from "../../components/ParentSidebar";
 import AIReportSection from "../../components/parents/AIReportSection";
+import ParentLibrarySection from "../../components/parents/ParentLibrarySection";
 import dynamic from "next/dynamic";
 const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
@@ -49,6 +50,7 @@ interface StudentChild {
   last_name: string;
   class_id: number;
   class_name: string;
+  level?: number;
   address?: string;
   birthdate?: string;
   ina?: string;
@@ -361,6 +363,8 @@ export default function ParentDashboard() {
   const [clubs, setClubs] = useState<any[]>([]);
   const [clubsLoading, setClubsLoading] = useState(false);
   const [joinRequestLoading, setJoinRequestLoading] = useState<number | null>(null);
+  const [clubGradeHistory, setClubGradeHistory] = useState<any[]>([]);
+  const [clubGradeHistoryLoading, setClubGradeHistoryLoading] = useState(false);
 
   const fetchClubs = async (authToken: string, childId: number) => {
     setClubsLoading(true);
@@ -376,6 +380,27 @@ export default function ParentDashboard() {
       console.error("Error fetching clubs:", err);
     } finally {
       setClubsLoading(false);
+    }
+  };
+
+  const fetchClubGradeHistory = async (authToken: string) => {
+    setClubGradeHistoryLoading(true);
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const response = await fetch(`${API_URL}/api/schools/student/club-grades`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          ...(sId ? { "X-School-ID": sId } : {}),
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setClubGradeHistory(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching club grade history:", err);
+    } finally {
+      setClubGradeHistoryLoading(false);
     }
   };
 
@@ -510,6 +535,7 @@ export default function ParentDashboard() {
   });
   const [schedule, setSchedule] = useState<any[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [holidays, setHolidays] = useState<any[]>([]);
 
   // Menu states
   const [selectedMenuDate, setSelectedMenuDate] = useState<string>(() => toLocalDateStr(new Date()));
@@ -945,6 +971,7 @@ export default function ParentDashboard() {
           last_name: u.last_name,
           class_id: u.class_id || 0,
           class_name: u.class_name || "Noma'lum sinf",
+          level: u.class_level || u.level || 0,
           address: u.address || "",
           birthdate: u.birthdate || "",
           ina: u.ina || "",
@@ -971,6 +998,7 @@ export default function ParentDashboard() {
   useEffect(() => {
     if (selectedChildId && token) {
       fetchChildGrades();
+      fetchHolidays();
       const child = children.find((c) => c.id === selectedChildId);
       if (child && child.class_id) {
         fetchClassSchedule(child.class_id, getRepresentativeWeekDate(currentWeekStart));
@@ -982,6 +1010,21 @@ export default function ParentDashboard() {
       setNextChargeData(null);
     }
   }, [selectedChildId, currentWeekStart, token, children]);
+
+  const fetchHolidays = async () => {
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+      const response = await fetch(`${API_URL}/api/schools/holidays`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setHolidays(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      /* noop */
+    }
+  };
 
   const fetchClassSchedule = async (classId: number, dateStr: string) => {
     setScheduleLoading(true);
@@ -1239,47 +1282,77 @@ export default function ParentDashboard() {
 
   const activeDayIndices = hasSaturdayContent ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4];
 
-  // Calculate day-by-day rows for active week
-  const daysOfWeek = activeDayIndices.map((dayIdx) => {
-    const dayDateStr = getDayDate(currentWeekStart, dayIdx);
-    const dayName = UZ_DAYS[parseLocalDate(dayDateStr).getDay()];
-    const dayLabel = `${dayName}, ${fmtDate(dayDateStr)}`;
+  // Calculate day-by-day rows for active week (excluding holidays)
+  const daysOfWeek = activeDayIndices
+    .map((dayIdx) => {
+      const dayDateStr = getDayDate(currentWeekStart, dayIdx);
+      const dayName = UZ_DAYS[parseLocalDate(dayDateStr).getDay()];
+      const dayLabel = `${dayName}, ${fmtDate(dayDateStr)}`;
 
-    // 1. Get schedule for this day from backend
-    const daySchedule = schedule.filter((item: any) => item.day_of_week === dayIdx + 1);
-    let subjects = daySchedule.map((item: any) => item.subject_name);
+      // 0. Check if this date is a holiday
+      const childObj = children.find((c) => c.id === selectedChildId);
+      const childClassId = childObj?.class_id;
+      const childLevel = childObj?.level;
 
+      const activeHoliday = holidays.find((h) => {
+        const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split("T")[0] : "";
+        if (hDate !== dayDateStr) return false;
+        if (h.target_classes && Array.isArray(h.target_classes) && h.target_classes.length > 0) {
+          if (!childClassId || !h.target_classes.includes(childClassId)) return false;
+        }
+        if (h.target_levels && Array.isArray(h.target_levels) && h.target_levels.length > 0) {
+          if (!childLevel || !h.target_levels.includes(childLevel)) return false;
+        }
+        return true;
+      });
 
-
-    // 2. Get child's grades for this calendar day
-    const dayGrades = selectedChildGrades.filter(
-      (g) => g.grade_date.split("T")[0] === dayDateStr
-    );
-
-    // 3. Ensure all graded subjects are present in the list (even if not in schedule)
-    const subjectsSet = new Set(subjects);
-    for (const g of dayGrades) {
-      if (!subjectsSet.has(g.subject_name)) {
-        subjects.push(g.subject_name);
-        subjectsSet.add(g.subject_name);
+      // Do not render a card for holiday dates
+      if (activeHoliday) {
+        return null;
       }
-    }
 
-    // 4. Map to DiaryDayCard row format
-    const rows = subjects.map((subject) => {
-      const allSubjectGrades = dayGrades.filter((g) => g.subject_name === subject);
+      // 1. Get schedule for this day from backend
+      const daySchedule = schedule.filter((item: any) => item.day_of_week === dayIdx + 1);
+
+      // 2. Get child's grades for this calendar day
+      const dayGrades = selectedChildGrades.filter(
+        (g) => g.grade_date.split("T")[0] === dayDateStr
+      );
+
+      // 3. Resolve subjects for this day (hide ghost schedule items when grades exist on that day)
+      let subjects: string[] = [];
+      if (dayGrades.length > 0) {
+        const gradedSubjectNames = Array.from(new Set(dayGrades.map((g) => g.subject_name)));
+        daySchedule.forEach((sch: any) => {
+          if (gradedSubjectNames.includes(sch.subject_name) && !subjects.includes(sch.subject_name)) {
+            subjects.push(sch.subject_name);
+          }
+        });
+        gradedSubjectNames.forEach((subj) => {
+          if (!subjects.includes(subj)) {
+            subjects.push(subj);
+          }
+        });
+      } else {
+        subjects = daySchedule.map((item: any) => item.subject_name);
+      }
+
+      // 4. Map to DiaryDayCard row format
+      const rows = subjects.map((subject) => {
+        const allSubjectGrades = dayGrades.filter((g) => g.subject_name === subject);
+        return {
+          subjectName: subject,
+          grade: allSubjectGrades[0],
+          grades: allSubjectGrades,
+        };
+      });
+
       return {
-        subjectName: subject,
-        grade: allSubjectGrades[0],
-        grades: allSubjectGrades,
+        dayLabel,
+        rows,
       };
-    });
-
-    return {
-      dayLabel,
-      rows,
-    };
-  });
+    })
+    .filter((item): item is { dayLabel: string; rows: any[] } => item !== null);
 
   // Active week grades for the selected child (used for signature & approve all)
   const activeWeekGrades = selectedChildGrades.filter(
@@ -3378,143 +3451,139 @@ export default function ParentDashboard() {
                       })}
                     </div>
                   )}
+
+                  {/* Club Grades History Section */}
+                  <div
+                    style={{
+                      backgroundColor: "white",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "16px",
+                      padding: "16px",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                      <div>
+                        <h3 style={{ fontSize: "13px", fontWeight: 800, margin: 0, color: TEXT_DARK, display: "flex", alignItems: "center", gap: "6px" }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="#7C3AED" style={{ width: "14px", height: "14px", flexShrink: 0 }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                          </svg>
+                          To'garak Baholari Tarixi
+                        </h3>
+                        <p style={{ fontSize: "10px", color: TEXT_MUTED, margin: "3px 0 0 0" }}>Farzandingizning to'garaklardagi davomat va baholari.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fetchClubGradeHistory(token)}
+                        style={{
+                          border: "1px solid #E5E7EB",
+                          backgroundColor: "#F9FAFB",
+                          color: TEXT_MUTED,
+                          fontWeight: 700,
+                          fontSize: "10px",
+                          padding: "5px 10px",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" style={{ width: "11px", height: "11px" }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        Yangilash
+                      </button>
+                    </div>
+
+                    {clubGradeHistoryLoading ? (
+                      <div style={{ textAlign: "center", padding: "20px", color: TEXT_MUTED, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                        <span style={{ width: "12px", height: "12px", border: "2px solid #7C3AED", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></span>
+                        Yuklanmoqda...
+                      </div>
+                    ) : clubGradeHistory.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "20px", color: TEXT_MUTED, fontSize: "11px", border: "1px dashed #E5E7EB", borderRadius: "12px", backgroundColor: "#F9FAFB" }}>
+                        Hozircha to'garaklarda baholangan mashg'ulotlar mavjud emas.
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {clubGradeHistory.map((entry: any, idx: number) => {
+                          const scoreNum = Number(entry.score_value);
+                          const scoreColor = scoreNum >= 5 ? "#065F46" : scoreNum >= 4 ? "#1E40AF" : scoreNum >= 3 ? "#B45309" : "#991B1B";
+                          const scoreBg = scoreNum >= 5 ? "#ECFDF5" : scoreNum >= 4 ? "#EFF6FF" : scoreNum >= 3 ? "#FFFBEB" : "#FEF2F2";
+                          const scoreBorder = scoreNum >= 5 ? "#A7F3D0" : scoreNum >= 4 ? "#BFDBFE" : scoreNum >= 3 ? "#FDE68A" : "#FECACA";
+                          return (
+                            <div
+                              key={entry.id || idx}
+                              style={{
+                                backgroundColor: "#F9FAFB",
+                                border: "1px solid #E5E7EB",
+                                borderRadius: "12px",
+                                padding: "10px 12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                              }}
+                            >
+                              <div style={{ flex: 1 }}>
+                                <span style={{ fontSize: "12px", fontWeight: 800, color: TEXT_DARK, display: "block" }}>{entry.club_name || "To'garak"}</span>
+                                <span style={{ fontSize: "10px", color: TEXT_MUTED, fontFamily: "monospace" }}>
+                                  {entry.lesson_date ? new Date(entry.lesson_date).toLocaleDateString("uz-UZ", { weekday: "short", day: "numeric", month: "long" }) : "—"}
+                                </span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                                {/* Attendance */}
+                                {entry.attendance === "PRESENT" && (
+                                  <span style={{ fontSize: "9px", fontWeight: 800, color: "#065F46", backgroundColor: "#ECFDF5", border: "1px solid #A7F3D0", padding: "2px 7px", borderRadius: "6px" }}>Keldi</span>
+                                )}
+                                {entry.attendance === "ABSENT" && (
+                                  <span style={{ fontSize: "9px", fontWeight: 800, color: "#991B1B", backgroundColor: "#FEF2F2", border: "1px solid #FECACA", padding: "2px 7px", borderRadius: "6px" }}>Kelmadi</span>
+                                )}
+                                {entry.attendance === "EXCUSED" && (
+                                  <span style={{ fontSize: "9px", fontWeight: 800, color: "#B45309", backgroundColor: "#FFFBEB", border: "1px solid #FDE68A", padding: "2px 7px", borderRadius: "6px" }}>Sababli</span>
+                                )}
+                                {/* Score */}
+                                {entry.score_value && (
+                                  <span style={{
+                                    width: "28px", height: "28px", borderRadius: "50%",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    fontSize: "11px", fontWeight: 900, fontFamily: "monospace",
+                                    color: scoreColor, backgroundColor: scoreBg, border: `1px solid ${scoreBorder}`,
+                                    flexShrink: 0,
+                                  }}>
+                                    {entry.score_value}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })()}
 
             {/* Sub-tab: BOOKS (Kitobxonlik / Elektron Kutubxona) */}
             {activeSubTab === "books" && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
-                  <div>
-                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_DARK, margin: 0 }}>
-                      Elektron Kutubxona
-                    </h3>
-                    <p style={{ fontSize: "12px", color: TEXT_MUTED, margin: "2px 0 0 0" }}>
-                      {selectedChild ? `${selectedChild.first_name} uchun tavsiya etilgan kitoblar` : "Maktab o'quvchilari uchun tavsiya etilgan kitoblar"}
-                    </p>
-                  </div>
-                </div>
-
-                {parentBooksLoading ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 16px", backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E5E7EB" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", border: `3px solid ${ACCENT_MID}`, borderTopColor: ACCENT, animation: "spin 0.8s linear infinite" }} />
-                    <span style={{ fontSize: "12px", fontWeight: 600, color: TEXT_MUTED, marginTop: "12px" }}>Kitoblar yuklanmoqda...</span>
-                  </div>
-                ) : parentBooks.length === 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 16px", backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E5E7EB", textAlign: "center" }}>
-                    <div style={{ width: "48px", height: "48px", borderRadius: "16px", backgroundColor: ACCENT_LIGHT, color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px", fontSize: "24px" }}>
-                      📚
-                    </div>
-                    <h4 style={{ fontSize: "15px", fontWeight: 700, color: TEXT_DARK, margin: 0 }}>Kitoblar topilmadi</h4>
-                    <p style={{ fontSize: "12px", color: TEXT_MUTED, margin: "4px 0 0 0", maxWidth: "320px" }}>
-                      Hozircha tavsiya etilgan elektron kitoblar mavjud emas.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="diary-grid">
-                    {parentBooks.map((b: any) => {
-                      const rawLink = (b.download_link || b.file_url || "").trim();
-                      const bookFullUrl = rawLink ? (rawLink.startsWith("http://") || rawLink.startsWith("https://") ? rawLink : `${API_URL}${rawLink}`) : "";
-                      const coverFullUrl = b.cover_url ? (b.cover_url.startsWith("http://") || b.cover_url.startsWith("https://") ? b.cover_url : `${API_URL}${b.cover_url}`) : "";
-
-                      return (
-                        <div
-                          key={b.id}
-                          style={{
-                            backgroundColor: "#FFFFFF",
-                            borderRadius: "16px",
-                            border: "1px solid #E5E7EB",
-                            overflow: "hidden",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-                            display: "flex",
-                            flexDirection: "column",
-                          }}
-                        >
-                          {/* Cover header */}
-                          <div style={{ height: "160px", backgroundColor: "#1D1E26", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            {coverFullUrl ? (
-                              <img src={coverFullUrl} alt={b.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            ) : (
-                              <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #1D1E26 0%, #374151 100%)", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
-                                <div style={{ width: "32px", height: "32px", borderRadius: "10px", backgroundColor: "#D4F562", color: "#1D1E26", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "16px" }}>
-                                  📚
-                                </div>
-                                <div>
-                                  <p style={{ color: "#FFFFFF", fontSize: "12px", fontWeight: 800, margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                                    {b.title}
-                                  </p>
-                                  {b.author && (
-                                    <p style={{ color: "#9CA3AF", fontSize: "10px", fontWeight: 600, margin: "2px 0 0 0" }}>
-                                      {b.author}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            <div style={{ position: "absolute", top: "10px", left: "10px", zIndex: 10 }}>
-                              <span style={{ backgroundColor: "#ECFCCA", color: "#1D1E26", border: "1px solid #BEF264", fontSize: "10px", fontWeight: 800, padding: "2px 8px", borderRadius: "6px" }}>
-                                {b.target_levels && b.target_levels.length > 0 ? `${b.target_levels.join(", ")}-sinf` : "Barcha sinflar"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Body */}
-                          <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                            <div>
-                              <h4 style={{ fontSize: "14px", fontWeight: 800, color: TEXT_DARK, margin: 0, lineHeight: 1.3 }}>
-                                {b.title}
-                              </h4>
-                              {b.author && (
-                                <p style={{ fontSize: "11px", fontWeight: 700, color: ACCENT, margin: "4px 0 0 0" }}>
-                                  {b.author}
-                                </p>
-                              )}
-                              {b.description && (
-                                <p style={{ fontSize: "11px", color: TEXT_MUTED, margin: "8px 0 0 0", lineHeight: 1.4 }}>
-                                  {b.description}
-                                </p>
-                              )}
-                            </div>
-
-                            {(bookFullUrl || b.location_in_school) && (
-                              <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                {bookFullUrl ? (
-                                  <a
-                                    href={bookFullUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "6px",
-                                      backgroundColor: ACCENT,
-                                      color: "#FFFFFF",
-                                      fontSize: "11px",
-                                      fontWeight: 700,
-                                      padding: "8px 14px",
-                                      borderRadius: "10px",
-                                      textDecoration: "none",
-                                      boxShadow: "0 2px 6px rgba(79,70,229,0.2)",
-                                    }}
-                                  >
-                                    <span>Yuklab olish / O'qish (PDF)</span>
-                                    {b.file_size && <span style={{ opacity: 0.8, fontSize: "10px" }}>({b.file_size})</span>}
-                                  </a>
-                                ) : b.location_in_school ? (
-                                  <span style={{ fontSize: "11px", color: TEXT_MUTED, fontWeight: 600 }}>
-                                    📍 Kutubxonada: {b.location_in_school}
-                                  </span>
-                                ) : null}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <ParentLibrarySection
+                token={token}
+                apiUrl={API_URL}
+                schoolId={userInfo?.school_id || ""}
+                selectedChild={
+                  selectedChild
+                    ? {
+                        id: selectedChild.id,
+                        first_name: selectedChild.first_name,
+                        last_name: selectedChild.last_name,
+                        class_id: selectedChild.class_id,
+                        class_name: selectedChild.class_name,
+                      }
+                    : undefined
+                }
+              />
             )}
           </div>
         )}

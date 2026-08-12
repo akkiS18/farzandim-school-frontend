@@ -120,13 +120,15 @@ export default function ParentSidebar({
 
   return (
     <aside
-      className="sidebar-column"
+      className="sidebar-column h-[100dvh] max-h-[100dvh]"
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         boxSizing: "border-box",
-        overflow: "hidden",
+        overflowY: "auto",
+        height: "100dvh",
+        maxHeight: "100dvh",
       }}
     >
       {/* 1. Standalone Site Brand Logo (Fixed at Top) */}
@@ -153,7 +155,9 @@ export default function ParentSidebar({
         }}
         title="Online Jurnal"
       >
-        ✦
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.2L12 16.6l-6.3 4.6 2.3-7.2-6-4.6h7.6z" />
+        </svg>
       </div>
 
       {/* 2. Middle Scrollable Nav Items Container */}
@@ -214,6 +218,7 @@ export default function ParentSidebar({
           gap: "6px",
           width: "100%",
           paddingTop: "8px",
+          paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
           borderTop: "1px solid #E2E8F0",
           flexShrink: 0,
         }}

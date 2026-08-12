@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
+import { DateRangePresets } from "../DateRangePresets";
+import { TargetPresets } from "../TargetPresets";
 import { ImportResult } from "./types";
 
 interface MenuSectionProps {
@@ -33,6 +35,10 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
   const [newIntervalStartDate, setNewIntervalStartDate] = useState("2026-09-01");
   const [newIntervalEndDate, setNewIntervalEndDate] = useState("2027-05-31");
   const [newIntervalWeeks, setNewIntervalWeeks] = useState(4);
+  // TargetPresets states for interval modal
+  const [intervalTargetLevels, setIntervalTargetLevels] = useState<number[]>([]);
+  const [intervalTargetClasses, setIntervalTargetClasses] = useState<number[]>([]);
+  const [intervalTargetStudents, setIntervalTargetStudents] = useState<number[]>([]);
 
   const [menuWeekNumber, setMenuWeekNumber] = useState(1);
   const [menuDayOfWeek, setMenuDayOfWeek] = useState(1);
@@ -720,6 +726,21 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
             </div>
 
             <form onSubmit={handleSaveMenuInterval} className="space-y-4">
+              {/* Date Range Presets */}
+              <DateRangePresets
+                startDate={newIntervalStartDate}
+                endDate={newIntervalEndDate}
+                onStartDateChange={setNewIntervalStartDate}
+                onEndDateChange={setNewIntervalEndDate}
+                token={token}
+                apiUrl={API_URL}
+                category="menu_interval"
+                theme="lime"
+                label="Sana oralig'i shablonlari (Date Range Presets)"
+                startLabel="Boshlanish sanasi"
+                endLabel="Tugash sanasi"
+              />
+
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Interval Nomi</label>
                 <input
@@ -767,6 +788,20 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
+
+              {/* Target Presets */}
+              <TargetPresets
+                selectedLevels={intervalTargetLevels}
+                selectedClasses={intervalTargetClasses}
+                selectedStudents={intervalTargetStudents}
+                onLevelsChange={setIntervalTargetLevels}
+                onClassesChange={setIntervalTargetClasses}
+                onStudentsChange={setIntervalTargetStudents}
+                token={token}
+                apiUrl={API_URL}
+                theme="lime"
+                label="O'quvchilar To'plamlari (Kimlar uchun?)"
+              />
 
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button

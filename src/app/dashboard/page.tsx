@@ -476,7 +476,7 @@ export default function TenantDashboard() {
           )}
 
           {activeMenu === "books" && (
-            <LibrarySection />
+            <LibrarySection token={token} API_URL={API_URL} />
           )}
 
           {activeMenu === "ai-reports" && (

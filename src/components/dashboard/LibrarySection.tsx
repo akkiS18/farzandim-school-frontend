@@ -25,6 +25,9 @@ import {
   Layers,
 } from "lucide-react";
 import api from "@/lib/api";
+import { DateRangePresets } from "../DateRangePresets";
+import { useDialog } from "../../hooks/useDialog";
+import CustomDialogModal from "../CustomDialogModal";
 
 interface BookCategory {
   id: number;
@@ -87,13 +90,19 @@ interface StudentReadingProgress {
   book_id: number;
   student_id: number;
   student_name: string;
-  class_name: string;
-  status: string;
+  class_name?: string;
+  status?: string;
   grade_value: string;
   teacher_feedback: string;
 }
 
-export default function LibrarySection() {
+interface LibrarySectionProps {
+  token?: string;
+  API_URL?: string;
+}
+
+export default function LibrarySection({ token, API_URL }: LibrarySectionProps) {
+  const effectiveApiUrl = API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
   const [activeTab, setActiveTab] = useState<"catalog" | "assignments">("catalog");
 
   // Data states
@@ -149,11 +158,39 @@ export default function LibrarySection() {
   const [selectedPresetIds, setSelectedPresetIds] = useState<number[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
 
+  const { dialogState, showAlert, showConfirm } = useDialog();
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (text: string, type: "success" | "error" = "success") => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Searchable Multi-Select Dropdown State for Books
+  const [bookDropdownSearch, setBookDropdownSearch] = useState("");
+  const [isBookDropdownOpen, setIsBookDropdownOpen] = useState(false);
+
   const [studentSearch, setStudentSearch] = useState("");
   const [classSearch, setClassSearch] = useState("");
 
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+
+  // Esc key listener for closing modals and dropdowns
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowAddCategoryModal(false);
+        setShowAddBookModal(false);
+        setShowCreateAssignmentModal(false);
+        setShowGradeModal(false);
+        setSelectedAssignmentDetails(null);
+        setIsBookDropdownOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Load Library Initial Data
   const loadLibraryData = async () => {
@@ -399,9 +436,10 @@ export default function LibrarySection() {
       });
 
       setShowGradeModal(false);
+      showToast("Baho muvaffaqiyatli saqlandi!", "success");
       handleOpenAssignmentDetails(selectedAssignmentDetails.id);
     } catch (err: any) {
-      alert(err.message || "Baholashda xatolik");
+      showToast(err.message || "Baholashda xatolik", "error");
     } finally {
       setSubmittingGrade(false);
     }
@@ -739,15 +777,20 @@ export default function LibrarySection() {
                     </button>
 
                     <button
-                      onClick={async () => {
-                        if (confirm(`Haqiqatan ham "${asg.title}" topshirig'ini o'chirmoqchimisiz?`)) {
-                          try {
-                            await api.delete(`/api/schools/reading-assignments/${asg.id}`);
-                            loadLibraryData();
-                          } catch (err: any) {
-                            alert(err.message || "O'chirishda xatolik");
-                          }
-                        }
+                      onClick={() => {
+                        showConfirm(
+                          `Haqiqatan ham "${asg.title}" topshirig'ini o'chirmoqchimisiz?`,
+                          async () => {
+                            try {
+                              await api.delete(`/api/schools/reading-assignments/${asg.id}`);
+                              showToast("Mutolaa topshirig'i o'chirildi!", "success");
+                              loadLibraryData();
+                            } catch (err: any) {
+                              showToast(err.message || "O'chirishda xatolik", "error");
+                            }
+                          },
+                          { title: "Topshiriqni o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
+                        );
                       }}
                       className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
                       title="Topshiriqni o'chirish"
@@ -764,8 +807,13 @@ export default function LibrarySection() {
 
       {/* MODAL 1: ADD BOOK CATEGORY */}
       {showAddCategoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-5">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddCategoryModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-5 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center">
@@ -773,7 +821,12 @@ export default function LibrarySection() {
                 </div>
                 <h3 className="text-base font-bold text-slate-900">Yangi Kitob Guruhi</h3>
               </div>
-              <button onClick={() => setShowAddCategoryModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">&times;</button>
+              <button
+                onClick={() => setShowAddCategoryModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleCreateCategory} className="space-y-4">
@@ -826,14 +879,24 @@ export default function LibrarySection() {
 
       {/* MODAL 2: ADD BOOK */}
       {showAddBookModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddBookModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] my-auto">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <BookOpen className="w-5 h-5 text-indigo-400" />
                 <h3 className="text-base font-bold">Kutubxonaga Yangi Kitob Qo'shish</h3>
               </div>
-              <button onClick={() => setShowAddBookModal(false)} className="text-slate-400 hover:text-white cursor-pointer">&times;</button>
+              <button
+                onClick={() => setShowAddBookModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleCreateBook} className="p-6 overflow-y-auto space-y-4">
@@ -963,14 +1026,26 @@ export default function LibrarySection() {
 
       {/* MODAL 3: CREATE READING ASSIGNMENT WITH MULTI-TARGET SELECTION */}
       {showCreateAssignmentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreateAssignmentModal(false);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] my-auto">
             <div className="px-6 py-4 bg-indigo-950 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <Award className="w-5 h-5 text-indigo-400" />
                 <h3 className="text-base font-bold">Yangi Mutolaa Topshirig'i Yaratish</h3>
               </div>
-              <button onClick={() => setShowCreateAssignmentModal(false)} className="text-slate-400 hover:text-white cursor-pointer">&times;</button>
+              <button
+                onClick={() => setShowCreateAssignmentModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleCreateAssignment} className="p-6 overflow-y-auto space-y-5">
@@ -995,69 +1070,174 @@ export default function LibrarySection() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Boshlanish Sanasi *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={assignStartDate}
-                    onChange={(e) => setAssignStartDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:border-indigo-500 outline-none transition"
-                  />
-                </div>
+              {/* DATE RANGE PRESETS INTEGRATION */}
+              <DateRangePresets
+                startDate={assignStartDate}
+                endDate={assignEndDate}
+                onStartDateChange={setAssignStartDate}
+                onEndDateChange={setAssignEndDate}
+                apiUrl={effectiveApiUrl}
+                token={token}
+                theme="indigo"
+                category="reading_assignment"
+                label="Topshiriq Muddat Shablonlari (Date Presets)"
+                startLabel="Boshlanish Sanasi *"
+                endLabel="Tugash Sanasi *"
+              />
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Tugash Sanasi *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={assignEndDate}
-                    onChange={(e) => setAssignEndDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:border-indigo-500 outline-none transition"
-                  />
-                </div>
-              </div>
-
-              {/* BOOK SELECTION */}
-              <div>
-                <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-1">
-                  Kutubxonadan Kitoblarni Tanlang (Ko'p tanlash):
+              {/* SEARCHABLE MULTI-SELECT DROPDOWN FOR BOOKS */}
+              <div className="space-y-1.5 relative">
+                <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Kutubxonadan Kitoblarni Tanlang (Searchable Multi-Select) *</span>
+                  </span>
+                  <span className="text-[11px] text-indigo-600 font-bold">
+                    {selectedBookIds.length} ta kitob tanlandi
+                  </span>
                 </label>
-                <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-2xl p-2 bg-slate-50 divide-y divide-slate-100">
-                  {books.length === 0 ? (
-                    <p className="text-xs text-slate-400 p-3 text-center">Kutubxonada kitob mavjud emas</p>
-                  ) : (
-                    books.map((bk) => {
-                      const isSelected = selectedBookIds.includes(bk.id);
+
+                {/* Selected Books Badge Tags */}
+                {selectedBookIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl max-h-28 overflow-y-auto">
+                    {selectedBookIds.map((bId) => {
+                      const b = books.find((item) => item.id === bId);
+                      if (!b) return null;
                       return (
-                        <div
-                          key={bk.id}
-                          onClick={() => {
-                            setSelectedBookIds((prev) =>
-                              prev.includes(bk.id) ? prev.filter((i) => i !== bk.id) : [...prev, bk.id]
-                            );
-                          }}
-                          className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition ${
-                            isSelected ? "bg-indigo-50 text-indigo-950 font-bold" : "hover:bg-white text-slate-700"
-                          }`}
+                        <span
+                          key={b.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-indigo-300 rounded-xl text-xs font-extrabold text-indigo-950 shadow-2xs group"
                         >
-                          <div className="flex items-center gap-2">
-                            <input type="checkbox" checked={isSelected} readOnly className="w-4 h-4 rounded text-indigo-600" />
-                            <span className="text-xs font-semibold">{bk.title}</span>
-                          </div>
-                          {bk.category_name && (
-                            <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded-full text-slate-700 font-medium">
-                              {bk.category_name}
-                            </span>
-                          )}
-                        </div>
+                          <span>{b.title}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBookIds((prev) => prev.filter((id) => id !== b.id))}
+                            className="text-slate-400 hover:text-rose-600 p-0.5 rounded-full hover:bg-rose-50 transition cursor-pointer"
+                            title="Tanlovdan chiqarish"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
                       );
-                    })
+                    })}
+                  </div>
+                )}
+
+                {/* Dropdown Input / Trigger */}
+                <div className="relative">
+                  <div
+                    onClick={() => setIsBookDropdownOpen(!isBookDropdownOpen)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium flex items-center justify-between cursor-pointer transition select-none"
+                  >
+                    <div className="flex items-center gap-2 text-slate-500 overflow-hidden">
+                      <Search className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <span className="truncate text-slate-700 font-semibold">
+                        {selectedBookIds.length === 0
+                          ? "Kitoblarni qidirish va tanlash uchun bosing..."
+                          : `${selectedBookIds.length} ta kitob tanlangan (ro'yxatni tahrirlash)`}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+                        isBookDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                      }`}
+                    />
+                  </div>
+
+                  {/* Expanded Dropdown Panel */}
+                  {isBookDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2 animate-in fade-in duration-150">
+                      {/* Search Bar & Select All actions */}
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div className="relative flex-1">
+                          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            autoFocus
+                            value={bookDropdownSearch}
+                            onChange={(e) => setBookDropdownSearch(e.target.value)}
+                            placeholder="Kitob nomi yoki muallifini qidirish..."
+                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBookIds(books.map((b) => b.id))}
+                            className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                          >
+                            Hammasi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBookIds([])}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                          >
+                            Bekor qilish
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Book List with Scroll */}
+                      <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 space-y-1 pr-1">
+                        {books.length === 0 ? (
+                          <p className="text-xs text-slate-400 p-3 text-center">Kutubxonada kitob mavjud emas</p>
+                        ) : (
+                          (() => {
+                            const filteredDropdownBooks = books.filter((bk) => {
+                              const searchStr = `${bk.title} ${bk.author || ""} ${bk.category_name || ""}`.toLowerCase();
+                              return searchStr.includes(bookDropdownSearch.toLowerCase().trim());
+                            });
+
+                            if (filteredDropdownBooks.length === 0) {
+                              return (
+                                <p className="text-xs text-slate-400 p-3 text-center">Qidiruv bo'yicha kitob topilmadi</p>
+                              );
+                            }
+
+                            return filteredDropdownBooks.map((bk) => {
+                              const isSelected = selectedBookIds.includes(bk.id);
+                              return (
+                                <div
+                                  key={bk.id}
+                                  onClick={() => {
+                                    setSelectedBookIds((prev) =>
+                                      prev.includes(bk.id) ? prev.filter((i) => i !== bk.id) : [...prev, bk.id]
+                                    );
+                                  }}
+                                  className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition select-none ${
+                                    isSelected
+                                      ? "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold"
+                                      : "hover:bg-slate-50 text-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                                        isSelected
+                                          ? "bg-indigo-600 border-indigo-600 text-white"
+                                          : "border-slate-300 bg-white"
+                                      }`}
+                                    >
+                                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-bold leading-tight">{bk.title}</p>
+                                      {bk.author && <p className="text-[10px] text-slate-500 font-medium">{bk.author}</p>}
+                                    </div>
+                                  </div>
+                                  {bk.category_name && (
+                                    <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full font-semibold">
+                                      {bk.category_name}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1069,8 +1249,9 @@ export default function LibrarySection() {
                     <Users className="w-4 h-4 text-indigo-600" />
                     <span>Topshiriq Biriktiriladigan O'quvchilar Saralashi</span>
                   </div>
-                  <span className="px-3 py-1 bg-indigo-600 text-white rounded-full text-[11px] font-black shadow-xs">
-                    🎯 Jami Biriktiriladigan: {resolvedStudentSet.size} ta o'quvchi
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-full text-[11px] font-black shadow-xs">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Jami Biriktiriladigan: {resolvedStudentSet.size} ta o'quvchi</span>
                   </span>
                 </div>
 
@@ -1258,8 +1439,13 @@ export default function LibrarySection() {
 
       {/* MODAL 4: ASSIGNMENT MATRIX & EVALUATION */}
       {selectedAssignmentDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedAssignmentDetails(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] my-auto">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-base font-bold">{selectedAssignmentDetails.title}</h3>
@@ -1267,7 +1453,12 @@ export default function LibrarySection() {
                   Muddat: {selectedAssignmentDetails.start_date} ➔ {selectedAssignmentDetails.end_date}
                 </p>
               </div>
-              <button onClick={() => setSelectedAssignmentDetails(null)} className="text-slate-400 hover:text-white cursor-pointer">&times;</button>
+              <button
+                onClick={() => setSelectedAssignmentDetails(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-5">
@@ -1350,14 +1541,24 @@ export default function LibrarySection() {
 
       {/* MODAL 5: GRADE STUDENT ITEM */}
       {showGradeModal && gradingProgressItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-4">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowGradeModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">O'quvchini Baholash</h3>
                 <p className="text-xs text-slate-500 font-semibold">{gradingProgressItem.student_name}</p>
               </div>
-              <button onClick={() => setShowGradeModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">&times;</button>
+              <button
+                onClick={() => setShowGradeModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleSaveGrade} className="space-y-4">
@@ -1409,6 +1610,32 @@ export default function LibrarySection() {
           </div>
         </div>
       )}
+
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border font-bold text-xs flex items-center gap-2 animate-fadeIn ${
+            toastMessage.type === "success"
+              ? "bg-slate-900 text-white border-slate-700"
+              : "bg-rose-600 text-white border-rose-700"
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Custom Dialog Modal */}
+      <CustomDialogModal
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 }

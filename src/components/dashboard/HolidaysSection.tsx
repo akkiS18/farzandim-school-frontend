@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight, FileSpreadsheet, Upload, Download, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ClassItem, UserInfo } from "./types";
 
 interface HolidayItem {
@@ -33,13 +33,13 @@ export default function HolidaysSection({
   classes,
 }: HolidaysSectionProps) {
   const [holidays, setHolidays] = useState<HolidayItem[]>([]);
-  const { dialogState, showAlert, showConfirm } = useDialog();
+  const { dialogState, showAlert } = useDialog();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Modal State
+  // Modal State - Add
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedDates, setSelectedDates] = useState<string[]>([]); // YYYY-MM-DD[]
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [holidayName, setHolidayName] = useState("");
   const [targetType, setTargetType] = useState<"all" | "levels" | "classes">("all");
   const [selectedLevels, setSelectedLevels] = useState<number[]>([]);
@@ -50,12 +50,41 @@ export default function HolidaysSection({
   // Calendar state
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
-  const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-indexed
+  const [calMonth, setCalMonth] = useState(today.getMonth());
   const isSelecting = useRef(false);
-  const selectMode = useRef<"add" | "remove">("add"); // whether dragging adds or removes
+  const selectMode = useRef<"add" | "remove">("add");
 
   // Delete State
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Excel Import State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    success: boolean;
+    imported_count: number;
+    failed_count: number;
+    errors: { row: number; error: string }[];
+  } | null>(null);
+  const [importError, setImportError] = useState("");
+
+  // ESC key listener for all modals
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showAddModal) setShowAddModal(false);
+        if (showImportModal) {
+          setShowImportModal(false);
+          setImportFile(null);
+          setImportResult(null);
+          setImportError("");
+        }
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [showAddModal, showImportModal]);
 
   const fetchHolidays = async () => {
     if (!token) return;
@@ -63,9 +92,7 @@ export default function HolidaysSection({
     setError("");
     try {
       const response = await fetch(`${API_URL}/api/schools/holidays`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
       if (response.ok) {
@@ -137,11 +164,8 @@ export default function HolidaysSection({
     try {
       const response = await fetch(`${API_URL}/api/schools/holidays/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
         fetchHolidays();
       } else {
@@ -152,6 +176,53 @@ export default function HolidaysSection({
       showAlert("Server bilan bog'lanishda xatolik");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/schools/import/template/holidays`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Shablonni yuklab bo'lmadi");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "bayramlar_template.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      showAlert(err instanceof Error ? err.message : "Shablonni yuklab bo'lmadi");
+    }
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importFile) return;
+    setImportLoading(true);
+    setImportError("");
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", importFile);
+
+    try {
+      const response = await fetch(`${API_URL}/api/schools/import/holidays`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Yuklashda xatolik");
+      setImportResult(data);
+      if (data.imported_count > 0) fetchHolidays();
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : "Yuklashda xatolik");
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -173,7 +244,6 @@ export default function HolidaysSection({
     );
   };
 
-  // Calendar helpers
   const prevMonth = () => {
     if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); }
     else setCalMonth((m) => m - 1);
@@ -183,12 +253,10 @@ export default function HolidaysSection({
     else setCalMonth((m) => m + 1);
   };
 
-  /** Returns an array of {dateStr, day, isCurrentMonth} for the 6-week grid */
   const buildCalendarDays = () => {
     const firstOfMonth = new Date(calYear, calMonth, 1);
-    // Monday-based week: getDay() returns 0=Sun,1=Mon,...
-    let startDow = firstOfMonth.getDay(); // 0=Sun
-    startDow = startDow === 0 ? 6 : startDow - 1; // convert to 0=Mon
+    let startDow = firstOfMonth.getDay();
+    startDow = startDow === 0 ? 6 : startDow - 1;
     const start = new Date(firstOfMonth);
     start.setDate(start.getDate() - startDow);
 
@@ -230,7 +298,6 @@ export default function HolidaysSection({
 
   const handleMouseUp = () => { isSelecting.current = false; };
 
-  // Available unique class levels
   const availableLevels = Array.from(
     new Set(classes.map((c) => c.level).filter((l): l is number => typeof l === "number"))
   ).sort((a, b) => a - b);
@@ -245,28 +312,42 @@ export default function HolidaysSection({
             Dam Olish Kunlari (Bayramlar)
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-1">
-            Maktab, sinflar yoki levellar uchun dam olish kunlarini belgilash. Ushbu kunlarda dars jadvali to'xtatiladi.
+            Maktab, sinflar yoki levellar uchun dam olish kunlarini belgilash. Ushbu kunlarda dars jadvali to&apos;xtatiladi.
           </p>
         </div>
 
         {userInfo?.role === "ADMIN" && (
-          <button
-            onClick={() => {
-              setSelectedDates([]);
-              setHolidayName("");
-              setTargetType("all");
-              setSelectedLevels([]);
-              setSelectedClasses([]);
-              setActionError("");
-              setCalYear(new Date().getFullYear());
-              setCalMonth(new Date().getMonth());
-              setShowAddModal(true);
-            }}
-            className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-5 rounded-2xl shadow-xs hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            + Bayram kuni qo&apos;shish
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              title="Excel orqali yuklash"
+              onClick={() => {
+                setShowImportModal(true);
+                setImportFile(null);
+                setImportResult(null);
+                setImportError("");
+              }}
+              className="w-9 h-9 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl shadow-xs flex items-center justify-center transition cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+            </button>
+            <button
+              title="Bayram kuni qo'shish"
+              onClick={() => {
+                setSelectedDates([]);
+                setHolidayName("");
+                setTargetType("all");
+                setSelectedLevels([]);
+                setSelectedClasses([]);
+                setActionError("");
+                setCalYear(new Date().getFullYear());
+                setCalMonth(new Date().getMonth());
+                setShowAddModal(true);
+              }}
+              className="w-9 h-9 bg-[#D4F562] text-[#1D1E26] rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer flex items-center justify-center"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -305,9 +386,7 @@ export default function HolidaysSection({
 
                   return (
                     <tr key={h.id} className="hover:bg-slate-50/80 transition">
-                      <td className="px-6 py-4 font-mono font-bold text-[#1D1E26]">
-                        {dateStr}
-                      </td>
+                      <td className="px-6 py-4 font-mono font-bold text-[#1D1E26]">{dateStr}</td>
                       <td className="px-6 py-4 font-bold text-slate-900">{h.name}</td>
                       <td className="px-6 py-4">
                         {!hasLevels && !hasClasses ? (
@@ -348,11 +427,7 @@ export default function HolidaysSection({
       {/* Modal: Add Holiday */}
       {showAddModal && (
         <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowAddModal(false);
-            }
-          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
           <div className="w-full max-w-lg max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
@@ -360,13 +435,13 @@ export default function HolidaysSection({
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Yangi Dam Olish Kuni Belgilash</h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Belgilangan kuni mos sinflarda darslar o'tilmaydi.
+                  Belgilangan kuni mos sinflarda darslar o&apos;tilmaydi.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -380,8 +455,7 @@ export default function HolidaysSection({
               )}
 
               <form onSubmit={handleSaveHoliday} className="space-y-5">
-
-                {/* ── Inline Multi-Date Calendar ── */}
+                {/* Calendar */}
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">
                     Sanalarni tanlang *
@@ -397,37 +471,22 @@ export default function HolidaysSection({
                     onMouseLeave={handleMouseUp}
                     onMouseUp={handleMouseUp}
                   >
-                    {/* Calendar nav */}
                     <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-                      <button
-                        type="button"
-                        onClick={prevMonth}
-                        className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer"
-                      >
+                      <button type="button" onClick={prevMonth} className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
                         <ChevronLeft className="w-4 h-4" />
                       </button>
-                      <span className="text-sm font-black text-[#1D1E26]">
-                        {MONTH_NAMES[calMonth]} {calYear}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={nextMonth}
-                        className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer"
-                      >
+                      <span className="text-sm font-black text-[#1D1E26]">{MONTH_NAMES[calMonth]} {calYear}</span>
+                      <button type="button" onClick={nextMonth} className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Day-of-week headers */}
                     <div className="grid grid-cols-7 border-b border-slate-100">
                       {DAY_NAMES.map((d) => (
-                        <div key={d} className="py-2 text-center text-[10px] font-extrabold text-slate-400 font-mono">
-                          {d}
-                        </div>
+                        <div key={d} className="py-2 text-center text-[10px] font-extrabold text-slate-400 font-mono">{d}</div>
                       ))}
                     </div>
 
-                    {/* Day cells */}
                     <div className="grid grid-cols-7 p-2 gap-1">
                       {calDays.map(({ dateStr, day, isCurrentMonth, isToday }) => {
                         const isSelected = selectedDates.includes(dateStr);
@@ -436,17 +495,15 @@ export default function HolidaysSection({
                             key={dateStr}
                             onMouseDown={() => handleDayMouseDown(dateStr)}
                             onMouseEnter={() => handleDayMouseEnter(dateStr)}
-                            className={`
-                              h-8 w-full flex items-center justify-center rounded-xl text-xs font-bold transition cursor-pointer
-                              ${isSelected
+                            className={`h-8 w-full flex items-center justify-center rounded-xl text-xs font-bold transition cursor-pointer ${
+                              isSelected
                                 ? "bg-[#1D1E26] text-[#D4F562] ring-2 ring-[#D4F562]/50"
                                 : isToday
                                   ? "ring-2 ring-[#D4F562] text-[#1D1E26] bg-[#D4F562]/10"
                                   : isCurrentMonth
                                     ? "text-slate-700 hover:bg-slate-100"
                                     : "text-slate-300 hover:bg-slate-50"
-                              }
-                            `}
+                            }`}
                           >
                             {day}
                           </div>
@@ -454,7 +511,6 @@ export default function HolidaysSection({
                       })}
                     </div>
 
-                    {/* Selected dates summary */}
                     {selectedDates.length > 0 && (
                       <div className="px-3 pb-3">
                         <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-100">
@@ -475,7 +531,7 @@ export default function HolidaysSection({
                   </div>
                 </div>
 
-                {/* Bayram nomi */}
+                {/* Holiday name */}
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Bayram / Sabab Nomi *</label>
                   <input
@@ -488,51 +544,29 @@ export default function HolidaysSection({
                   />
                 </div>
 
-                {/* Scope Selection */}
+                {/* Scope */}
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Qamrov Turi (Target Scope)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Qamrov Turi</label>
                   <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTargetType("all")}
-                      className={`p-3 rounded-2xl border text-xs font-bold transition text-center cursor-pointer ${
-                        targetType === "all"
-                          ? "bg-[#D4F562] border-lime-300 text-[#1D1E26] shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      Butun Maktab
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTargetType("levels")}
-                      className={`p-3 rounded-2xl border text-xs font-bold transition text-center cursor-pointer ${
-                        targetType === "levels"
-                          ? "bg-[#D4F562] border-lime-300 text-[#1D1E26] shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      Levellar Boyicha
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTargetType("classes")}
-                      className={`p-3 rounded-2xl border text-xs font-bold transition text-center cursor-pointer ${
-                        targetType === "classes"
-                          ? "bg-[#D4F562] border-lime-300 text-[#1D1E26] shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      Sinflar Boyicha
-                    </button>
+                    {(["all", "levels", "classes"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setTargetType(type)}
+                        className={`p-3 rounded-2xl border text-xs font-bold transition text-center cursor-pointer ${
+                          targetType === type
+                            ? "bg-[#D4F562] border-lime-300 text-[#1D1E26] shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {type === "all" ? "Butun Maktab" : type === "levels" ? "Levellar Boyicha" : "Sinflar Boyicha"}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Level Selection Checkboxes */}
                 {targetType === "levels" && (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Levellarni tanlang</label>
                     <div className="grid grid-cols-4 gap-2">
                       {(availableLevels.length > 0 ? availableLevels : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).map((lvl) => (
@@ -553,9 +587,8 @@ export default function HolidaysSection({
                   </div>
                 )}
 
-                {/* Class Selection Checkboxes */}
                 {targetType === "classes" && (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Sinflarni tanlang</label>
                     <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
                       {classes.map((cls) => (
@@ -594,6 +627,141 @@ export default function HolidaysSection({
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Excel Import */}
+      {showImportModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowImportModal(false);
+              setImportFile(null);
+              setImportResult(null);
+              setImportError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-[#1D1E26] flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  Excel orqali Bayramlarni Yuklash
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Bir vaqtda ko&apos;p bayram kunlarini Excel orqali qo&apos;shing.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFile(null);
+                  setImportResult(null);
+                  setImportError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold py-3 rounded-2xl transition cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              Excel shablonini yuklab olish
+            </button>
+
+            {importError && (
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {importError}
+              </div>
+            )}
+
+            {importResult ? (
+              <>
+                <div className={`p-4 rounded-2xl border text-xs font-semibold space-y-2 ${importResult.imported_count > 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{importResult.imported_count} ta bayram muvaffaqiyatli yuklandi</span>
+                  </div>
+                  {importResult.failed_count > 0 && (
+                    <div className="text-red-600 mt-1">
+                      {importResult.failed_count} ta qator xato:
+                      <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                        {importResult.errors.slice(0, 5).map((e, i) => (
+                          <li key={i}>Qator {e.row}: {e.error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportFile(null);
+                      setImportResult(null);
+                      setImportError("");
+                    }}
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                  >
+                    Yopish
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={handleImportSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">
+                    Excel fayl tanlang (.xlsx)
+                  </label>
+                  <div
+                    className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition ${
+                      importFile ? "border-[#D4F562] bg-[#D4F562]/5" : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <Upload className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                    {importFile ? (
+                      <p className="text-xs font-bold text-[#1D1E26]">{importFile.name}</p>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-medium">Faylni bu yerga tashlang yoki bosing</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => { setShowImportModal(false); setImportFile(null); setImportError(""); }}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!importFile || importLoading}
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {importLoading ? "Yuklanmoqda..." : "Yuklash"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

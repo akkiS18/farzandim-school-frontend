@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft } from "lucide-react";
+import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft, Plus } from "lucide-react";
 import TransferStudentsModal from "./TransferStudentsModal";
 import DateRangePresets from "../DateRangePresets";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
@@ -258,6 +258,8 @@ export default function ClassesSection({
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
   const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
   const [scheduleEndDate, setScheduleEndDate] = useState("2027-05-31");
+  const [schedulePresets, setSchedulePresets] = useState<{ id: number; name: string; start_date: string; end_date: string }[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<number | "">("");
 
   const [scheduleViewDate, setScheduleViewDate] = useState(new Date().toISOString().split("T")[0]);
   const [scheduleExceptions, setScheduleExceptions] = useState<any[]>([]);
@@ -313,8 +315,27 @@ export default function ClassesSection({
       fetchClassParents();
       fetchClassSchedule();
       fetchScheduleExceptions();
+      fetchSchedulePresets();
     }
   }, [selectedClass, token]);
+
+  const fetchSchedulePresets = async () => {
+    try {
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const res = await fetch(`${API_URL}/api/schools/date-range-presets?category=schedule`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSchedulePresets(data);
+        }
+      }
+    } catch (err) {
+      console.error("Presets fetch error:", err);
+    }
+  };
 
   const fetchClassStudents = async () => {
     if (!selectedClass) return;
@@ -364,19 +385,23 @@ export default function ClassesSection({
     }
   };
 
-  const fetchClassSchedule = async () => {
+  const fetchClassSchedule = async (overrideDate?: string) => {
     if (!selectedClass) return;
     setClassScheduleLoading(true);
     try {
+      const targetDate = overrideDate || scheduleStartDate || scheduleViewDate || new Date().toISOString().split("T")[0];
       const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
       const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
       if (sId) headers["X-School-ID"] = sId;
 
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule?date=${scheduleViewDate}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule?date=${targetDate}`, {
         headers,
       });
       const data = await response.json();
-      if (response.ok) setClassSchedule(Array.isArray(data) ? data : []);
+      if (response.ok) {
+        const list = Array.isArray(data) ? data : [];
+        setClassSchedule(list);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -603,8 +628,8 @@ export default function ClassesSection({
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          subject_id: editCTSubjectId || undefined,
-          teacher_id: editCTTeacherId || undefined,
+          subject_id: editCTSubjectId ? Number(editCTSubjectId) : null,
+          teacher_id: editCTTeacherId ? Number(editCTTeacherId) : undefined,
           is_main_teacher: editCTIsMain,
         }),
       });
@@ -874,6 +899,7 @@ export default function ClassesSection({
       showAlert("Dars jadvali muvaffaqiyatli saqlandi!");
       setShowEditScheduleModal(false);
       fetchClassSchedule();
+      fetchSchedulePresets();
     } catch (err: any) {
       setActionError(err.message);
     } finally {
@@ -883,7 +909,12 @@ export default function ClassesSection({
 
   const handleAssignTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClass || !assignTeacherId || !assignSubjectId) return;
+    if (!selectedClass || !assignTeacherId) return;
+    // require subject only for non-main teachers
+    if (!assignIsMain && !assignSubjectId) {
+      setActionError("Fan o'qituvchisi uchun dars beradigan fanini tanlash majburiy");
+      return;
+    }
     setActionLoading(true);
     setActionError("");
 
@@ -896,7 +927,7 @@ export default function ClassesSection({
         },
         body: JSON.stringify({
           teacher_id: Number(assignTeacherId),
-          subject_id: Number(assignSubjectId),
+          subject_id: assignSubjectId ? Number(assignSubjectId) : null,
           is_main_teacher: assignIsMain,
         }),
       });
@@ -1674,39 +1705,95 @@ export default function ClassesSection({
           {classDetailsTab === "schedule" && (
             <div className="space-y-6">
               <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-slate-100 pb-4">
                   <div>
                     <h3 className="text-base font-black text-[#1D1E26]">Haftalik dars jadvali</h3>
                     <p className="text-xs text-slate-400 font-medium mt-0.5">Ushbu sinf uchun dars jadvali va o'qituvchilarning biriktiruvlari.</p>
                   </div>
-                  {userInfo?.role === "ADMIN" && (
-                    <button
-                      onClick={() => {
-                        // Populate form mapping
-                        const mapped: { [key: string]: number } = {};
-                        classSchedule.forEach((item) => {
-                          mapped[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
-                        });
-                        setScheduleFormState(mapped);
 
-                        if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
-                          setScheduleStartDate(classSchedule[0].start_date);
-                          setScheduleEndDate(classSchedule[0].end_date);
-                        } else {
-                          const todayStr = new Date().toISOString().split("T")[0];
-                          setScheduleStartDate(todayStr);
-                          const nextYear = new Date();
-                          nextYear.setFullYear(nextYear.getFullYear() + 1);
-                          setScheduleEndDate(nextYear.toISOString().split("T")[0]);
-                        }
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Compact Quarter Dropdown */}
+                    {schedulePresets.length > 0 && (
+                      <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                        <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono">Chorak:</span>
+                        <select
+                          value={selectedPresetId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) {
+                              setSelectedPresetId("");
+                              return;
+                            }
+                            const pId = Number(val);
+                            setSelectedPresetId(pId);
+                            const found = schedulePresets.find((p) => p.id === pId);
+                            if (found) {
+                              setScheduleStartDate(found.start_date);
+                              setScheduleEndDate(found.end_date);
+                              setScheduleViewDate(found.start_date);
+                              fetchClassSchedule(found.start_date);
+                            }
+                          }}
+                          className="bg-transparent text-xs font-bold text-[#1D1E26] outline-none cursor-pointer"
+                        >
+                          <option value="">-- Chorakni tanlang --</option>
+                          {schedulePresets.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.start_date} — {p.end_date})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
-                        setShowEditScheduleModal(true);
-                      }}
-                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer whitespace-nowrap"
-                    >
-                      Jadvalni tahrirlash
-                    </button>
-                  )}
+                    {userInfo?.role === "ADMIN" && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setScheduleFormState({});
+                            const todayStr = new Date().toISOString().split("T")[0];
+                            setScheduleStartDate(todayStr);
+                            const nextYear = new Date();
+                            nextYear.setFullYear(nextYear.getFullYear() + 1);
+                            setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                            setShowEditScheduleModal(true);
+                          }}
+                          title="Yangi dars jadvali qo'shish"
+                          className="w-9 h-9 bg-[#D4F562] text-[#1D1E26] hover:opacity-90 rounded-xl shadow-2xs transition cursor-pointer flex items-center justify-center font-black shrink-0"
+                        >
+                          <Plus className="w-5 h-5 stroke-[2.5]" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            // Populate form mapping
+                            const mapped: { [key: string]: number } = {};
+                            classSchedule.forEach((item) => {
+                              mapped[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
+                            });
+                            setScheduleFormState(mapped);
+
+                            if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
+                              setScheduleStartDate(classSchedule[0].start_date);
+                              setScheduleEndDate(classSchedule[0].end_date);
+                            } else {
+                              const todayStr = new Date().toISOString().split("T")[0];
+                              setScheduleStartDate(todayStr);
+                              const nextYear = new Date();
+                              nextYear.setFullYear(nextYear.getFullYear() + 1);
+                              setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                            }
+
+                            setShowEditScheduleModal(true);
+                          }}
+                          title="Jadvalni tahrirlash"
+                          className="w-9 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80 rounded-xl shadow-2xs transition cursor-pointer flex items-center justify-center shrink-0"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {classScheduleLoading ? (
@@ -2961,14 +3048,16 @@ export default function ClassesSection({
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Dars beradigan fanini tanlang</label>
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">
+                  Dars beradigan fanini tanlang
+                  {assignIsMain && <span className="ml-2 normal-case text-slate-500">(ixtiyoriy — sinf rahbari uchun)</span>}
+                </label>
                 <select
-                  required
                   value={assignSubjectId}
                   onChange={(e) => setAssignSubjectId(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
-                  <option value="">Fanni tanlang...</option>
+                  <option value="">Tanlanmagan / Kirmaydi</option>
                   {filteredSubjectsForClass.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}

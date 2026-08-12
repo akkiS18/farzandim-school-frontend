@@ -46,6 +46,11 @@ import {
   UserMinus,
   Utensils,
   ArrowRightLeft,
+  Lock,
+  ClipboardList,
+  History,
+  CalendarDays,
+  Save,
 } from "lucide-react";
 
 import TransferStudentsModal from "@/components/dashboard/TransferStudentsModal";
@@ -276,6 +281,9 @@ export default function TeacherDashboard() {
   const [clubGradingStudents, setClubGradingStudents] = useState<any[]>([]);
   const [clubGradingLoading, setClubGradingLoading] = useState(false);
   const [savingClubGrades, setSavingClubGrades] = useState(false);
+  const [clubJournalTab, setClubJournalTab] = useState<"grade" | "history">("grade");
+  const [clubGradeHistory, setClubGradeHistory] = useState<any[]>([]);
+  const [clubGradeHistoryLoading, setClubGradeHistoryLoading] = useState(false);
 
   const fetchClubStudentsAndGrades = async (clubId: number, dateStr: string) => {
     setClubGradingLoading(true);
@@ -1333,7 +1341,7 @@ export default function TeacherDashboard() {
                   : []
               );
 
-              const isMyClass = cls.main_teacher_id === userInfo?.id || cls.is_main_teacher || userInfo?.role === "ADMIN" || userInfo?.role === "MAIN_TEACHER";
+              const isMyClass = cls.main_teacher_id === userInfo?.id || cls.is_main_teacher || userInfo?.role === "ADMIN";
 
               if (Array.isArray(schData)) {
                 schData.forEach((item: any) => {
@@ -1618,20 +1626,31 @@ export default function TeacherDashboard() {
         setHolidays(holidayData);
       }
 
+      const isTargetHoliday = (Array.isArray(holidayData) ? holidayData : []).some((h: any) => {
+        const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
+        if (hDate !== targetDate) return false;
+        if (h.target_classes && Array.isArray(h.target_classes) && h.target_classes.length > 0) {
+          if (!selectedClassId || !h.target_classes.includes(selectedClassId)) return false;
+        }
+        return true;
+      });
+
       const d = new Date(targetDate + 'T00:00:00');
       if (isNaN(d.getTime())) return;
       const dow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon…7=Sun
       
       const lessonsListToday: JournalLessonItem[] = [];
-      (Array.isArray(schedData) ? schedData : []).forEach((item: any) => {
-        if (item.day_of_week === dow && item.subject_id > 0 && item.subject_name) {
-          lessonsListToday.push({
-            subject_id: item.subject_id,
-            subject_name: item.subject_name,
-            lesson_number: item.lesson_number,
-          });
-        }
-      });
+      if (!isTargetHoliday) {
+        (Array.isArray(schedData) ? schedData : []).forEach((item: any) => {
+          if (item.day_of_week === dow && item.subject_id > 0 && item.subject_name) {
+            lessonsListToday.push({
+              subject_id: item.subject_id,
+              subject_name: item.subject_name,
+              lesson_number: item.lesson_number,
+            });
+          }
+        });
+      }
       // Sort chronologically by lesson_number
       lessonsListToday.sort((a, b) => a.lesson_number - b.lesson_number);
       setJournalLessonsToday(lessonsListToday);
@@ -3056,6 +3075,30 @@ export default function TeacherDashboard() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showTodayLessonsModal, setShowTodayLessonsModal] = useState(false);
+
+  // ESC key listener to close active modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowTodayLessonsModal(false);
+        setShowAddClubModal(false);
+        setShowEditClubModal(false);
+        setShowAddScheduleModal(false);
+        setShowEditScheduleModal(false);
+        setShowAddExceptionModal(false);
+        setShowStudentModal(false);
+        setShowParentsModal(false);
+        setShowAddParentModal(false);
+        setShowImportStudentsModal(false);
+        setShowImportParentsModal(false);
+        setShowGradeCommentModal(false);
+        setShowLogoutModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("school_token");
@@ -3400,18 +3443,18 @@ export default function TeacherDashboard() {
           {/* TAB CONTENT: Dynamic Dashboard */}
           {teacherTab === "dashboard" && (
             <div className="space-y-6">
-              {/* Top Hero Banner (Matching reference image header) */}
-              <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+              {/* Top Hero Banner (Hidden on mobile so critical panels are immediately visible) */}
+              <div className="hidden md:flex bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden items-center justify-between gap-6">
                 <div className="space-y-3 z-10 max-w-xl">
                   <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100/80 px-3 py-1 rounded-full text-indigo-650 text-xs font-semibold">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                     <span>O'qituvchi Boshqaruv Paneli</span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-[#16193E] tracking-tight">
-                    Xush kelibsiz, <span className="text-indigo-600">{userInfo?.first_name || "O'qituvchi"}</span>! 👋
+                    Xush kelibsiz, <span className="text-indigo-600">{userInfo?.first_name || "O'qituvchi"}</span>!
                   </h1>
                   <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                    O'quvchilaringiz dars vazifalari hamda o'zlashtirish ko'rsatkichlarining <span className="text-emerald-600 font-bold">{computedCompletionRate}%</span> ini bajarishdi. Natijalar <span className="text-rose-500 font-bold">juda yaxshi!</span>
+                    O'quvchilaringiz dars vazifalari hamda o'zlashtirish ko'rsatkichlarining <span className="text-emerald-600 font-bold">{computedCompletionRate}%</span> ini bajarishdi. Natijalar <span className="text-indigo-600 font-bold">juda yaxshi!</span>
                   </p>
                   <div className="flex flex-wrap gap-3 pt-2">
                     <button
@@ -3424,10 +3467,10 @@ export default function TeacherDashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTeacherTab("schedule")}
+                      onClick={() => setShowTodayLessonsModal(true)}
                       className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
                     >
-                      <Calendar className="w-4 h-4" />
+                      <Clock className="w-4 h-4 text-indigo-600" />
                       <span>Bugungi Darslar ({todayLessons.length})</span>
                     </button>
                   </div>
@@ -3447,118 +3490,26 @@ export default function TeacherDashboard() {
                 </div>
               </div>
 
-              {/* Dashboard Main Grid (Left 8 cols, Right 4 cols) */}
+              {/* Dashboard Main Grid (1. Classes & Subjects at top, 2. Today's Lessons & 3. Pending Approvals on side) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Column */}
+                {/* 1. Boshqarayotgan Sinflarim va Fanlarim (Top section in left col) */}
                 <div className="lg:col-span-8 space-y-6">
-                  {/* Row 1: My Students & Working Hours Donut */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Card 1: My Students */}
-                    <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs flex flex-col justify-between">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-[#16193E]">Mening O'quvchilarim</h3>
-                        <button
-                          type="button"
-                          onClick={() => setTeacherTab("students")}
-                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1 cursor-pointer"
-                        >
-                          <span>Barchasi</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="space-y-4">
-                        {topStudentsList.map((student, idx) => {
-                          const colors = ["bg-blue-600", "bg-amber-500", "bg-rose-500", "bg-cyan-500"];
-                          const barColor = colors[idx % colors.length];
-                          return (
-                            <div key={student.id || idx} className="flex items-center justify-between gap-3">
-                              <div className="flex items-center space-x-3 min-w-0">
-                                <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-xs text-indigo-650 shrink-0">
-                                  {student.first_name ? student.first_name[0] : "S"}
-                                </div>
-                                <span className="text-xs font-semibold text-zinc-800 truncate">
-                                  {student.first_name} {student.last_name}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-3 shrink-0">
-                                <div className="w-24 bg-zinc-100 h-2 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${barColor}`}
-                                    style={{ width: `${student.score}%` }}
-                                  ></div>
-                                </div>
-                                <span className="text-xs font-extrabold text-zinc-700 w-8 text-right font-mono">
-                                  {student.score}%
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Card 2: Working Hours (Donut Radial Chart) */}
-                    <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs flex flex-col justify-between">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-[#16193E]">O'zlashtirish Ko'rsatkichi</h3>
-                        <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full">
-                          Bugun
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-center my-2 relative">
-                        <div className="relative w-32 h-32 flex items-center justify-center">
-                          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <path
-                              className="text-zinc-100"
-                              strokeWidth="3.5"
-                              stroke="currentColor"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            <path
-                              className="text-indigo-600"
-                              strokeDasharray={`${computedCompletionRate}, 100`}
-                              strokeWidth="3.5"
-                              strokeLinecap="round"
-                              stroke="currentColor"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                          </svg>
-                          <div className="absolute flex flex-col items-center">
-                            <span className="text-2xl font-extrabold text-[#16193E] tracking-tight">{computedCompletionRate}%</span>
-                            <span className="text-[9px] font-bold text-zinc-400 uppercase">A'lo</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-around pt-2 border-t border-zinc-100 text-xs font-semibold">
-                        <div className="flex items-center space-x-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                          <span className="text-zinc-500">Bajarilgan</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                          <span className="text-zinc-500">O'zlashtirish</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Subject & Classes Cards */}
                   <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-[#16193E]">Boshqarayotgan Sinflarim va Fanlarim</h3>
-                      <span className="text-xs font-semibold text-zinc-400">Jami: {classes.length} ta sinf</span>
+                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                      <div>
+                        <h3 className="text-sm font-extrabold text-[#16193E]">Boshqarayotgan Sinflarim va Fanlarim</h3>
+                        <p className="text-[11px] text-zinc-400 font-medium">Boshqarish uchun sinf ustiga bosing</p>
+                      </div>
+                      <span className="text-xs font-mono font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl">
+                        Jami: {classes.length} ta sinf
+                      </span>
                     </div>
 
                     <div className="space-y-3">
                       {classes.length > 0 ? (
                         classes.map((cls, i) => {
                           const badges = ["A1", "B1", "C2", "A2", "B2"];
-                          const badgeColor = i % 3 === 0 ? "bg-amber-100 text-amber-700" : i % 3 === 1 ? "bg-rose-100 text-rose-700" : "bg-purple-100 text-purple-700";
+                          const badgeColor = i % 3 === 0 ? "bg-amber-100 text-amber-800" : i % 3 === 1 ? "bg-rose-100 text-rose-800" : "bg-purple-100 text-purple-800";
                           return (
                             <div
                               key={cls.id}
@@ -3569,14 +3520,17 @@ export default function TeacherDashboard() {
                               className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-zinc-50/70 hover:bg-indigo-50/50 border border-zinc-200/60 transition cursor-pointer gap-3"
                             >
                               <div className="flex items-center space-x-3">
-                                <span className={`w-10 h-10 rounded-xl ${badgeColor} font-bold text-xs flex items-center justify-center shrink-0`}>
+                                <span className={`w-10 h-10 rounded-xl ${badgeColor} font-extrabold text-xs flex items-center justify-center shrink-0`}>
                                   {badges[i % badges.length]}
                                 </span>
                                 <div>
                                   <h4 className="text-xs font-extrabold text-[#16193E] flex items-center gap-1.5">
                                     {cls.name}
                                     {cls.is_main_teacher && (
-                                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full">⭐ Sinf Rahbari</span>
+                                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <Award className="w-3 h-3 text-amber-600" />
+                                        <span>Sinf Rahbari</span>
+                                      </span>
                                     )}
                                   </h4>
                                   <p className="text-[11px] text-zinc-500 font-medium">
@@ -3586,7 +3540,7 @@ export default function TeacherDashboard() {
                               </div>
 
                               <div className="flex items-center space-x-4 text-xs font-semibold text-zinc-500">
-                                <span className="flex items-center space-x-1 text-emerald-600">
+                                <span className="flex items-center space-x-1 text-emerald-600 font-bold">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                   <span>Faol Jurnal</span>
                                 </span>
@@ -3596,7 +3550,7 @@ export default function TeacherDashboard() {
                           );
                         })
                       ) : (
-                        <div className="text-center py-6 text-xs text-zinc-400">
+                        <div className="text-center py-8 text-xs text-zinc-400 font-medium border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
                           Sinflar biriktirilmagan
                         </div>
                       )}
@@ -3604,111 +3558,84 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
 
-                {/* Right Column: Widgets */}
+                {/* Right Column: Today's Date Badge + Today's Lessons Card + Pending Approvals */}
                 <div className="lg:col-span-4 space-y-6">
-                  {/* Widget 1: Interactive Calendar */}
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">
-                        {currentMonthName} {currentYear}
-                      </h3>
-                      <span className="text-indigo-600 font-bold text-xs">Bugun: {currentDayNumber}</span>
+                  {/* 1. Today's Date Card (Replaces monthly calendar) */}
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Bugungi Sana</span>
+                        <h4 className="text-sm font-extrabold text-[#16193E]">
+                          {currentDayNumber}-{currentMonthName}, {currentYear}
+                        </h4>
+                      </div>
                     </div>
-
-                    <div className="grid grid-cols-7 text-center text-[10px] font-bold text-zinc-400 uppercase">
-                      <span>Dush</span><span>Sesh</span><span>Chor</span><span>Pay</span><span>Jum</span><span>Shan</span><span>Yak</span>
-                    </div>
-
-                    <div className="grid grid-cols-7 text-center gap-1 text-xs font-semibold">
-                      {calendarDays.map((d, idx) => (
-                        <div
-                          key={idx}
-                          className={`py-1.5 rounded-xl transition ${
-                            d.isCurrentDay
-                              ? "bg-rose-500 text-white font-extrabold shadow-md shadow-rose-500/30"
-                              : d.isCurrentMonth
-                              ? "text-zinc-700 hover:bg-zinc-100 cursor-pointer"
-                              : "text-zinc-300"
-                          }`}
-                        >
-                          {d.day}
-                        </div>
-                      ))}
-                    </div>
+                    <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full">
+                      Bugun
+                    </span>
                   </div>
 
-                  {/* Widget 2: Today's Lessons (Matching Image 2 design) */}
+                  {/* 2. Darslar Card & Button */}
                   <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-[#16193E]">Darslar</h3>
+                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4 text-indigo-600" />
+                        <h3 className="text-sm font-bold text-[#16193E]">Darslar</h3>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setTeacherTab("schedule")}
-                        className="text-xs font-semibold text-zinc-400 hover:text-indigo-600 transition flex items-center space-x-1 cursor-pointer"
+                        onClick={() => setShowTodayLessonsModal(true)}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1 cursor-pointer bg-indigo-50 px-2.5 py-1 rounded-xl"
                       >
-                        <span>Barchasi</span>
+                        <span>Bugungi darslar ({todayLessons.length})</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
                     <div className="space-y-3">
                       {todayLessons.length > 0 ? (
-                        todayLessons.map((lesson, idx) => {
+                        todayLessons.slice(0, 3).map((lesson, idx) => {
                           const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
                           const accentColor = borderAccents[idx % borderAccents.length];
 
                           return (
                             <div
                               key={idx}
-                              className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-2xs relative overflow-hidden flex items-start justify-between transition hover:shadow-xs group"
+                              onClick={() => setShowTodayLessonsModal(true)}
+                              className="bg-white border border-zinc-200/80 rounded-2xl p-3.5 shadow-2xs relative overflow-hidden flex items-center justify-between transition hover:border-indigo-200 cursor-pointer group"
                             >
-                              {/* Left Vertical Accent Bar (Matching Image 2) */}
                               <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
-
-                              <div className="pl-2 space-y-1">
+                              <div className="pl-2 space-y-0.5">
                                 <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight">{lesson.subject_name}</h4>
-                                <p className="text-[10px] text-zinc-400 font-semibold">
+                                <p className="text-[11px] text-zinc-500 font-semibold">
                                   {lesson.class_name} • {lesson.time}
                                 </p>
-
-                                {/* Overlapping Student Avatars Stack (Matching Image 2) */}
-                                <div className="flex items-center -space-x-2 pt-2">
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-2xs">A</div>
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-2xs">B</div>
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white shadow-2xs">C</div>
-                                </div>
                               </div>
-
-                              {/* Three-dot vertical menu icon (Matching Image 2) */}
-                              <button
-                                type="button"
-                                onClick={() => setTeacherTab("journal")}
-                                className="text-zinc-300 hover:text-zinc-600 p-1 transition cursor-pointer"
-                                title="Batafsil"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
+                              <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-indigo-600 transition shrink-0" />
                             </div>
                           );
                         })
                       ) : (
-                        <div className="text-center py-6 text-xs text-zinc-400 font-medium">
+                        <div className="text-center py-6 text-xs text-zinc-400 font-medium bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
                           Bugun darslar mavjud emas
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Widget 3: Pending Tasks & Approvals */}
+                  {/* 3. Tasdiqlash Kutilmoqda */}
                   <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
                       <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">Tasdiqlash Kutilmoqda</h3>
                       <button
                         type="button"
                         onClick={() => setTeacherTab("unapproved")}
                         className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
                       >
-                        Barchasi
+                        Barchasi ({unapprovedGrades.length})
                       </button>
                     </div>
 
@@ -3722,7 +3649,7 @@ export default function TeacherDashboard() {
                           >
                             <div className="flex items-center space-x-3">
                               <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                🔒
+                                <Lock className="w-4 h-4 text-amber-700" />
                               </div>
                               <div className="truncate">
                                 <h4 className="text-xs font-bold text-zinc-800 truncate">{item.subject_name || "Baho"}</h4>
@@ -3733,8 +3660,9 @@ export default function TeacherDashboard() {
                           </div>
                         ))
                       ) : (
-                        <div className="p-4 rounded-2xl bg-zinc-50 text-center text-xs text-zinc-400 font-medium">
-                          Barcha baholar tasdiqlangan ✨
+                        <div className="p-4 rounded-2xl bg-zinc-50 text-center text-xs text-zinc-400 font-medium flex items-center justify-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          <span>Barcha baholar tasdiqlangan</span>
                         </div>
                       )}
                     </div>
@@ -3969,7 +3897,20 @@ export default function TeacherDashboard() {
                                   return (
                                     <div className="flex flex-col items-center mt-1">
                                       <select
-                                        value={columnGradingSystems[col.id] || ""}
+                                        value={
+                                          columnGradingSystems[col.id] ||
+                                          (col.id === "BEHAVIOR"
+                                            ? String(
+                                                gradingSystemsList.find(
+                                                  (gs) =>
+                                                    gs.name.toLowerCase().includes("xulq") ||
+                                                    gs.name.toLowerCase().includes("behavior") ||
+                                                    gs.type === "BEHAVIOR" ||
+                                                    gs.code === "BEHAVIOR"
+                                                )?.id || ""
+                                              )
+                                            : "")
+                                        }
                                         onChange={(e) => handleColumnGradingSystemChange(col.id, e.target.value)}
                                         disabled={hasGradesInThisColumn}
                                         className={`border border-zinc-200 rounded-md px-1.5 py-0.5 text-[8px] font-bold text-zinc-650 outline-none transition text-center max-w-[100px] ${
@@ -5625,6 +5566,8 @@ export default function TeacherDashboard() {
                                  setSelectedClubForGrading(club);
                                  const today = new Date().toISOString().split("T")[0];
                                  setClubGradingDate(today);
+                                 setClubJournalTab("grade");
+                                 setClubGradeHistory([]);
                                  fetchClubStudentsAndGrades(club.id, today);
                                  setShowClubGradingModal(true);
                                }}
@@ -5767,7 +5710,7 @@ export default function TeacherDashboard() {
                     <span>🌐 Umumiy (Mening dars jadvalim)</span>
                   </button>
                   {classes.map((cls: any) => {
-                    const isMyMainClass = cls.is_main_teacher || cls.main_teacher_id === userInfo?.id || cls.teacher_id === userInfo?.id;
+                    const isMyMainClass = Boolean(cls.is_main_teacher || cls.main_teacher_id === userInfo?.id);
                     const isSelected = selectedClassId === cls.id;
                     return (
                       <button
@@ -5802,7 +5745,7 @@ export default function TeacherDashboard() {
                 {selectedClassId ? (
                   (() => {
                     const currentCls = classes.find(c => c.id === selectedClassId);
-                    const canSelectSubject = userInfo?.role === "ADMIN" || userInfo?.role === "MAIN_TEACHER" || currentCls?.is_main_teacher || classTeachers.some(ct => ct.teacher_id === userInfo?.id && ct.is_main_teacher);
+                    const canSelectSubject = userInfo?.role === "ADMIN" || currentCls?.is_main_teacher || classTeachers.some(ct => ct.teacher_id === userInfo?.id && ct.is_main_teacher);
 
                     return (
                       <div className="relative">
@@ -6101,6 +6044,7 @@ export default function TeacherDashboard() {
       {renderAddScheduleModal()}
       {renderClubStudentsModal()}
       {renderGradeCommentModal()}
+      {renderTodayLessonsModal()}
 
       {/* BATCH STUDENT TRANSFER MODAL */}
       <TransferStudentsModal
@@ -7332,166 +7276,270 @@ export default function TeacherDashboard() {
 
   function renderClubGradingModal() {
     if (!showClubGradingModal || !selectedClubForGrading) return null;
+
+    const fetchHistory = async () => {
+      if (!selectedClubForGrading) return;
+      setClubGradeHistoryLoading(true);
+      try {
+        const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+        const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
+        if (sId) headers["X-School-ID"] = sId;
+        const res = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForGrading.id}/grades/history`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setClubGradeHistory(Array.isArray(data) ? data : []);
+        } else {
+          // Fallback: fetch grades for the current date as history
+          setClubGradeHistory([]);
+        }
+      } catch {
+        setClubGradeHistory([]);
+      } finally {
+        setClubGradeHistoryLoading(false);
+      }
+    };
+
+    const attendanceBadge = (att: string) => {
+      if (att === "PRESENT") return <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-lg">Keldi</span>;
+      if (att === "ABSENT") return <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-lg">Kelmadi</span>;
+      if (att === "EXCUSED") return <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">Sababli</span>;
+      return null;
+    };
+
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-fadeIn">
-        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-fadeIn"
+        onClick={(e) => { if (e.target === e.currentTarget) setShowClubGradingModal(false); }}
+        onKeyDown={(e) => { if (e.key === "Escape") setShowClubGradingModal(false); }}
+      >
+        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+          {/* Header */}
           <div className="px-6 py-4 bg-[#16193E] text-white flex items-center justify-between shrink-0">
             <div>
               <h3 className="text-base font-extrabold flex items-center gap-2">
                 <Award className="w-5 h-5 text-purple-400" />
-                <span>To'garak Mashg'uloti Jurnali va Baholash</span>
+                <span>To'garak Jurnali va Baholash</span>
               </h3>
-              <p className="text-xs text-zinc-400 font-medium">{selectedClubForGrading.name} ({selectedClubForGrading.subject_name})</p>
+              <p className="text-xs text-zinc-400 font-medium">{selectedClubForGrading.name} — {selectedClubForGrading.subject_name}</p>
             </div>
-            <button onClick={() => setShowClubGradingModal(false)} className="text-zinc-400 hover:text-white cursor-pointer text-xl font-bold">&times;</button>
+            <button
+              type="button"
+              onClick={() => setShowClubGradingModal(false)}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-zinc-300 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          <form onSubmit={handleSaveClubGradesBatch} className="p-6 overflow-y-auto space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-purple-50/60 border border-purple-200/60 p-4 rounded-2xl">
-              <div>
-                <label className="block text-xs font-bold text-purple-950 uppercase tracking-wider mb-1">
-                  Mashg'ulot Sanasi *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={clubGradingDate}
-                  onChange={(e) => {
-                    const newDate = e.target.value;
-                    setClubGradingDate(newDate);
-                    fetchClubStudentsAndGrades(selectedClubForGrading.id, newDate);
-                  }}
-                  className="px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-extrabold text-purple-950 outline-none"
-                />
-              </div>
-              <span className="text-xs text-purple-800 font-medium max-w-xs">
-                Sana bo'yicha o'quvchilarning davomatini va ball/bahosini kiritib saqlashingiz mumkin.
-              </span>
-            </div>
+          {/* Tabs */}
+          <div className="flex items-center gap-1 px-6 pt-4 pb-0 border-b border-zinc-100 bg-white shrink-0">
+            <button
+              type="button"
+              onClick={() => setClubJournalTab("grade")}
+              className={`px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition flex items-center gap-1.5 border-b-2 ${
+                clubJournalTab === "grade"
+                  ? "border-purple-600 text-purple-700 bg-purple-50/60"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50"
+              }`}
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              Baholash
+            </button>
+            <button
+              type="button"
+              onClick={() => { setClubJournalTab("history"); fetchHistory(); }}
+              className={`px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition flex items-center gap-1.5 border-b-2 ${
+                clubJournalTab === "history"
+                  ? "border-purple-600 text-purple-700 bg-purple-50/60"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50"
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              O'tgan Mashg'ulotlar
+            </button>
+          </div>
 
-            {clubGradingLoading ? (
-              <div className="text-center py-12">
-                <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-xs text-zinc-400 font-mono">Mashg'ulot jurnali yuklanmoqda...</p>
+          {/* Tab: Grading */}
+          {clubJournalTab === "grade" && (
+            <form onSubmit={handleSaveClubGradesBatch} className="p-5 overflow-y-auto space-y-4 flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50/60 border border-purple-200/60 p-4 rounded-2xl">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-purple-800 uppercase tracking-wider mb-1.5 font-mono">Mashg'ulot Sanasi</label>
+                  <input
+                    type="date"
+                    required
+                    value={clubGradingDate}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setClubGradingDate(newDate);
+                      fetchClubStudentsAndGrades(selectedClubForGrading.id, newDate);
+                    }}
+                    className="px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-extrabold text-purple-950 outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <span className="text-xs text-purple-700 font-medium max-w-xs bg-purple-50 px-3 py-2 rounded-xl border border-purple-200/60">
+                  Sana tanlang va o'quvchilarning davomati va baholarini kiriting.
+                </span>
               </div>
-            ) : clubGradingStudents.length === 0 ? (
-              <div className="p-8 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl text-zinc-400 text-xs font-medium">
-                To'garakda hali rasman tasdiqlangan o'quvchilar yo'q. Avval "A'zolar & So'rovlar" bo'limidan o'quvchilarni qo'shing.
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-zinc-200 rounded-2xl">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-700 font-bold uppercase tracking-wider">
-                    <tr>
-                      <th className="p-3">O'quvchi (Sinf)</th>
-                      <th className="p-3 text-center">Davomat</th>
-                      <th className="p-3 w-32">Baho / Ball</th>
-                      <th className="p-3">O'qituvchi Izohi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 bg-white">
-                    {clubGradingStudents.map((st, idx) => (
-                      <tr key={st.student_id} className="hover:bg-purple-50/30 transition">
-                        <td className="p-3 font-bold text-zinc-900">
-                          {st.student_name}
-                          <span className="block text-[10px] text-zinc-400 font-medium">{st.class_name}</span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setClubGradingStudents((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, attendance: "PRESENT" } : item))
-                                );
-                              }}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
-                                st.attendance === "PRESENT" ? "bg-emerald-600 text-white shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
-                              }`}
-                            >
-                              Keldi
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setClubGradingStudents((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, attendance: "ABSENT" } : item))
-                                );
-                              }}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
-                                st.attendance === "ABSENT" ? "bg-rose-600 text-white shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
-                              }`}
-                            >
-                              Kelmadi
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setClubGradingStudents((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, attendance: "EXCUSED" } : item))
-                                );
-                              }}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
-                                st.attendance === "EXCUSED" ? "bg-amber-500 text-white shadow-2xs" : "text-zinc-600 hover:text-zinc-900"
-                              }`}
-                            >
-                              Sababli
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            placeholder="5"
-                            value={st.score_value}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setClubGradingStudents((prev) =>
-                                prev.map((item, i) => (i === idx ? { ...item, score_value: val } : item))
-                              );
-                            }}
-                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-black text-zinc-900 outline-none focus:border-purple-600"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            placeholder="Mashg'ulot izohi..."
-                            value={st.feedback}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setClubGradingStudents((prev) =>
-                                prev.map((item, i) => (i === idx ? { ...item, feedback: val } : item))
-                              );
-                            }}
-                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-800 outline-none focus:border-purple-600"
-                          />
-                        </td>
+
+              {clubGradingLoading ? (
+                <div className="text-center py-12">
+                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+                </div>
+              ) : clubGradingStudents.length === 0 ? (
+                <div className="p-8 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl text-zinc-500 text-xs font-medium space-y-1">
+                  <Users className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
+                  <p className="font-bold text-zinc-800">O'quvchilar topilmadi</p>
+                  <p>To'garakda hali rasman tasdiqlangan o'quvchilar yo'q. Avval "A'zolar" bo'limidan o'quvchilarni qo'shing.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-zinc-200 rounded-2xl">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-zinc-50 border-b border-zinc-200">
+                      <tr>
+                        <th className="p-3 font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">O'quvchi</th>
+                        <th className="p-3 text-center font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">Davomat</th>
+                        <th className="p-3 w-24 font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">Baho</th>
+                        <th className="p-3 font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">Izoh</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 bg-white">
+                      {clubGradingStudents.map((st, idx) => (
+                        <tr key={st.student_id} className="hover:bg-purple-50/30 transition">
+                          <td className="p-3 font-bold text-zinc-900">
+                            {st.student_name}
+                            <span className="block text-[10px] text-zinc-400 font-medium">{st.class_name}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
+                              {(["PRESENT", "ABSENT", "EXCUSED"] as const).map((att) => (
+                                <button
+                                  key={att}
+                                  type="button"
+                                  onClick={() => setClubGradingStudents((prev) =>
+                                    prev.map((item, i) => (i === idx ? { ...item, attendance: att } : item))
+                                  )}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                                    st.attendance === att
+                                      ? att === "PRESENT" ? "bg-emerald-600 text-white" : att === "ABSENT" ? "bg-rose-600 text-white" : "bg-amber-500 text-white"
+                                      : "text-zinc-500 hover:text-zinc-900"
+                                  }`}
+                                >
+                                  {att === "PRESENT" ? "Keldi" : att === "ABSENT" ? "Kelmadi" : "Sababli"}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="text"
+                              placeholder="—"
+                              value={st.score_value}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setClubGradingStudents((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, score_value: val } : item))
+                                );
+                              }}
+                              className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-black text-zinc-900 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-300 text-center"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="text"
+                              placeholder="Izoh..."
+                              value={st.feedback}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setClubGradingStudents((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, feedback: val } : item))
+                                );
+                              }}
+                              className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-800 outline-none focus:border-purple-500"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100">
-              <button
-                type="button"
-                onClick={() => setShowClubGradingModal(false)}
-                className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="submit"
-                disabled={savingClubGrades || clubGradingStudents.length === 0}
-                className="px-5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 flex items-center gap-2"
-              >
-                {savingClubGrades && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>}
-                <span>Mashg'ulot Baholarini Saqlash</span>
-              </button>
+              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowClubGradingModal(false)}
+                  className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingClubGrades || clubGradingStudents.length === 0}
+                  className="px-5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingClubGrades && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>}
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Saqlash</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Tab: History */}
+          {clubJournalTab === "history" && (
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {clubGradeHistoryLoading ? (
+                <div className="text-center py-12">
+                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-xs text-zinc-400 font-mono">Tarix yuklanmoqda...</p>
+                </div>
+              ) : clubGradeHistory.length === 0 ? (
+                <div className="p-10 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl">
+                  <History className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
+                  <p className="text-sm font-bold text-zinc-700">O'tgan mashg'ulotlar mavjud emas</p>
+                  <p className="text-xs text-zinc-400 font-medium mt-1">Hozircha baholangan mashg'ulotlar yo'q yoki API history endpoint mavjud emas.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {clubGradeHistory.map((session: any, si: number) => (
+                    <div key={si} className="border border-zinc-200 rounded-2xl overflow-hidden">
+                      <div className="bg-purple-50 border-b border-purple-100 px-4 py-3 flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-purple-800 flex items-center gap-2">
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          {new Date(session.lesson_date || session.date || "").toLocaleDateString("uz-UZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                        </span>
+                        <span className="text-[10px] font-mono text-purple-600">{session.grades?.length || 0} ta o'quvchi</span>
+                      </div>
+                      <div className="divide-y divide-zinc-100">
+                        {(session.grades || []).map((g: any) => (
+                          <div key={g.student_id || g.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-50/60 transition text-xs">
+                            <div>
+                              <span className="font-bold text-zinc-900">{g.student_name}</span>
+                              <span className="text-zinc-400 ml-2 font-medium">{g.class_name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {attendanceBadge(g.attendance)}
+                              {g.score_value && (
+                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border ${
+                                  Number(g.score_value) >= 5 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                  Number(g.score_value) >= 4 ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                  Number(g.score_value) >= 3 ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                  "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}>{g.score_value}</span>
+                              )}
+                              {g.feedback && <span className="text-[10px] text-zinc-500 font-medium italic max-w-[120px] truncate">{g.feedback}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </form>
+          )}
         </div>
       </div>
     );
@@ -7614,6 +7662,117 @@ export default function TeacherDashboard() {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    );
+  }
+
+  function renderTodayLessonsModal() {
+    if (!showTodayLessonsModal) return null;
+    return (
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowTodayLessonsModal(false);
+          }
+        }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
+      >
+        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-fadeIn space-y-6 text-zinc-900">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                <Clock className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-[#16193E]">Bugungi Darslar</h3>
+                <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                  {currentDayNumber}-{currentMonthName}, {currentYear} kungi dars jadvali
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTodayLessonsModal(false)}
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              title="Yopish (Esc)"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Lessons List */}
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-400 font-mono">Dars Jadvali</h4>
+            {todayLessons.length > 0 ? (
+              todayLessons.map((lesson, idx) => {
+                const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
+                const accentColor = borderAccents[idx % borderAccents.length];
+
+                return (
+                  <div
+                    key={idx}
+                    className="bg-zinc-50/80 border border-zinc-200/70 rounded-2xl p-4 relative overflow-hidden flex items-center justify-between transition hover:border-indigo-300"
+                  >
+                    <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
+                    <div className="pl-2 space-y-1">
+                      <h5 className="text-sm font-extrabold text-[#16193E]">{lesson.subject_name}</h5>
+                      <p className="text-xs font-bold text-indigo-600 flex items-center gap-2">
+                        <span>{lesson.class_name}</span>
+                        <span className="text-zinc-300">•</span>
+                        <span className="font-mono text-zinc-500">{lesson.time}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTodayLessonsModal(false);
+                        setTeacherTab("journal");
+                      }}
+                      className="px-3 py-1.5 bg-white border border-zinc-200 text-indigo-600 hover:bg-indigo-50 text-xs font-bold rounded-xl transition cursor-pointer"
+                    >
+                      Jurnal
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-xs text-zinc-400 font-medium bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                Bugun darslar mavjud emas
+              </div>
+            )}
+
+            {/* Teacher Clubs (To'garaklar) Section at bottom of modal */}
+            {clubs.length > 0 && (
+              <div className="pt-4 border-t border-zinc-100 space-y-3">
+                <div className="flex items-center space-x-2 text-indigo-600">
+                  <Sparkles className="w-4 h-4" />
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E] font-mono">To'garaklar</h4>
+                </div>
+                <div className="space-y-2">
+                  {clubs.map((club, idx) => (
+                    <div key={club.id || idx} className="bg-purple-50/60 border border-purple-100 rounded-2xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <h5 className="text-xs font-extrabold text-purple-900">{club.name}</h5>
+                        <p className="text-[11px] text-purple-600 font-medium">{club.subject_name || "Qo'shimcha dars"}</p>
+                      </div>
+                      <span className="text-[10px] font-bold bg-purple-200/70 text-purple-900 px-2.5 py-1 rounded-xl">To'garak</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end pt-3 border-t border-zinc-100">
+            <button
+              type="button"
+              onClick={() => setShowTodayLessonsModal(false)}
+              className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
+            >
+              Yopish
+            </button>
+          </div>
         </div>
       </div>
     );
