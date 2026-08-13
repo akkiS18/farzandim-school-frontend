@@ -1656,8 +1656,8 @@ export default function ClassesSection({
                             {parent.last_name} {parent.first_name} {parent.middle_name}
                           </td>
                           <td className="px-6 py-4 font-extrabold text-indigo-600">{parent.student_name}</td>
-                          <td className="px-6 py-4 font-mono text-slate-500">{parent.phone}</td>
-                          <td className="px-6 py-4 font-mono text-slate-500">{parent.email || "Kiritilmagan"}</td>
+                          <td className="px-6 py-4 font-mono text-slate-500">{parent.phone || "—"}</td>
+                          <td className="px-6 py-4 font-mono font-bold text-indigo-600">{parent.passport || "Kiritilmagan"}</td>
                           {userInfo?.role === "ADMIN" && (
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -1668,7 +1668,7 @@ export default function ClassesSection({
                                     setEditParentLastName(parent.last_name || "");
                                     setEditParentMiddleName(parent.middle_name || "");
                                     setEditParentPhone(parent.phone || "");
-                                    setEditParentPassport(parent.email || "");
+                                    setEditParentPassport(parent.passport || "");
                                     setActionError("");
                                     setShowEditParentModal(true);
                                   }}
@@ -2578,7 +2578,7 @@ export default function ClassesSection({
                               {parent.last_name} {parent.first_name} {parent.middle_name}
                             </p>
                             <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                              Tel: {parent.phone} | Pasport: {parent.email || "Kiritilmagan"}
+                              Tel: {parent.phone || "—"} | Pasport: {parent.passport || "Kiritilmagan"}
                             </p>
                           </div>
                           {isMainTeacherOfClass() && (
@@ -2820,7 +2820,7 @@ export default function ClassesSection({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport (Email)</label>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport</label>
                     <input
                       type="text"
                       placeholder="AB1234567"

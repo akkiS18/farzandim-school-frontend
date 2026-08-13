@@ -19,6 +19,7 @@ export interface TenantUser {
   first_name: string;
   last_name: string;
   middle_name?: string;
+  passport?: string;
   role_id: number;
   role_name: string;
   class_id?: number;

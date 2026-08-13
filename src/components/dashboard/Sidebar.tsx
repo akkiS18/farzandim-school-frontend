@@ -2,8 +2,8 @@ import React from "react";
 import { ClassItem } from "./types";
 
 interface SidebarProps {
-  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports";
-  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports") => void;
+  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports" | "social-passport";
+  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports" | "social-passport") => void;
   selectedClass: ClassItem | null;
   setSelectedClass: (cls: ClassItem | null) => void;
   mobileOpen?: boolean;
@@ -131,6 +131,16 @@ export default function Sidebar({
             <line x1="16" y1="16" x2="16" y2="16" strokeWidth="3" />
           </svg>
         );
+      case "social-passport":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M8 13h8" />
+            <path d="M8 17h8" />
+            <path d="M10 9h4" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -145,6 +155,7 @@ export default function Sidebar({
     { id: "books", label: "Kitobxonlik", badge: null },
     { id: "grading-systems", label: "Baholash Tizimi", badge: null },
     { id: "ai-reports", label: "AI Hisobotlar", badge: "New" },
+    { id: "social-passport", label: "Ijtimoiy pasport", badge: null },
     { id: "menu", label: "Taomnoma", badge: null },
     { id: "balance", label: "Balans boshqaruvi", badge: null },
     { id: "holidays", label: "Dam olish kunlari", badge: null },

@@ -20,6 +20,7 @@ import ScheduleOverviewSection from "@/components/dashboard/ScheduleOverviewSect
 import BooksSection from "@/components/dashboard/BooksSection";
 import LibrarySection from "@/components/dashboard/LibrarySection";
 import AIReportsSection from "@/components/dashboard/AIReportsSection";
+import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 
 // Types
@@ -37,7 +38,7 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports">("overview");
+  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports" | "social-passport">("overview");
 
   // Classes section: initial tab when redirecting from schedule overview
   const [classesInitialTab, setClassesInitialTab] = useState<"students" | "teachers" | "parents" | "schedule" | undefined>(undefined);
@@ -491,6 +492,17 @@ export default function TenantDashboard() {
             <FeedbackSection
               token={token}
               apiUrl={API_URL}
+            />
+          )}
+
+          {activeMenu === "social-passport" && (
+            <SocialPassportImportSection
+              token={token}
+              API_URL={API_URL}
+              userInfo={userInfo}
+              onSuccess={() => {
+                if (token) fetchClassesData(token);
+              }}
             />
           )}
 

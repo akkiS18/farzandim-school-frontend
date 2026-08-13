@@ -9,6 +9,7 @@ import SmartCalendarModal from "@/components/SmartCalendarModal";
 import CustomDialogModal from "@/components/CustomDialogModal";
 import LibrarySection from "@/components/dashboard/LibrarySection";
 import DateRangePresets from "@/components/DateRangePresets";
+import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 import {
   LayoutDashboard,
@@ -128,8 +129,8 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books"
-  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books">("dashboard");
+  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport"
+  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport">("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Default collapsed (icon-only mode)
 
@@ -1086,6 +1087,21 @@ export default function TeacherDashboard() {
       router.replace("/login");
     }
   }, [router]);
+
+  const fetchClassesList = async () => {
+    const t = token || localStorage.getItem("school_token") || "";
+    const s = schoolId || localStorage.getItem("school_id") || "";
+    if (!t) return;
+    try {
+      const clsRes = await fetch(`${API_URL}/api/schools/classes`, {
+        headers: { "Authorization": `Bearer ${t}`, "X-School-ID": s },
+      });
+      const clsData = await clsRes.json();
+      if (clsRes.ok) setClasses(Array.isArray(clsData) ? clsData : []);
+    } catch (e) {
+      console.error("Error fetching classes:", e);
+    }
+  };
 
   const loadInitialData = async (authToken: string, currentSchoolId: string) => {
     setLoading(true);
@@ -3324,6 +3340,7 @@ export default function TeacherDashboard() {
                   { id: "schedule", label: "Dars Jadvali", icon: Calendar },
                   { id: "students", label: "O'quvchilar", icon: Users },
                   { id: "parents", label: "Ota-onalar", icon: UserCheck },
+                  { id: "social-passport", label: "Ijtimoiy pasport", icon: FileSpreadsheet },
                   { id: "unapproved", label: "Tasdiqlanmagan", icon: CheckSquare, badge: unapprovedGrades.length },
                   { id: "feedback", label: "Izoh va Fikrlar", icon: MessageSquare },
                   { id: "announcements", label: "E'lonlar", icon: Megaphone },
@@ -5337,6 +5354,7 @@ export default function TeacherDashboard() {
                               <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
                               <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
                               <th className="px-6 py-3.5">Telefon</th>
+                              <th className="px-6 py-3.5">Pasport</th>
                               <th className="px-6 py-3.5">O'quvchi (Farzand)</th>
                               <th className="px-6 py-3.5 text-right">Amallar</th>
                             </tr>
@@ -5351,6 +5369,7 @@ export default function TeacherDashboard() {
                                     {pt.first_name} {pt.last_name} {pt.middle_name && <span className="text-zinc-400 font-normal">({pt.middle_name})</span>}
                                   </td>
                                   <td className="px-6 py-3.5 font-mono text-zinc-500">{pt.phone || "—"}</td>
+                                  <td className="px-6 py-3.5 font-mono text-indigo-700 font-bold">{pt.passport || "Kiritilmagan"}</td>
                                   <td className="px-6 py-3.5">
                                     <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
                                       {pt.student_name || "Noma'lum"} {pt.class_name && <span className="font-mono text-zinc-500 text-[10px]">({pt.class_name})</span>}
@@ -5620,6 +5639,19 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Library & Reading Assignments */}
             {teacherTab === "books" && <LibrarySection />}
+
+            {/* TAB CONTENT: Ijtimoiy Pasport Import */}
+            {teacherTab === "social-passport" && (
+              <SocialPassportImportSection
+                token={token}
+                API_URL={API_URL}
+                userInfo={userInfo}
+                onSuccess={() => {
+                  fetchClassesList();
+                  if (token) fetchAllStudents(token);
+                }}
+              />
+            )}
         </main>
       </div>
 
@@ -6259,11 +6291,21 @@ export default function TeacherDashboard() {
                       className="flex items-center justify-between p-3.5 border border-zinc-200/70 rounded-2xl bg-zinc-50/50 hover:bg-zinc-50 transition"
                     >
                       <div>
-                        <p className="text-xs font-extrabold text-zinc-800">
-                          {parent.first_name} {parent.last_name} {parent.middle_name || ""}
-                        </p>
-                        <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                          Tel: {parent.phone} {parent.email ? `| Email: ${parent.email}` : ""}
+                        <div className="flex items-center space-x-2">
+                          <p className="text-xs font-extrabold text-zinc-800">
+                            {parent.first_name} {parent.last_name} {parent.middle_name || ""}
+                          </p>
+                          {parent.relation_type && (
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                              {parent.relation_type === "ota" ? "Otasi" : parent.relation_type === "ona" ? "Onasi" : parent.relation_type}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-zinc-500 font-mono mt-1 flex flex-wrap items-center gap-2">
+                          <span>Tel: <b className="text-zinc-700">{parent.phone || "— (Otasi/Onasi raqamiga biriktirilgan)"}</b></span>
+                          <span>|</span>
+                          <span>Pasport: <b className="text-indigo-700 font-bold">{parent.passport || "Kiritilmagan"}</b></span>
+                          {parent.email && <span>| Email: {parent.email}</span>}
                         </p>
                         {parent.parent_code && (
                           <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-mono inline-block mt-1 font-bold">
