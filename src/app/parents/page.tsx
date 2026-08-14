@@ -36,6 +36,7 @@ interface UserInfo {
   id: number;
   first_name: string;
   last_name: string;
+  middle_name?: string;
   role: string;
   school_id: string;
   phone?: string;
@@ -608,7 +609,12 @@ export default function ParentDashboard() {
   const [editSaving, setEditSaving] = useState(false);
 
   const [showEditParentModal, setShowEditParentModal] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editMiddleName, setEditMiddleName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editPassport, setEditPassport] = useState("");
+  const [editPassword, setEditPassword] = useState("");
   const [editParentSaving, setEditParentSaving] = useState(false);
   const [editParentError, setEditParentError] = useState("");
 
@@ -1156,23 +1162,36 @@ export default function ParentDashboard() {
     setEditParentError("");
 
     try {
+      const payload: Record<string, any> = {
+        first_name: editFirstName.trim() || userInfo.first_name,
+        last_name: editLastName.trim() || userInfo.last_name,
+        middle_name: editMiddleName.trim() || undefined,
+        passport: editPassport.trim() || undefined,
+        phone: editPhone.trim() || undefined,
+      };
+      if (editPassword.trim()) {
+        payload.password = editPassword.trim();
+      }
+
       const response = await fetch(`${API_URL}/api/schools/parents/${userInfo.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          first_name: userInfo.first_name,
-          last_name: userInfo.last_name,
-          passport: editPassport,
-          phone: userInfo.phone || "",
-        }),
+        body: JSON.stringify(payload),
       });
 
       const resData = await response.json();
       if (response.ok) {
-        const updatedUser = { ...userInfo, passport: editPassport };
+        const updatedUser = {
+          ...userInfo,
+          first_name: editFirstName.trim() || userInfo.first_name,
+          last_name: editLastName.trim() || userInfo.last_name,
+          middle_name: editMiddleName.trim(),
+          passport: editPassport.trim(),
+          phone: editPhone.trim() || userInfo.phone,
+        };
         setUserInfo(updatedUser);
         localStorage.setItem("school_user", JSON.stringify(updatedUser));
         setShowEditParentModal(false);
@@ -3701,23 +3720,37 @@ export default function ParentDashboard() {
 
                 <button
                   onClick={() => {
+                    setEditFirstName(userInfo.first_name || "");
+                    setEditLastName(userInfo.last_name || "");
+                    setEditMiddleName(userInfo.middle_name || "");
+                    setEditPhone(userInfo.phone || "");
                     setEditPassport(userInfo.passport || "");
+                    setEditPassword("");
+                    setEditParentError("");
                     setShowEditParentModal(true);
                   }}
                   style={{
                     width: "100%",
-                    padding: "10px 16px",
-                    backgroundColor: "#ECFDF5",
-                    border: "1px solid #A7F3D0",
+                    padding: "12px 16px",
+                    backgroundColor: "#4F46E5",
+                    border: "none",
                     borderRadius: "14px",
-                    color: "#0F766E",
+                    color: "#FFFFFF",
                     fontWeight: 800,
-                    fontSize: "12px",
+                    fontSize: "13px",
                     cursor: "pointer",
                     transition: "all 0.15s ease",
+                    boxShadow: "0 4px 12px rgba(79, 70, 229, 0.25)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
                   }}
                 >
-                  Pasport ma'lumotini tahrirlash
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "16px", height: "16px" }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                  </svg>
+                  Profil va Shaxsiy Ma'lumotlarni Tahrirlash
                 </button>
 
                 {!userInfo.telegram_id && (
@@ -4264,49 +4297,160 @@ export default function ParentDashboard() {
               justifyContent: "center",
               zIndex: 100,
               padding: "16px",
+              backdropFilter: "blur(4px)",
             }}
           >
             <div
               style={{
                 backgroundColor: "white",
-                borderRadius: "16px",
-                padding: "20px",
+                borderRadius: "24px",
+                padding: "24px",
                 width: "100%",
-                maxWidth: "400px",
+                maxWidth: "460px",
+                maxHeight: "90vh",
+                overflowY: "auto",
                 boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
               }}
             >
               <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_DARK, marginBottom: "16px" }}>
-                Pasport ma'lumotlarini yangilash
+                Shaxsiy Profil Ma'lumotlarini Yangilash
               </h3>
+
               {editParentError && (
-                <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600 }}>
+                <div style={{ color: "#EF4444", fontSize: "12px", marginBottom: "12px", fontWeight: 600, padding: "10px", backgroundColor: "#FEF2F2", borderRadius: "10px", border: "1px solid #FCA5A5" }}>
                   {editParentError}
                 </div>
               )}
-              <form onSubmit={handleUpdateParentProfile}>
-                <div style={{ marginBottom: "20px" }}>
+
+              <form onSubmit={handleUpdateParentProfile} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                      Ism *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editFirstName}
+                      onChange={(e) => setEditFirstName(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                      }}
+                      placeholder="Ismingiz"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                      Familiya *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editLastName}
+                      onChange={(e) => setEditLastName(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                      }}
+                      placeholder="Familiyangiz"
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
-                    Pasport seriyasi va raqami
+                    Otangizning ismi (Sharifi)
                   </label>
                   <input
                     type="text"
-                    value={editPassport}
-                    onChange={(e) => setEditPassport(e.target.value)}
+                    value={editMiddleName}
+                    onChange={(e) => setEditMiddleName(e.target.value)}
                     style={{
                       width: "100%",
-                      padding: "10px",
-                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      borderRadius: "10px",
                       border: "1px solid #E5E7EB",
                       fontSize: "13px",
                       color: TEXT_DARK,
-                      textTransform: "uppercase",
-                      fontFamily: "monospace",
                     }}
-                    placeholder="Masalan: AA1234567"
+                    placeholder="Masalan: Alisher qizi / o'g'li"
                   />
                 </div>
-                <div style={{ display: "flex", gap: "10px" }}>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                      Telefon raqami
+                    </label>
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                        fontFamily: "monospace",
+                      }}
+                      placeholder="+998901234567"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                      Pasport seriyasi
+                    </label>
+                    <input
+                      type="text"
+                      value={editPassport}
+                      onChange={(e) => setEditPassport(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "10px",
+                        border: "1px solid #E5E7EB",
+                        fontSize: "13px",
+                        color: TEXT_DARK,
+                        textTransform: "uppercase",
+                        fontFamily: "monospace",
+                      }}
+                      placeholder="AA1234567"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: TEXT_MUTED, display: "block", marginBottom: "4px" }}>
+                    Yangi Parol (ixtiyoriy)
+                  </label>
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "10px",
+                      border: "1px solid #E5E7EB",
+                      fontSize: "13px",
+                      color: TEXT_DARK,
+                    }}
+                    placeholder="O'zgartirmaslik uchun bo'sh qoldiring..."
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
                   <button
                     type="button"
                     onClick={() => setShowEditParentModal(false)}
@@ -4315,7 +4459,7 @@ export default function ParentDashboard() {
                       padding: "10px",
                       backgroundColor: "#F3F4F6",
                       border: "none",
-                      borderRadius: "8px",
+                      borderRadius: "10px",
                       color: TEXT_DARK,
                       fontWeight: 700,
                       cursor: "pointer",
@@ -4331,7 +4475,7 @@ export default function ParentDashboard() {
                       padding: "10px",
                       backgroundColor: ACCENT,
                       border: "none",
-                      borderRadius: "8px",
+                      borderRadius: "10px",
                       color: "white",
                       fontWeight: 700,
                       cursor: "pointer",

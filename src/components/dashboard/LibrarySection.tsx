@@ -23,6 +23,7 @@ import {
   ChevronDown,
   UserCheck,
   Layers,
+  BookmarkPlus,
 } from "lucide-react";
 import api from "@/lib/api";
 import { DateRangePresets } from "../DateRangePresets";
@@ -134,6 +135,15 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
   const [catName, setCatName] = useState("");
   const [catDesc, setCatDesc] = useState("");
 
+  // Edit Book Modal State
+  const [showEditBookModal, setShowEditBookModal] = useState(false);
+  const [editingBook, setEditingBook] = useState<BookItem | null>(null);
+
+  // Searchable Presets Dropdown State
+  const [presetSearch, setPresetSearch] = useState("");
+  const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
+  const [savingPreset, setSavingPreset] = useState(false);
+
   // Book Form State
   const [bookTitle, setBookTitle] = useState("");
   const [bookAuthor, setBookAuthor] = useState("");
@@ -212,16 +222,22 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       setPresets(Array.isArray(presetData) ? presetData : []);
 
       if (Array.isArray(studentData)) {
-        const formattedStudents = studentData.map((u: any) => ({
-          id: u.student_id || u.id,
-          student_id: u.student_id || u.id,
-          user_id: u.user_id || u.id,
-          first_name: u.first_name,
-          last_name: u.last_name,
-          class_id: u.class_id || 0,
-          class_name: u.class_name || "Noma'lum sinf",
-        }));
-        setAllStudents(formattedStudents);
+        const studentMap = new Map<number, any>();
+        studentData.forEach((u: any) => {
+          const stId = Number(u.student_id || u.id);
+          if (stId && !studentMap.has(stId)) {
+            studentMap.set(stId, {
+              id: stId,
+              student_id: stId,
+              user_id: Number(u.user_id || u.id),
+              first_name: u.first_name,
+              last_name: u.last_name,
+              class_id: u.class_id || 0,
+              class_name: u.class_name || "Noma'lum sinf",
+            });
+          }
+        });
+        setAllStudents(Array.from(studentMap.values()));
       }
     } catch (err) {
       console.error("Failed to load library data:", err);
@@ -294,15 +310,38 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
     return set;
   }, [selectedStudentIds, selectedClassIds, selectedLevels, selectedPresetIds, allStudents, presets]);
 
+  // Unique Categories sorted A-Z
+  const uniqueCategories = useMemo(() => {
+    const map = new Map<string, BookCategory>();
+    categories.forEach((cat) => {
+      const key = cat.name.trim().toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, cat);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+  }, [categories]);
+
   // Filtered books
   const filteredBooks = useMemo(() => {
+    const selectedCatObj = categories.find((c) => c.id === selectedCategoryId);
+    const selectedCatName = selectedCatObj?.name.trim().toLowerCase();
+
     return books.filter((bk) => {
-      const matchesCat = selectedCategoryId === "all" || bk.category_id === selectedCategoryId;
-      const titleAuthor = `${bk.title} ${bk.author} ${bk.location_in_school}`.toLowerCase();
+      let matchesCat = selectedCategoryId === "all";
+      if (!matchesCat) {
+        matchesCat = Boolean(
+          bk.category_id === selectedCategoryId ||
+            (bk.category_name && selectedCatName && bk.category_name.trim().toLowerCase() === selectedCatName)
+        );
+      }
+      const titleAuthor = `${bk.title} ${bk.author || ""} ${bk.location_in_school || ""}`.toLowerCase();
       const matchesSearch = titleAuthor.includes(searchQuery.toLowerCase().trim());
       return matchesCat && matchesSearch;
     });
-  }, [books, selectedCategoryId, searchQuery]);
+  }, [books, selectedCategoryId, categories, searchQuery]);
 
   // Filtered Classes for search
   const filteredClasses = useMemo(() => {
@@ -366,6 +405,53 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       loadLibraryData();
     } catch (err: any) {
       setActionError(err.message || "Kitob qo'shishda xatolik");
+    }
+  };
+
+  // Handle Edit Book
+  const handleEditBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionError("");
+    if (!editingBook || !bookTitle.trim()) return;
+
+    try {
+      await api.put(`/api/schools/books/${editingBook.id}`, {
+        title: bookTitle.trim(),
+        author: bookAuthor.trim(),
+        category_id: bookCategory ? Number(bookCategory) : null,
+        download_link: bookDownloadLink.trim(),
+        location_in_school: bookLocation.trim(),
+        description: bookDescription.trim(),
+        cover_url: bookCoverUrl.trim(),
+      });
+      showToast("Kitob muvaffaqiyatli tahrirlandi!", "success");
+      setShowEditBookModal(false);
+      setEditingBook(null);
+      loadLibraryData();
+    } catch (err: any) {
+      setActionError(err.message || "Kitobni tahrirlashda xatolik yuz berdi");
+    }
+  };
+
+  // Handle Save Target Preset
+  const handleSavePreset = async () => {
+    const presetName = prompt("Yangi to'plam nomini kiriting (masalan: 5-A a'lochilari):");
+    if (!presetName || !presetName.trim()) return;
+
+    try {
+      setSavingPreset(true);
+      await api.post("/api/schools/target-presets", {
+        name: presetName.trim(),
+        target_levels: selectedLevels,
+        target_classes: selectedClassIds,
+        target_students: selectedStudentIds,
+      });
+      showToast("O'quvchilar to'plami muvaffaqiyatli saqlandi!", "success");
+      loadLibraryData();
+    } catch (err: any) {
+      showToast(err.message || "To'plamni saqlashda xatolik", "error");
+    } finally {
+      setSavingPreset(false);
     }
   };
 
@@ -551,7 +637,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               >
                 Barchasi ({books.length})
               </button>
-              {categories.map((cat) => (
+              {uniqueCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(cat.id)}
@@ -589,22 +675,14 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-lg transition flex flex-col justify-between group"
                 >
                   <div className="space-y-3">
-                    {/* Category Badge & Download / Physical Indicator */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
-                        {bk.category_name || "Umumiy"}
-                      </span>
-
-                      {bk.download_link ? (
-                        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-extrabold flex items-center gap-1">
-                          <ExternalLink className="w-3 h-3" /> E-Kitob
+                    {/* Category Badge Header */}
+                    {bk.category_name && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
+                          {bk.category_name}
                         </span>
-                      ) : (
-                        <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-[10px] font-extrabold flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-amber-600" /> Jismoniy
-                        </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* Book Cover or Placeholder */}
                     {bk.cover_url ? (
@@ -663,22 +741,41 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                       </span>
                     )}
 
-                    <button
-                      onClick={async () => {
-                        if (confirm(`Haqiqatan ham "${bk.title}" kitobini o'chirmoqchimisiz?`)) {
-                          try {
-                            await api.delete(`/api/schools/books/${bk.id}`);
-                            loadLibraryData();
-                          } catch (err: any) {
-                            alert(err.message || "O'chirishda xatolik");
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingBook(bk);
+                          setBookTitle(bk.title);
+                          setBookAuthor(bk.author || "");
+                          setBookCategory(bk.category_id || "");
+                          setBookDownloadLink(bk.download_link || "");
+                          setBookLocation(bk.location_in_school || "");
+                          setBookDescription(bk.description || "");
+                          setBookCoverUrl(bk.cover_url || "");
+                          setShowEditBookModal(true);
+                        }}
+                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
+                        title="Kitobni tahrirlash"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Haqiqatan ham "${bk.title}" kitobini o'chirmoqchimisiz?`)) {
+                            try {
+                              await api.delete(`/api/schools/books/${bk.id}`);
+                              loadLibraryData();
+                            } catch (err: any) {
+                              alert(err.message || "O'chirishda xatolik");
+                            }
                           }
-                        }
-                      }}
-                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
-                      title="Kitobni o'chirish"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                        }}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                        title="Kitobni o'chirish"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1024,6 +1121,163 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
         </div>
       )}
 
+      {/* MODAL 2B: EDIT BOOK */}
+      {showEditBookModal && editingBook && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditBookModal(false);
+              setEditingBook(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-[#1D1E26] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-[#D4F562]" />
+                <h3 className="text-base font-bold">Kitob Ma'lumotlarini Tahrirlash</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditBookModal(false);
+                  setEditingBook(null);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditBook} className="p-6 overflow-y-auto space-y-4">
+              {actionError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Kitob Nomi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={bookTitle}
+                  onChange={(e) => setBookTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:border-indigo-500 outline-none transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Muallif Nomi
+                  </label>
+                  <input
+                    type="text"
+                    value={bookAuthor}
+                    onChange={(e) => setBookAuthor(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Kategoriya (Guruh)
+                  </label>
+                  <select
+                    value={bookCategory}
+                    onChange={(e) => setBookCategory(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                  >
+                    <option value="">Kategoriyasiz</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Elektron Kitob Havolasi (Google Drive / Telegram / Internet URL)</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/file/d/..."
+                  value={bookDownloadLink}
+                  onChange={(e) => setBookDownloadLink(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs text-slate-800 font-mono focus:bg-white focus:border-emerald-500 outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Maktab Kutubxonasidagi Joylashuv (Jismoniy kitoblar uchun)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Masalan: 2-qavat, 14-javon, 3-tokcha"
+                  value={bookLocation}
+                  onChange={(e) => setBookLocation(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-amber-50/50 border border-amber-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-amber-500 outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Muqova Rasmi URL
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={bookCoverUrl}
+                  onChange={(e) => setBookCoverUrl(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500 outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Tavsif / Qisqacha Mazmun
+                </label>
+                <textarea
+                  rows={2}
+                  value={bookDescription}
+                  onChange={(e) => setBookDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditBookModal(false);
+                    setEditingBook(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-500/20"
+                >
+                  O'zgarishlarni Saqlash
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 3: CREATE READING ASSIGNMENT WITH MULTI-TARGET SELECTION */}
       {showCreateAssignmentModal && (
         <div
@@ -1255,39 +1509,166 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   </span>
                 </div>
 
-                {/* 1. Target Presets */}
-                {presets.length > 0 && (
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                {/* 1. Target Presets (Searchable Multi-Select Dropdown) */}
+                <div className="space-y-1.5 border-b border-indigo-100 pb-3 relative">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                    <span className="flex items-center gap-1">
                       <Layers className="w-3.5 h-3.5 text-indigo-600" />
                       <span>Saqlangan O'quvchilar To'plamlari (Presets):</span>
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {presets.map((preset) => {
-                        const isSel = selectedPresetIds.includes(preset.id);
+                    </span>
+                    <span className="text-[11px] text-indigo-600 font-bold">
+                      {selectedPresetIds.length} ta to'plam tanlandi
+                    </span>
+                  </label>
+
+                  {/* Selected Presets Badges */}
+                  {selectedPresetIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-indigo-50/70 border border-indigo-200 rounded-2xl max-h-24 overflow-y-auto">
+                      {selectedPresetIds.map((pId) => {
+                        const p = presets.find((item) => item.id === pId);
+                        if (!p) return null;
                         return (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedPresetIds((prev) =>
-                                prev.includes(preset.id) ? prev.filter((i) => i !== preset.id) : [...prev, preset.id]
-                              );
-                            }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${
-                              isSel
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                            }`}
+                          <span
+                            key={p.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-indigo-300 rounded-xl text-xs font-extrabold text-indigo-950 shadow-2xs"
                           >
-                            {isSel && <Check className="w-3.5 h-3.5" />}
-                            <span>📁 {preset.name}</span>
-                          </button>
+                            <span>📁 {p.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPresetIds((prev) => prev.filter((id) => id !== p.id))}
+                              className="text-slate-400 hover:text-rose-600 p-0.5 rounded-full hover:bg-rose-50 transition cursor-pointer"
+                              title="Tanlovdan chiqarish"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
                         );
                       })}
                     </div>
+                  )}
+
+                  {/* Searchable Dropdown Input + Save Preset Icon Button */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <div
+                        onClick={() => setIsPresetDropdownOpen(!isPresetDropdownOpen)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 hover:border-indigo-300 rounded-xl text-xs text-slate-800 font-medium flex items-center justify-between cursor-pointer transition select-none shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2 text-slate-500 overflow-hidden">
+                          <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <span className="truncate text-slate-700 font-semibold">
+                            {selectedPresetIds.length === 0
+                              ? "To'plamlarni qidirish va tanlash uchun bosing..."
+                              : `${selectedPresetIds.length} ta to'plam tanlangan`}
+                          </span>
+                        </div>
+                        <ChevronDown
+                          className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+                            isPresetDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                          }`}
+                        />
+                      </div>
+
+                      {/* Expanded Dropdown Panel */}
+                      {isPresetDropdownOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2 animate-in fade-in duration-150">
+                          {/* Search Bar & Select All actions */}
+                          <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                            <div className="relative flex-1">
+                              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                              <input
+                                type="text"
+                                autoFocus
+                                value={presetSearch}
+                                onChange={(e) => setPresetSearch(e.target.value)}
+                                placeholder="To'plam nomini qidirish..."
+                                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPresetIds(presets.map((p) => p.id))}
+                                className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              >
+                                Hammasi
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPresetIds([])}
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                              >
+                                Bekor qilish
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Presets List with Scroll */}
+                          <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 space-y-1 pr-1">
+                            {presets.length === 0 ? (
+                              <p className="text-xs text-slate-400 p-3 text-center">Hali to'plamlar mavjud emas</p>
+                            ) : (
+                              (() => {
+                                const filtered = presets.filter((p) =>
+                                  p.name.toLowerCase().includes(presetSearch.toLowerCase().trim())
+                                );
+
+                                if (filtered.length === 0) {
+                                  return (
+                                    <p className="text-xs text-slate-400 p-3 text-center">Qidiruv bo'yicha to'plam topilmadi</p>
+                                  );
+                                }
+
+                                return filtered.map((p) => {
+                                  const isSelected = selectedPresetIds.includes(p.id);
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      onClick={() => {
+                                        setSelectedPresetIds((prev) =>
+                                          prev.includes(p.id) ? prev.filter((i) => i !== p.id) : [...prev, p.id]
+                                        );
+                                      }}
+                                      className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition select-none ${
+                                        isSelected
+                                          ? "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold"
+                                          : "hover:bg-slate-50 text-slate-700"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <div
+                                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                                            isSelected
+                                              ? "bg-indigo-600 border-indigo-600 text-white"
+                                              : "border-slate-300 bg-white"
+                                          }`}
+                                        >
+                                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                        </div>
+                                        <span className="text-xs font-bold leading-tight">📁 {p.name}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Save Preset Icon Button */}
+                    <button
+                      type="button"
+                      onClick={handleSavePreset}
+                      disabled={savingPreset || resolvedStudentSet.size === 0}
+                      className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition shrink-0 cursor-pointer flex items-center justify-center disabled:opacity-40"
+                      title="Hozirgi saralangan o'quvchilarni to'plam (preset) sifatida saqlash"
+                    >
+                      <BookmarkPlus className="w-4.5 h-4.5" />
+                    </button>
                   </div>
-                )}
+                </div>
 
                 {/* 2. Grade Levels Pills */}
                 <div className="space-y-1.5">
@@ -1376,11 +1757,11 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     {filteredStudents.length === 0 ? (
                       <p className="text-[11px] text-slate-400 p-2 text-center">O'quvchilar topilmadi</p>
                     ) : (
-                      filteredStudents.map((st) => {
+                      filteredStudents.map((st, idx) => {
                         const isSel = selectedStudentIds.includes(st.id);
                         return (
                           <div
-                            key={st.id}
+                            key={`st_${st.id}_${st.class_id}_${idx}`}
                             onClick={() => {
                               setSelectedStudentIds((prev) =>
                                 prev.includes(st.id) ? prev.filter((i) => i !== st.id) : [...prev, st.id]

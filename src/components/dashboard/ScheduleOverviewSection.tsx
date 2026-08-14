@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { ClassItem, ClassScheduleItem } from "./types";
 import SmartCalendarModal, { SmartCalendarTrigger, formatWeekRangeLabel } from "@/components/SmartCalendarModal";
-import { Calendar, RefreshCw, X } from "lucide-react";
+import { Calendar, RefreshCw, X, Upload, Plus } from "lucide-react";
+import ScheduleImportSection from "./ScheduleImportSection";
 
 interface ScheduleOverviewSectionProps {
   classes: ClassItem[];
@@ -44,6 +45,7 @@ export default function ScheduleOverviewSection({
 
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const sortedClasses = [...classes].sort((a, b) => {
     const la = a.level ?? 0;
@@ -197,6 +199,14 @@ export default function ScheduleOverviewSection({
           )}
 
           <button
+            onClick={() => setIsImportOpen(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer shadow-lg shadow-indigo-200"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Excel Orqali Yoppasiga Yuklash</span>
+          </button>
+
+          <button
             onClick={() => fetchAllSchedules(selectedWeekStart)}
             disabled={loading}
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
@@ -212,41 +222,31 @@ export default function ScheduleOverviewSection({
           <div className="w-10 h-10 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-slate-400 font-medium">Jadvallar yuklanmoqda...</p>
         </div>
-      ) : classes.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-          <p className="text-slate-400 text-sm font-medium">Hali birorta sinf yaratilmagan.</p>
+      ) : grouped.length === 0 ? (
+        <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-xs">
+          <p className="text-slate-400 text-sm font-medium">Sinflar topilmadi.</p>
         </div>
       ) : (
         <div className="space-y-10">
           {grouped.map(({ level, cardList }) => (
-            <div key={level}>
-              {/* Level heading */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-xl bg-[#D4F562] text-[#1D1E26] flex items-center justify-center text-xs font-black shadow-sm">
-                  {level || "?"}
-                </div>
-                <h2 className="text-sm font-black text-[#1D1E26]">
-                  {level ? `${level}-sinf darajasi` : "Daraja belgilanmagan"}
-                </h2>
-                <div className="flex-1 h-px bg-slate-100" />
-                <span className="text-[10px] text-slate-400 font-mono">{cardList.length} dars jadvali</span>
+            <div key={level} className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <span className="text-xs font-black bg-[#1D1E26] text-white px-2.5 py-1 rounded-lg font-mono">
+                  {level > 0 ? `${level}-SINF` : "SINFSIZ"}
+                </span>
+                <div className="h-px bg-slate-100 flex-1" />
               </div>
 
-              {/* Card grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {cardList.map((card, cardIdx) => {
-                  const { cls, period, scheduleItems } = card;
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {cardList.map(({ cls, period, scheduleItems }, idx) => {
                   const hasSchedule = scheduleItems.length > 0;
-
-                  const usedLessons = hasSchedule
-                    ? Array.from({ length: MAX_LESSONS }, (_, i) => i + 1).filter((lessonNum) =>
-                        [1, 2, 3, 4, 5, 6].some((d) => getCellSubject(scheduleItems, d, lessonNum) !== "")
-                      )
-                    : [];
+                  const usedLessons = Array.from(
+                    new Set(scheduleItems.map((s) => s.lesson_number))
+                  ).sort((a, b) => a - b);
 
                   return (
                     <div
-                      key={`${cls.id}_${period ? period.key : "none"}_${cardIdx}`}
+                      key={period ? `${cls.id}_${period.key}` : `${cls.id}_none_${idx}`}
                       onClick={() => handleCardClick(cls)}
                       title="2 marta bosib tahrirlang"
                       className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-xs cursor-pointer hover:border-[#D4F562] hover:shadow-md hover:scale-[1.01] transition-all duration-200 select-none group flex flex-col justify-between"
@@ -289,7 +289,7 @@ export default function ScheduleOverviewSection({
                                 </tr>
                               </thead>
                               <tbody>
-                                {(usedLessons.length > 0 ? usedLessons : [1, 2, 3]).map((lessonNum) => (
+                                {usedLessons.map((lessonNum) => (
                                   <tr key={lessonNum} className="border-t border-slate-50">
                                     <td className="text-[9px] font-mono text-slate-300 pr-1 py-0.5">
                                       {lessonNum}
@@ -318,19 +318,20 @@ export default function ScheduleOverviewSection({
                           </div>
                         ) : (
                           <div className="px-4 py-6 text-center">
-                            <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-2">
-                              <Calendar className="w-5 h-5 text-slate-300" />
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-medium">Jadval belgilanmagan</p>
-                            <p className="text-[10px] text-slate-300 mt-0.5">2 marta bosib qo&apos;shing</p>
+                            <p className="text-xs text-slate-400 font-medium">Bu sinf uchun jadval yaratilmagan.</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsImportOpen(true);
+                              }}
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Dars jadvalini yaratish</span>
+                            </button>
                           </div>
                         )}
-                      </div>
-
-                      <div className="px-3 pb-2 pt-1 border-t border-slate-50">
-                        <p className="text-[9px] text-slate-300 font-mono text-right">
-                          2× bosib tahrirlang
-                        </p>
                       </div>
                     </div>
                   );
@@ -350,6 +351,15 @@ export default function ScheduleOverviewSection({
           setSelectedWeekStart(weekStartStr);
           setIsCalendarOpen(false);
         }}
+      />
+
+      <ScheduleImportSection
+        token={token}
+        API_URL={API_URL}
+        classes={classes}
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={() => fetchAllSchedules(selectedWeekStart)}
       />
     </div>
   );

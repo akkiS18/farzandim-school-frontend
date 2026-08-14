@@ -309,7 +309,7 @@ export default function ParentLibrarySection({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filteredAssignments.map((item) => {
-              const fileLink = (item.download_link || item.cover_url || "").trim();
+              const fileLink = (item.download_link && item.download_link.trim() !== (item.cover_url || "").trim() ? item.download_link : "").trim();
               const fullFileUrl = getFullUrl(fileLink);
               const coverUrl = getFullUrl(item.cover_url);
               const hasCover = coverUrl && !imgErrors[item.id];
@@ -424,7 +424,8 @@ export default function ParentLibrarySection({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {filteredCatalog.map((book) => {
-              const rawLink = (book.download_link || book.file_url || "").trim();
+              const linkCandidate = (book.download_link || book.file_url || "").trim();
+              const rawLink = linkCandidate !== (book.cover_url || "").trim() ? linkCandidate : "";
               const fullUrl = getFullUrl(rawLink);
               const coverUrl = getFullUrl(book.cover_url);
               const hasCover = coverUrl && !imgErrors[`cat_${book.id}`];

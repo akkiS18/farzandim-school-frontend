@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bookmark, Plus, Trash2, Calendar, Check, FolderPlus, Loader2 } from "lucide-react";
+import { Bookmark, Plus, Trash2, Calendar, Check, FolderPlus, Loader2, Search, ChevronDown } from "lucide-react";
 import CustomDialogModal from "./CustomDialogModal";
 
 export interface DateRangePresetItem {
@@ -78,6 +78,8 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
   const [presets, setPresets] = useState<DateRangePresetItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<number | "">("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [dropdownSearch, setDropdownSearch] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -289,62 +291,101 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
           )}
         </div>
 
-        {/* Preset Selector Dropdown */}
+        {/* Preset Selector Searchable Dropdown */}
         <div className="relative mb-3.5">
-          <select
-            value={selectedPresetId}
-            onChange={(e) => handleSelectPreset(e.target.value)}
-            className={`w-full bg-white border border-slate-200 text-slate-800 rounded-xl pl-3.5 pr-9 py-2 text-xs outline-none ${themeStyles.inputFocus} font-extrabold cursor-pointer transition shadow-2xs`}
-          >
-            <option value="">
-              {presets.length === 0 ? "Mavjud to'plamlar yo'q (O'zingiz yaratishingiz mumkin)" : "To'plamni tanlang (Mavjud shablonlar)..."}
-            </option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({formatDateUZ(p.start_date)} — {formatDateUZ(p.end_date)})
-              </option>
-            ))}
-          </select>
+          {(() => {
+            const selectedObj = presets.find((p) => p.id === selectedPresetId);
+            return (
+              <div
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className={`w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-bold cursor-pointer flex items-center justify-between transition select-none shadow-2xs ${themeStyles.inputFocus}`}
+              >
+                <div className="flex items-center gap-2 overflow-hidden text-slate-700">
+                  <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="truncate">
+                    {selectedObj
+                      ? `${selectedObj.name} (${formatDateUZ(selectedObj.start_date)} — ${formatDateUZ(selectedObj.end_date)})`
+                      : presets.length === 0
+                      ? "Mavjud to'plamlar yo'q (O'zingiz yaratishingiz mumkin)"
+                      : "To'plamni tanlang (Mavjud shablonlar)..."}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+                    isDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                  }`}
+                />
+              </div>
+            );
+          })()}
 
-          {/* Quick preset chips with delete option */}
-          {presets.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2 max-h-24 overflow-y-auto pr-1">
-              {presets.map((p) => {
-                const isSelected = selectedPresetId === p.id;
-                return (
-                  <div
-                    key={p.id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setSelectedPresetId(p.id);
-                      onStartDateChange(p.start_date);
-                      onEndDateChange(p.end_date);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer border select-none ${
-                      isSelected
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
-                    }`}
-                  >
-                    <span>{p.name}</span>
-                    <span className="opacity-75 text-[10px] font-mono">
-                      ({formatDateUZ(p.start_date)} - {formatDateUZ(p.end_date)})
-                    </span>
-                    <button
-                      type="button"
-                      title="To'plamni o'chirish"
-                      onClick={(e) => handleDeletePreset(p.id, p.name, e)}
-                      disabled={deletingId === p.id}
-                      className={`ml-1 hover:text-red-500 rounded p-0.5 transition cursor-pointer ${
-                        isSelected ? "text-indigo-200 hover:text-white" : "text-slate-400"
-                      }`}
-                    >
-                      {deletingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                    </button>
-                  </div>
-                );
-              })}
+          {/* Expanded Dropdown Panel */}
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2.5 space-y-2 animate-in fade-in duration-150">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={dropdownSearch}
+                  onChange={(e) => setDropdownSearch(e.target.value)}
+                  placeholder="Shablon nomini qidirish..."
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 space-y-1 pr-1">
+                {presets.length === 0 ? (
+                  <p className="text-xs text-slate-400 p-3 text-center">Hali shablonlar mavjud emas</p>
+                ) : (
+                  (() => {
+                    const filtered = presets.filter((p) =>
+                      `${p.name} ${p.start_date} ${p.end_date}`
+                        .toLowerCase()
+                        .includes(dropdownSearch.toLowerCase().trim())
+                    );
+
+                    if (filtered.length === 0) {
+                      return <p className="text-xs text-slate-400 p-3 text-center">Qidiruv bo'yicha shablon topilmadi</p>;
+                    }
+
+                    return filtered.map((p) => {
+                      const isSel = selectedPresetId === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedPresetId(p.id);
+                            onStartDateChange(p.start_date);
+                            onEndDateChange(p.end_date);
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition select-none ${
+                            isSel ? "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold" : "hover:bg-slate-50 text-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="text-xs font-bold truncate">{p.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                              ({formatDateUZ(p.start_date)} - {formatDateUZ(p.end_date)})
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            title="To'plamni o'chirish"
+                            onClick={(e) => handleDeletePreset(p.id, p.name, e)}
+                            disabled={deletingId === p.id}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer shrink-0"
+                          >
+                            {deletingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
             </div>
           )}
         </div>

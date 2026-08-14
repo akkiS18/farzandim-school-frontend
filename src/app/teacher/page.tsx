@@ -52,6 +52,7 @@ import {
   History,
   CalendarDays,
   Save,
+  Settings,
 } from "lucide-react";
 
 import TransferStudentsModal from "@/components/dashboard/TransferStudentsModal";
@@ -129,10 +130,17 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport"
-  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport">("dashboard");
+  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings"
+  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings">("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Default collapsed (icon-only mode)
+
+  // Profile & Settings states
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileOldPassword, setProfileOldPassword] = useState("");
+  const [profileNewPassword, setProfileNewPassword] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Mobile Swipe Gesture Handler
   useSwipeMobileMenu({
@@ -259,6 +267,9 @@ export default function TeacherDashboard() {
   const [selectedClubForStudents, setSelectedClubForStudents] = useState<any>(null);
   const [clubStudents, setClubStudents] = useState<any[]>([]);
   const [clubStudentsLoading, setClubStudentsLoading] = useState(false);
+
+  // Dashboard Interactive Date Picker State
+  const [selectedDashboardDate, setSelectedDashboardDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
 
   // Search & Pagination States for Students and Parents tabs
   const [studentsSearch, setStudentsSearch] = useState("");
@@ -1082,6 +1093,8 @@ export default function TeacherDashboard() {
         return;
       }
       setUserInfo(parsedUser);
+      setProfileFirstName(parsedUser.first_name || "");
+      setProfileLastName(parsedUser.last_name || "");
       loadInitialData(savedToken, savedSchoolId);
     } catch (e) {
       router.replace("/login");
@@ -3167,32 +3180,46 @@ export default function TeacherDashboard() {
   const calendarDays = getCalendarDays();
 
   const getTodayLessons = () => {
-    const dayOfWeek = new Date().getDay();
+    const targetDate = selectedDashboardDate ? new Date(selectedDashboardDate + "T00:00:00") : new Date();
+    const dayOfWeek = targetDate.getDay();
     const currentDay = dayOfWeek === 0 ? 7 : dayOfWeek;
-    const list = classSchedule.filter(s => s.day_of_week === currentDay);
-    if (list.length > 0) {
-      return list.map(item => {
-        const cls = classes.find(c => c.id === item.class_id);
-        const sub = subjects.find(s => s.id === item.subject_id);
+
+    if (currentDay === 7) return [];
+
+    const list: Array<{ subject_name: string; class_name: string; time: string; lesson_number: number }> = [];
+
+    for (let lessonNum = 1; lessonNum <= 10; lessonNum++) {
+      const slotKey = `${currentDay}-${lessonNum}`;
+      const items = overallSchedule[slotKey];
+      if (items && items.length > 0) {
+        items.forEach((it) => {
+          list.push({
+            subject_name: it.subject_name,
+            class_name: it.class_name,
+            time: `0${8 + lessonNum}:30 - 0${9 + lessonNum}:15`,
+            lesson_number: lessonNum,
+          });
+        });
+      }
+    }
+
+    if (list.length > 0) return list;
+
+    const classSchList = classSchedule.filter((s) => s.day_of_week === currentDay);
+    if (classSchList.length > 0) {
+      return classSchList.map((item) => {
+        const cls = classes.find((c) => c.id === item.class_id);
+        const sub = subjects.find((s) => s.id === item.subject_id);
         return {
           subject_name: sub?.name || item.subject_name || "Dars",
           class_name: cls?.name || `Sinf ${item.class_id}`,
           time: `0${8 + item.lesson_number}:30 - 0${9 + item.lesson_number}:15`,
+          lesson_number: item.lesson_number,
         };
       });
     }
-    if (classes.length > 0) {
-      return classes.slice(0, 3).map((cls, idx) => ({
-        subject_name: cls.subject_name || "Matematika",
-        class_name: cls.name,
-        time: `0${8 + idx}:30 - 0${9 + idx}:15`,
-      }));
-    }
-    return [
-      { subject_name: "Matematika", class_name: "5-A Sinf", time: "08:30 - 09:15" },
-      { subject_name: "Ona tili", class_name: "6-B Sinf", time: "09:25 - 10:10" },
-      { subject_name: "Fizika", class_name: "7-A Sinf", time: "10:20 - 11:05" },
-    ];
+
+    return [];
   };
 
   const todayLessons = getTodayLessons();
@@ -3346,6 +3373,7 @@ export default function TeacherDashboard() {
                   { id: "announcements", label: "E'lonlar", icon: Megaphone },
                   { id: "clubs", label: "To'garaklar", icon: Sparkles },
                   { id: "books", label: "Kitobxonlik", icon: BookMarked },
+                  { id: "settings", label: "Sozlamalar", icon: Settings },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = teacherTab === item.id;
@@ -3488,7 +3516,7 @@ export default function TeacherDashboard() {
                       className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
                     >
                       <Clock className="w-4 h-4 text-indigo-600" />
-                      <span>Bugungi Darslar ({todayLessons.length})</span>
+                      <span>Darslar ({todayLessons.length})</span>
                     </button>
                   </div>
                 </div>
@@ -3577,22 +3605,53 @@ export default function TeacherDashboard() {
 
                 {/* Right Column: Today's Date Badge + Today's Lessons Card + Pending Approvals */}
                 <div className="lg:col-span-4 space-y-6">
-                  {/* 1. Today's Date Card (Replaces monthly calendar) */}
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-3">
+                  {/* 1. Interactive Dashboard Date Picker Card */}
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-3 relative">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 relative overflow-hidden group cursor-pointer">
                         <Calendar className="w-5 h-5" />
+                        <input
+                          type="date"
+                          value={selectedDashboardDate}
+                          onChange={(e) => setSelectedDashboardDate(e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          title="Sana tanlash"
+                        />
                       </div>
                       <div>
-                        <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Bugungi Sana</span>
-                        <h4 className="text-sm font-extrabold text-[#16193E]">
-                          {currentDayNumber}-{currentMonthName}, {currentYear}
-                        </h4>
+                        <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Sana Tanlash</span>
+                        <div className="relative inline-flex items-center gap-1.5 cursor-pointer">
+                          <h4 className="text-sm font-extrabold text-[#16193E]">
+                            {(() => {
+                              const d = new Date(selectedDashboardDate + "T00:00:00");
+                              const mNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+                              return `${d.getDate()}-${mNames[d.getMonth()]}, ${d.getFullYear()}`;
+                            })()}
+                          </h4>
+                          <input
+                            type="date"
+                            value={selectedDashboardDate}
+                            onChange={(e) => setSelectedDashboardDate(e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            title="Sana tanlash"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full">
-                      Bugun
-                    </span>
+
+                    {selectedDashboardDate === new Date().toISOString().split("T")[0] ? (
+                      <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full shrink-0">
+                        Bugun
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDashboardDate(new Date().toISOString().split("T")[0])}
+                        className="text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1 rounded-full shrink-0 transition cursor-pointer"
+                      >
+                        Bugunga qaytish
+                      </button>
+                    )}
                   </div>
 
                   {/* 2. Darslar Card & Button */}
@@ -3607,7 +3666,7 @@ export default function TeacherDashboard() {
                         onClick={() => setShowTodayLessonsModal(true)}
                         className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1 cursor-pointer bg-indigo-50 px-2.5 py-1 rounded-xl"
                       >
-                        <span>Bugungi darslar ({todayLessons.length})</span>
+                        <span>Darslar ({todayLessons.length})</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -3631,13 +3690,13 @@ export default function TeacherDashboard() {
                                   {lesson.class_name} • {lesson.time}
                                 </p>
                               </div>
-                              <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-indigo-600 transition shrink-0" />
+                              <ChevronRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-indigo-600 transition shrink-0" />
                             </div>
                           );
                         })
                       ) : (
                         <div className="text-center py-6 text-xs text-zinc-400 font-medium bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
-                          Bugun darslar mavjud emas
+                          Ushbu sanada darslar mavjud emas
                         </div>
                       )}
                     </div>
@@ -5652,6 +5711,173 @@ export default function TeacherDashboard() {
                 }}
               />
             )}
+
+            {/* TAB CONTENT: Sozlamalar (Settings) */}
+            {teacherTab === "settings" && (
+              <div className="space-y-6 max-w-3xl mx-auto animate-fadeIn pb-36 text-zinc-900">
+                <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+                  <div className="border-b border-zinc-100 pb-4 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-extrabold text-[#16193E] flex items-center gap-2">
+                        <Settings className="w-5 h-5 text-indigo-600" />
+                        <span>Sozlamalar va Profil</span>
+                      </h2>
+                      <p className="text-xs text-zinc-500 font-medium mt-1">
+                        Shaxsiy ma'lumotlaringizni tahrirlang va tizim sozlamalarini boshqaring.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Profile info form */}
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
+                      Profil ma'lumotlari
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-700 mb-1">Ismingiz</label>
+                        <input
+                          type="text"
+                          value={profileFirstName}
+                          onChange={(e) => setProfileFirstName(e.target.value)}
+                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-700 mb-1">Familiyangiz</label>
+                        <input
+                          type="text"
+                          value={profileLastName}
+                          onChange={(e) => setProfileLastName(e.target.value)}
+                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setProfileLoading(true);
+                          const res = await fetch(`${API_URL}/api/schools/teachers/${userInfo?.id}`, {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Authorization": `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                              first_name: profileFirstName,
+                              last_name: profileLastName,
+                            }),
+                          });
+                          if (!res.ok) throw new Error("Profilni saqlab bo'lmadi");
+                          
+                          const updatedUser = { ...userInfo, first_name: profileFirstName, last_name: profileLastName };
+                          setUserInfo(updatedUser as any);
+                          localStorage.setItem("school_user", JSON.stringify(updatedUser));
+                          setToast({ type: "success", message: "Profil ma'lumotlari yangilandi!" });
+                        } catch (err: any) {
+                          setToast({ type: "error", message: err.message || "Xatolik yuz berdi" });
+                        } finally {
+                          setProfileLoading(false);
+                        }
+                      }}
+                      disabled={profileLoading}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{profileLoading ? "Saqlanmoqda..." : "Profilni saqlash"}</span>
+                    </button>
+                  </div>
+
+                  {/* Password Change form */}
+                  <div className="border-t border-zinc-100 pt-6 space-y-4">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
+                      Parolni o'zgartirish
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-700 mb-1">Eski parol</label>
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={profileOldPassword}
+                          onChange={(e) => setProfileOldPassword(e.target.value)}
+                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-700 mb-1">Yangi parol</label>
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={profileNewPassword}
+                          onChange={(e) => setProfileNewPassword(e.target.value)}
+                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!profileOldPassword || !profileNewPassword) {
+                          setToast({ type: "error", message: "Eski va yangi parolni kiriting!" });
+                          return;
+                        }
+                        try {
+                          setProfileLoading(true);
+                          const res = await fetch(`${API_URL}/api/schools/change-password`, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Authorization": `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                              old_password: profileOldPassword,
+                              new_password: profileNewPassword,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || "Parolni o'zgartirib bo'lmadi");
+
+                          setProfileOldPassword("");
+                          setProfileNewPassword("");
+                          setToast({ type: "success", message: "Parol muvaffaqiyatli o'zgartirildi!" });
+                        } catch (err: any) {
+                          setToast({ type: "error", message: err.message || "Xatolik yuz berdi" });
+                        } finally {
+                          setProfileLoading(false);
+                        }
+                      }}
+                      disabled={profileLoading}
+                      className="bg-zinc-800 hover:bg-zinc-900 text-white font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>Parolni yangilash</span>
+                    </button>
+                  </div>
+
+                  {/* System Logout Button Section */}
+                  <div className="border-t border-zinc-100 pt-6 space-y-3">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-red-600 font-mono">
+                      Tizimdan Chiqish
+                    </h3>
+                    <p className="text-xs text-zinc-500 font-medium">
+                      Platformadagi sessiyangizni yakunlash va akkauntdan chiqish uchun pastdagi tugmani bosing.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoutModal(true)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl transition cursor-pointer flex items-center justify-center space-x-2 shadow-md hover:scale-[1.01]"
+                    >
+                      <LogOut className="w-5 h-5 text-white" />
+                      <span>Tizimdan Chiqish (Log Out)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
         </main>
       </div>
 
@@ -5682,8 +5908,8 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* Sticky Bottom Tabbar (Hidden on Dashboard, Announcements, Clubs, Feedback) */}
-      {teacherTab !== "dashboard" && teacherTab !== "announcements" && teacherTab !== "clubs" && teacherTab !== "feedback" && (
+      {/* Sticky Bottom Tabbar (Hidden on Dashboard, Announcements, Clubs, Feedback, Settings) */}
+      {teacherTab !== "dashboard" && teacherTab !== "announcements" && teacherTab !== "clubs" && teacherTab !== "feedback" && teacherTab !== "settings" && (
         <div
           style={{
             left: typeof window !== "undefined" && window.innerWidth >= 768

@@ -909,10 +909,14 @@ export default function ClassesSection({
 
   const handleAssignTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClass || !assignTeacherId) return;
-    // require subject only for non-main teachers
-    if (!assignIsMain && !assignSubjectId) {
-      setActionError("Fan o'qituvchisi uchun dars beradigan fanini tanlash majburiy");
+    if (!selectedClass) return;
+    if (!assignTeacherId) {
+      setActionError("Iltimos, biriktiriladigan o'qituvchini tanlang!");
+      return;
+    }
+    // Require subject only if teacher is NOT a main teacher (Sinf Rahbari)
+    if (!assignIsMain && (!assignSubjectId || Number(assignSubjectId) <= 0)) {
+      setActionError("Iltimos, dars beradigan fanni tanlang! Agarda o'qituvchi ushbu sinfda fandan dars bermasa, 'Sinf Rahbari' katagini belgilashingiz zarur.");
       return;
     }
     setActionLoading(true);
@@ -1127,9 +1131,25 @@ export default function ClassesSection({
     setImportError("");
   };
 
-  const filteredClasses = classes.filter((cls) =>
+  const sortedClasses = [...classes].sort((a, b) => {
+    const lvlA = a.level ?? (parseInt(a.name) || 0);
+    const lvlB = b.level ?? (parseInt(b.name) || 0);
+    if (lvlA !== lvlB) return lvlA - lvlB;
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+  });
+
+  const filteredClasses = sortedClasses.filter((cls) =>
     cls.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const groupedLevels = Array.from(
+    new Set(filteredClasses.map((cls) => cls.level ?? (parseInt(cls.name) || 0)))
+  ).sort((a, b) => a - b);
+
+  const groupedClasses = groupedLevels.map((lvl) => ({
+    level: lvl,
+    classList: filteredClasses.filter((cls) => (cls.level ?? (parseInt(cls.name) || 0)) === lvl),
+  }));
 
   return (
     <>
@@ -1179,38 +1199,57 @@ export default function ClassesSection({
               </p>
             </div>
           ) : (
-            // Classes Grid
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredClasses.map((cls) => (
-                <div
-                  key={cls.id}
-                  onClick={() => {
-                    setSelectedClass(cls);
-                    setClassDetailsTab("students");
-                  }}
-                  className="bg-white border border-slate-100/80 hover:border-[#D4F562] rounded-3xl p-5 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between h-40 group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-black text-[#1D1E26] group-hover:text-[#65A30D] transition">
-                      {cls.name} sinfi
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <span className="bg-[#ECFCCA] text-[#65A30D] text-[10px] font-mono font-bold tracking-wider px-2.5 py-1 rounded-xl">
-                        Lvl {cls.level ?? 0}
-                      </span>
-                      <span className="bg-slate-100 text-slate-600 text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-1 rounded-xl">
-                        ID: {cls.id}
-                      </span>
+            // Grouped Classes Grid by Level
+            <div className="space-y-8">
+              {groupedClasses.map(({ level, classList }) => (
+                <div key={level} className="space-y-4">
+                  {/* Level Group Heading */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#D4F562] text-[#1D1E26] flex items-center justify-center text-xs font-black shadow-xs shrink-0">
+                      {level || "?"}
                     </div>
+                    <h2 className="text-sm font-black text-[#1D1E26]">
+                      {level ? `${level}-sinf darajasi` : "Daraja belgilanmagan"}
+                    </h2>
+                    <div className="flex-1 h-px bg-slate-200/80" />
+                    <span className="text-[10px] text-slate-400 font-mono font-semibold">{classList.length} ta sinf</span>
                   </div>
 
-                  <div className="text-xs text-slate-400 space-y-1">
-                    <p className="flex items-center font-medium">
-                      <svg className="w-3.5 h-3.5 text-slate-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-                      </svg>
-                      Boshqarish uchun ustiga bosing
-                    </p>
+                  {/* Cards Grid for this Level */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {classList.map((cls) => (
+                      <div
+                        key={cls.id}
+                        onClick={() => {
+                          setSelectedClass(cls);
+                          setClassDetailsTab("students");
+                        }}
+                        className="bg-white border border-slate-100/80 hover:border-[#D4F562] rounded-3xl p-5 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between h-40 group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-base font-black text-[#1D1E26] group-hover:text-[#65A30D] transition">
+                            {cls.name} sinfi
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="bg-[#ECFCCA] text-[#65A30D] text-[10px] font-mono font-bold tracking-wider px-2.5 py-1 rounded-xl">
+                              Lvl {cls.level ?? 0}
+                            </span>
+                            <span className="bg-slate-100 text-slate-600 text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-1 rounded-xl">
+                              ID: {cls.id}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p className="flex items-center font-medium">
+                            <svg className="w-3.5 h-3.5 text-slate-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+                            </svg>
+                            Boshqarish uchun ustiga bosing
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
