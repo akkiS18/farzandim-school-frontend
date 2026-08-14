@@ -24,6 +24,15 @@ const DAY_NAMES: Record<number, string> = {
   6: "6 (Shanba)",
 };
 
+export function normalizeClassName(name: string): string {
+  if (!name) return "";
+  return name
+    .trim()
+    .toUpperCase()
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s+/g, "");
+}
+
 const FIELD_LABELS: Record<keyof SmartScheduleRowData, string> = {
   id: "ID",
   dayOfWeek: "Hafta Kuni (1-6)",
@@ -76,7 +85,7 @@ const ScheduleTableRow = memo(function ScheduleTableRow({
     { key: "endDate", width: "w-32" },
   ];
 
-  const isClassValid = !row.className || validClassesMap[row.className.trim().toLowerCase()];
+  const isClassValid = !row.className || validClassesMap[normalizeClassName(row.className)];
   const isSubjectValid = !row.subjectName || validSubjectsMap[row.subjectName.trim().toLowerCase()];
 
   return (
@@ -231,7 +240,7 @@ export default function ScheduleImportSection({
   const validClassesMap = React.useMemo(() => {
     const map: Record<string, boolean> = {};
     classes.forEach((c) => {
-      if (c.name) map[c.name.trim().toLowerCase()] = true;
+      if (c.name) map[normalizeClassName(c.name)] = true;
     });
     return map;
   }, [classes]);
