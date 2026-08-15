@@ -8,7 +8,9 @@ import { GraduationCap, Phone, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "l
 
 export default function TenantLoginPage() {
   const router = useRouter();
+  const [loginMode, setLoginMode] = useState<"phone" | "passport">("phone");
   const [phone, setPhone] = useState("");
+  const [passportNo, setPassportNo] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,12 +55,23 @@ export default function TenantLoginPage() {
     setError("");
 
     try {
+      const payload: Record<string, string> = { password };
+      if (loginMode === "passport") {
+        const cleanPass = passportNo.trim().toUpperCase().replace(/\s+/g, "");
+        if (!cleanPass) {
+          throw new Error("Iltimos, pasport seriyasi va raqamini kiriting");
+        }
+        payload.document_no = cleanPass;
+      } else {
+        payload.phone = phone.trim();
+      }
+
       const response = await fetch(`${API_URL}/api/schools/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -107,7 +120,7 @@ export default function TenantLoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[#f5f5f7] px-4 relative overflow-hidden">
-      {/* Ambient background glow — Apple-style soft light, not a gradient card bg */}
+      {/* Ambient background glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-blue-200/30 blur-[120px]" />
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-indigo-100/40 blur-[100px]" />
@@ -123,12 +136,34 @@ export default function TenantLoginPage() {
             Online Jurnal
           </h1>
           <p className="text-[15px] text-[#6e6e73] mt-1.5 tracking-[-0.01em]">
-            Maktab ma'muriyati va xodimlari portali
+            Tizimga kirish portali
           </p>
         </div>
 
         {/* Card */}
         <div className="bg-white/80 backdrop-blur-xl border border-black/[0.06] rounded-[24px] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.06),0_12px_40px_-12px_rgba(0,0,0,0.08)]">
+          {/* Mode Switcher Tabs */}
+          <div className="flex bg-[#e8e8ed] p-1 rounded-2xl mb-6 font-medium text-xs">
+            <button
+              type="button"
+              onClick={() => { setLoginMode("phone"); setError(""); }}
+              className={`flex-1 py-2.5 rounded-xl transition-all ${
+                loginMode === "phone" ? "bg-white text-zinc-900 shadow-sm font-bold" : "text-zinc-500 hover:text-zinc-900"
+              }`}
+            >
+              Xodimlar / Adminlar
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLoginMode("passport"); setError(""); }}
+              className={`flex-1 py-2.5 rounded-xl transition-all ${
+                loginMode === "passport" ? "bg-white text-indigo-700 shadow-sm font-bold" : "text-zinc-500 hover:text-zinc-900"
+              }`}
+            >
+              Ota-onalar (Pasport)
+            </button>
+          </div>
+
           {error && (
             <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-600 text-[13px] leading-relaxed p-3.5 rounded-[14px] mb-6">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={2} />
@@ -137,26 +172,51 @@ export default function TenantLoginPage() {
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label
-                htmlFor="phone-input"
-                className="block text-[13px] font-medium text-[#1d1d1f] mb-2 tracking-[-0.01em]"
-              >
-                Telefon raqam
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#a1a1a6]" strokeWidth={1.75} />
-                <input
-                  id="phone-input"
-                  type="text"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+998 90 123 45 67"
-                  className="w-full bg-[#f5f5f7] border border-transparent focus:border-blue-500/40 focus:bg-white focus:ring-4 focus:ring-blue-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-4 py-3.5 text-[15px] transition-all duration-200 outline-none"
-                />
+            {loginMode === "phone" ? (
+              <div>
+                <label
+                  htmlFor="phone-input"
+                  className="block text-[13px] font-medium text-[#1d1d1f] mb-2 tracking-[-0.01em]"
+                >
+                  Telefon raqam
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#a1a1a6]" strokeWidth={1.75} />
+                  <input
+                    id="phone-input"
+                    type="text"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+998 90 123 45 67"
+                    className="w-full bg-[#f5f5f7] border border-transparent focus:border-blue-500/40 focus:bg-white focus:ring-4 focus:ring-blue-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-4 py-3.5 text-[15px] transition-all duration-200 outline-none"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <label
+                  htmlFor="passport-input"
+                  className="block text-[13px] font-bold text-indigo-900 mb-2 tracking-[-0.01em]"
+                >
+                  Pasport Seriyasi va Raqami
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                    ID
+                  </span>
+                  <input
+                    id="passport-input"
+                    type="text"
+                    required
+                    value={passportNo}
+                    onChange={(e) => setPassportNo(e.target.value.toUpperCase())}
+                    placeholder="AD1234567"
+                    className="w-full bg-[#f5f5f7] border border-transparent focus:border-indigo-500/40 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-12 pr-4 py-3.5 text-[15px] font-mono tracking-wider transition-all duration-200 outline-none uppercase"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -166,9 +226,6 @@ export default function TenantLoginPage() {
                 >
                   Parol
                 </label>
-                <a href="#" className="text-[13px] text-blue-600 hover:text-blue-700 tracking-[-0.01em]">
-                  Unutdingizmi?
-                </a>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#a1a1a6]" strokeWidth={1.75} />
