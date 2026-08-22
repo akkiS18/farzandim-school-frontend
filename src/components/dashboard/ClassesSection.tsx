@@ -122,6 +122,24 @@ interface ClassesSectionProps {
   initialTab?: "students" | "teachers" | "parents" | "schedule";
 }
 
+const formatUzbekDate = (dateStr?: string) => {
+  if (!dateStr) return "Kiritilmagan";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const months = [
+      "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+      "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"
+    ];
+    const day = String(d.getDate()).padStart(2, "0");
+    const monthName = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day}-${monthName}, ${year}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function ClassesSection({
   classes,
   subjects,
@@ -258,6 +276,7 @@ export default function ClassesSection({
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
   const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
   const [scheduleEndDate, setScheduleEndDate] = useState("2027-05-31");
+  const [editingScheduleOriginalStartDate, setEditingScheduleOriginalStartDate] = useState<string>("");
   const [schedulePresets, setSchedulePresets] = useState<{ id: number; name: string; start_date: string; end_date: string }[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<number | "">("");
 
@@ -889,6 +908,7 @@ export default function ClassesSection({
         body: JSON.stringify({
           start_date: scheduleStartDate,
           end_date: scheduleEndDate,
+          original_start_date: editingScheduleOriginalStartDate || undefined,
           lessons: lessonsPayload,
         }),
       });
@@ -1402,6 +1422,7 @@ export default function ClassesSection({
                         <tr>
                           <th className="px-6 py-4">T/R</th>
                           <th className="px-6 py-4 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">F.I.SH</th>
+                          <th className="px-6 py-4">Qo'shilgan sana</th>
                           <th className="px-6 py-4">Manzil</th>
                           <th className="px-6 py-4">Tug'ilgan sana</th>
                           <th className="px-6 py-4">INA</th>
@@ -1420,6 +1441,11 @@ export default function ClassesSection({
                               <td className="px-6 py-4 text-slate-400 font-mono">{startIndex + i + 1}</td>
                               <td className="px-6 py-4 font-bold text-[#1D1E26] sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] min-w-[200px]">
                                 {student.last_name} {student.first_name} {student.middle_name}
+                              </td>
+                              <td className="px-6 py-4 text-slate-600 font-mono font-bold whitespace-nowrap">
+                                <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-[11px]">
+                                  📅 {formatUzbekDate(student.created_at)}
+                                </span>
                               </td>
                               <td className="px-6 py-4 text-slate-500">{student.address || "Kiritilmagan"}</td>
                               <td className="px-6 py-4 text-slate-500 font-mono">
@@ -2482,6 +2508,14 @@ export default function ClassesSection({
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Maktabga qo'shilgan sana</label>
+                  <div className="w-full bg-slate-100/80 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold flex items-center gap-2">
+                    <span>📅</span>
+                    <span>{formatUzbekDate(editingStudent?.created_at)}</span>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
@@ -2579,7 +2613,7 @@ export default function ClassesSection({
                   Vasiylarni Boshqarish ({selectedStudentForParents.first_name} {selectedStudentForParents.last_name})
                 </h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Ushbu o'quvchiga biriktirilgan vasiylar (ota-onalar) ro'yxati va yangi bog'lash oynasi.
+                  Ushbu o'quvchiga biriktirilgan vasiylar ro'yxati · Qo'shilgan sana: <span className="font-mono text-slate-700 font-bold">{formatUzbekDate(selectedStudentForParents.created_at)}</span>
                 </p>
               </div>
               <button

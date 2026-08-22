@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ClassItem, UserInfo, StudentAttendanceStat, DailyAttendanceStat } from "./types";
+import { ClassItem, UserInfo, StudentAttendanceStat, DailyAttendanceStat, AnnouncementItem } from "./types";
 import AttendanceDetailModal from "./AttendanceDetailModal";
 import SmartCalendarModal, { SmartCalendarTrigger } from "@/components/SmartCalendarModal";
 
@@ -21,14 +21,6 @@ interface DashboardStatsResponse {
   partially_absent_count: number;
   students: StudentAttendanceStat[];
   weekly_attendance?: DailyAttendanceStat[];
-}
-
-interface AnnouncementItem {
-  id: number;
-  title: string;
-  content: string;
-  author_name?: string;
-  created_at: string;
 }
 
 interface ClubItem {
@@ -663,7 +655,7 @@ export default function OverviewSection({
           {/* Assignments / E'lonlar Widget */}
           <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-[#1D1E26]">Topshiriq & E'lonlar</h3>
+              <h3 className="text-base font-black text-[#1D1E26]">So'nggi E'lonlar</h3>
               <button
                 onClick={() => setActiveMenu && setActiveMenu("announcements")}
                 className="w-7 h-7 rounded-full bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-xs shadow-xs hover:opacity-90 transition cursor-pointer"
@@ -679,29 +671,31 @@ export default function OverviewSection({
                   Hozircha e'lonlar kiritilmagan
                 </div>
               ) : (
-                announcements.map((item, index) => {
-                  const badgeStyle = index % 3 === 0
-                    ? "bg-[#F3E8FF] text-[#7E22CE]"
-                    : index % 3 === 1
-                    ? "bg-[#ECFCCA] text-[#65A30D]"
-                    : "bg-[#FFEADB] text-[#FF7A00]";
-                  const statusLabel = index % 3 === 0 ? "In progress" : index % 3 === 1 ? "Completed" : "Upcoming";
-
+                announcements.slice(0, 5).map((item) => {
+                  const isPoll = Boolean(item.is_poll);
                   return (
-                    <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 border border-slate-100 text-xs">
+                    <div
+                      key={item.id}
+                      onClick={() => setActiveMenu && setActiveMenu("announcements")}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-indigo-50/40 border border-slate-100 hover:border-indigo-200 text-xs transition cursor-pointer group"
+                    >
                       <div className="flex items-center space-x-3 min-w-0">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 ${badgeStyle}`}>
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+                          isPoll ? "bg-indigo-100 text-indigo-700" : "bg-[#ECFCCA] text-[#65A30D]"
+                        }`}>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
                           </svg>
                         </div>
                         <div className="min-w-0">
-                          <p className="font-extrabold text-[#1D1E26] truncate">{item.title}</p>
+                          <p className="font-extrabold text-[#1D1E26] truncate group-hover:text-indigo-600 transition">{item.title}</p>
                           <p className="text-[10px] text-slate-400 font-mono truncate">{formatUzbekDate(item.created_at)}</p>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 ${badgeStyle}`}>
-                        {statusLabel}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 ${
+                        isPoll ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      }`}>
+                        {isPoll ? "So'rovnoma" : "E'lon"}
                       </span>
                     </div>
                   );

@@ -47,6 +47,14 @@ export default function AnnouncementsSection({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | "announcements" | "polls">("all");
 
+  // Poll Voters Modal State
+  const [showVotersModal, setShowVotersModal] = useState(false);
+  const [selectedAnnForVoters, setSelectedAnnForVoters] = useState<AnnouncementItem | null>(null);
+  const [pollVotersList, setPollVotersList] = useState<any[]>([]);
+  const [votersLoading, setVotersLoading] = useState(false);
+  const [votersSearch, setVotersSearch] = useState("");
+  const [selectedOptionFilter, setSelectedOptionFilter] = useState<number | "all">("all");
+
   // Form States
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -64,6 +72,30 @@ export default function AnnouncementsSection({
   const [targetType, setTargetType] = useState<"all" | "classes" | "levels" | "students">(isTeacher ? "classes" : "all");
   const [searchQuery, setSearchQuery] = useState("");
   const [studentSearchText, setStudentSearchText] = useState("");
+
+  const handleOpenVotersModal = async (ann: AnnouncementItem, initialOptionId: number | "all" = "all") => {
+    setSelectedAnnForVoters(ann);
+    setSelectedOptionFilter(initialOptionId);
+    setVotersSearch("");
+    setShowVotersModal(true);
+    setVotersLoading(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/schools/announcements/${ann.id}/poll-voters`, {
+        headers: safeFetchHeaders(),
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        setPollVotersList(data);
+      } else {
+        setPollVotersList([]);
+      }
+    } catch (e) {
+      console.error(e);
+      setPollVotersList([]);
+    } finally {
+      setVotersLoading(false);
+    }
+  };
 
   const safeFetchHeaders = () => {
     const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
@@ -513,7 +545,7 @@ export default function AnnouncementsSection({
                 {/* Poll Options */}
                 {ann.is_poll && ann.poll_options && ann.poll_options.length > 0 && (
                   <div className="mt-3 p-4 sm:p-5 bg-zinc-50/80 border border-zinc-200/80 rounded-2xl space-y-3">
-                    <div className="flex items-center justify-between text-xs font-bold text-zinc-600 font-mono">
+                    <div className="flex items-center justify-between text-xs font-bold text-zinc-600 font-mono flex-wrap gap-2">
                       <span className="flex items-center gap-1.5">
                         <span>Ovoz berish variantlari</span>
                         <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
@@ -521,7 +553,23 @@ export default function AnnouncementsSection({
                           <span>Faqat kuzatuv rejimi</span>
                         </span>
                       </span>
-                      <span>Jami: {totalVotes} ovoz</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-500">Jami: {totalVotes} ovoz</span>
+                        {totalVotes > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenVotersModal(ann);
+                            }}
+                            className="flex items-center gap-1.5 text-[10px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-2.5 py-1 rounded-xl transition cursor-pointer shadow-2xs"
+                            title="Kimlar qaysi variantga ovoz berganini ko'rish"
+                          >
+                            <Users className="w-3 h-3 text-indigo-600" />
+                            <span>Javoblarni ko'rish</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2.5">
@@ -536,17 +584,16 @@ export default function AnnouncementsSection({
                               if (canVote) {
                                 handleVote(ann.id, opt.id);
                               } else {
-                                showAlert("Admin va o'qituvchilar so'rovnomada ovoz bera olmaydilar. Faqat ota-onalar va o'quvchilar ovoz berishi mumkin.");
+                                handleOpenVotersModal(ann, opt.id);
                               }
                             }}
                             disabled={votingOptionId === opt.id}
-                            className={`w-full text-left p-3.5 rounded-2xl border transition relative overflow-hidden group ${
-                              canVote ? "cursor-pointer" : "cursor-default"
-                            } ${
+                            className={`w-full text-left p-3.5 rounded-2xl border transition relative overflow-hidden group cursor-pointer ${
                               opt.user_voted
                                 ? "bg-indigo-50/80 border-indigo-300 text-indigo-900"
                                 : "bg-white border-zinc-200/90 text-zinc-800 hover:border-zinc-300"
                             }`}
+                            title={!canVote ? "Ushbu variantga ovoz berganlarni ko'rish" : undefined}
                           >
                             {/* Progress bar background */}
                             <div
@@ -894,6 +941,238 @@ export default function AnnouncementsSection({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POLL VOTERS DETAIL MODAL */}
+      {showVotersModal && selectedAnnForVoters && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowVotersModal(false);
+            }
+          }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+        >
+          <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  <span>So'rovnoma Javoblari & Ovoz Berganlar</span>
+                </h3>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5 truncate max-w-[450px]">
+                  {selectedAnnForVoters.title} · <strong className="text-indigo-600 font-mono">{pollVotersList.length} ta ovoz</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVotersModal(false)}
+                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+                title="Yopish"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="px-6 pt-4 pb-3 border-b border-zinc-100 space-y-3 bg-zinc-50/50">
+              {/* Option Tabs / Pills */}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedOptionFilter("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                    selectedOptionFilter === "all"
+                      ? "bg-[#16193E] text-white border-[#16193E] shadow-2xs"
+                      : "bg-white text-zinc-600 hover:bg-zinc-100 border-zinc-200"
+                  }`}
+                >
+                  <span>Barchasi</span>
+                  <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                    selectedOptionFilter === "all" ? "bg-white/20 text-white" : "bg-zinc-100 text-zinc-700"
+                  }`}>
+                    {pollVotersList.length}
+                  </span>
+                </button>
+
+                {selectedAnnForVoters.poll_options?.map((opt) => {
+                  const optVotersCount = pollVotersList.filter((v) => v.option_id === opt.id).length;
+                  const isSelected = selectedOptionFilter === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSelectedOptionFilter(opt.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                        isSelected
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                          : "bg-white text-zinc-600 hover:bg-zinc-100 border-zinc-200"
+                      }`}
+                    >
+                      <span className="truncate max-w-[150px]">{opt.option_text}</span>
+                      <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                        isSelected ? "bg-white/20 text-white" : "bg-zinc-100 text-zinc-700"
+                      }`}>
+                        {optVotersCount}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search input */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Ism, telefon raqami yoki farzandi bo'yicha qidirish..."
+                  value={votersSearch}
+                  onChange={(e) => setVotersSearch(e.target.value)}
+                  className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 font-medium shadow-2xs"
+                />
+                {votersSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setVotersSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Voters List Container */}
+            <div className="p-6 overflow-y-auto space-y-3 max-h-[500px]">
+              {votersLoading ? (
+                <div className="py-16 text-center text-xs text-zinc-400 font-mono flex flex-col items-center gap-2">
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Ovoz beruvchilar yuklanmoqda...</span>
+                </div>
+              ) : (() => {
+                const filtered = pollVotersList.filter((v) => {
+                  if (selectedOptionFilter !== "all" && v.option_id !== selectedOptionFilter) return false;
+                  if (!votersSearch.trim()) return true;
+                  const q = votersSearch.toLowerCase();
+                  return (
+                    v.full_name.toLowerCase().includes(q) ||
+                    v.phone.toLowerCase().includes(q) ||
+                    v.children_info.toLowerCase().includes(q) ||
+                    v.student_class_name.toLowerCase().includes(q) ||
+                    v.option_text.toLowerCase().includes(q)
+                  );
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-xs text-zinc-400 italic bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                      {votersSearch || selectedOptionFilter !== "all"
+                        ? "Qidiruv bo'yicha ovoz beruvchilar topilmadi"
+                        : "Ushbu so'rovnomada hali hech kim ovoz bermagan"}
+                    </div>
+                  );
+                }
+
+                return filtered.map((voter) => {
+                  const isTelegram = Boolean(voter.telegram_id);
+                  const formattedDate = voter.created_at
+                    ? new Date(voter.created_at).toLocaleString("uz-UZ", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "";
+
+                  return (
+                    <div
+                      key={voter.vote_id}
+                      className="p-4 bg-white border border-zinc-200/80 rounded-2xl hover:border-indigo-200 transition shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      {/* Left: Voter Identity & Meta */}
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                          {voter.full_name ? voter.full_name[0].toUpperCase() : "U"}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs sm:text-sm font-extrabold text-[#16193E]">
+                              {voter.full_name || "Foydalanuvchi"}
+                            </h4>
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              voter.role_name === "PARENT"
+                                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                : voter.role_name === "STUDENT"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : "bg-zinc-100 text-zinc-700 border border-zinc-200"
+                            }`}>
+                              {voter.role_name === "PARENT" ? "Ota-ona" : voter.role_name === "STUDENT" ? "O'quvchi" : voter.role_name}
+                            </span>
+                            {/* Platform source */}
+                            {isTelegram ? (
+                              <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1">
+                                <span>📱 Telegram Bot</span>
+                              </span>
+                            ) : (
+                              <span className="bg-zinc-100 text-zinc-600 border border-zinc-200 px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1">
+                                <span>🌐 Web Sayt</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 font-medium">
+                            {voter.phone && (
+                              <span className="font-mono text-zinc-600 font-bold">{voter.phone}</span>
+                            )}
+                            {voter.children_info && (
+                              <span className="text-indigo-600 font-semibold flex items-center gap-1">
+                                <span>Farzandi:</span>
+                                <strong className="font-bold">{voter.children_info}</strong>
+                              </span>
+                            )}
+                            {voter.student_class_name && (
+                              <span className="text-teal-600 font-semibold flex items-center gap-1">
+                                <span>Sinfi:</span>
+                                <strong className="font-bold">{voter.student_class_name}</strong>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Chosen Option & Time */}
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-zinc-100 shrink-0 gap-1">
+                        <span className="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-900 font-extrabold rounded-xl text-xs shadow-2xs">
+                          {voter.option_text}
+                        </span>
+                        {formattedDate && (
+                          <span className="text-[10px] text-zinc-400 font-mono">
+                            {formattedDate}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
+              <span className="text-[10px] text-zinc-400 font-mono">
+                Telegram bot va Web platforma orqali kelgan barcha javoblar
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowVotersModal(false)}
+                className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 font-bold rounded-xl text-xs transition cursor-pointer"
+              >
+                Yopish
+              </button>
             </div>
           </div>
         </div>

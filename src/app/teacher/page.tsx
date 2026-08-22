@@ -10,6 +10,7 @@ import CustomDialogModal from "@/components/CustomDialogModal";
 import LibrarySection from "@/components/dashboard/LibrarySection";
 import DateRangePresets from "@/components/DateRangePresets";
 import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
+import LessonPlansSection from "@/components/teacher/LessonPlansSection";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 import {
   LayoutDashboard,
@@ -130,10 +131,10 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings"
-  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings">("dashboard");
+  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "lesson-plans" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings"
+  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "lesson-plans" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings">("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Default collapsed (icon-only mode)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Default expanded (shows labels/tabs)
 
   // Profile & Settings states
   const [profileFirstName, setProfileFirstName] = useState("");
@@ -752,6 +753,7 @@ export default function TeacherDashboard() {
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
   const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
   const [scheduleEndDate, setScheduleEndDate] = useState("2027-05-31");
+  const [editingScheduleOriginalStartDate, setEditingScheduleOriginalStartDate] = useState<string>("");
   const [schedulePeriods, setSchedulePeriods] = useState<any[]>([]);
   const [schedulePeriodsLoading, setSchedulePeriodsLoading] = useState(false);
   const [showPeriodsModal, setShowPeriodsModal] = useState(false);
@@ -878,59 +880,138 @@ export default function TeacherDashboard() {
   // Toast Notification state
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Grade Comment Modal state (for locked grades double-click)
+  // Grade Comment Modal state for teacher (Multiple choice support)
   const [showGradeCommentModal, setShowGradeCommentModal] = useState(false);
-  const [selectedGradeForComment, setSelectedGradeForComment] = useState<any>(null);
+  const [selectedStudentForComment, setSelectedStudentForComment] = useState<any>(null);
+  const [availableGradeOptions, setAvailableGradeOptions] = useState<any[]>([]);
+  const [selectedGradeColIds, setSelectedGradeColIds] = useState<string[]>([]);
   const [gradeCommentsList, setGradeCommentsList] = useState<any[]>([]);
   const [gradeCommentsLoading, setGradeCommentsLoading] = useState(false);
   const [newGradeCommentText, setNewGradeCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
-  const handleOpenGradeCommentModal = async (grade: any, studentName?: string) => {
-    if (!grade || !grade.id) return;
-    setSelectedGradeForComment({ ...grade, student_name: studentName || grade.student_name });
-    setShowGradeCommentModal(true);
+  const fetchCombinedComments = async (options: any[]) => {
     setGradeCommentsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/grades/${grade.id}/comments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setGradeCommentsList(Array.isArray(data) ? data : []);
-      }
+      const allComments: any[] = [];
+      await Promise.all(
+        options.map(async (opt) => {
+          if (!opt.grade?.id) return;
+          try {
+            const res = await fetch(`${API_URL}/api/schools/grades/${opt.grade.id}/comments`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) {
+                data.forEach((c: any) => {
+                  allComments.push({ ...c, gradeColName: opt.colName, gradeVal: opt.value });
+                });
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        })
+      );
+      allComments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      setGradeCommentsList(allComments);
     } catch (err) {
       console.error(err);
+      setGradeCommentsList([]);
     } finally {
       setGradeCommentsLoading(false);
     }
   };
 
+  const handleOpenStudentCommentModal = async (student: any, gradeOptions: any[]) => {
+    if (!student || !gradeOptions || gradeOptions.length === 0) return;
+    setSelectedStudentForComment(student);
+    setAvailableGradeOptions(gradeOptions);
+    // Select all available grades by default so teacher can comment on all or uncheck
+    const initialColIds = gradeOptions.map(g => g.colId);
+    setSelectedGradeColIds(initialColIds);
+    setNewGradeCommentText("");
+    setShowGradeCommentModal(true);
+
+    fetchCombinedComments(gradeOptions);
+  };
+
+  const handleToggleGradeColId = (colId: string) => {
+    setSelectedGradeColIds(prev => {
+      if (prev.includes(colId)) {
+        if (prev.length === 1) return prev; // Keep at least one selected
+        return prev.filter(id => id !== colId);
+      } else {
+        return [...prev, colId];
+      }
+    });
+  };
+
+  const handleToggleSelectAllGrades = () => {
+    if (selectedGradeColIds.length === availableGradeOptions.length) {
+      if (availableGradeOptions.length > 0) {
+        setSelectedGradeColIds([availableGradeOptions[0].colId]);
+      }
+    } else {
+      setSelectedGradeColIds(availableGradeOptions.map(g => g.colId));
+    }
+  };
+
   const handleAddGradeComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedGradeForComment || !newGradeCommentText.trim()) return;
+    if (!selectedStudentForComment || selectedGradeColIds.length === 0 || !newGradeCommentText.trim()) return;
     setCommentSubmitting(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/grades/${selectedGradeForComment.id}/comments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content: newGradeCommentText.trim() }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setNewGradeCommentText("");
-        showToast("success", "Izoh muvaffaqiyatli saqlandi!");
-        const commRes = await fetch(`${API_URL}/api/schools/grades/${selectedGradeForComment.id}/comments`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const commData = await commRes.json();
-        if (commRes.ok) setGradeCommentsList(Array.isArray(commData) ? commData : []);
-      } else {
-        showToast("error", data.error || "Izoh saqlashda xatolik");
-      }
+      const selectedOptions = availableGradeOptions.filter(opt => selectedGradeColIds.includes(opt.colId));
+
+      await Promise.all(
+        selectedOptions.map(async (opt) => {
+          let targetGradeId = opt.grade?.id;
+
+          // If grade is not yet saved to DB, save it first!
+          if (!targetGradeId) {
+            const createRes = await fetch(`${API_URL}/api/schools/grades`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                student_id: selectedStudentForComment.id,
+                subject_id: Number(selectedSubjectId),
+                lesson_number: Number(selectedLessonNumber),
+                grade_type: opt.colId,
+                value: opt.value,
+                grade_date: journalDate,
+                grade_category: selectedGradeCategory || "DAILY",
+                grading_system_id: columnGradingSystems[opt.colId] || undefined,
+              }),
+            });
+            const createdGrade = await createRes.json();
+            if (createRes.ok && createdGrade.id) {
+              targetGradeId = createdGrade.id;
+              opt.grade = createdGrade;
+            }
+          }
+
+          if (targetGradeId) {
+            await fetch(`${API_URL}/api/schools/grades/${targetGradeId}/comments`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ content: newGradeCommentText.trim() }),
+            });
+          }
+        })
+      );
+
+      setNewGradeCommentText("");
+      showToast("success", "Izoh tanlangan baholarga muvaffaqiyatli saqlandi!");
+      fetchJournalData(journalDate);
+      fetchCombinedComments(availableGradeOptions);
     } catch (err: any) {
       showToast("error", err.message);
     } finally {
@@ -1375,17 +1456,18 @@ export default function TeacherDashboard() {
               if (Array.isArray(schData)) {
                 schData.forEach((item: any) => {
                   if (!item.subject_id || item.subject_id === 0) return;
-                  const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN";
+                  const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && cls.subject_id === item.subject_id);
 
                   if (isMySubject) {
                     const slotKey = `${item.day_of_week}-${item.lesson_number}`;
                     if (!results[slotKey]) results[slotKey] = [];
                     if (!results[slotKey].some(r => r.class_id === cls.id && r.subject_id === item.subject_id)) {
+                      const foundSub = subjects.find(s => s.id === item.subject_id);
                       results[slotKey].push({
                         class_id: cls.id,
                         class_name: cls.name,
                         subject_id: item.subject_id,
-                        subject_name: item.subject_name,
+                        subject_name: item.subject_name || foundSub?.name || "Dars",
                       });
                     }
                   }
@@ -1406,10 +1488,14 @@ export default function TeacherDashboard() {
   };
 
   useEffect(() => {
-    if (teacherTab === "schedule" && !selectedClassId && token && classes.length > 0) {
-      fetchOverallTeacherSchedule();
+    if (token && classes.length > 0) {
+      if (teacherTab === "dashboard") {
+        fetchOverallTeacherSchedule(selectedDashboardDate);
+      } else if (teacherTab === "schedule" && !selectedClassId) {
+        fetchOverallTeacherSchedule(scheduleViewDate);
+      }
     }
-  }, [teacherTab, selectedClassId, scheduleViewDate, token, classes]);
+  }, [teacherTab, selectedClassId, scheduleViewDate, selectedDashboardDate, token, classes, subjects]);
 
   const fetchScheduleExceptions = async () => {
     if (!selectedClassId) return;
@@ -1545,6 +1631,7 @@ export default function TeacherDashboard() {
         body: JSON.stringify({
           start_date: scheduleStartDate,
           end_date: scheduleEndDate,
+          original_start_date: editingScheduleOriginalStartDate || undefined,
           lessons: lessonsPayload
         }),
       });
@@ -2624,8 +2711,14 @@ export default function TeacherDashboard() {
         <div className="w-full max-w-5xl bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-zinc-900 animate-fadeIn space-y-5">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
             <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Haftalik dars jadvalini tahrirlash</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">Har bir kun va dars soati uchun fanni tanlang. Dars yo'q soatlarni "Bo'sh" holatida qoldiring.</p>
+              <h3 className="text-base font-extrabold text-[#16193E]">
+                {editingScheduleOriginalStartDate ? "Haftalik dars jadvalini tahrirlash" : "Yangi Davr Dars Jadvalini Qo'shish"}
+              </h3>
+              <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                {editingScheduleOriginalStartDate 
+                  ? "Mavjud davr dars jadvalini o'zgartirish. Har bir kun va dars soati uchun fanni tanlang." 
+                  : "Yangi chorak yoki vaqt oralig'i uchun dars jadvali yaratish. Sana mavjud davrlar bilan ustma-ust tushmasligi kerak."}
+              </p>
             </div>
             <button
               type="button"
@@ -3177,7 +3270,13 @@ export default function TeacherDashboard() {
     return days;
   };
 
-  const calendarDays = getCalendarDays();
+  const formatLessonTime = (lessonNumber: number) => {
+    const startHour = 7 + lessonNumber;
+    const endHour = 8 + lessonNumber;
+    const startStr = `${startHour < 10 ? '0' : ''}${startHour}:30`;
+    const endStr = `${endHour < 10 ? '0' : ''}${endHour}:15`;
+    return `${startStr} - ${endStr}`;
+  };
 
   const getTodayLessons = () => {
     const targetDate = selectedDashboardDate ? new Date(selectedDashboardDate + "T00:00:00") : new Date();
@@ -3186,7 +3285,15 @@ export default function TeacherDashboard() {
 
     if (currentDay === 7) return [];
 
-    const list: Array<{ subject_name: string; class_name: string; time: string; lesson_number: number }> = [];
+    const list: Array<{
+      subject_id: number;
+      subject_name: string;
+      class_id: number;
+      class_name: string;
+      time: string;
+      lesson_number: number;
+      date?: string;
+    }> = [];
 
     for (let lessonNum = 1; lessonNum <= 10; lessonNum++) {
       const slotKey = `${currentDay}-${lessonNum}`;
@@ -3194,10 +3301,13 @@ export default function TeacherDashboard() {
       if (items && items.length > 0) {
         items.forEach((it) => {
           list.push({
-            subject_name: it.subject_name,
+            subject_id: it.subject_id,
+            subject_name: it.subject_name || subjects.find(s => s.id === it.subject_id)?.name || "Dars",
+            class_id: it.class_id,
             class_name: it.class_name,
-            time: `0${8 + lessonNum}:30 - 0${9 + lessonNum}:15`,
+            time: formatLessonTime(lessonNum),
             lesson_number: lessonNum,
+            date: selectedDashboardDate,
           });
         });
       }
@@ -3205,16 +3315,19 @@ export default function TeacherDashboard() {
 
     if (list.length > 0) return list;
 
-    const classSchList = classSchedule.filter((s) => s.day_of_week === currentDay);
+    const classSchList = classSchedule.filter((s) => s.day_of_week === currentDay && s.subject_id > 0);
     if (classSchList.length > 0) {
       return classSchList.map((item) => {
-        const cls = classes.find((c) => c.id === item.class_id);
+        const cls = classes.find((c) => c.id === item.class_id) || classes.find((c) => c.id === selectedClassId);
         const sub = subjects.find((s) => s.id === item.subject_id);
         return {
+          subject_id: item.subject_id,
           subject_name: sub?.name || item.subject_name || "Dars",
+          class_id: item.class_id || (selectedClassId ? Number(selectedClassId) : 0),
           class_name: cls?.name || `Sinf ${item.class_id}`,
-          time: `0${8 + item.lesson_number}:30 - 0${9 + item.lesson_number}:15`,
+          time: formatLessonTime(item.lesson_number),
           lesson_number: item.lesson_number,
+          date: selectedDashboardDate,
         };
       });
     }
@@ -3223,6 +3336,28 @@ export default function TeacherDashboard() {
   };
 
   const todayLessons = getTodayLessons();
+
+  const handleSelectLessonAndGoToJournal = (lesson: {
+    class_id: number;
+    subject_id: number;
+    lesson_number?: number;
+    date?: string;
+  }) => {
+    const targetDate = lesson.date || selectedDashboardDate || new Date().toISOString().split("T")[0];
+    if (lesson.class_id) {
+      setSelectedClassId(lesson.class_id);
+    }
+    if (lesson.subject_id) {
+      setSelectedSubjectId(lesson.subject_id);
+    }
+    if (lesson.lesson_number) {
+      setSelectedLessonNumber(lesson.lesson_number);
+    }
+    setJournalDate(targetDate);
+    setTeacherTab("journal");
+    setShowTodayLessonsModal(false);
+    fetchJournalData(targetDate);
+  };
 
   // Helper to convert grade value into a numeric percentage score (0 to 100)
   const parseGradeValueToScore = (val: string): number | null => {
@@ -3365,6 +3500,7 @@ export default function TeacherDashboard() {
                   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
                   { id: "journal", label: "Sinf Jurnali", icon: BookOpen },
                   { id: "schedule", label: "Dars Jadvali", icon: Calendar },
+                  { id: "lesson-plans", label: "Dars Ish Rejasi", icon: FileText },
                   { id: "students", label: "O'quvchilar", icon: Users },
                   { id: "parents", label: "Ota-onalar", icon: UserCheck },
                   { id: "social-passport", label: "Ijtimoiy pasport", icon: FileSpreadsheet },
@@ -3560,7 +3696,12 @@ export default function TeacherDashboard() {
                               key={cls.id}
                               onClick={() => {
                                 setSelectedClassId(cls.id);
+                                if (cls.subject_id) {
+                                  setSelectedSubjectId(cls.subject_id);
+                                }
+                                setJournalDate(selectedDashboardDate);
                                 setTeacherTab("journal");
+                                fetchJournalData(selectedDashboardDate);
                               }}
                               className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-zinc-50/70 hover:bg-indigo-50/50 border border-zinc-200/60 transition cursor-pointer gap-3"
                             >
@@ -3673,24 +3814,33 @@ export default function TeacherDashboard() {
 
                     <div className="space-y-3">
                       {todayLessons.length > 0 ? (
-                        todayLessons.slice(0, 3).map((lesson, idx) => {
+                        todayLessons.slice(0, 5).map((lesson, idx) => {
                           const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
                           const accentColor = borderAccents[idx % borderAccents.length];
 
                           return (
                             <div
                               key={idx}
-                              onClick={() => setShowTodayLessonsModal(true)}
-                              className="bg-white border border-zinc-200/80 rounded-2xl p-3.5 shadow-2xs relative overflow-hidden flex items-center justify-between transition hover:border-indigo-200 cursor-pointer group"
+                              onClick={() => handleSelectLessonAndGoToJournal(lesson)}
+                              className="bg-white border border-zinc-200/80 rounded-2xl p-3.5 shadow-2xs relative overflow-hidden flex items-center justify-between transition hover:border-indigo-400 hover:shadow-xs cursor-pointer group"
+                              title="Jurnalni ochish va baholash"
                             >
                               <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
                               <div className="pl-2 space-y-0.5">
-                                <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight">{lesson.subject_name}</h4>
+                                <div className="flex items-center gap-1.5">
+                                  <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight group-hover:text-indigo-600 transition">{lesson.subject_name}</h4>
+                                  <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded-md">
+                                    {lesson.lesson_number}-soat
+                                  </span>
+                                </div>
                                 <p className="text-[11px] text-zinc-500 font-semibold">
                                   {lesson.class_name} • {lesson.time}
                                 </p>
                               </div>
-                              <ChevronRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-indigo-600 transition shrink-0" />
+                              <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition">
+                                <span>Jurnal</span>
+                                <ChevronRight className="w-4 h-4 text-indigo-600 transition shrink-0" />
+                              </div>
                             </div>
                           );
                         })
@@ -4006,12 +4156,18 @@ export default function TeacherDashboard() {
                                 })()}
                               </th>
                             ))}
+                            <th className="px-3 py-2.5 sm:px-4 sm:py-4 text-center border-b border-zinc-200 sticky top-0 z-30 bg-[#fafafa] w-12 sm:w-16">
+                              <div className="flex items-center justify-center gap-1 text-[9px] text-zinc-400 font-extrabold uppercase" title="Baho izohlari">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Izoh</span>
+                              </div>
+                            </th>
                           </tr>
                         </thead>
             <tbody className="divide-y divide-zinc-100 text-xs bg-white">
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan={2 + journalColumns.length} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
+                  <td colSpan={3 + journalColumns.length} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
                     Bu sinfda o'quvchilar topilmadi.
                   </td>
                 </tr>
@@ -4196,12 +4352,8 @@ export default function TeacherDashboard() {
                                           {/* Status badges */}
                                           {isApproved && (
                                             <span 
-                                              className="absolute -right-2 -top-2 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20 cursor-pointer hover:scale-110 transition"
-                                              title="Ikki marta bosib izoh/komment yozish yoki ko'rish"
-                                              onDoubleClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenGradeCommentModal(grade, `${st.first_name} ${st.last_name}`);
-                                              }}
+                                              className="absolute -right-2 -top-2 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20"
+                                              title="Baho tasdiqlangan"
                                             >
                                               🔒
                                             </span>
@@ -4218,6 +4370,45 @@ export default function TeacherDashboard() {
                                       </td>
                                     );
                                   })}
+
+                                  {/* Action: Comment Button Column */}
+                                  {(() => {
+                                    const studentGrades = journalColumns
+                                      .filter(col => col.id !== "ATTENDANCE")
+                                      .map(col => {
+                                        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
+                                        const grade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
+                                        const val = (cellInputs[key] !== undefined ? cellInputs[key] : (grade ? grade.value : "")).trim();
+                                        return {
+                                          colId: col.id,
+                                          colName: col.name,
+                                          value: val,
+                                          grade,
+                                          key,
+                                        };
+                                      })
+                                      .filter(item => item.value !== "" && item.value !== "—");
+
+                                    const hasAnyGrade = studentGrades.length > 0;
+
+                                    return (
+                                      <td className="px-3 py-3 text-center border-b border-zinc-100">
+                                        <button
+                                          type="button"
+                                          disabled={!hasAnyGrade}
+                                          onClick={() => handleOpenStudentCommentModal(st, studentGrades)}
+                                          title={hasAnyGrade ? "Izoh yozish / ko'rish" : "Izoh yozish uchun avval baho qo'ying"}
+                                          className={`w-8 h-8 rounded-xl flex items-center justify-center transition mx-auto ${
+                                            hasAnyGrade
+                                              ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                                              : "bg-zinc-100 text-zinc-300 border border-transparent cursor-not-allowed opacity-40"
+                                          }`}
+                                        >
+                                          <MessageSquare className="w-4 h-4" />
+                                        </button>
+                                      </td>
+                                    );
+                                  })()}
                                 </tr>
                               );
                             })
@@ -4297,16 +4488,12 @@ export default function TeacherDashboard() {
                             });
                             setActionError("");
 
-                            if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
-                              setScheduleStartDate(classSchedule[0].start_date);
-                              setScheduleEndDate(classSchedule[0].end_date);
-                            } else {
-                              const todayStr = new Date().toISOString().split("T")[0];
-                              setScheduleStartDate(todayStr);
-                              const nextYear = new Date();
-                              nextYear.setFullYear(nextYear.getFullYear() + 1);
-                              setScheduleEndDate(nextYear.toISOString().split("T")[0]);
-                            }
+                            const currentPeriod = schedulePeriods.find((p: any) => scheduleViewDate >= p.start_date && scheduleViewDate <= p.end_date) || schedulePeriods[0];
+                            const activeStart = currentPeriod?.start_date || (classSchedule.length > 0 && classSchedule[0].start_date) || "2026-09-01";
+                            const activeEnd = currentPeriod?.end_date || (classSchedule.length > 0 && classSchedule[0].end_date) || "2027-05-31";
+                            setEditingScheduleOriginalStartDate(activeStart);
+                            setScheduleStartDate(activeStart);
+                            setScheduleEndDate(activeEnd);
 
                             setShowEditScheduleModal(true);
                           }}
@@ -4379,11 +4566,32 @@ export default function TeacherDashboard() {
                             }
                             setScheduleFormState(initialFormState);
                             setActionError("");
-                            const todayStr = new Date().toISOString().split("T")[0];
-                            setScheduleStartDate(todayStr);
-                            const nextYear = new Date();
-                            nextYear.setFullYear(nextYear.getFullYear() + 1);
-                            setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                            setEditingScheduleOriginalStartDate(""); // Brand new period
+
+                            if (schedulePeriods.length > 0) {
+                              const sorted = [...schedulePeriods].sort((a, b) => a.end_date.localeCompare(b.end_date));
+                              const lastPeriod = sorted[sorted.length - 1];
+                              if (lastPeriod && lastPeriod.end_date) {
+                                const nextStart = new Date(lastPeriod.end_date + "T00:00:00");
+                                nextStart.setDate(nextStart.getDate() + 1);
+                                const nextEnd = new Date(nextStart);
+                                nextEnd.setMonth(nextEnd.getMonth() + 2);
+                                const yyyy1 = nextStart.getFullYear();
+                                const mm1 = String(nextStart.getMonth() + 1).padStart(2, '0');
+                                const dd1 = String(nextStart.getDate()).padStart(2, '0');
+                                const yyyy2 = nextEnd.getFullYear();
+                                const mm2 = String(nextEnd.getMonth() + 1).padStart(2, '0');
+                                const dd2 = String(nextEnd.getDate()).padStart(2, '0');
+                                setScheduleStartDate(`${yyyy1}-${mm1}-${dd1}`);
+                                setScheduleEndDate(`${yyyy2}-${mm2}-${dd2}`);
+                              } else {
+                                setScheduleStartDate("2026-09-01");
+                                setScheduleEndDate("2026-10-24");
+                              }
+                            } else {
+                              setScheduleStartDate("2026-09-01");
+                              setScheduleEndDate("2026-10-24");
+                            }
                             setShowEditScheduleModal(true);
                           }}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] py-1.5 px-3 rounded-xl transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-1"
@@ -5696,6 +5904,17 @@ export default function TeacherDashboard() {
               </div>
             )}
 
+            {/* TAB CONTENT: Lesson Plans (Dars Ish Rejalari) */}
+            {teacherTab === "lesson-plans" && (
+              <LessonPlansSection
+                token={token}
+                API_URL={API_URL}
+                classes={classes}
+                subjects={subjects}
+                userInfo={userInfo}
+              />
+            )}
+
             {/* TAB CONTENT: Library & Reading Assignments */}
             {teacherTab === "books" && <LibrarySection />}
 
@@ -5908,8 +6127,8 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* Sticky Bottom Tabbar (Hidden on Dashboard, Announcements, Clubs, Feedback, Settings) */}
-      {teacherTab !== "dashboard" && teacherTab !== "announcements" && teacherTab !== "clubs" && teacherTab !== "feedback" && teacherTab !== "settings" && (
+      {/* Sticky Bottom Tabbar (Hidden on Dashboard, Lesson Plans, Books, Social Passport, Announcements, Clubs, Feedback, Settings) */}
+      {teacherTab !== "dashboard" && teacherTab !== "lesson-plans" && teacherTab !== "books" && teacherTab !== "social-passport" && teacherTab !== "announcements" && teacherTab !== "clubs" && teacherTab !== "feedback" && teacherTab !== "settings" && (
         <div
           style={{
             left: typeof window !== "undefined" && window.innerWidth >= 768
@@ -7846,9 +8065,9 @@ export default function TeacherDashboard() {
     );
   }
 
-  // 4. Grade Comment Modal (Double-click locked grade)
+  // 4. Grade Comment Modal (Multiple Choice Support)
   function renderGradeCommentModal() {
-    if (!showGradeCommentModal || !selectedGradeForComment) return null;
+    if (!showGradeCommentModal || !selectedStudentForComment || availableGradeOptions.length === 0) return null;
     return (
       <div 
         onClick={(e) => {
@@ -7862,10 +8081,11 @@ export default function TeacherDashboard() {
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <div>
               <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
-                <span>🔒 Baho bo'yicha muloqot / Izohlar</span>
+                <MessageSquare className="w-4 h-4 text-indigo-600" />
+                <span>Baho bo'yicha izoh / xabar</span>
               </h3>
               <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                {selectedGradeForComment.student_name || "O'quvchi"} · Baho: <strong className="text-indigo-600 font-mono">{selectedGradeForComment.value}</strong>
+                {selectedStudentForComment.first_name} {selectedStudentForComment.last_name}
               </p>
             </div>
             <button
@@ -7878,21 +8098,75 @@ export default function TeacherDashboard() {
             </button>
           </div>
 
+          {/* Grade Selector Multiple Choice Pills */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
+                Qaysi baholar uchun izoh yozilmoqda (Multiple choice):
+              </label>
+              {availableGradeOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllGrades}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold transition cursor-pointer"
+                >
+                  {selectedGradeColIds.length === availableGradeOptions.length ? "Barchasini bekor qilish" : "Barchasini tanlash"}
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableGradeOptions.map((opt) => {
+                const isChecked = selectedGradeColIds.includes(opt.colId);
+                return (
+                  <button
+                    key={opt.colId}
+                    type="button"
+                    onClick={() => handleToggleGradeColId(opt.colId)}
+                    className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border select-none ${
+                      isChecked
+                        ? "bg-[#5B50EC] text-white border-[#5B50EC] shadow-xs"
+                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-600 border-zinc-200"
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-black border transition ${
+                      isChecked ? "bg-white text-[#5B50EC] border-white" : "border-zinc-300 bg-white text-transparent"
+                    }`}>
+                      ✓
+                    </div>
+                    <span>{opt.colName}:</span>
+                    <span className={`px-2 py-0.5 rounded-lg text-xs font-mono font-black ${
+                      isChecked ? "bg-white/20 text-white" : "bg-zinc-200 text-zinc-800"
+                    }`}>
+                      {opt.value}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Comment Thread List */}
-          <div className="max-h-60 overflow-y-auto space-y-3 p-1">
+          <div className="max-h-56 overflow-y-auto space-y-3 p-1">
             {gradeCommentsLoading ? (
               <div className="py-8 text-center text-xs text-zinc-400 font-mono">
                 Izohlar yuklanmoqda...
               </div>
             ) : gradeCommentsList.length === 0 ? (
               <div className="py-8 text-center text-xs text-zinc-400 italic bg-zinc-50 rounded-2xl">
-                Ushbu baho uchun hali izoh yozilmagan. Ilk izohni yozing.
+                Ushbu baholar uchun hali izoh yozilmagan. Ilk izohni yozing.
               </div>
             ) : (
               gradeCommentsList.map((comm) => (
                 <div key={comm.id} className="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-xs space-y-1">
                   <div className="flex items-center justify-between font-bold text-zinc-800">
-                    <span>{comm.author_name || `Foydalanuvchi #${comm.author_id}`}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{comm.author_name || `Foydalanuvchi #${comm.author_id}`}</span>
+                      {comm.gradeColName && (
+                        <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 text-[9px] rounded-md font-medium">
+                          {comm.gradeColName} ({comm.gradeVal})
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-zinc-400 font-mono font-normal">
                       {new Date(comm.created_at).toLocaleString()}
                     </span>
@@ -7908,7 +8182,7 @@ export default function TeacherDashboard() {
             <textarea
               required
               rows={2}
-              placeholder="Baho bo'yicha izoh yoki ota-onaga bildirishnoma yozing..."
+              placeholder="Tanlangan baholar bo'yicha izoh yoki ota-onaga bildirishnoma yozing..."
               value={newGradeCommentText}
               onChange={(e) => setNewGradeCommentText(e.target.value)}
               className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl p-3 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
@@ -7923,10 +8197,10 @@ export default function TeacherDashboard() {
               </button>
               <button
                 type="submit"
-                disabled={commentSubmitting}
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold rounded-xl text-xs shadow-xs disabled:opacity-50"
+                disabled={commentSubmitting || selectedGradeColIds.length === 0}
+                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold rounded-xl text-xs shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
-                {commentSubmitting ? "Yuborilmoqda..." : "Izoh Qoldirish"}
+                {commentSubmitting ? "Yuborilmoqda..." : `Izoh Qoldirish (${selectedGradeColIds.length})`}
               </button>
             </div>
           </form>
@@ -7980,11 +8254,17 @@ export default function TeacherDashboard() {
                 return (
                   <div
                     key={idx}
-                    className="bg-zinc-50/80 border border-zinc-200/70 rounded-2xl p-4 relative overflow-hidden flex items-center justify-between transition hover:border-indigo-300"
+                    onClick={() => handleSelectLessonAndGoToJournal(lesson)}
+                    className="bg-zinc-50/80 border border-zinc-200/70 rounded-2xl p-4 relative overflow-hidden flex items-center justify-between transition hover:border-indigo-300 cursor-pointer group"
                   >
                     <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
                     <div className="pl-2 space-y-1">
-                      <h5 className="text-sm font-extrabold text-[#16193E]">{lesson.subject_name}</h5>
+                      <div className="flex items-center gap-2">
+                        <h5 className="text-sm font-extrabold text-[#16193E] group-hover:text-indigo-600 transition">{lesson.subject_name}</h5>
+                        <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md">
+                          {lesson.lesson_number}-soat
+                        </span>
+                      </div>
                       <p className="text-xs font-bold text-indigo-600 flex items-center gap-2">
                         <span>{lesson.class_name}</span>
                         <span className="text-zinc-300">•</span>
@@ -7993,13 +8273,13 @@ export default function TeacherDashboard() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowTodayLessonsModal(false);
-                        setTeacherTab("journal");
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectLessonAndGoToJournal(lesson);
                       }}
-                      className="px-3 py-1.5 bg-white border border-zinc-200 text-indigo-600 hover:bg-indigo-50 text-xs font-bold rounded-xl transition cursor-pointer"
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
                     >
-                      Jurnal
+                      Jurnalni ochish
                     </button>
                   </div>
                 );

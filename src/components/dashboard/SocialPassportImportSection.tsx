@@ -139,7 +139,7 @@ const TableRow = memo(function TableRow({
         const isSelected = isActiveRow && activeCellField === f.key;
         const val = row[f.key] || "";
         const isDocField = f.key === "studentDocumentNo";
-        const hasExistingMatch = isDocField && existingStudentInfo;
+        const hasExistingMatch = isDocField && existingStudentInfo && !existingStudentInfo.class_name.includes("__deleted_");
 
         let hasParentConflict = false;
         let conflictParentInfo: ExistingParentPassportInfo | undefined = undefined;
@@ -330,6 +330,23 @@ export default function SocialPassportImportSection({
     }
   }, [API_URL, token]);
 
+  // Unified Conflict Modal State (combines Student INA Duplicate + Parent Passport/Phone Conflicts)
+  const [unifiedModal, setUnifiedModal] = useState<{
+    rowId: string;
+    studentInfo?: ExistingStudentDocInfo;
+    targetClass?: string;
+    fatherConflict?: {
+      existingParent: ExistingParentPassportInfo;
+      excelFIO: string;
+      excelPhone: string;
+    };
+    motherConflict?: {
+      existingParent: ExistingParentPassportInfo;
+      excelFIO: string;
+      excelPhone: string;
+    };
+  } | null>(null);
+
   // Parent Passports Conflict Map & Modal State
   const [existingParentsMap, setExistingParentsMap] = useState<Record<string, ExistingParentPassportInfo>>({});
   const [parentConflictModal, setParentConflictModal] = useState<{
@@ -384,6 +401,58 @@ export default function SocialPassportImportSection({
       setExistingParentsMap({});
     }
   }, [parsedRows, checkExistingDocuments, checkExistingParents]);
+
+  const openUnifiedModalForRow = useCallback((row: SmartStudentRowData, targetClassOverride?: string) => {
+    const docKey = (row.studentDocumentNo || "").trim().toLowerCase();
+    const normKey = docKey.replace(/[^a-z0-9]/g, "");
+    const studentInfo = existingStudentsMap[normKey] || existingStudentsMap[docKey];
+    
+    // Ignore soft deleted classes
+    const validStudentInfo = studentInfo && !studentInfo.class_name.includes("__deleted_") ? studentInfo : undefined;
+
+    let fatherConflict: { existingParent: ExistingParentPassportInfo; excelFIO: string; excelPhone: string } | undefined = undefined;
+    if (row.fatherDocumentNo && existingParentsMap) {
+      const fatherPassNorm = row.fatherDocumentNo.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const match = existingParentsMap[fatherPassNorm] || existingParentsMap[row.fatherDocumentNo.trim().toLowerCase()];
+      if (match && row.fatherFullName) {
+        const dbFIO = `${match.first_name} ${match.last_name} ${match.middle_name || ""}`;
+        if (isNameConflict(dbFIO, row.fatherFullName) || isPhoneConflict(match.phone, row.fatherPhone)) {
+          fatherConflict = { existingParent: match, excelFIO: row.fatherFullName, excelPhone: row.fatherPhone };
+        }
+      }
+    }
+
+    let motherConflict: { existingParent: ExistingParentPassportInfo; excelFIO: string; excelPhone: string } | undefined = undefined;
+    if (row.motherDocumentNo && existingParentsMap) {
+      const motherPassNorm = row.motherDocumentNo.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const match = existingParentsMap[motherPassNorm] || existingParentsMap[row.motherDocumentNo.trim().toLowerCase()];
+      if (match && row.motherFullName) {
+        const dbFIO = `${match.first_name} ${match.last_name} ${match.middle_name || ""}`;
+        if (isNameConflict(dbFIO, row.motherFullName) || isPhoneConflict(match.phone, row.motherPhone)) {
+          motherConflict = { existingParent: match, excelFIO: row.motherFullName, excelPhone: row.motherPhone };
+        }
+      }
+    }
+
+    const initClass = targetClassOverride || row.className || "1-A";
+    setSelectedTargetClass(initClass);
+
+    setUnifiedModal({
+      rowId: row.id,
+      studentInfo: validStudentInfo,
+      targetClass: initClass,
+      fatherConflict,
+      motherConflict,
+    });
+
+    if (validStudentInfo) {
+      setTransferModal({
+        student: validStudentInfo,
+        targetClass: initClass,
+        rowId: row.id,
+      });
+    }
+  }, [existingStudentsMap, existingParentsMap]);
 
   const handleKeepExistingParent = (conflict: typeof parentConflictModal) => {
     if (!conflict) return;
@@ -479,6 +548,19 @@ export default function SocialPassportImportSection({
 
       if (res.ok) {
         showToast(data.message || `O'quvchi muvaffaqiyatli ${targetClassName} sinfiga o'tkazildi!`, "success");
+
+        // Clear transferred student INA from existingStudentsMap so red button & highlight disappear immediately!
+        if (transferModal.student.ina) {
+          const normINA = transferModal.student.ina.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const rawINA = transferModal.student.ina.toLowerCase().trim();
+          setExistingStudentsMap((prevMap) => {
+            const newMap = { ...prevMap };
+            delete newMap[normINA];
+            delete newMap[rawINA];
+            return newMap;
+          });
+        }
+
         setParsedRows((prev) => prev.filter((r) => r.id !== transferModal.rowId));
         setTransferModal(null);
         if (onSuccess) onSuccess();
@@ -536,17 +618,36 @@ export default function SocialPassportImportSection({
     let clean = doc.trim();
     if (clean === "-" || clean.toLowerCase().includes("yo'q")) return clean;
 
-    // 1. Birth certificate (e.g. I-NA. 086354 or I-NA.086354 -> I-NA 086354)
-    const birthCertRegex = /^([I|V|X]+-[A-Z]{2})[\s\.]*(\d+)$/i;
-    const matchBirth = clean.match(birthCertRegex);
-    if (matchBirth) {
-      return `${matchBirth[1].toUpperCase()} ${matchBirth[2]}`;
+    const fixRoman = (str: string) => {
+      return str
+        .toUpperCase()
+        .replace(/L/g, "I")
+        .replace(/1/g, "I")
+        .replace(/\|/g, "I");
+    };
+
+    // 1. Birth certificate with separator (e.g. I-NA. 086354, l-NA 086354, l-na.086354, 1-NA 086354, II-NA 086354, etc.)
+    const birthCertRegex1 = /^([ivxl1\|]+)[\s\.-]+([a-z]{2})[\s\.-]*(\d+)$/i;
+    const matchBirth1 = clean.match(birthCertRegex1);
+    if (matchBirth1) {
+      const roman = fixRoman(matchBirth1[1]);
+      const series = matchBirth1[2].toUpperCase();
+      const num = matchBirth1[3];
+      return `${roman}-${series} ${num}`;
     }
 
-    clean = clean.replace(/([I|V|X]+-[A-Z]{2})\s*\.\s*/gi, "$1 ");
+    // 2. Birth certificate without separator (e.g. ina086354, lna086354, iina 086354)
+    const birthCertRegex2 = /^([ivxl1\|]{1,4})([a-z]{2})[\s\.-]*(\d+)$/i;
+    const matchBirth2 = clean.match(birthCertRegex2);
+    if (matchBirth2) {
+      const roman = fixRoman(matchBirth2[1]);
+      const series = matchBirth2[2].toUpperCase();
+      const num = matchBirth2[3];
+      return `${roman}-${series} ${num}`;
+    }
 
-    // 2. Passport: 2 letters + numbers (NO space, NO dot, e.g. AB1234567)
-    const passportRegex = /^([A-Z]{2})[\s\.]*(\d+)$/i;
+    // 3. Passport: 2 letters + numbers (NO space, NO dot, e.g. AB1234567, AA 1234567)
+    const passportRegex = /^([a-z]{2})[\s\.-]*(\d{6,8})$/i;
     const matchPass = clean.match(passportRegex);
     if (matchPass) {
       return `${matchPass[1].toUpperCase()}${matchPass[2]}`;
@@ -1021,23 +1122,11 @@ export default function SocialPassportImportSection({
                       onSelectCell={handleSelectCell}
                       onUpdateCell={handleUpdateCell}
                       onDeleteRow={handleDeleteRow}
-                      onDoubleClickDoc={(info, targetClass, rowId) => {
-                        const initClass = targetClass || row.className || "1-A";
-                        setTransferModal({
-                          student: info,
-                          targetClass: initClass,
-                          rowId,
-                        });
-                        setSelectedTargetClass(initClass);
+                      onDoubleClickDoc={(info, targetClass) => {
+                        openUnifiedModalForRow(row, targetClass);
                       }}
-                      onDoubleClickParentConflict={(existingParent, role, excelFIO, excelPhone, rowId) => {
-                        setParentConflictModal({
-                          existingParent,
-                          excelRole: role,
-                          excelFIO,
-                          excelPhone,
-                          rowId,
-                        });
+                      onDoubleClickParentConflict={() => {
+                        openUnifiedModalForRow(row);
                       }}
                     />
                   );

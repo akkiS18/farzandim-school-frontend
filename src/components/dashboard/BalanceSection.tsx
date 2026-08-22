@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { History, Pencil, Trash2 } from "lucide-react";
+import { History, Pencil, Trash2, Search } from "lucide-react";
 import DateRangePresets from "../DateRangePresets";
 import TargetPresets from "../TargetPresets";
 import { ImportResult } from "./types";
@@ -230,6 +230,7 @@ export default function BalanceSection({
 }: BalanceSectionProps) {
   const { dialogState, showAlert, showConfirm } = useDialog();
   const [balanceActiveSubTab, setBalanceActiveSubTab] = useState<"balances" | "plans" | "transactions">("balances");
+  const [balanceSearchQuery, setBalanceSearchQuery] = useState("");
 
   // Modals visibility & Form states
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
@@ -666,380 +667,465 @@ export default function BalanceSection({
         </div>
       </div>
 
-      {/* Sub-tabs Navigation */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
-        <button
-          onClick={() => setBalanceActiveSubTab("balances")}
-          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
-            balanceActiveSubTab === "balances"
-              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-              : "text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          O'quvchilar Balansi ({studentsBalanceList.length})
-        </button>
-        <button
-          onClick={() => setBalanceActiveSubTab("plans")}
-          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
-            balanceActiveSubTab === "plans"
-              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-              : "text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          To'lov Rejalari ({chargePlans.length})
-        </button>
-        <button
-          onClick={() => setBalanceActiveSubTab("transactions")}
-          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
-            balanceActiveSubTab === "transactions"
-              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-              : "text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          Barcha Tranzaksiyalar ({globalTransactionsList.length})
-        </button>
-      </div>
+      {/* Search filtered items */}
+      {(() => {
+        const q = balanceSearchQuery.toLowerCase().trim();
 
-      {/* Sub-tab 1: O'quvchilar Balansi */}
-      {balanceActiveSubTab === "balances" && (() => {
-        const totalPages = Math.ceil(studentsBalanceList.length / balancesPerPage) || 1;
-        const currentPaginatedStudents = studentsBalanceList.slice((balancesPage - 1) * balancesPerPage, balancesPage * balancesPerPage);
+        const filteredStudentsBalanceList = studentsBalanceList.filter((st) => {
+          if (!q) return true;
+          const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+          const className = (st.class_name || "").toLowerCase();
+          const ina = (st.ina || "").toLowerCase();
+          return fullName.includes(q) || className.includes(q) || ina.includes(q);
+        });
+
+        const filteredChargePlans = chargePlans.filter((plan) => {
+          if (!q) return true;
+          const name = (plan.name || "").toLowerCase();
+          const amountStr = String(plan.amount || "");
+          const targets = `${plan.target_levels?.join(" ") || ""} ${plan.target_classes?.join(" ") || ""}`.toLowerCase();
+          return name.includes(q) || amountStr.includes(q) || targets.includes(q);
+        });
+
+        const filteredGlobalTransactionsList = globalTransactionsList.filter((tx) => {
+          if (!q) return true;
+          const studentName = (tx.student_name || "").toLowerCase();
+          const studentIdStr = String(tx.student_id || "");
+          const desc = (tx.description || "").toLowerCase();
+          const amountStr = String(tx.amount || "");
+          const typeLabel = tx.type === "PAYMENT" ? "to'lov kirim payment" : "yechim chiqim charge";
+          return (
+            studentName.includes(q) ||
+            studentIdStr.includes(q) ||
+            desc.includes(q) ||
+            amountStr.includes(q) ||
+            typeLabel.includes(q)
+          );
+        });
 
         return (
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
-            {studentsBalanceLoading ? (
-              <div className="text-center py-10">
-                <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <>
+            {/* Sub-tabs Navigation & Search Panel Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Sub-tabs Navigation */}
+              <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
+                <button
+                  onClick={() => setBalanceActiveSubTab("balances")}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+                    balanceActiveSubTab === "balances"
+                      ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  O'quvchilar Balansi ({filteredStudentsBalanceList.length !== studentsBalanceList.length ? `${filteredStudentsBalanceList.length}/${studentsBalanceList.length}` : studentsBalanceList.length})
+                </button>
+                <button
+                  onClick={() => setBalanceActiveSubTab("plans")}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+                    balanceActiveSubTab === "plans"
+                      ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  To'lov Rejalari ({filteredChargePlans.length !== chargePlans.length ? `${filteredChargePlans.length}/${chargePlans.length}` : chargePlans.length})
+                </button>
+                <button
+                  onClick={() => setBalanceActiveSubTab("transactions")}
+                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+                    balanceActiveSubTab === "transactions"
+                      ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  Barcha Tranzaksiyalar ({filteredGlobalTransactionsList.length !== globalTransactionsList.length ? `${filteredGlobalTransactionsList.length}/${globalTransactionsList.length}` : globalTransactionsList.length})
+                </button>
               </div>
-            ) : studentsBalanceList.length === 0 ? (
-              <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <p className="text-slate-400 text-xs font-medium">O'quvchilar topilmadi.</p>
+
+              {/* Search Panel (Subtabs Search Input) */}
+              <div className="relative min-w-[280px] sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={balanceSearchQuery}
+                  onChange={(e) => {
+                    setBalanceSearchQuery(e.target.value);
+                    setBalancesPage(1);
+                    setTransactionsPage(1);
+                  }}
+                  placeholder={
+                    balanceActiveSubTab === "balances"
+                      ? "O'quvchi F.I.SH yoki sinf bo'yicha..."
+                      : balanceActiveSubTab === "plans"
+                      ? "Reja nomi yoki summa bo'yicha..."
+                      : "O'quvchi, izoh yoki summa bo'yicha..."
+                  }
+                  className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 text-xs font-bold text-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#D4F562] focus:border-transparent transition shadow-2xs placeholder:text-slate-400 placeholder:font-medium"
+                />
+                {balanceSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBalanceSearchQuery("");
+                      setBalancesPage(1);
+                      setTransactionsPage(1);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
-                      <tr>
-                        <th className="px-6 py-4">O'quvchi F.I.SH</th>
-                        <th className="px-6 py-4">Sinf va Lvl</th>
-                        <th className="px-6 py-4">Balans</th>
-                        <th className="px-6 py-4 text-right">Amallar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
-                      {currentPaginatedStudents.map((st) => (
-                        <tr key={st.id} className="hover:bg-slate-50/80 transition">
-                          <td className="px-6 py-4 font-bold text-[#1D1E26]">
-                            {st.first_name} {st.last_name} {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
-                          </td>
-                          <td className="px-6 py-4 font-mono font-bold text-slate-500">
-                            {st.class_name ? `${st.class_name} (Level ${st.class_level ?? '-'})` : "-"}
-                          </td>
-                          <td className="px-6 py-4 font-mono font-bold">
-                            <span className={`px-2.5 py-1 rounded-lg text-xs ${
-                              st.balance < 0
-                                ? "bg-red-50 text-red-600 border border-red-100"
-                                : "bg-[#ECFCCA] text-[#65A30D]"
-                            }`}>
-                              {parseFloat(st.balance || 0).toLocaleString()} UZS
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => {
-                                setPaymentTransactionType("PAYMENT");
-                                setPaymentStudentId(st.student_id || st.id);
-                                setPaymentAmount("");
-                                setPaymentDescription("");
-                                setShowAddPaymentModal(true);
+            </div>
+
+            {/* Sub-tab 1: O'quvchilar Balansi */}
+            {balanceActiveSubTab === "balances" && (() => {
+              const totalPages = Math.ceil(filteredStudentsBalanceList.length / balancesPerPage) || 1;
+              const currentPaginatedStudents = filteredStudentsBalanceList.slice((balancesPage - 1) * balancesPerPage, balancesPage * balancesPerPage);
+
+              return (
+                <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+                  {studentsBalanceLoading ? (
+                    <div className="text-center py-10">
+                      <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    </div>
+                  ) : filteredStudentsBalanceList.length === 0 ? (
+                    <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                      <p className="text-slate-400 text-xs font-medium">
+                        {balanceSearchQuery ? "Qidiruv bo'yicha o'quvchilar topilmadi." : "O'quvchilar topilmadi."}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                            <tr>
+                              <th className="px-6 py-4">O'quvchi F.I.SH</th>
+                              <th className="px-6 py-4">Sinf va Lvl</th>
+                              <th className="px-6 py-4">Balans</th>
+                              <th className="px-6 py-4 text-right">Amallar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
+                            {currentPaginatedStudents.map((st) => (
+                              <tr key={st.id} className="hover:bg-slate-50/80 transition">
+                                <td className="px-6 py-4 font-bold text-[#1D1E26]">
+                                  {st.first_name} {st.last_name} {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
+                                </td>
+                                <td className="px-6 py-4 font-mono font-bold text-slate-500">
+                                  {st.class_name ? `${st.class_name} (Level ${st.class_level ?? '-'})` : "-"}
+                                </td>
+                                <td className="px-6 py-4 font-mono font-bold">
+                                  <span className={`px-2.5 py-1 rounded-lg text-xs ${
+                                    st.balance < 0
+                                      ? "bg-red-50 text-red-600 border border-red-100"
+                                      : "bg-[#ECFCCA] text-[#65A30D]"
+                                  }`}>
+                                    {parseFloat(st.balance || 0).toLocaleString()} UZS
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <button
+                                    onClick={() => {
+                                      setPaymentTransactionType("PAYMENT");
+                                      setPaymentStudentId(st.student_id || st.id);
+                                      setPaymentAmount("");
+                                      setPaymentDescription("");
+                                      setShowAddPaymentModal(true);
+                                    }}
+                                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-1.5 px-3 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                                  >
+                                    To'lov qo'shish
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Balances Pagination Footer */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span>
+                            Jami <b>{filteredStudentsBalanceList.length}</b> ta o'quvchidan <b>{((balancesPage - 1) * balancesPerPage) + 1}</b> - <b>{Math.min(balancesPage * balancesPerPage, filteredStudentsBalanceList.length)}</b> arasi ko'rsatilyapti
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-400 font-medium">Har sahifada:</span>
+                            <select
+                              value={balancesPerPage}
+                              onChange={(e) => {
+                                setBalancesPerPage(Number(e.target.value));
+                                setBalancesPage(1);
                               }}
-                              className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-1.5 px-3 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                              className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
                             >
-                              To'lov qo'shish
+                              <option value={10}>10 ta</option>
+                              <option value={25}>25 ta</option>
+                              <option value={50}>50 ta</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            disabled={balancesPage === 1}
+                            onClick={() => setBalancesPage(prev => Math.max(prev - 1, 1))}
+                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                          >
+                            &larr; Oldingi
+                          </button>
+                          <span className="font-mono font-bold text-[#1D1E26] px-2 text-xs">
+                            {balancesPage} / {totalPages}
+                          </span>
+                          <button
+                            disabled={balancesPage === totalPages}
+                            onClick={() => setBalancesPage(prev => Math.min(prev + 1, totalPages))}
+                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                          >
+                            Keyingi &rarr;
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Sub-tab 2: To'lov Rejalari */}
+            {balanceActiveSubTab === "plans" && (
+              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-black text-[#1D1E26]">To'lov Rejalari (Oylik to'lovlar)</h2>
+                  <button
+                    onClick={() => setShowAddChargePlanModal(true)}
+                    className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                  >
+                    + Yangi Reja Qo'shish
+                  </button>
+                </div>
+
+                {chargePlansLoading ? (
+                  <div className="text-center py-10">
+                    <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  </div>
+                ) : filteredChargePlans.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <p className="text-slate-400 text-xs font-medium">
+                      {balanceSearchQuery ? "Qidiruv bo'yicha to'lov rejalari topilmadi." : "To'lov rejalari topilmadi."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredChargePlans.map((plan) => (
+                      <div key={plan.id} className="bg-slate-50/80 border border-slate-100 rounded-3xl p-5 shadow-xs space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-black text-[#1D1E26] text-sm">{plan.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenHistoryModal(plan)}
+                              title="Tarix"
+                              className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
+                            >
+                              <History className="w-4 h-4" />
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            <button
+                              onClick={() => handleOpenEditPlanModal(plan)}
+                              title="Tahrirlash"
+                              className="p-2 bg-[#D4F562] hover:opacity-90 text-[#1D1E26] rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteChargePlan(plan.id)}
+                              title="O'chirish"
+                              className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
 
-                {/* Balances Pagination Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span>
-                      Jami <b>{studentsBalanceList.length}</b> ta o'quvchidan <b>{((balancesPage - 1) * balancesPerPage) + 1}</b> - <b>{Math.min(balancesPage * balancesPerPage, studentsBalanceList.length)}</b> arasi ko'rsatilyapti
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-400 font-medium">Har sahifada:</span>
-                      <select
-                        value={balancesPerPage}
-                        onChange={(e) => {
-                          setBalancesPerPage(Number(e.target.value));
-                          setBalancesPage(1);
-                        }}
-                        className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
-                      >
-                        <option value={10}>10 ta</option>
-                        <option value={25}>25 ta</option>
-                        <option value={50}>50 ta</option>
-                      </select>
-                    </div>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Summa: <strong className="text-[#1D1E26] font-mono">{parseFloat(plan.amount).toLocaleString()} UZS</strong> / oy
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          Har oyning {plan.charge_day}-kuni yechiladi ({new Date(plan.start_date).toLocaleDateString()} - {new Date(plan.end_date).toLocaleDateString()})
+                        </p>
+
+                        <div className="text-[10px] font-mono text-slate-400 border-t border-slate-200/60 pt-2 flex flex-wrap gap-2">
+                          {plan.target_levels?.length > 0 && (
+                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Levellar: {plan.target_levels.join(", ")}</span>
+                          )}
+                          {plan.target_classes?.length > 0 && (
+                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Sinflar: {plan.target_classes.join(", ")}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      disabled={balancesPage === 1}
-                      onClick={() => setBalancesPage(prev => Math.max(prev - 1, 1))}
-                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
-                    >
-                      &larr; Oldingi
-                    </button>
-                    <span className="font-mono font-bold text-[#1D1E26] px-2 text-xs">
-                      {balancesPage} / {totalPages}
-                    </span>
-                    <button
-                      disabled={balancesPage === totalPages}
-                      onClick={() => setBalancesPage(prev => Math.min(prev + 1, totalPages))}
-                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
-                    >
-                      Keyingi &rarr;
-                    </button>
-                  </div>
-                </div>
-              </>
+                )}
+              </div>
             )}
-          </div>
-        );
-      })()}
 
-      {/* Sub-tab 2: To'lov Rejalari */}
-      {balanceActiveSubTab === "plans" && (
-        <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-black text-[#1D1E26]">To'lov Rejalari (Oylik to'lovlar)</h2>
-            <button
-              onClick={() => setShowAddChargePlanModal(true)}
-              className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
-            >
-              + Yangi Reja Qo'shish
-            </button>
-          </div>
+            {/* Sub-tab 3: Barcha Tranzaksiyalar */}
+            {balanceActiveSubTab === "transactions" && (() => {
+              const totalPages = Math.ceil(filteredGlobalTransactionsList.length / transactionsPerPage) || 1;
+              const currentPaginatedTransactions = filteredGlobalTransactionsList.slice((transactionsPage - 1) * transactionsPerPage, transactionsPage * transactionsPerPage);
 
-          {chargePlansLoading ? (
-            <div className="text-center py-10">
-              <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
-            </div>
-          ) : chargePlans.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-              <p className="text-slate-400 text-xs font-medium">To'lov rejalari topilmadi.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {chargePlans.map((plan) => (
-                <div key={plan.id} className="bg-slate-50/80 border border-slate-100 rounded-3xl p-5 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-black text-[#1D1E26] text-sm">{plan.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleOpenHistoryModal(plan)}
-                        title="Tarix"
-                        className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
-                      >
-                        <History className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleOpenEditPlanModal(plan)}
-                        title="Tahrirlash"
-                        className="p-2 bg-[#D4F562] hover:opacity-90 text-[#1D1E26] rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteChargePlan(plan.id)}
-                        title="O'chirish"
-                        className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              const getItemAmounts = (t: any) => {
+                const totalAmt = parseFloat(t.amount) || 0;
+                const bonusAmt = parseFloat(t.bonus_amount) || 0;
+                let paidAmt = 0;
+                if (t.type === "PAYMENT") {
+                  if (bonusAmt > 0) {
+                    paidAmt = totalAmt - bonusAmt;
+                  } else if (parseFloat(t.paid_amount) > 0) {
+                    paidAmt = parseFloat(t.paid_amount);
+                  } else {
+                    paidAmt = totalAmt;
+                  }
+                }
+                return { totalAmt, bonusAmt, paidAmt };
+              };
+
+              const totalPaidKirim = filteredGlobalTransactionsList
+                .filter((t) => t.type === "PAYMENT")
+                .reduce((sum, t) => sum + getItemAmounts(t).paidAmt, 0);
+
+              const totalBonusKirim = filteredGlobalTransactionsList
+                .filter((t) => t.type === "PAYMENT")
+                .reduce((sum, t) => sum + getItemAmounts(t).bonusAmt, 0);
+
+              return (
+                <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-base font-black text-[#1D1E26]">Tranzaksiyalar Tarixi & Hisoboti</h2>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">Kirim va yechimlarning to'liq auditi.</p>
+                    </div>
+
+                    {/* Financial KPI Summary Cards */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-2xl">
+                        <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono block">Real Kassa Kirimi</span>
+                        <span className="text-sm font-black text-[#1D1E26] font-mono">{totalPaidKirim.toLocaleString()} UZS</span>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl">
+                        <span className="text-[10px] font-extrabold text-emerald-600 uppercase font-mono block">Berilgan Bonuslar</span>
+                        <span className="text-sm font-black text-emerald-700 font-mono">+{totalBonusKirim.toLocaleString()} UZS</span>
+                      </div>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 font-medium">
-                    Summa: <strong className="text-[#1D1E26] font-mono">{parseFloat(plan.amount).toLocaleString()} UZS</strong> / oy
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-mono">
-                    Har oyning {plan.charge_day}-kuni yechiladi ({new Date(plan.start_date).toLocaleDateString()} - {new Date(plan.end_date).toLocaleDateString()})
-                  </p>
-
-                  <div className="text-[10px] font-mono text-slate-400 border-t border-slate-200/60 pt-2 flex flex-wrap gap-2">
-                    {plan.target_levels?.length > 0 && (
-                      <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Levellar: {plan.target_levels.join(", ")}</span>
-                    )}
-                    {plan.target_classes?.length > 0 && (
-                      <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Sinflar: {plan.target_classes.join(", ")}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Sub-tab 3: Barcha Tranzaksiyalar */}
-      {balanceActiveSubTab === "transactions" && (() => {
-        const totalPages = Math.ceil(globalTransactionsList.length / transactionsPerPage) || 1;
-        const currentPaginatedTransactions = globalTransactionsList.slice((transactionsPage - 1) * transactionsPerPage, transactionsPage * transactionsPerPage);
-
-        const getItemAmounts = (t: any) => {
-          const totalAmt = parseFloat(t.amount) || 0;
-          const bonusAmt = parseFloat(t.bonus_amount) || 0;
-          let paidAmt = 0;
-          if (t.type === "PAYMENT") {
-            if (bonusAmt > 0) {
-              paidAmt = totalAmt - bonusAmt;
-            } else if (parseFloat(t.paid_amount) > 0) {
-              paidAmt = parseFloat(t.paid_amount);
-            } else {
-              paidAmt = totalAmt;
-            }
-          }
-          return { totalAmt, bonusAmt, paidAmt };
-        };
-
-        const totalPaidKirim = globalTransactionsList
-          .filter((t) => t.type === "PAYMENT")
-          .reduce((sum, t) => sum + getItemAmounts(t).paidAmt, 0);
-
-        const totalBonusKirim = globalTransactionsList
-          .filter((t) => t.type === "PAYMENT")
-          .reduce((sum, t) => sum + getItemAmounts(t).bonusAmt, 0);
-
-        return (
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="text-base font-black text-[#1D1E26]">Tranzaksiyalar Tarixi & Hisoboti</h2>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">Kirim va yechimlarning to'liq auditi.</p>
-              </div>
-
-              {/* Financial KPI Summary Cards */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-2xl">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono block">Real Kassa Kirimi</span>
-                  <span className="text-sm font-black text-[#1D1E26] font-mono">{totalPaidKirim.toLocaleString()} UZS</span>
-                </div>
-                <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl">
-                  <span className="text-[10px] font-extrabold text-emerald-600 uppercase font-mono block">Berilgan Bonuslar</span>
-                  <span className="text-sm font-black text-emerald-700 font-mono">+{totalBonusKirim.toLocaleString()} UZS</span>
-                </div>
-              </div>
-            </div>
-
-            {globalTransactionsLoading ? (
-              <div className="text-center py-10">
-                <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
-              </div>
-            ) : globalTransactionsList.length === 0 ? (
-              <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-                <p className="text-slate-400 text-xs font-medium">Tranzaksiyalar topilmadi.</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
-                      <tr>
-                        <th className="px-6 py-4">Sana</th>
-                        <th className="px-6 py-4">O'quvchi F.I.SH</th>
-                        <th className="px-6 py-4">Turi</th>
-                        <th className="px-6 py-4">To'lov (Kassa)</th>
-                        <th className="px-6 py-4">Bonus</th>
-                        <th className="px-6 py-4">Jami Balansga</th>
-                        <th className="px-6 py-4">Izoh</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
-                      {currentPaginatedTransactions.map((tx) => {
-                        const { totalAmt, bonusAmt, paidAmt } = getItemAmounts(tx);
-                        return (
-                          <tr key={tx.id} className="hover:bg-slate-50/80 transition">
-                            <td className="px-6 py-4 font-mono text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
-                            <td className="px-6 py-4 font-bold text-[#1D1E26]">{tx.student_name || `ID: ${tx.student_id}`}</td>
-                            <td className="px-6 py-4">
-                              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono ${
-                                tx.type === "PAYMENT" ? "bg-[#ECFCCA] text-[#65A30D]" : "bg-red-50 text-red-600"
-                              }`}>
-                                {tx.type === "PAYMENT" ? "To'lov (+)" : "Yechim (-)"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 font-mono font-bold text-slate-800">
-                              {tx.type === "PAYMENT" ? `${paidAmt.toLocaleString()} UZS` : "-"}
-                            </td>
-                            <td className="px-6 py-4 font-mono font-bold">
-                              {bonusAmt > 0 ? (
-                                <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">+{bonusAmt.toLocaleString()} UZS</span>
-                              ) : (
-                                <span className="text-slate-300">-</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 font-mono font-black text-[#1D1E26]">
-                              {totalAmt.toLocaleString()} UZS
-                            </td>
-                            <td className="px-6 py-4 text-slate-500">{tx.description || "-"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Transactions Pagination Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span>
-                      Jami <b>{globalTransactionsList.length}</b> ta tranzaksiyadan <b>{((transactionsPage - 1) * transactionsPerPage) + 1}</b> - <b>{Math.min(transactionsPage * transactionsPerPage, globalTransactionsList.length)}</b> arasi ko'rsatilyapti
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-400 font-medium">Har sahifada:</span>
-                      <select
-                        value={transactionsPerPage}
-                        onChange={(e) => {
-                          setTransactionsPerPage(Number(e.target.value));
-                          setTransactionsPage(1);
-                        }}
-                        className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
-                      >
-                        <option value={10}>10 ta</option>
-                        <option value={25}>25 ta</option>
-                        <option value={50}>50 ta</option>
-                      </select>
+                  {globalTransactionsLoading ? (
+                    <div className="text-center py-10">
+                      <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      disabled={transactionsPage === 1}
-                      onClick={() => setTransactionsPage(prev => Math.max(prev - 1, 1))}
-                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
-                    >
-                      &larr; Oldingi
-                    </button>
-                    <span className="font-mono font-bold text-[#1D1E26] px-2 text-xs">
-                      {transactionsPage} / {totalPages}
-                    </span>
-                    <button
-                      disabled={transactionsPage === totalPages}
-                      onClick={() => setTransactionsPage(prev => Math.min(prev + 1, totalPages))}
-                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
-                    >
-                      Keyingi &rarr;
-                    </button>
-                  </div>
+                  ) : filteredGlobalTransactionsList.length === 0 ? (
+                    <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                      <p className="text-slate-400 text-xs font-medium">
+                        {balanceSearchQuery ? "Qidiruv bo'yicha tranzaksiyalar topilmadi." : "Tranzaksiyalar topilmadi."}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                            <tr>
+                              <th className="px-6 py-4">Sana</th>
+                              <th className="px-6 py-4">O'quvchi F.I.SH</th>
+                              <th className="px-6 py-4">Turi</th>
+                              <th className="px-6 py-4">To'lov (Kassa)</th>
+                              <th className="px-6 py-4">Bonus</th>
+                              <th className="px-6 py-4">Jami Balansga</th>
+                              <th className="px-6 py-4">Izoh</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
+                            {currentPaginatedTransactions.map((tx) => {
+                              const { totalAmt, bonusAmt, paidAmt } = getItemAmounts(tx);
+                              return (
+                                <tr key={tx.id} className="hover:bg-slate-50/80 transition">
+                                  <td className="px-6 py-4 font-mono text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
+                                  <td className="px-6 py-4 font-bold text-[#1D1E26]">{tx.student_name || `ID: ${tx.student_id}`}</td>
+                                  <td className="px-6 py-4">
+                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono ${
+                                      tx.type === "PAYMENT" ? "bg-[#ECFCCA] text-[#65A30D]" : "bg-red-50 text-red-600"
+                                    }`}>
+                                      {tx.type === "PAYMENT" ? "To'lov (+)" : "Yechim (-)"}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 font-mono font-bold text-slate-800">
+                                    {tx.type === "PAYMENT" ? `${paidAmt.toLocaleString()} UZS` : "-"}
+                                  </td>
+                                  <td className="px-6 py-4 font-mono font-bold">
+                                    {bonusAmt > 0 ? (
+                                      <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">+{bonusAmt.toLocaleString()} UZS</span>
+                                    ) : (
+                                      <span className="text-slate-300">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 font-mono font-black text-[#1D1E26]">
+                                    {totalAmt.toLocaleString()} UZS
+                                  </td>
+                                  <td className="px-6 py-4 text-slate-500">{tx.description || "-"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Transactions Pagination Footer */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span>
+                            Jami <b>{filteredGlobalTransactionsList.length}</b> ta tranzaksiyadan <b>{((transactionsPage - 1) * transactionsPerPage) + 1}</b> - <b>{Math.min(transactionsPage * transactionsPerPage, filteredGlobalTransactionsList.length)}</b> arasi ko'rsatilyapti
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-400 font-medium">Har sahifada:</span>
+                            <select
+                              value={transactionsPerPage}
+                              onChange={(e) => {
+                                setTransactionsPerPage(Number(e.target.value));
+                                setTransactionsPage(1);
+                              }}
+                              className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                            >
+                              <option value={10}>10 ta</option>
+                              <option value={25}>25 ta</option>
+                              <option value={50}>50 ta</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            disabled={transactionsPage === 1}
+                            onClick={() => setTransactionsPage(prev => Math.max(prev - 1, 1))}
+                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                          >
+                            &larr; Oldingi
+                          </button>
+                          <span className="font-mono font-bold text-[#1D1E26] px-2 text-xs">
+                            {transactionsPage} / {totalPages}
+                          </span>
+                          <button
+                            disabled={transactionsPage === totalPages}
+                            onClick={() => setTransactionsPage(prev => Math.min(prev + 1, totalPages))}
+                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                          >
+                            Keyingi &rarr;
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </>
-            )}
-          </div>
+              );
+            })()}
+          </>
         );
       })()}
 

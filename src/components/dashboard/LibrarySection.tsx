@@ -24,6 +24,9 @@ import {
   UserCheck,
   Layers,
   BookmarkPlus,
+  FileSpreadsheet,
+  Download,
+  UploadCloud,
 } from "lucide-react";
 import api from "@/lib/api";
 import { DateRangePresets } from "../DateRangePresets";
@@ -121,6 +124,17 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
   // Modals state
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [showAddBookModal, setShowAddBookModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importCategoryId, setImportCategoryId] = useState<number | "">("");
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importResult, setImportResult] = useState<{
+    success: boolean;
+    imported_count: number;
+    failed_count: number;
+    errors: { row: number; error: string }[];
+  } | null>(null);
   const [showCreateAssignmentModal, setShowCreateAssignmentModal] = useState(false);
 
   // Grade Modal State
@@ -525,9 +539,91 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       showToast("Baho muvaffaqiyatli saqlandi!", "success");
       handleOpenAssignmentDetails(selectedAssignmentDetails.id);
     } catch (err: any) {
-      showToast(err.message || "Baholashda xatolik", "error");
     } finally {
       setSubmittingGrade(false);
+    }
+  };
+
+  // Download Excel Template for Books
+  const handleDownloadBookTemplate = async () => {
+    try {
+      const tokenVal = token || (typeof window !== "undefined" ? localStorage.getItem("token") || "" : "");
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = {};
+      if (tokenVal) headers["Authorization"] = `Bearer ${tokenVal}`;
+      if (sId) headers["X-School-ID"] = sId;
+
+      const response = await fetch(`${effectiveApiUrl}/api/schools/import/template/books`, { headers });
+      if (!response.ok) throw new Error("Shablonni yuklab bo'lmadi");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "kitoblar_shablon.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      showToast(err.message || "Shablon yuklashda xatolik", "error");
+    }
+  };
+
+  // Import Books from Excel
+  const handleImportBooks = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importFile) {
+      setImportError("Iltimos, Excel (.xlsx) faylini tanlang");
+      return;
+    }
+
+    setImportLoading(true);
+    setImportError("");
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", importFile);
+    if (importCategoryId) {
+      formData.append("category_id", String(importCategoryId));
+    }
+
+    try {
+      const tokenVal = token || (typeof window !== "undefined" ? localStorage.getItem("token") || "" : "");
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = {};
+      if (tokenVal) headers["Authorization"] = `Bearer ${tokenVal}`;
+      if (sId) headers["X-School-ID"] = sId;
+
+      const response = await fetch(`${effectiveApiUrl}/api/schools/import/books`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.errors && data.errors.length > 0) {
+          setImportResult(data);
+        } else {
+          throw new Error(data.error || "Kitoblarni import qilishda xatolik");
+        }
+        return;
+      }
+
+      setImportResult(data);
+      showToast(`${data.imported_count} ta kitob muvaffaqiyatli yuklandi!`, "success");
+      loadLibraryData();
+      if (!data.errors || data.errors.length === 0) {
+        setTimeout(() => {
+          setShowImportModal(false);
+          setImportFile(null);
+          setImportResult(null);
+        }, 1800);
+      }
+    } catch (err: any) {
+      setImportError(err.message || "Kitoblarni import qilishda xatolik");
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -547,6 +643,20 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
         </div>
 
         <div className="flex flex-wrap items-center gap-3 relative z-10">
+          <button
+            onClick={() => {
+              setImportFile(null);
+              setImportError("");
+              setImportResult(null);
+              setImportCategoryId("");
+              setShowImportModal(true);
+            }}
+            className="px-4 py-2.5 bg-emerald-600/90 hover:bg-emerald-600 border border-emerald-500/30 text-white font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-2 shadow-lg shadow-emerald-600/25 backdrop-blur-md"
+            title="Kitoblarni Excel shablon orqali ommaviy yuklash"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+            <span>Excel Import</span>
+          </button>
           <button
             onClick={() => setShowAddCategoryModal(true)}
             className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-2 backdrop-blur-md"
@@ -1985,6 +2095,185 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 >
                   {submittingGrade && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Bahoni Saqlash</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Import Books from Excel */}
+      {showImportModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowImportModal(false);
+              setImportFile(null);
+              setImportError("");
+              setImportResult(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-2xl bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-slate-900 animate-fadeIn space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Kitoblarni Excel orqali import qilish</h3>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Excel shablonini to'ldiring va bir vaqtning o'zida ko'plab kitoblarni yuklang
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFile(null);
+                  setImportError("");
+                  setImportResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Template download & rules info banner */}
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs font-black text-emerald-950 block">Excel Shablon formati:</span>
+                  <p className="text-[11px] text-emerald-800 font-medium leading-relaxed">
+                    1. <b>Kitob nomi</b> — <span className="text-rose-600 font-bold">Majburiy</span> (bo'sh qoldirilsa xatolik beradi).<br />
+                    2. <b>Muallif</b>, <b>muqova rasmi linki</b>, <b>kitob download linki</b>, <b>kitobning kutubxona javonidagi o'rni</b>, <b>Tavsif / Qisqacha Mazmun</b> — Ixtiyoriy (bo'sh bo'lsa ham muvaffaqiyatli saqlanadi).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadBookTemplate}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm shadow-emerald-600/20"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Shablonni yuklab olish</span>
+                </button>
+              </div>
+            </div>
+
+            {importError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{importError}</span>
+              </div>
+            )}
+
+            {/* Import result summary */}
+            {importResult && (
+              <div className="space-y-3">
+                <div className={`p-4 rounded-2xl border text-xs font-bold ${
+                  importResult.failed_count === 0
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                    : "bg-amber-50 border-amber-200 text-amber-900"
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Natija: {importResult.imported_count} ta kitob muvaffaqiyatli qo'shildi, {importResult.failed_count} ta qatorda xatolik.</span>
+                  </div>
+                </div>
+
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto rounded-2xl border border-rose-200 bg-rose-50/50 p-3 space-y-1.5 text-xs">
+                    <span className="font-extrabold text-rose-900 block mb-1">Xatoliklar ro'yxati:</span>
+                    {importResult.errors.map((err, eIdx) => (
+                      <div key={eIdx} className="text-rose-700 flex items-start gap-2 bg-white/80 p-2 rounded-xl border border-rose-100">
+                        <span className="font-mono font-black text-rose-800 shrink-0">Qator {err.row}:</span>
+                        <span>{err.error}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleImportBooks} className="space-y-5">
+              {/* Optional Category Selector */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Kitoblar Guruhini tanlang (Ixtiyoriy)
+                </label>
+                <select
+                  value={importCategoryId}
+                  onChange={(e) => setImportCategoryId(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                >
+                  <option value="">Guruh biriktirilmasin (Guruhsiz)</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* File Upload Box */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Excel (.xlsx) Faylini tanlang *
+                </label>
+                <div className="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-6 text-center bg-slate-50/50 transition cursor-pointer relative group">
+                  <input
+                    type="file"
+                    accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    required
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setImportFile(e.target.files[0]);
+                        setImportError("");
+                        setImportResult(null);
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
+                      <UploadCloud className="w-6 h-6" />
+                    </div>
+                    {importFile ? (
+                      <div>
+                        <p className="text-xs font-extrabold text-slate-900">{importFile.name}</p>
+                        <p className="text-[11px] text-slate-400 font-mono">{(importFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs font-bold text-slate-700">Faylni shu yerga tashlang yoki tanlash uchun bosing</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Faqat .xlsx (Excel) format</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportFile(null);
+                    setImportError("");
+                    setImportResult(null);
+                  }}
+                  className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={importLoading || !importFile}
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shadow-md shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {importLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{importLoading ? "Yuklanmoqda..." : "Kitoblarni Import Qilish"}</span>
                 </button>
               </div>
             </form>

@@ -43,9 +43,20 @@ export default function ScheduleOverviewSection({
   const [loading, setLoading] = useState(false);
   const [lastClickTime, setLastClickTime] = useState<{ [id: number]: number }>({});
 
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const formatSelectedDateLabel = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    const days = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+    const months = [
+      "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+      "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"
+    ];
+    return `${d.getDate()}-${months[d.getMonth()]}, ${d.getFullYear()} (${days[d.getDay()]})`;
+  };
 
   const sortedClasses = [...classes].sort((a, b) => {
     const la = a.level ?? 0;
@@ -88,8 +99,8 @@ export default function ScheduleOverviewSection({
   }, [classes, token, API_URL]);
 
   useEffect(() => {
-    fetchAllSchedules(selectedWeekStart);
-  }, [fetchAllSchedules, selectedWeekStart]);
+    fetchAllSchedules(selectedDate);
+  }, [fetchAllSchedules, selectedDate]);
 
   const handleCardClick = (cls: ClassItem) => {
     const now = Date.now();
@@ -168,28 +179,28 @@ export default function ScheduleOverviewSection({
         <div className="flex items-center space-x-3">
           <SmartCalendarTrigger
             label={
-              selectedWeekStart
-                ? formatWeekRangeLabel(new Date(selectedWeekStart + "T00:00:00"))
+              selectedDate
+                ? formatSelectedDateLabel(selectedDate)
                 : "Sana tanlanmagan (Barchasi)"
             }
             onOpenCalendar={() => setIsCalendarOpen(true)}
             onPrevWeek={() => {
-              const current = selectedWeekStart ? new Date(selectedWeekStart + "T00:00:00") : new Date();
-              current.setDate(current.getDate() - 7);
-              const mon = current.toISOString().split("T")[0];
-              setSelectedWeekStart(mon);
+              const current = selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
+              current.setDate(current.getDate() - 1);
+              const dayStr = current.toISOString().split("T")[0];
+              setSelectedDate(dayStr);
             }}
             onNextWeek={() => {
-              const current = selectedWeekStart ? new Date(selectedWeekStart + "T00:00:00") : new Date();
-              current.setDate(current.getDate() + 7);
-              const mon = current.toISOString().split("T")[0];
-              setSelectedWeekStart(mon);
+              const current = selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
+              current.setDate(current.getDate() + 1);
+              const dayStr = current.toISOString().split("T")[0];
+              setSelectedDate(dayStr);
             }}
           />
 
-          {selectedWeekStart && (
+          {selectedDate && (
             <button
-              onClick={() => setSelectedWeekStart(null)}
+              onClick={() => setSelectedDate(null)}
               title="Sana filtrini tozalash (Barchasini ko'rsatish)"
               className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs py-2.5 px-3 rounded-xl transition cursor-pointer"
             >
@@ -207,7 +218,7 @@ export default function ScheduleOverviewSection({
           </button>
 
           <button
-            onClick={() => fetchAllSchedules(selectedWeekStart)}
+            onClick={() => fetchAllSchedules(selectedDate)}
             disabled={loading}
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
           >
@@ -345,10 +356,11 @@ export default function ScheduleOverviewSection({
       <SmartCalendarModal
         isOpen={isCalendarOpen}
         onClose={() => setIsCalendarOpen(false)}
-        mode="week"
-        selectedWeekStart={selectedWeekStart || undefined}
-        onSelectWeek={(weekStartStr) => {
-          setSelectedWeekStart(weekStartStr);
+        mode="single"
+        title="Sanani tanlash"
+        selectedDate={selectedDate || undefined}
+        onSelectDate={(dateStr) => {
+          setSelectedDate(dateStr);
           setIsCalendarOpen(false);
         }}
       />
@@ -359,7 +371,7 @@ export default function ScheduleOverviewSection({
         classes={classes}
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
-        onSuccess={() => fetchAllSchedules(selectedWeekStart)}
+        onSuccess={() => fetchAllSchedules(selectedDate)}
       />
     </div>
   );
