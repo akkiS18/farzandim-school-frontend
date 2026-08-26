@@ -17,8 +17,19 @@ import {
   Loader2,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Sparkles,
   Check,
+  Calendar,
+  ArrowRight,
+  ClipboardPaste,
+  Save,
+  Split,
+  Combine,
+  GripVertical,
+  PlusCircle,
+  HelpCircle,
 } from "lucide-react";
 
 interface ClassItem {
@@ -47,6 +58,22 @@ interface LessonPlanItem {
   created_at: string;
 }
 
+interface SchedulePeriod {
+  start_date: string;
+  end_date: string;
+}
+
+interface SmartGridRow {
+  id: string;
+  date: string; // YYYY-MM-DD
+  displayDate: string; // DD.MM.YYYY
+  dayLetter: string; // D, S, Ch, P, J, Sh
+  dayOfWeek: number; // 1-7
+  lessonNumber: number; // 1, 2, 3...
+  topicName: string;
+  notes: string;
+}
+
 interface LessonPlansSectionProps {
   token: string;
   API_URL: string;
@@ -56,12 +83,13 @@ interface LessonPlansSectionProps {
 }
 
 const WEEKDAYS = [
-  { id: 1, name: "Dushanba", short: "Dush" },
-  { id: 2, name: "Seshanba", short: "Sesh" },
-  { id: 3, name: "Chorshanba", short: "Chor" },
-  { id: 4, name: "Payshanba", short: "Pay" },
-  { id: 5, name: "Juma", short: "Juma" },
-  { id: 6, name: "Shanba", short: "Shan" },
+  { id: 1, name: "Dushanba", short: "Dush", letter: "D" },
+  { id: 2, name: "Seshanba", short: "Sesh", letter: "S" },
+  { id: 3, name: "Chorshanba", short: "Chor", letter: "Ch" },
+  { id: 4, name: "Payshanba", short: "Pay", letter: "P" },
+  { id: 5, name: "Juma", short: "Juma", letter: "J" },
+  { id: 6, name: "Shanba", short: "Shan", letter: "Sh" },
+  { id: 7, name: "Yakshanba", short: "Yak", letter: "Y" },
 ];
 
 export default function LessonPlansSection({
@@ -80,6 +108,10 @@ export default function LessonPlansSection({
   const [plans, setPlans] = useState<LessonPlanItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
   // Multi-choice Class Filter States
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
   const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
@@ -90,17 +122,15 @@ export default function LessonPlansSection({
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modals state
-  const [showAddModal, setShowAddModal] = useState(false);
+  // Single Modals state
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Selected item for Edit / Delete
   const [editingPlan, setEditingPlan] = useState<LessonPlanItem | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<number | null>(null);
 
-  // Form State for Add / Edit
+  // Form State for Single Edit
   const [formClassId, setFormClassId] = useState<number | "">("");
   const [formSubjectId, setFormSubjectId] = useState<number | "">("");
   const [formDayOfWeek, setFormDayOfWeek] = useState<number>(1);
@@ -111,16 +141,28 @@ export default function LessonPlansSection({
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // Excel Import State
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importLoading, setImportLoading] = useState(false);
-  const [importError, setImportError] = useState("");
-  const [importResult, setImportResult] = useState<{
-    success: boolean;
-    imported_count: number;
-    failed_count: number;
-    errors: { row: number; error: string }[];
-  } | null>(null);
+  // ==========================================
+  // SMART PLAN BUILDER & GRID EDITOR STATES
+  // ==========================================
+  const [showSmartModal, setShowSmartModal] = useState(false);
+  const [builderClassId, setBuilderClassId] = useState<number | "">("");
+  const [builderSubjectId, setBuilderSubjectId] = useState<number | "">("");
+  const [builderStartDate, setBuilderStartDate] = useState("");
+  const [builderEndDate, setBuilderEndDate] = useState("");
+  const [schedulePeriods, setSchedulePeriods] = useState<SchedulePeriod[]>([]);
+  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState<number | "custom">(0);
+  const [pasteText, setPasteText] = useState("");
+  const [smartRows, setSmartRows] = useState<SmartGridRow[]>([]);
+  const [builderStep, setBuilderStep] = useState<"setup" | "grid">("setup");
+  const [builderLoading, setBuilderLoading] = useState(false);
+  const [builderError, setBuilderError] = useState("");
+  const [savingBatch, setSavingBatch] = useState(false);
+
+  // Interactive Table Edit / Formula bar states
+  const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
+  const [formulaValue, setFormulaValue] = useState("");
+  const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
+  const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -130,13 +172,20 @@ export default function LessonPlansSection({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const safeFetchHeaders = () => {
+    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+    };
+    if (sId) headers["X-School-ID"] = sId;
+    return headers;
+  };
+
   // Keyboard listener for Escape key & outside click
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setShowAddModal(false);
         setShowEditModal(false);
-        setShowImportModal(false);
         setShowDeleteModal(false);
         setIsClassDropdownOpen(false);
       }
@@ -160,13 +209,9 @@ export default function LessonPlansSection({
     if (!token) return;
     setMetaLoading(true);
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
-      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/meta`, { headers });
+      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/meta`, {
+        headers: safeFetchHeaders(),
+      });
       const data = await res.json();
       if (res.ok) {
         setMyClasses(Array.isArray(data.classes) ? data.classes : []);
@@ -188,12 +233,6 @@ export default function LessonPlansSection({
     if (!token) return;
     setLoading(true);
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
       const params = new URLSearchParams();
       if (selectedClassIds.length > 0) {
         params.append("class_ids", selectedClassIds.join(","));
@@ -206,7 +245,7 @@ export default function LessonPlansSection({
       }
 
       const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans?${params.toString()}`, {
-        headers,
+        headers: safeFetchHeaders(),
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
@@ -214,6 +253,7 @@ export default function LessonPlansSection({
       } else {
         setPlans([]);
       }
+      setCurrentPage(1); // Reset to page 1 on filter
     } catch (err) {
       console.error("Failed to load lesson plans:", err);
       showToast("Dars rejalarini yuklashda xatolik yuz berdi", "error");
@@ -226,197 +266,393 @@ export default function LessonPlansSection({
     fetchLessonPlans();
   }, [token, selectedClassIds, selectedSubjectId, searchQuery]);
 
-  // Format Uzbek Date
-  const formatUzDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    try {
-      const d = new Date(dateStr + "T00:00:00");
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString("uz-UZ", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
+  // Load schedule periods when builderClassId changes
+  useEffect(() => {
+    if (!builderClassId || !token) {
+      setSchedulePeriods([]);
+      return;
     }
-  };
-
-  // Get weekday name
-  const getWeekdayName = (dayNum: number) => {
-    const found = WEEKDAYS.find((w) => w.id === dayNum);
-    return found ? found.name : `${dayNum}-kun`;
-  };
-
-  // Filtered Class List in Searchable Dropdown
-  const filteredDropdownClasses = useMemo(() => {
-    if (!classSearchTerm.trim()) return myClasses;
-    const term = classSearchTerm.toLowerCase();
-    return myClasses.filter((c) => c.name.toLowerCase().includes(term));
-  }, [myClasses, classSearchTerm]);
-
-  // Toggle class selection in multiple choice dropdown
-  const handleToggleClass = (classId: number) => {
-    setSelectedClassIds((prev) => {
-      if (prev.includes(classId)) {
-        return prev.filter((id) => id !== classId);
-      } else {
-        return [...prev, classId];
+    const fetchPeriods = async () => {
+      try {
+        const res = await fetch(`${effectiveApiUrl}/api/schools/classes/${builderClassId}/schedule-periods`, {
+          headers: safeFetchHeaders(),
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data) && data.length > 0) {
+          setSchedulePeriods(data);
+          setSelectedPeriodIdx(0);
+          setBuilderStartDate(data[0].start_date);
+          setBuilderEndDate(data[0].end_date);
+        } else {
+          setSchedulePeriods([]);
+          setSelectedPeriodIdx("custom");
+          const now = new Date();
+          const y = now.getFullYear();
+          setBuilderStartDate(`${y}-09-02`);
+          setBuilderEndDate(`${y}-11-04`);
+        }
+      } catch (err) {
+        console.error("Failed to load schedule periods:", err);
       }
-    });
-  };
+    };
+    fetchPeriods();
+  }, [builderClassId, token]);
 
-  // Select all / Deselect all classes
-  const handleSelectAllClasses = () => {
-    if (selectedClassIds.length === myClasses.length) {
-      setSelectedClassIds([]);
+  // Update dates when period selection changes
+  const handlePeriodChange = (val: string) => {
+    if (val === "custom") {
+      setSelectedPeriodIdx("custom");
     } else {
-      setSelectedClassIds(myClasses.map((c) => c.id));
+      const idx = Number(val);
+      setSelectedPeriodIdx(idx);
+      if (schedulePeriods[idx]) {
+        setBuilderStartDate(schedulePeriods[idx].start_date);
+        setBuilderEndDate(schedulePeriods[idx].end_date);
+      }
     }
   };
 
-  // Multiple Choice Dropdown Button Label Text
-  const classDropdownLabel = useMemo(() => {
-    if (selectedClassIds.length === 0) {
-      return "Barcha Sinflar";
-    }
-    if (selectedClassIds.length === 1) {
-      const found = myClasses.find((c) => c.id === selectedClassIds[0]);
-      return found ? found.name : "1 ta sinf";
-    }
-    if (selectedClassIds.length === myClasses.length) {
-      return "Barcha Sinflar (Hammasi)";
-    }
-    return `${selectedClassIds.length} ta sinf tanlandi`;
-  }, [selectedClassIds, myClasses]);
-
-  // Handle Download Excel Template
-  const handleDownloadTemplate = async () => {
-    try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
-      const res = await fetch(`${effectiveApiUrl}/api/schools/import/template/lesson-plans`, { headers });
-      if (!res.ok) throw new Error("Shablonni yuklab bo'lmadi");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "ish_rejasi_shablon.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      showToast("Excel shablon muvaffaqiyatli yuklandi!", "success");
-    } catch (err: any) {
-      showToast(err.message || "Shablon yuklashda xatolik", "error");
-    }
+  // Format date helper: YYYY-MM-DD -> DD.MM.YYYY
+  const toDisplayDate = (dStr: string) => {
+    if (!dStr) return "";
+    const parts = dStr.split("-");
+    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    return dStr;
   };
 
-  // Handle Excel Import
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!importFile) {
-      setImportError("Iltimos, Excel (.xlsx) faylini tanlang");
+  // ==========================================
+  // SMART SCHEDULE & ROW GENERATOR
+  // ==========================================
+  const handleGenerateSmartGrid = async () => {
+    if (!builderClassId || !builderSubjectId) {
+      setBuilderError("Iltimos, sinf va fanni tanlang");
+      return;
+    }
+    if (!builderStartDate || !builderEndDate) {
+      setBuilderError("Iltimos, boshlanish va tugash sanalarini belgilang");
+      return;
+    }
+    if (new Date(builderStartDate) > new Date(builderEndDate)) {
+      setBuilderError("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
       return;
     }
 
-    setImportLoading(true);
-    setImportError("");
-    setImportResult(null);
-
-    const formData = new FormData();
-    formData.append("file", importFile);
+    setBuilderLoading(true);
+    setBuilderError("");
 
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
-      const res = await fetch(`${effectiveApiUrl}/api/schools/import/lesson-plans`, {
-        method: "POST",
-        headers,
-        body: formData,
+      const resSched = await fetch(`${effectiveApiUrl}/api/schools/classes/${builderClassId}/schedule`, {
+        headers: safeFetchHeaders(),
       });
+      const schedData = await resSched.json();
+      if (!resSched.ok) throw new Error(schedData.error || "Dars jadvalini olib bo'lmadi");
 
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.errors && data.errors.length > 0) {
-          setImportResult(data);
-        } else {
-          throw new Error(data.error || "Ish rejasini import qilishda xatolik yuz berdi");
+      const subjectSlots: { dayOfWeek: number; lessonNumber: number }[] = [];
+      if (Array.isArray(schedData)) {
+        for (const item of schedData) {
+          if (item.subject_id === Number(builderSubjectId)) {
+            subjectSlots.push({
+              dayOfWeek: item.day_of_week,
+              lessonNumber: item.lesson_number,
+            });
+          }
         }
-        return;
       }
 
-      setImportResult(data);
-      showToast(`${data.imported_count} ta dars mavzusi muvaffaqiyatli qo'shildi!`, "success");
-      fetchLessonPlans();
-      if (!data.errors || data.errors.length === 0) {
-        setTimeout(() => {
-          setShowImportModal(false);
-          setImportFile(null);
-          setImportResult(null);
-        }, 1800);
+      if (subjectSlots.length === 0) {
+        throw new Error(
+          "Ushbu sinf dars jadvalida tanlangan fan uchun haftalik darslar biriktirilmagan. Avval dars jadvalini to'ldiring."
+        );
+      }
+
+      subjectSlots.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.lessonNumber - b.lessonNumber);
+
+      let holidaysSet = new Set<string>();
+      try {
+        const resHol = await fetch(`${effectiveApiUrl}/api/schools/holidays`, {
+          headers: safeFetchHeaders(),
+        });
+        const holData = await resHol.json();
+        if (resHol.ok && Array.isArray(holData)) {
+          holData.forEach((h: any) => {
+            if (h.holiday_date) {
+              const dStr = typeof h.holiday_date === "string" ? h.holiday_date.split("T")[0] : "";
+              if (dStr) holidaysSet.add(dStr);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Holidays fetch error:", err);
+      }
+
+      const generatedRows: SmartGridRow[] = [];
+      const curDate = new Date(builderStartDate + "T00:00:00");
+      const stopDate = new Date(builderEndDate + "T23:59:59");
+
+      while (curDate <= stopDate) {
+        const yyyy = curDate.getFullYear();
+        const mm = String(curDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(curDate.getDate()).padStart(2, "0");
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+
+        if (!holidaysSet.has(dateStr)) {
+          let dayOfWeek = curDate.getDay();
+          if (dayOfWeek === 0) dayOfWeek = 7;
+
+          const matchingSlots = subjectSlots.filter((s) => s.dayOfWeek === dayOfWeek);
+          for (const slot of matchingSlots) {
+            const wk = WEEKDAYS.find((w) => w.id === dayOfWeek);
+            generatedRows.push({
+              id: `${dateStr}_${slot.lessonNumber}_${Math.random().toString(36).substr(2, 5)}`,
+              date: dateStr,
+              displayDate: `${dd}.${mm}.${yyyy}`,
+              dayLetter: wk ? wk.letter : "D",
+              dayOfWeek: dayOfWeek,
+              lessonNumber: slot.lessonNumber,
+              topicName: "",
+              notes: "",
+            });
+          }
+        }
+        curDate.setDate(curDate.getDate() + 1);
+      }
+
+      if (generatedRows.length === 0) {
+        throw new Error("Belgilangan sana oralig'ida birorta ham dars kuni topilmadi.");
+      }
+
+      if (pasteText.trim()) {
+        const lines = pasteText
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0);
+
+        lines.forEach((line, idx) => {
+          if (idx < generatedRows.length) {
+            generatedRows[idx].topicName = line;
+          } else {
+            generatedRows.push({
+              id: `extra_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+              date: generatedRows[generatedRows.length - 1]?.date || builderEndDate,
+              displayDate: toDisplayDate(generatedRows[generatedRows.length - 1]?.date || builderEndDate),
+              dayLetter: "+",
+              dayOfWeek: 1,
+              lessonNumber: 1,
+              topicName: line,
+              notes: "Qo'shimcha dars",
+            });
+          }
+        });
+      }
+
+      setSmartRows(generatedRows);
+      setBuilderStep("grid");
+      if (generatedRows.length > 0) {
+        setActiveCellIndex(0);
+        setFormulaValue(generatedRows[0].topicName);
       }
     } catch (err: any) {
-      setImportError(err.message || "Import qilishda xatolik");
+      setBuilderError(err.message || "Ish rejasini generatsiya qilishda xatolik");
     } finally {
-      setImportLoading(false);
+      setBuilderLoading(false);
     }
   };
 
-  // Handle Save Single (Add / Edit)
-  const handleSavePlan = async (e: React.FormEvent) => {
+  const handleTopicChange = (index: number, val: string) => {
+    setSmartRows((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], topicName: val };
+      return updated;
+    });
+    if (activeCellIndex === index) {
+      setFormulaValue(val);
+    }
+  };
+
+  const handleFormulaChange = (val: string) => {
+    setFormulaValue(val);
+    if (activeCellIndex !== null && smartRows[activeCellIndex]) {
+      setSmartRows((prev) => {
+        const updated = [...prev];
+        updated[activeCellIndex] = { ...updated[activeCellIndex], topicName: val };
+        return updated;
+      });
+    }
+  };
+
+  const handleInsertRowAfter = (index: number) => {
+    setSmartRows((prev) => {
+      const updated = [...prev];
+      const target = updated[index];
+      const newRow: SmartGridRow = {
+        id: `inserted_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        date: target?.date || builderStartDate,
+        displayDate: target?.displayDate || toDisplayDate(builderStartDate),
+        dayLetter: target?.dayLetter || "D",
+        dayOfWeek: target?.dayOfWeek || 1,
+        lessonNumber: target?.lessonNumber || 1,
+        topicName: "",
+        notes: "",
+      };
+      updated.splice(index + 1, 0, newRow);
+      return updated;
+    });
+    setActiveCellIndex(index + 1);
+    setFormulaValue("");
+    showToast("Yangi dars qatori oraliqqa qo'shildi", "success");
+  };
+
+  const handleMergeRows = (sourceIdx: number, targetIdx: number) => {
+    if (sourceIdx === targetIdx) return;
+    setSmartRows((prev) => {
+      const updated = [...prev];
+      const sourceTopic = updated[sourceIdx]?.topicName.trim();
+      const targetTopic = updated[targetIdx]?.topicName.trim();
+
+      const combinedTopic = targetTopic && sourceTopic ? `${targetTopic} / ${sourceTopic}` : targetTopic || sourceTopic;
+      updated[targetIdx] = { ...updated[targetIdx], topicName: combinedTopic };
+      updated.splice(sourceIdx, 1);
+      return updated;
+    });
+    showToast("2 ta mavzu bitta sanaga muvaffaqiyatli birlashtirildi!", "success");
+  };
+
+  const handleDeleteGridRow = (index: number) => {
+    setSmartRows((prev) => prev.filter((_, i) => i !== index));
+    if (activeCellIndex === index) {
+      setActiveCellIndex(null);
+      setFormulaValue("");
+    }
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedRowIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    if (!formClassId || !formSubjectId || !formTopicName.trim() || !formStartDate) {
-      setFormError("Sinf, fan, sana va mavzu nomini to'ldirish shart");
+    if (dragOverRowIndex !== index) {
+      setDragOverRowIndex(index);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedRowIndex !== null && draggedRowIndex !== targetIndex) {
+      handleMergeRows(draggedRowIndex, targetIndex);
+    }
+    setDraggedRowIndex(null);
+    setDragOverRowIndex(null);
+  };
+
+  // Batch save to backend
+  const handleSaveBatchPlans = async () => {
+    if (!builderClassId || !builderSubjectId) {
+      setBuilderError("Sinf va fan tanlanmagan");
+      return;
+    }
+
+    const validItems = smartRows
+      .filter((r) => r.topicName.trim().length > 0)
+      .map((r) => ({
+        start_date: r.date,
+        day_of_week: r.dayOfWeek,
+        lesson_number: r.lessonNumber,
+        topic_name: r.topicName.trim(),
+        notes: r.notes.trim(),
+      }));
+
+    if (validItems.length === 0) {
+      setBuilderError("Saqlash uchun kamida 1 ta to'ldirilgan dars mavzusi bo'lishi kerak");
+      return;
+    }
+
+    setSavingBatch(true);
+    setBuilderError("");
+
+    try {
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
+      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/batch`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          class_id: Number(builderClassId),
+          subject_id: Number(builderSubjectId),
+          start_date_from: builderStartDate,
+          start_date_to: builderEndDate,
+          overwrite: true,
+          items: validItems,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ish rejasini saqlab bo'lmadi");
+
+      showToast(data.message || `${validItems.length} ta dars rejasi saqlandi!`, "success");
+      setShowSmartModal(false);
+      setBuilderStep("setup");
+      setSmartRows([]);
+      setPasteText("");
+      fetchLessonPlans();
+    } catch (err: any) {
+      setBuilderError(err.message || "Saqlashda xatolik yuz berdi");
+    } finally {
+      setSavingBatch(false);
+    }
+  };
+
+  const openSmartModal = () => {
+    setBuilderStep("setup");
+    setBuilderError("");
+    setPasteText("");
+    setSmartRows([]);
+    if (myClasses.length > 0 && !builderClassId) {
+      setBuilderClassId(myClasses[0].id);
+    }
+    if (mySubjects.length > 0 && !builderSubjectId) {
+      setBuilderSubjectId(mySubjects[0].id);
+    }
+    setShowSmartModal(true);
+  };
+
+  // Single Edit Save
+  const handleSingleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formClassId || !formSubjectId || !formTopicName.trim()) {
+      setFormError("Barcha majburiy maydonlarni to'ldiring");
       return;
     }
 
     setFormSubmitting(true);
     setFormError("");
 
-    const payload = {
-      class_id: Number(formClassId),
-      subject_id: Number(formSubjectId),
-      day_of_week: Number(formDayOfWeek),
-      lesson_number: Number(formLessonNumber),
-      start_date: formStartDate,
-      topic_name: formTopicName.trim(),
-      notes: formNotes.trim(),
-    };
-
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+      const headers = safeFetchHeaders();
+      headers["Content-Type"] = "application/json";
+
+      const payload = {
+        class_id: Number(formClassId),
+        subject_id: Number(formSubjectId),
+        day_of_week: Number(formDayOfWeek),
+        lesson_number: Number(formLessonNumber),
+        start_date: formStartDate,
+        topic_name: formTopicName.trim(),
+        notes: formNotes.trim(),
       };
-      if (sId) headers["X-School-ID"] = sId;
 
-      const isEdit = Boolean(editingPlan);
-      const url = isEdit
-        ? `${effectiveApiUrl}/api/schools/lesson-plans/${editingPlan!.id}`
-        : `${effectiveApiUrl}/api/schools/lesson-plans`;
-      const method = isEdit ? "PUT" : "POST";
-
+      const url = `${effectiveApiUrl}/api/schools/lesson-plans/${editingPlan?.id}`;
       const res = await fetch(url, {
-        method,
+        method: "PUT",
         headers,
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Dars rejasini saqlab bo'lmadi");
+      if (!res.ok) throw new Error(data.error || "Rejani saqlab bo'lmadi");
 
-      showToast(isEdit ? "Dars mavzusi muvaffaqiyatli yangilandi!" : "Yangi dars mavzusi qo'shildi!", "success");
-      setShowAddModal(false);
+      showToast("Dars mavzusi muvaffaqiyatli tahrirlandi", "success");
       setShowEditModal(false);
       setEditingPlan(null);
       fetchLessonPlans();
@@ -427,114 +663,85 @@ export default function LessonPlansSection({
     }
   };
 
-  // Handle Delete Plan
   const handleDeletePlan = async () => {
     if (!deletingPlanId) return;
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
       const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/${deletingPlanId}`, {
         method: "DELETE",
-        headers,
+        headers: safeFetchHeaders(),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Dars rejasini o'chirib bo'lmadi");
-
-      showToast("Dars mavzusi muvaffaqiyatli o'chirildi!", "success");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "O'chirib bo'lmadi");
+      }
+      showToast("Dars mavzusi o'chirildi", "success");
       setShowDeleteModal(false);
       setDeletingPlanId(null);
       fetchLessonPlans();
     } catch (err: any) {
-      showToast(err.message || "O'chirishda xatolik", "error");
+      showToast(err.message || "Xatolik", "error");
     }
   };
 
-  // Open Edit Modal helper
-  const openEditModal = (plan: LessonPlanItem) => {
-    setEditingPlan(plan);
-    setFormClassId(plan.class_id);
-    setFormSubjectId(plan.subject_id);
-    setFormDayOfWeek(plan.day_of_week);
-    setFormLessonNumber(plan.lesson_number);
-    setFormStartDate(plan.start_date);
-    setFormTopicName(plan.topic_name);
-    setFormNotes(plan.notes || "");
-    setFormError("");
-    setShowEditModal(true);
-  };
+  // Helper labels
+  const classDropdownLabel = useMemo(() => {
+    if (selectedClassIds.length === 0) return "Barcha sinflar";
+    if (selectedClassIds.length === 1) {
+      const found = myClasses.find((c) => c.id === selectedClassIds[0]);
+      return found ? `${found.name} sinfi` : "1 ta sinf";
+    }
+    return `${selectedClassIds.length} ta sinf tanlangan`;
+  }, [selectedClassIds, myClasses]);
 
-  // Open Add Modal helper
-  const openAddModal = () => {
-    setEditingPlan(null);
-    setFormClassId(myClasses.length > 0 ? myClasses[0].id : "");
-    setFormSubjectId(mySubjects.length > 0 ? mySubjects[0].id : "");
-    setFormDayOfWeek(1);
-    setFormLessonNumber(1);
-    setFormStartDate(new Date().toISOString().split("T")[0]);
-    setFormTopicName("");
-    setFormNotes("");
-    setFormError("");
-    setShowAddModal(true);
-  };
+  // Pagination calculation
+  const totalPages = Math.ceil(plans.length / pageSize) || 1;
+  const paginatedPlans = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return plans.slice(startIndex, startIndex + pageSize);
+  }, [plans, currentPage, pageSize]);
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-16">
+    <div className="space-y-5 animate-fadeIn pb-32">
+      {/* Toast Notification Popup */}
+      {toastMessage && (
+        <div
+          className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border text-sm font-semibold transition-all duration-300 animate-slideDown ${
+            toastMessage.type === "success"
+              ? "bg-emerald-900/95 text-white border-emerald-700/80 shadow-emerald-900/30"
+              : "bg-rose-900/95 text-white border-rose-700/80 shadow-rose-900/30"
+          }`}
+        >
+          {toastMessage.type === "success" ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          )}
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#16193E] via-[#242866] to-[#16193E] text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 border border-white/10">
-        <div className="relative z-10 space-y-2 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 border border-indigo-400/30 rounded-full text-indigo-300 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>O'qituvchi Taqvim-Mavzu Rejasi</span>
+      <div className="bg-gradient-to-r from-[#16193E] via-[#2A2B6A] to-[#16193E] rounded-3xl p-5 sm:p-6 lg:p-7 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-white/10">
+        <div>
+          <div className="inline-flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full text-[11px] font-mono font-bold tracking-wide uppercase mb-2 border border-white/15">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+            <span>Ish Rejasi</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Dars Ish Rejasi</h1>
-          <p className="text-xs sm:text-sm text-indigo-200/80 font-medium leading-relaxed">
-            Faqat o'zingiz dars beradigan fanlar bo'yicha ish rejangizni tuzing, Excel orqali birato'la yuklang va mavzular monitoringini olib boring.
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight">Ish Rejasi (Syllabus)</h2>
+          <p className="text-xs sm:text-sm text-indigo-200/80 mt-1 max-w-xl">
+            Sinf dars jadvali asosida sanalarni avtomatik tuzing, Excel mavzularini bir zumda copy-paste qiling va tahrirlang.
           </p>
         </div>
 
-        {/* Action Icon Buttons */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 relative z-10 bg-white/10 p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-white/15 backdrop-blur-md self-start sm:self-auto">
-          {/* Download Template Icon Button */}
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             type="button"
-            onClick={handleDownloadTemplate}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-indigo-200 hover:text-white flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
-            title="Excel shablonini yuklab olish (.xlsx)"
-            aria-label="Excel shablonini yuklab olish"
+            onClick={openSmartModal}
+            className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-[#D4F562] to-[#BFEA42] hover:from-[#c7ea50] hover:to-[#b0dc33] text-[#1D1E26] font-black text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg shadow-[#D4F562]/20 cursor-pointer"
           >
-            <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-
-          {/* Excel Import Icon Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setImportFile(null);
-              setImportError("");
-              setImportResult(null);
-              setShowImportModal(true);
-            }}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-lg shadow-emerald-600/30"
-            title="Excel orqali ish rejasini yuklash"
-            aria-label="Excel orqali ish rejasini yuklash"
-          >
-            <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-100" />
-          </button>
-
-          {/* Add New Lesson Topic Icon Button */}
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#5B50EC] hover:bg-[#4A3FDB] text-white flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-lg shadow-indigo-500/30"
-            title="Yangi dars mavzusi qo'shish"
-            aria-label="Yangi dars mavzusi qo'shish"
-          >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ClipboardPaste className="w-4 h-4 sm:w-5 sm:h-5 text-[#1D1E26]" />
+            <span>+ Yangi Ish Reja (Excel Paste)</span>
           </button>
         </div>
       </div>
@@ -542,7 +749,6 @@ export default function LessonPlansSection({
       {/* Filter and Search Bar */}
       <div className="bg-white border border-zinc-200/80 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-          
           {/* Multiple Choice Searchable Class Dropdown */}
           <div className="relative shrink-0" ref={classDropdownRef}>
             <button
@@ -571,7 +777,6 @@ export default function LessonPlansSection({
             {/* Dropdown Panel */}
             {isClassDropdownOpen && (
               <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 bg-white border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-3 z-50 animate-fadeIn space-y-2.5">
-                {/* Search Input */}
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -592,432 +797,704 @@ export default function LessonPlansSection({
                   )}
                 </div>
 
-                {/* Quick Toggle Actions */}
-                <div className="flex items-center justify-between border-b border-zinc-100 pb-2 px-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={handleSelectAllClasses}
-                    className="text-indigo-600 hover:text-indigo-800 font-extrabold cursor-pointer"
-                  >
-                    {selectedClassIds.length === myClasses.length ? "Hammasini tozalash" : "Barchasini tanlash"}
-                  </button>
-                  <span className="text-zinc-400 font-mono font-medium">
-                    {selectedClassIds.length} / {myClasses.length} tanlangan
-                  </span>
-                </div>
-
-                {/* Classes Checkbox List */}
-                <div className="max-h-52 overflow-y-auto space-y-1 pr-1 [scrollbar-width:thin]">
-                  {filteredDropdownClasses.length === 0 ? (
-                    <p className="text-xs text-zinc-400 text-center py-4 italic font-medium">Sinf topilmadi</p>
-                  ) : (
-                    filteredDropdownClasses.map((cls) => {
-                      const isChecked = selectedClassIds.includes(cls.id);
-                      return (
-                        <button
-                          key={cls.id}
-                          type="button"
-                          onClick={() => handleToggleClass(cls.id)}
-                          className={`w-full px-2.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer select-none ${
-                            isChecked
-                              ? "bg-indigo-50 text-indigo-900"
-                              : "hover:bg-zinc-50 text-zinc-700"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-4 h-4 rounded-md flex items-center justify-center border transition ${
-                              isChecked
-                                ? "bg-indigo-600 border-indigo-600 text-white"
-                                : "border-zinc-300 bg-white"
-                            }`}>
-                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                            </div>
-                            <span>{cls.name}</span>
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                  {myClasses.map((cls) => {
+                    const isSelected = selectedClassIds.includes(cls.id);
+                    return (
+                      <label
+                        key={cls.id}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition select-none ${
+                          isSelected ? "bg-indigo-50/80 text-indigo-900" : "hover:bg-zinc-50 text-zinc-700"
+                        }`}
+                      >
+                        <span>{cls.name} sinfi</span>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedClassIds((prev) =>
+                              prev.includes(cls.id) ? prev.filter((id) => id !== cls.id) : [...prev, cls.id]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Subject Filter and Search Box */}
-          <div className="flex flex-wrap items-center gap-3 flex-1 justify-end">
-            {/* Subject Selector (Teacher's own subjects only) */}
-            <div className="relative shrink-0 min-w-[180px]">
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-2xl text-xs font-bold text-zinc-800 outline-none cursor-pointer transition focus:border-indigo-500"
+          {/* Subject Filter */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+            <button
+              type="button"
+              onClick={() => setSelectedSubjectId("all")}
+              className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer shrink-0 ${
+                selectedSubjectId === "all"
+                  ? "bg-zinc-900 text-white shadow-xs"
+                  : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+              }`}
+            >
+              Barcha fanlar
+            </button>
+            {mySubjects.map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => setSelectedSubjectId(sub.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer shrink-0 ${
+                  selectedSubjectId === sub.id
+                    ? "bg-[#5B50EC] text-white shadow-xs"
+                    : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+                }`}
               >
-                <option value="all">Barcha Fanlarim ({mySubjects.length})</option>
-                {mySubjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {sub.name}
+              </button>
+            ))}
+          </div>
 
-            {/* Search Box */}
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Mavzu nomi bo'yicha qidirish..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-semibold text-zinc-800 placeholder:text-zinc-400 focus:bg-white focus:border-indigo-500 outline-none transition"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Mavzu nomi bo'yicha qidirish..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-indigo-500 transition"
+            />
           </div>
         </div>
       </div>
 
-      {/* Lesson Plans Table / List */}
-      <div className="bg-white border border-zinc-200/80 rounded-3xl shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="text-center py-16 space-y-3">
-            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-xs text-zinc-500 font-medium">Dars ish rejalari yuklanmoqda...</p>
-          </div>
-        ) : plans.length === 0 ? (
-          <div className="text-center py-16 px-4 space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
-              <FileSpreadsheet className="w-8 h-8" />
-            </div>
-            <div className="space-y-1 max-w-sm mx-auto">
-              <h3 className="text-base font-extrabold text-[#16193E]">Hozircha dars ish rejasi mavjud emas</h3>
-              <p className="text-xs text-zinc-400 font-medium">
-                O'zingizning fanlaringiz bo'yicha Excel shablonini to'ldirib yuklang yoki yangi dars mavzularini qo'shing.
-              </p>
-            </div>
-            <div className="flex items-center justify-center gap-3 pt-3">
-              <div className="inline-flex items-center gap-2.5 bg-zinc-100/80 p-1.5 rounded-2xl border border-zinc-200/80 shadow-2xs">
-                {/* Download Template */}
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="w-10 h-10 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-900 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
-                  title="Excel shablonini yuklab olish (.xlsx)"
-                  aria-label="Excel shablonini yuklab olish"
-                >
-                  <Download className="w-4 h-4 text-indigo-600" />
-                </button>
-
-                {/* Excel Import */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImportFile(null);
-                    setImportError("");
-                    setImportResult(null);
-                    setShowImportModal(true);
-                  }}
-                  className="w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-md shadow-emerald-600/25"
-                  title="Excel orqali ish rejasini yuklash"
-                  aria-label="Excel orqali ish rejasini yuklash"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
-                </button>
-
-                {/* Add Topic */}
-                <button
-                  type="button"
-                  onClick={openAddModal}
-                  className="w-10 h-10 rounded-xl bg-[#5B50EC] hover:bg-[#4A3FDB] text-white flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-md shadow-indigo-500/25"
-                  title="Yangi dars mavzusi qo'shish"
-                  aria-label="Yangi dars mavzusi qo'shish"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
+      {/* Main Table / List View */}
+      {loading ? (
+        <div className="py-20 text-center bg-white rounded-3xl border border-zinc-200/80 shadow-xs">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-3" />
+          <p className="text-xs font-mono text-zinc-400">Ish rejalari yuklanmoqda...</p>
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-zinc-300 p-8 shadow-xs">
+          <BookOpen className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
+          <h3 className="text-base font-extrabold text-zinc-800">Ish rejalari topilmadi</h3>
+          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+            Hali ushbu sinf va fanlar uchun ish rejalari kiritilmagan. Yuqoridagi tugma orqali osongina Excel mavzularini qo'shing.
+          </p>
+          <button
+            type="button"
+            onClick={openSmartModal}
+            className="mt-4 px-4 py-2.5 rounded-xl bg-[#5B50EC] text-white text-xs font-bold hover:bg-[#4a3fdb] transition cursor-pointer shadow-md inline-flex items-center gap-2"
+          >
+            <ClipboardPaste className="w-4 h-4" />
+            <span>Ish rejasini kiritish</span>
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden flex flex-col">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-200/70 text-left">
-              <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
+            <table className="w-full text-left text-xs text-zinc-700">
+              <thead className="bg-zinc-50/80 border-b border-zinc-200/80 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider font-mono">
                 <tr>
-                  <th className="py-3.5 px-4 sm:px-6">№</th>
-                  <th className="py-3.5 px-4">Sana & Hafta kuni</th>
-                  <th className="py-3.5 px-4">Soat</th>
-                  <th className="py-3.5 px-4">Sinf</th>
-                  <th className="py-3.5 px-4">Fan</th>
-                  <th className="py-3.5 px-4">Dars Mavzusi</th>
-                  <th className="py-3.5 px-4 text-right">Amallar</th>
+                  <th className="px-4 py-3.5 w-12 text-center">#</th>
+                  <th className="px-4 py-3.5">Sana</th>
+                  <th className="px-4 py-3.5">Kun</th>
+                  <th className="px-4 py-3.5">Soat</th>
+                  <th className="px-4 py-3.5">Sinf</th>
+                  <th className="px-4 py-3.5">Fan</th>
+                  <th className="px-4 py-3.5">Mavzu nomi</th>
+                  <th className="px-4 py-3.5 text-right">Amallar</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 text-xs text-zinc-800">
-                {plans.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-indigo-50/20 transition">
-                    <td className="py-3.5 px-4 sm:px-6 font-mono font-bold text-zinc-400">
-                      {idx + 1}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="space-y-0.5">
-                        <span className="font-extrabold text-[#16193E] block">{formatUzDate(item.start_date)}</span>
-                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full font-mono inline-block">
-                          {getWeekdayName(item.day_of_week)}
+              <tbody className="divide-y divide-zinc-100">
+                {paginatedPlans.map((p, idx) => {
+                  const wk = WEEKDAYS.find((w) => w.id === p.day_of_week);
+                  const globalIdx = (currentPage - 1) * pageSize + idx + 1;
+                  return (
+                    <tr key={p.id} className="hover:bg-indigo-50/30 transition">
+                      <td className="px-4 py-3 text-center text-zinc-400 font-mono font-bold">{globalIdx}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-zinc-900">{toDisplayDate(p.start_date)}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 font-bold text-[11px]">
+                          {wk ? wk.letter : "D"}
                         </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-zinc-700 font-mono bg-zinc-100 px-2.5 py-1 rounded-lg">
-                        {item.lesson_number}-dars
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-xl">
-                        {item.class_name}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-bold text-zinc-900">
-                      {item.subject_name}
-                    </td>
-                    <td className="py-3.5 px-4 max-w-md">
-                      <div className="space-y-0.5">
-                        <span className="font-extrabold text-[#16193E] block leading-snug">
-                          {item.topic_name}
-                        </span>
-                        {item.notes && (
-                          <span className="text-[11px] text-zinc-400 font-medium block italic">
-                            {item.notes}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(item)}
-                          className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-indigo-100 text-zinc-600 hover:text-indigo-700 flex items-center justify-center transition cursor-pointer"
-                          title="Tahrirlash"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDeletingPlanId(item.id);
-                            setShowDeleteModal(true);
-                          }}
-                          className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-rose-100 text-zinc-600 hover:text-rose-700 flex items-center justify-center transition cursor-pointer"
-                          title="O'chirish"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-indigo-700">{p.lesson_number}-soat</td>
+                      <td className="px-4 py-3 font-bold text-zinc-800">{p.class_name}</td>
+                      <td className="px-4 py-3 font-bold text-zinc-800">{p.subject_name}</td>
+                      <td className="px-4 py-3 font-medium text-zinc-900 font-sans max-w-md">{p.topic_name}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPlan(p);
+                              setFormClassId(p.class_id);
+                              setFormSubjectId(p.subject_id);
+                              setFormDayOfWeek(p.day_of_week);
+                              setFormLessonNumber(p.lesson_number);
+                              setFormStartDate(p.start_date);
+                              setFormTopicName(p.topic_name);
+                              setFormNotes(p.notes || "");
+                              setFormError("");
+                              setShowEditModal(true);
+                            }}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-amber-600 hover:bg-amber-50 transition cursor-pointer"
+                            title="Tahrirlash"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingPlanId(p.id);
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="O'chirish"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
 
-      {/* Modal: Add or Edit Lesson Plan */}
-      {(showAddModal || showEditModal) && (
+          {/* Smart Pagination Bar */}
+          {plans.length > 0 && (
+            <div className="px-6 py-3.5 bg-zinc-50/80 border-t border-zinc-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-semibold">
+              <div className="flex items-center gap-2">
+                <span>Jami: <b className="text-zinc-900 font-mono">{plans.length}</b> ta dars mavzusi</span>
+                <span className="text-zinc-300">•</span>
+                <span>Ko'rsatish:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-zinc-200 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
+                >
+                  <option value={10}>10 ta</option>
+                  <option value={15}>15 ta</option>
+                  <option value={25}>25 ta</option>
+                  <option value={50}>50 ta</option>
+                </select>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                    title="Oldingi sahifa"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .map((p, idx, arr) => {
+                        const prev = arr[idx - 1];
+                        const showEllipsis = prev && p - prev > 1;
+                        return (
+                          <React.Fragment key={p}>
+                            {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPage(p)}
+                              className={`w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                currentPage === p
+                                  ? "bg-[#5B50EC] text-white shadow-xs"
+                                  : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                    title="Keyingi sahifa"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: SMART AUTO SCHEDULE & EXCEL PASTE GRID BUILDER                     */}
+      {/* ========================================================================= */}
+      {showSmartModal && (
         <div
           onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowAddModal(false);
-              setShowEditModal(false);
-              setEditingPlan(null);
+            if (e.target === e.currentTarget && !savingBatch) {
+              setShowSmartModal(false);
             }
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto"
         >
-          <div className="w-full max-w-xl bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-zinc-900 animate-fadeIn space-y-6">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                  <BookOpen className="w-5 h-5" />
+          <div className="w-full max-w-5xl bg-white border border-zinc-200 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-fadeIn">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-[#16193E] text-white flex items-center justify-between border-b border-white/10 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#D4F562] to-[#A3E635] text-[#1D1E26] flex items-center justify-center font-black">
+                  <ClipboardPaste className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-[#16193E]">
-                    {editingPlan ? "Dars Mavzusini Tahrirlash" : "Yangi Dars Mavzusi Qo'shish"}
-                  </h3>
-                  <p className="text-xs text-zinc-400 font-medium mt-0.5">
-                    O'zingizning fanlaringiz va sinflaringiz bo'yicha mavzuni to'ldiring
+                  <h3 className="text-base font-black tracking-tight">Aqlli Ish Rejasi Yaratish</h3>
+                  <p className="text-[11px] text-indigo-200/80 font-medium">
+                    Sinf dars jadvali asosida sanalarni tuzing va Excel mavzularini to'ldiring
                   </p>
                 </div>
               </div>
               <button
                 type="button"
+                onClick={() => setShowSmartModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+              {builderError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{builderError}</span>
+                </div>
+              )}
+
+              {builderStep === "setup" ? (
+                /* STEP 1: SETUP CLASS, SUBJECT, PERIOD, EXCEL TEXT */
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Class Select */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
+                        Sinfni tanlang *
+                      </label>
+                      <select
+                        value={builderClassId}
+                        onChange={(e) => setBuilderClassId(Number(e.target.value) || "")}
+                        className="w-full bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold cursor-pointer"
+                      >
+                        <option value="">-- Sinfni tanlang --</option>
+                        {myClasses.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} sinfi
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Subject Select */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
+                        Fanni tanlang *
+                      </label>
+                      <select
+                        value={builderSubjectId}
+                        onChange={(e) => setBuilderSubjectId(Number(e.target.value) || "")}
+                        className="w-full bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold cursor-pointer"
+                      >
+                        <option value="">-- Fanni tanlang --</option>
+                        {mySubjects.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Period / Quarter Select */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
+                        Dars davri / Chorak *
+                      </label>
+                      <select
+                        value={selectedPeriodIdx}
+                        onChange={(e) => handlePeriodChange(e.target.value)}
+                        className="w-full bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold cursor-pointer"
+                      >
+                        {schedulePeriods.map((p, idx) => (
+                          <option key={idx} value={idx}>
+                            {idx + 1}-chorak ({p.start_date} — {p.end_date})
+                          </option>
+                        ))}
+                        <option value="custom">Boshqa sana oralig'i...</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Date Range Inputs (if custom or verify) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-50/80 p-4 rounded-2xl border border-zinc-200/80">
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
+                        Boshlanish sanasi
+                      </label>
+                      <input
+                        type="date"
+                        value={builderStartDate}
+                        onChange={(e) => setBuilderStartDate(e.target.value)}
+                        className="w-full bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2 text-xs outline-none font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
+                        Tugash sanasi
+                      </label>
+                      <input
+                        type="date"
+                        value={builderEndDate}
+                        onChange={(e) => setBuilderEndDate(e.target.value)}
+                        className="w-full bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2 text-xs outline-none font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Excel Copy-Paste Textarea */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] font-extrabold text-zinc-500 uppercase font-mono">
+                        Excel'dan mavzular ustunini copy-paste qilib tashlang (ixtiyoriy)
+                      </label>
+                      <span className="text-[10px] text-zinc-400 font-mono font-medium">
+                        (Har bir qator alohida mavzu bo'lib tushadi)
+                      </span>
+                    </div>
+                    <textarea
+                      rows={6}
+                      value={pasteText}
+                      onChange={(e) => setPasteText(e.target.value)}
+                      placeholder="Masalan:&#10;1-mavzu. Kirish va takrorlash&#10;2-mavzu. O'nli kasrlar ustida amallar&#10;3-mavzu. FASTAS nazorat ishi..."
+                      className="w-full p-4 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-mono text-zinc-800 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-indigo-500 transition leading-relaxed resize-y"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* STEP 2: INTERACTIVE GRID EDITOR (Social Passport Style) */
+                <div className="space-y-4">
+                  {/* Top Formula Bar & Quick Edit Toolbar */}
+                  <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-zinc-600 font-mono">
+                      <Edit3 className="w-4 h-4 text-indigo-600" />
+                      <span>Formula / Tahrirlash:</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={formulaValue}
+                      onChange={(e) => handleFormulaChange(e.target.value)}
+                      placeholder="Tanlangan qatordagi mavzu nomini shu yerda tezkor tahrirlashingiz mumkin..."
+                      className="flex-1 px-3.5 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                    />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] font-mono font-bold text-zinc-400">
+                        Jami: {smartRows.length} ta dars
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-zinc-500 font-medium px-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span>Qatorlar orasidagi <b>+</b> tugmasi orqali oraliqqa yangi dars qo'shishingiz mumkin.</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-400 hidden sm:block">
+                      Mavzuni boshqa mavzu ustiga sudrab tashlab birlashtirish mumkin
+                    </div>
+                  </div>
+
+                  {/* 4-Column Table Grid */}
+                  <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-xs max-h-[50vh] overflow-y-auto">
+                    <table className="w-full text-left text-xs text-zinc-800 border-collapse">
+                      <thead className="bg-[#16193E] text-white sticky top-0 z-10 text-[10px] font-extrabold uppercase font-mono tracking-wider">
+                        <tr>
+                          <th className="px-3 py-3 w-10 text-center">#</th>
+                          <th className="px-3 py-3 w-28">1. Sana</th>
+                          <th className="px-3 py-3 w-16 text-center">2. Kun</th>
+                          <th className="px-3 py-3 w-16 text-center">3. Soat</th>
+                          <th className="px-3 py-3">4. Mavzu nomi (Tahrirlanadigan)</th>
+                          <th className="px-3 py-3 w-20 text-right">Amal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100">
+                        {smartRows.map((row, idx) => {
+                          const isActive = activeCellIndex === idx;
+                          const isDragOver = dragOverRowIndex === idx;
+
+                          return (
+                            <React.Fragment key={row.id}>
+                              <tr
+                                draggable
+                                onDragStart={() => handleDragStart(idx)}
+                                onDragOver={(e) => handleDragOver(e, idx)}
+                                onDrop={(e) => handleDrop(e, idx)}
+                                onClick={() => {
+                                  setActiveCellIndex(idx);
+                                  setFormulaValue(row.topicName);
+                                }}
+                                className={`transition group cursor-pointer ${
+                                  isActive ? "bg-indigo-50/70" : "hover:bg-zinc-50/80"
+                                } ${isDragOver ? "bg-amber-100 border-2 border-dashed border-amber-500" : ""}`}
+                              >
+                                <td className="px-2 py-2.5 text-center text-zinc-400 font-mono font-bold select-none">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <GripVertical className="w-3 h-3 text-zinc-300 opacity-0 group-hover:opacity-100 transition cursor-grab" />
+                                    <span>{idx + 1}</span>
+                                  </div>
+                                </td>
+
+                                <td className="px-3 py-2.5 font-mono font-bold text-zinc-900 whitespace-nowrap">
+                                  {row.displayDate}
+                                </td>
+
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 font-extrabold text-[11px] font-mono">
+                                    {row.dayLetter}
+                                  </span>
+                                </td>
+
+                                <td className="px-3 py-2.5 text-center font-mono font-bold text-indigo-700">
+                                  {row.lessonNumber}
+                                </td>
+
+                                <td className="px-3 py-1.5">
+                                  <input
+                                    type="text"
+                                    value={row.topicName}
+                                    onChange={(e) => handleTopicChange(idx, e.target.value)}
+                                    placeholder="Dars mavzusini kiriting..."
+                                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium font-sans border transition outline-none ${
+                                      isActive
+                                        ? "border-indigo-500 bg-white shadow-2xs font-semibold"
+                                        : "border-transparent bg-transparent hover:border-zinc-200 focus:bg-white focus:border-indigo-500"
+                                    }`}
+                                  />
+                                </td>
+
+                                <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInsertRowAfter(idx);
+                                      }}
+                                      className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                                      title="Ostiga yangi qator qo'shish"
+                                    >
+                                      <PlusCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteGridRow(idx);
+                                      }}
+                                      className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                      title="Qatorni o'chirish"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* Desktop Hover Row-Divider Inserter (+) */}
+                              <tr className="hidden sm:table-row h-0">
+                                <td colSpan={6} className="p-0 border-0 relative">
+                                  <div className="h-2 -my-1 relative group/insert flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-10">
+                                    <div className="w-full h-0.5 bg-emerald-400 absolute"></div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInsertRowAfter(idx)}
+                                      className="relative bg-emerald-600 hover:bg-emerald-700 text-white rounded-full p-1 shadow-md text-[10px] font-bold flex items-center gap-1 px-2.5 cursor-pointer transform -translate-y-0.5 hover:scale-105 transition"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      <span>Oraliqqa dars qo'shish</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-200 flex items-center justify-between shrink-0">
+              {builderStep === "grid" ? (
+                <button
+                  type="button"
+                  onClick={() => setBuilderStep("setup")}
+                  className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold transition cursor-pointer"
+                >
+                  ← Qaytadan sozlash
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowSmartModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+              )}
+
+              {builderStep === "setup" ? (
+                <button
+                  type="button"
+                  onClick={handleGenerateSmartGrid}
+                  disabled={builderLoading}
+                  className="px-6 py-2.5 rounded-xl bg-[#5B50EC] hover:bg-[#4A3FDB] text-white text-xs font-bold transition cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-md shadow-indigo-500/20"
+                >
+                  {builderLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Jadval hisoblanmoqda...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Jadvalni tuzish</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveBatchPlans}
+                  disabled={savingBatch}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D4F562] to-[#BFEA42] hover:from-[#c7ea50] hover:to-[#b0dc33] text-[#1D1E26] text-xs font-black transition cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-[#D4F562]/30"
+                >
+                  {savingBatch ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saqlanmoqda...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 text-[#1D1E26]" />
+                      <span>Ish Rejasini Saqlash ({smartRows.filter((r) => r.topicName.trim()).length} ta mavzu)</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: SINGLE EDIT LESSON PLAN                                            */}
+      {/* ========================================================================= */}
+      {showEditModal && editingPlan && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !formSubmitting) {
+              setShowEditModal(false);
+              setEditingPlan(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+              <h3 className="text-base font-black text-zinc-900">Dars Mavzusini Tahrirlash</h3>
+              <button
+                type="button"
                 onClick={() => {
-                  setShowAddModal(false);
                   setShowEditModal(false);
                   setEditingPlan(null);
                 }}
-                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 font-bold text-xs cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
 
             {formError && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl">
+                {formError}
               </div>
             )}
 
-            <form onSubmit={handleSavePlan} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Class select */}
+            <form onSubmit={handleSingleSave} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                    Sinf *
-                  </label>
-                  <select
-                    required
-                    value={formClassId}
-                    onChange={(e) => setFormClassId(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-900 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
-                  >
-                    <option value="">Sinfni tanlang</option>
-                    {myClasses.map((cls) => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Subject select (Teacher's own subjects only) */}
-                <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                    Fan (Mening Fanlarim) *
-                  </label>
-                  <select
-                    required
-                    value={formSubjectId}
-                    onChange={(e) => setFormSubjectId(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-900 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
-                  >
-                    <option value="">Fanni tanlang</option>
-                    {mySubjects.map((sub) => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Date */}
-                <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                    Dars Sanasi *
-                  </label>
+                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Sana *</label>
                   <input
                     type="date"
                     required
                     value={formStartDate}
                     onChange={(e) => setFormStartDate(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-900 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer font-mono"
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
                   />
                 </div>
-
-                {/* Weekday */}
                 <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                    Hafta Kuni *
-                  </label>
-                  <select
-                    required
-                    value={formDayOfWeek}
-                    onChange={(e) => setFormDayOfWeek(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-900 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
-                  >
-                    {WEEKDAYS.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name} ({w.id}-kun)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Lesson hour */}
-                <div>
-                  <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                    Dars Soati (1-8) *
-                  </label>
+                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Dars soati *</label>
                   <input
                     type="number"
-                    min="1"
-                    max="10"
+                    min={1}
+                    max={10}
                     required
                     value={formLessonNumber}
                     onChange={(e) => setFormLessonNumber(Number(e.target.value))}
-                    className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-900 focus:bg-white focus:border-indigo-500 outline-none transition font-mono"
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
                   />
                 </div>
               </div>
 
-              {/* Topic Name */}
               <div>
-                <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                  Dars Mavzusi Nomi *
-                </label>
-                <input
-                  type="text"
+                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Mavzu nomi *</label>
+                <textarea
+                  rows={3}
                   required
-                  placeholder="Masalan: 1 raqamini o'rganish va yozish"
                   value={formTopicName}
                   onChange={(e) => setFormTopicName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                  Qo'shimcha Izoh / Uyga Vazifa (Ixtiyoriy)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Mavzu bo'yicha eslatmalar..."
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-800 focus:bg-white focus:border-indigo-500 outline-none transition"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setShowEditModal(false);
-                    setEditingPlan(null);
-                  }}
-                  className="px-4 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-700 text-xs font-bold hover:bg-zinc-100 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={formSubmitting}
-                  className="px-5 py-2.5 bg-[#5B50EC] text-white rounded-xl text-xs font-bold hover:bg-[#4A3FDB] transition cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-[#5B50EC] hover:bg-[#4A3FDB] text-white text-xs font-bold transition cursor-pointer disabled:opacity-50"
                 >
-                  {formSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{editingPlan ? "O'zgarishlarni Saqlash" : "Mavzuni Qo'shish"}</span>
+                  {formSubmitting ? "Saqlanmoqda..." : "O'zgarishlarni saqlash"}
                 </button>
               </div>
             </form>
@@ -1025,227 +1502,38 @@ export default function LessonPlansSection({
         </div>
       )}
 
-      {/* Modal: Import Lesson Plans from Excel */}
-      {showImportModal && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowImportModal(false);
-              setImportFile(null);
-              setImportError("");
-              setImportResult(null);
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
-        >
-          <div className="w-full max-w-2xl bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-zinc-900 animate-fadeIn space-y-6">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-[#16193E]">Ish Rejasini Excel Orqali Import Qilish</h3>
-                  <p className="text-xs text-zinc-400 font-medium mt-0.5">
-                    Faqat o'zingiz dars beradigan fanlar rejasini Excel shablonda to'ldirib yuklang
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowImportModal(false);
-                  setImportFile(null);
-                  setImportError("");
-                  setImportResult(null);
-                }}
-                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Template download & rules info banner */}
-            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <span className="text-xs font-black text-emerald-950 block">Excel Shablon Ustunlari:</span>
-                  <p className="text-[11px] text-emerald-800 font-medium leading-relaxed">
-                    1. <b>hafta kuni</b> (1=Dushanba, 2=Seshanba...)<br />
-                    2. <b>dars nome</b> (Dars soati: 1, 2, 4...)<br />
-                    3. <b>sinf</b> (Masalan: 1-A, 5-B)<br />
-                    4. <b>fan</b> (Faqat o'zingiz dars beradigan fan: {mySubjects.map(s => s.name).join(", ") || "Fanlaringiz"})<br />
-                    5. <b>start_date</b> (Sana: 2026-09-01 yoki 25.10.2026)<br />
-                    6. <b>mavzu nomi</b> (Dars mavzusi — <span className="text-rose-600 font-bold">Majburiy</span>)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadTemplate}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm shadow-emerald-600/20"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Shablonni yuklab olish</span>
-                </button>
-              </div>
-            </div>
-
-            {importError && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{importError}</span>
-              </div>
-            )}
-
-            {/* Import result summary */}
-            {importResult && (
-              <div className="space-y-3">
-                <div className={`p-4 rounded-2xl border text-xs font-bold ${
-                  importResult.failed_count === 0
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                    : "bg-amber-50 border-amber-200 text-amber-900"
-                }`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Natija: {importResult.imported_count} ta mavzu muvaffaqiyatli qo'shildi, {importResult.failed_count} ta qatorda xatolik.</span>
-                  </div>
-                </div>
-
-                {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto rounded-2xl border border-rose-200 bg-rose-50/50 p-3 space-y-1.5 text-xs">
-                    <span className="font-extrabold text-rose-900 block mb-1">Xatoliklar ro'yxati:</span>
-                    {importResult.errors.map((err, eIdx) => (
-                      <div key={eIdx} className="text-rose-700 flex items-start gap-2 bg-white/80 p-2 rounded-xl border border-rose-100">
-                        <span className="font-mono font-black text-rose-800 shrink-0">Qator {err.row}:</span>
-                        <span>{err.error}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <form onSubmit={handleImport} className="space-y-5">
-              {/* File Upload Box */}
-              <div>
-                <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider mb-1.5">
-                  Excel (.xlsx) Faylini tanlang *
-                </label>
-                <div className="border-2 border-dashed border-zinc-200 hover:border-emerald-500 rounded-2xl p-6 text-center bg-zinc-50/50 transition cursor-pointer relative group">
-                  <input
-                    type="file"
-                    accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    required
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setImportFile(e.target.files[0]);
-                        setImportError("");
-                        setImportResult(null);
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
-                      <UploadCloud className="w-6 h-6" />
-                    </div>
-                    {importFile ? (
-                      <div>
-                        <p className="text-xs font-extrabold text-zinc-900">{importFile.name}</p>
-                        <p className="text-[11px] text-zinc-400 font-mono">{(importFile.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-xs font-bold text-zinc-700">Faylni shu yerga tashlang yoki tanlash uchun bosing</p>
-                        <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Faqat .xlsx (Excel) format</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowImportModal(false);
-                    setImportFile(null);
-                    setImportError("");
-                    setImportResult(null);
-                  }}
-                  className="px-4 py-2.5 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={importLoading || !importFile}
-                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shadow-md shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {importLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{importLoading ? "Yuklanmoqda..." : "Ish Rejasini Import Qilish"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Delete Confirmation */}
+      {/* ========================================================================= */}
+      {/* MODAL: DELETE CONFIRMATION                                                */}
+      {/* ========================================================================= */}
       {showDeleteModal && (
         <div
           onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDeleteModal(false);
-              setDeletingPlanId(null);
-            }
+            if (e.target === e.currentTarget) setShowDeleteModal(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-zinc-200/80 rounded-3xl p-6 shadow-2xl text-zinc-900 animate-fadeIn space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div className="text-center space-y-1">
-              <h3 className="text-base font-extrabold text-[#16193E]">Dars Mavzusini O'chirish</h3>
-              <p className="text-xs text-zinc-500 font-medium">
-                Haqiqatan ham ushbu dars mavzusini ish rejasidan o'chirmoqchimisiz?
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 pt-3">
+          <div className="w-full max-w-sm bg-white border border-zinc-200 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4 animate-fadeIn">
+            <h3 className="text-base font-black text-zinc-900">Mavzuni o'chirish</h3>
+            <p className="text-xs text-zinc-600 leading-relaxed font-medium">
+              Haqiqatan ham ushbu dars mavzusini ish rejasidan o'chirmoqchimisiz?
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
               <button
                 type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeletingPlanId(null);
-                }}
-                className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 text-xs font-bold hover:bg-zinc-100 transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="button"
                 onClick={handleDeletePlan}
-                className="px-5 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition cursor-pointer shadow-md shadow-rose-500/20"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer"
               >
-                O'chirish
+                Ha, o'chirish
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast Notification Banner */}
-      {toastMessage && (
-        <div
-          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border font-bold text-xs flex items-center gap-2 animate-fadeIn ${
-            toastMessage.type === "success"
-              ? "bg-[#16193E] text-white border-white/15"
-              : "bg-rose-600 text-white border-rose-700"
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
-          <span>{toastMessage.text}</span>
         </div>
       )}
     </div>

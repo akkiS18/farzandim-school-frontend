@@ -28,6 +28,7 @@ export interface TenantUser {
   student_name?: string;
   address?: string;
   birthdate?: string;
+  enrollment_date?: string;
   ina?: string;
   balance?: number;
   created_at: string;

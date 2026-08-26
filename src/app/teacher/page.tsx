@@ -141,6 +141,7 @@ export default function TeacherDashboard() {
   const [profileLastName, setProfileLastName] = useState("");
   const [profileOldPassword, setProfileOldPassword] = useState("");
   const [profileNewPassword, setProfileNewPassword] = useState("");
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
 
   // Mobile Swipe Gesture Handler
@@ -250,6 +251,7 @@ export default function TeacherDashboard() {
   // Extracurricular Clubs States
   const [clubs, setClubs] = useState<any[]>([]);
   const [clubsLoading, setClubsLoading] = useState(false);
+  const [openClubMenuId, setOpenClubMenuId] = useState<number | null>(null);
   const [showAddClubModal, setShowAddClubModal] = useState(false);
   const [newClubName, setNewClubName] = useState("");
   const [newClubSubjectId, setNewClubSubjectId] = useState<number | "">("");
@@ -257,6 +259,20 @@ export default function TeacherDashboard() {
   const [newClubExtraStudentIds, setNewClubExtraStudentIds] = useState<number[]>([]);
   const [clubsError, setClubsError] = useState("");
   const [clubsSuccess, setClubsSuccess] = useState("");
+
+  // Close club action menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openClubMenuId !== null) {
+        const target = e.target as HTMLElement;
+        if (!target.closest(`.club-menu-container-${openClubMenuId}`)) {
+          setOpenClubMenuId(null);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openClubMenuId]);
 
   const [showEditClubModal, setShowEditClubModal] = useState(false);
   const [editingClub, setEditingClub] = useState<any>(null);
@@ -794,6 +810,52 @@ export default function TeacherDashboard() {
   const [selectedGradeType, setSelectedGradeType] = useState<string>("MASTERY");
   const [selectedGradeCategory, setSelectedGradeCategory] = useState<string>("DAILY");
 
+  // Lesson topic state for current journal view
+  const [currentJournalTopic, setCurrentJournalTopic] = useState<string>("");
+  const [currentJournalTopicLoading, setCurrentJournalTopicLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token || !selectedClassId || !selectedSubjectId || !journalDate) {
+      setCurrentJournalTopic("");
+      return;
+    }
+
+    const fetchCurrentLessonTopic = async () => {
+      setCurrentJournalTopicLoading(true);
+      try {
+        const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+        };
+        if (sId) headers["X-School-ID"] = sId;
+
+        const params = new URLSearchParams();
+        params.append("class_id", String(selectedClassId));
+        params.append("subject_id", String(selectedSubjectId));
+        params.append("start_date_from", journalDate);
+        params.append("start_date_to", journalDate);
+
+        const res = await fetch(`${API_URL}/api/schools/lesson-plans?${params.toString()}`, { headers });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data) && data.length > 0) {
+          const matched = selectedLessonNumber
+            ? data.find((p: any) => p.lesson_number === Number(selectedLessonNumber)) || data[0]
+            : data[0];
+          setCurrentJournalTopic(matched ? matched.topic_name : "");
+        } else {
+          setCurrentJournalTopic("");
+        }
+      } catch (err) {
+        console.error("Failed to fetch current lesson topic:", err);
+        setCurrentJournalTopic("");
+      } finally {
+        setCurrentJournalTopicLoading(false);
+      }
+    };
+
+    fetchCurrentLessonTopic();
+  }, [token, selectedClassId, selectedSubjectId, journalDate, selectedLessonNumber]);
+
   // Global ESC Key Listener to close any open modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -843,6 +905,7 @@ export default function TeacherDashboard() {
     password: "",
     address: "",
     birthdate: "",
+    enrollment_date: new Date().toISOString().split("T")[0],
     ina: ""
   });
 
@@ -2100,6 +2163,7 @@ export default function TeacherDashboard() {
       phone: studentForm.phone.trim() ? studentForm.phone.trim() : undefined,
       address: studentForm.address.trim() || undefined,
       birthdate: studentForm.birthdate || undefined,
+      enrollment_date: studentForm.enrollment_date || new Date().toISOString().split("T")[0],
       ina: studentForm.ina.trim() || undefined,
     };
 
@@ -3150,15 +3214,24 @@ export default function TeacherDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Guvohnoma (INA)</label>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Maktabga kirish sanasi</label>
                 <input
-                  type="text"
-                  value={studentForm.ina}
-                  onChange={(e) => setStudentForm(prev => ({ ...prev, ina: e.target.value }))}
+                  type="date"
+                  value={studentForm.enrollment_date}
+                  onChange={(e) => setStudentForm(prev => ({ ...prev, enrollment_date: e.target.value }))}
                   className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                  placeholder="I-TV No 123456"
                 />
               </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Guvohnoma (INA)</label>
+              <input
+                type="text"
+                value={studentForm.ina}
+                onChange={(e) => setStudentForm(prev => ({ ...prev, ina: e.target.value }))}
+                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                placeholder="I-TV No 123456"
+              />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
@@ -3500,7 +3573,7 @@ export default function TeacherDashboard() {
                   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
                   { id: "journal", label: "Sinf Jurnali", icon: BookOpen },
                   { id: "schedule", label: "Dars Jadvali", icon: Calendar },
-                  { id: "lesson-plans", label: "Dars Ish Rejasi", icon: FileText },
+                  { id: "lesson-plans", label: "Ish rejasi", icon: FileText },
                   { id: "students", label: "O'quvchilar", icon: Users },
                   { id: "parents", label: "Ota-onalar", icon: UserCheck },
                   { id: "social-passport", label: "Ijtimoiy pasport", icon: FileSpreadsheet },
@@ -3914,8 +3987,8 @@ export default function TeacherDashboard() {
 
                   return (
                     <div className="bg-white border border-zinc-200/70 rounded-2xl sm:rounded-3xl px-5 py-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
-                      {/* Left: Class Info & Single Prominent Subject Badge */}
-                      <div className="flex items-center space-x-3 flex-wrap gap-y-1">
+                      {/* Left: Class Info, Single Prominent Subject Badge, and Topic Badge */}
+                      <div className="flex items-center space-x-3 flex-wrap gap-y-2">
                         <div className="flex items-center space-x-2">
                           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Kunlik Jurnal</span>
                           <span className="text-zinc-300 font-light">•</span>
@@ -3935,6 +4008,21 @@ export default function TeacherDashboard() {
                               {selectedLessonNumber}-soat
                             </span>
                           ) : null}
+                        </div>
+
+                        {/* PROMINENT LESSON TOPIC BADGE (Picture 2) */}
+                        <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 px-3.5 py-1 rounded-xl shadow-2xs">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span className="text-[10px] font-black text-blue-900 uppercase font-mono tracking-tight shrink-0">Mavzu:</span>
+                          <span className="text-xs font-bold text-blue-950 font-sans truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+                            {currentJournalTopicLoading ? (
+                              <span className="text-zinc-400 font-mono text-[10px]">Yuklanmoqda...</span>
+                            ) : currentJournalTopic ? (
+                              currentJournalTopic
+                            ) : (
+                              <span className="text-zinc-400 font-normal italic">Mavzu belgilanmagan</span>
+                            )}
+                          </span>
                         </div>
                       </div>
 
@@ -4898,6 +4986,7 @@ export default function TeacherDashboard() {
                             password: "123456",
                             address: "",
                             birthdate: "",
+                            enrollment_date: new Date().toISOString().split("T")[0],
                             ina: ""
                           });
                           setShowStudentModal(true);
@@ -4927,15 +5016,16 @@ export default function TeacherDashboard() {
                   ) : (
                     <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
+                        <table className="w-full text-left border-collapse text-xs min-w-[920px]">
                           <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
                             <tr>
-                              <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
-                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
-                              <th className="px-6 py-3.5">Sinf</th>
-                              <th className="px-6 py-3.5">Telefon</th>
-                              <th className="px-6 py-3.5">Tug'ilgan sana</th>
-                              <th className="px-6 py-3.5 text-right">Amallar</th>
+                              <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50 whitespace-nowrap">T/R</th>
+                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-nowrap min-w-[180px]">Ism Familiya</th>
+                              <th className="px-6 py-3.5 whitespace-nowrap min-w-[90px]">Sinf</th>
+                              <th className="px-6 py-3.5 whitespace-nowrap">Telefon</th>
+                              <th className="px-6 py-3.5 whitespace-nowrap">Tug'ilgan sana</th>
+                              <th className="px-6 py-3.5 whitespace-nowrap">Maktabga kirish sanasi</th>
+                              <th className="px-6 py-3.5 text-right whitespace-nowrap">Amallar</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
@@ -4944,16 +5034,21 @@ export default function TeacherDashboard() {
                               return (
                                 <tr key={st.id} className="group hover:bg-zinc-50/80 transition">
                                   <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{globalIndex}</td>
-                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition min-w-[180px] whitespace-nowrap">
                                     {st.first_name} {st.last_name} {st.middle_name && <span className="text-zinc-400 font-normal">({st.middle_name})</span>}
                                   </td>
-                                  <td className="px-6 py-3.5 font-mono">
-                                    <span className="px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 inline-block">
+                                  <td className="px-6 py-3.5 font-mono whitespace-nowrap">
+                                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 inline-block whitespace-nowrap shrink-0">
                                       {st.class_name || "—"}
                                     </span>
                                   </td>
-                                  <td className="px-6 py-3.5 font-mono text-zinc-500">{st.phone || "—"}</td>
-                                  <td className="px-6 py-3.5 font-mono text-zinc-500">{st.birthdate ? st.birthdate.split("T")[0] : "—"}</td>
+                                  <td className="px-6 py-3.5 font-mono text-zinc-500 whitespace-nowrap">{st.phone || "—"}</td>
+                                  <td className="px-6 py-3.5 font-mono text-zinc-500 whitespace-nowrap">{st.birthdate ? st.birthdate.split("T")[0] : "—"}</td>
+                                  <td className="px-6 py-3.5 font-mono text-zinc-600 font-bold whitespace-nowrap">
+                                    <span className="bg-indigo-50/70 text-indigo-800 px-2.5 py-1 rounded-xl text-[11px] border border-indigo-100/60 inline-block whitespace-nowrap">
+                                      📅 {st.enrollment_date ? st.enrollment_date.split("T")[0] : (st.created_at ? st.created_at.split("T")[0] : "—")}
+                                    </span>
+                                  </td>
                                   <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
                                     <button
                                       type="button"
@@ -4987,6 +5082,7 @@ export default function TeacherDashboard() {
                                           password: "",
                                           address: st.address || "",
                                           birthdate: st.birthdate ? st.birthdate.split("T")[0] : "",
+                                          enrollment_date: st.enrollment_date ? st.enrollment_date.split("T")[0] : (st.created_at ? st.created_at.split("T")[0] : new Date().toISOString().split("T")[0]),
                                           ina: st.ina || ""
                                         });
                                         setShowStudentModal(true);
@@ -5780,88 +5876,169 @@ export default function TeacherDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {clubs.map((club) => (
                       <div key={club.id} className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 text-zinc-900 relative hover:shadow-md transition">
-                        <div className="flex items-start justify-between gap-2 border-b border-zinc-100 pb-3.5">
-                          <div className="space-y-1">
+                        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3.5">
+                          <div className="space-y-1 min-w-0 flex-1 pr-2">
                             <span className="text-[10px] font-extrabold text-[#0284C7] bg-[#E0F2FE] px-3 py-1 rounded-xl font-mono inline-block">
                               {club.subject_name}
                             </span>
-                            <h4 className="text-base font-extrabold text-[#16193E]">{club.name}</h4>
+                            <h4 className="text-base font-extrabold text-[#16193E] truncate">{club.name}</h4>
                             <p className="text-xs text-zinc-500 font-medium">
                               Ruxsat etilgan sinflar: <b className="text-zinc-800">{club.allowed_class_levels ? club.allowed_class_levels.join(", ") + "-sinflar" : "Barchasi"}</b>
                             </p>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
+
+                          <div className={`relative flex items-center gap-1.5 shrink-0 club-menu-container-${club.id}`}>
+                            {/* Desktop Edit & Delete buttons (hidden on mobile, visible on sm and up) */}
+                            <div className="hidden sm:flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenClubMenuId(null);
+                                  setEditingClub(club);
+                                  setEditClubName(club.name);
+                                  setEditClubSubjectId(club.subject_id);
+                                  setEditClubAllowedLevels(club.allowed_class_levels || []);
+                                  setActionError("");
+                                  setShowEditClubModal(true);
+                                }}
+                                className="p-2 sm:p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-800 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                                title="To'garakni tahrirlash"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenClubMenuId(null);
+                                  handleDeleteClub(club.id);
+                                }}
+                                className="p-2 sm:p-2.5 bg-red-50 hover:bg-red-100 border border-red-200/80 text-red-600 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                                title="To'garakni o'chirish"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* 3-dots Menu Button (MoreVertical) */}
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditingClub(club);
-                                setEditClubName(club.name);
-                                setEditClubSubjectId(club.subject_id);
-                                setEditClubAllowedLevels(club.allowed_class_levels || []);
-                                setActionError("");
-                                setShowEditClubModal(true);
-                              }}
-                              className="p-2 sm:p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-800 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                              title="To'garakni tahrirlash"
+                              onClick={() => setOpenClubMenuId(openClubMenuId === club.id ? null : club.id)}
+                              className={`p-2 sm:p-2.5 rounded-2xl border transition cursor-pointer flex items-center justify-center shadow-2xs ${
+                                openClubMenuId === club.id
+                                  ? "bg-indigo-600 border-indigo-600 text-white shadow-md scale-105"
+                                  : "bg-zinc-100/90 hover:bg-zinc-200/80 border-zinc-200/80 text-zinc-700 hover:text-zinc-900"
+                              }`}
+                              title="Boshqa amallar"
                             >
-                              <Pencil className="w-4 h-4" />
+                              <MoreVertical className="w-4 h-4" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteClub(club.id)}
-                              className="p-2 sm:p-2.5 bg-red-50 hover:bg-red-100 border border-red-200/80 text-red-600 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                              title="To'garakni o'chirish"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedClubForStudents(club);
-                                setSearchStudentTerm("");
-                                setClubStudents([]);
-                                fetchClubStudents(club.id);
-                                if (token) {
-                                  if (allStudents.length === 0) fetchAllStudents(token);
-                                  if (studentsTabList.length === 0) fetchStudentsTabList();
-                                }
-                                setShowClubStudentsModal(true);
-                              }}
-                              className="p-2 sm:p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                              title="A'zolar & So'rovlar"
-                            >
-                              <Users className="w-4 h-4" />
-                            </button>
-                            <button
-                               type="button"
-                               onClick={() => {
-                                 setSelectedClubForSchedule(club);
-                                 setNewScheduleDay(1);
-                                 setNewScheduleStartTime("14:00");
-                                 setNewScheduleEndTime("15:30");
-                                 setShowAddScheduleModal(true);
-                               }}
-                               className="p-2 sm:p-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                               title="Jadval qo'shish"
-                             >
-                               <Calendar className="w-4 h-4" />
-                             </button>
-                             <button
-                               type="button"
-                               onClick={() => {
-                                 setSelectedClubForGrading(club);
-                                 const today = new Date().toISOString().split("T")[0];
-                                 setClubGradingDate(today);
-                                 setClubJournalTab("grade");
-                                 setClubGradeHistory([]);
-                                 fetchClubStudentsAndGrades(club.id, today);
-                                 setShowClubGradingModal(true);
-                               }}
-                               className="p-2 sm:p-2.5 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 text-purple-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                               title="Mashg'ulot Jurnali & Baholash"
-                             >
-                               <Award className="w-4 h-4 text-purple-600" />
-                             </button>
+
+                            {/* Dropdown Menu Popup */}
+                            {openClubMenuId === club.id && (
+                              <div className="absolute right-0 top-full mt-2 w-56 sm:w-64 bg-white/95 backdrop-blur-md border border-zinc-200/90 rounded-2xl shadow-xl p-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 space-y-0.5 font-sans">
+                                
+                                {/* Mobile-only Edit Option */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenClubMenuId(null);
+                                    setEditingClub(club);
+                                    setEditClubName(club.name);
+                                    setEditClubSubjectId(club.subject_id);
+                                    setEditClubAllowedLevels(club.allowed_class_levels || []);
+                                    setActionError("");
+                                    setShowEditClubModal(true);
+                                  }}
+                                  className="sm:hidden w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-xl transition cursor-pointer"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span>To'garakni tahrirlash</span>
+                                </button>
+
+                                {/* Option 1: A'zolar va So'rovlar */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenClubMenuId(null);
+                                    setSelectedClubForStudents(club);
+                                    setSearchStudentTerm("");
+                                    setClubStudents([]);
+                                    fetchClubStudents(club.id);
+                                    if (token) {
+                                      if (allStudents.length === 0) fetchAllStudents(token);
+                                      if (studentsTabList.length === 0) fetchStudentsTabList();
+                                    }
+                                    setShowClubStudentsModal(true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition cursor-pointer"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                                    <Users className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span>To'garak a'zolari</span>
+                                </button>
+
+                                {/* Option 2: Jadval qo'shish */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenClubMenuId(null);
+                                    setSelectedClubForSchedule(club);
+                                    setNewScheduleDay(1);
+                                    setNewScheduleStartTime("14:00");
+                                    setNewScheduleEndTime("15:30");
+                                    setShowAddScheduleModal(true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition cursor-pointer"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span>Dars jadvali</span>
+                                </button>
+
+                                {/* Option 3: Mashg'ulot jurnali va baholash */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenClubMenuId(null);
+                                    setSelectedClubForGrading(club);
+                                    const today = new Date().toISOString().split("T")[0];
+                                    setClubGradingDate(today);
+                                    setClubJournalTab("grade");
+                                    setClubGradeHistory([]);
+                                    fetchClubStudentsAndGrades(club.id, today);
+                                    setShowClubGradingModal(true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-purple-50 hover:text-purple-700 rounded-xl transition cursor-pointer"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                                    <Award className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span>To'garak jurnali & baholash</span>
+                                </button>
+
+                                {/* Mobile-only Delete Option */}
+                                <div className="sm:hidden border-t border-zinc-100 pt-1 mt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenClubMenuId(null);
+                                      handleDeleteClub(club.id);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                                  >
+                                    <div className="w-7 h-7 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </div>
+                                    <span>To'garakni o'chirish</span>
+                                  </button>
+                                </div>
+
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -6014,7 +6191,7 @@ export default function TeacherDashboard() {
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
                       Parolni o'zgartirish
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-zinc-700 mb-1">Eski parol</label>
                         <input
@@ -6035,13 +6212,31 @@ export default function TeacherDashboard() {
                           className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-700 mb-1">Yangi parolni tasdiqlash</label>
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={profileConfirmPassword}
+                          onChange={(e) => setProfileConfirmPassword(e.target.value)}
+                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={async () => {
-                        if (!profileOldPassword || !profileNewPassword) {
-                          setToast({ type: "error", message: "Eski va yangi parolni kiriting!" });
+                        if (!profileOldPassword || !profileNewPassword || !profileConfirmPassword) {
+                          setToast({ type: "error", message: "Iltimos, barcha parol maydonlarini to'ldiring!" });
+                          return;
+                        }
+                        if (profileNewPassword !== profileConfirmPassword) {
+                          setToast({ type: "error", message: "Yangi parollar bir-biriga mos kelmadi!" });
+                          return;
+                        }
+                        if (profileNewPassword.length < 6) {
+                          setToast({ type: "error", message: "Yangi parol kamida 6 ta belgidan iborat bo'lishi kerak!" });
                           return;
                         }
                         try {
@@ -6062,6 +6257,7 @@ export default function TeacherDashboard() {
 
                           setProfileOldPassword("");
                           setProfileNewPassword("");
+                          setProfileConfirmPassword("");
                           setToast({ type: "success", message: "Parol muvaffaqiyatli o'zgartirildi!" });
                         } catch (err: any) {
                           setToast({ type: "error", message: err.message || "Xatolik yuz berdi" });

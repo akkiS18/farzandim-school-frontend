@@ -25,6 +25,7 @@ export interface SmartStudentRowData {
   motherFullName: string;
   motherDocumentNo: string;
   motherPhone: string;
+  enrollmentDate: string;
 }
 
 const FIELD_LABELS: Record<keyof SmartStudentRowData, string> = {
@@ -42,6 +43,7 @@ const FIELD_LABELS: Record<keyof SmartStudentRowData, string> = {
   motherFullName: "Onasi F.I.Sh",
   motherDocumentNo: "Onasi Pasport",
   motherPhone: "Onasi Tel",
+  enrollmentDate: "Maktabga kirish sanasi",
 };
 
 export interface ExistingStudentDocInfo {
@@ -129,6 +131,7 @@ const TableRow = memo(function TableRow({
     { key: "motherFullName", placeholder: "-", width: "w-40", extraStyle: "font-semibold" },
     { key: "motherDocumentNo", placeholder: "-", width: "w-28", extraStyle: "font-mono" },
     { key: "motherPhone", placeholder: "-", width: "w-32", extraStyle: "font-mono text-indigo-700" },
+    { key: "enrollmentDate", placeholder: "YYYY-MM-DD", width: "w-32", extraStyle: "font-mono font-bold text-indigo-700" },
   ];
 
   return (
@@ -737,6 +740,8 @@ export default function SocialPassportImportSection({
                 colMap["studentDocumentNo"] = colIdx;
               } else if (cellText.includes("yashash") || cellText.includes("manzil") || cellText.includes("адрес")) {
                 colMap["address"] = colIdx;
+              } else if (cellText.includes("kirish") || cellText.includes("qabul") || cellText.includes("enrollment")) {
+                colMap["enrollmentDate"] = colIdx;
               } else if (cellText.includes("familiya") || cellText.includes("ism") || cellText.includes("f.i.sh") || cellText.includes("укувчи")) {
                 colMap["studentFullName"] = colIdx;
               }
@@ -760,9 +765,11 @@ export default function SocialPassportImportSection({
         const idxMotherFIO = getColIdx("motherFullName", 9);
         const idxMotherDoc = getColIdx("motherDocumentNo", 10);
         const idxMotherPhone = getColIdx("motherPhone", 11);
+        const idxEnrollmentDate = getColIdx("enrollmentDate", -1);
 
         const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
         const rows: SmartStudentRowData[] = [];
+        const todayDateStr = new Date().toISOString().split("T")[0];
 
         for (let r = startRow; r < rawData.length; r++) {
           const rowData = rawData[r];
@@ -783,6 +790,11 @@ export default function SocialPassportImportSection({
             ? parsedClass 
             : (titleDetectedClass || "1-A");
 
+          let parsedEnrollmentDate = idxEnrollmentDate !== -1 && rowData[idxEnrollmentDate] !== undefined ? cleanCellValue(rowData[idxEnrollmentDate]) : "";
+          if (!parsedEnrollmentDate || parsedEnrollmentDate === "-") {
+            parsedEnrollmentDate = todayDateStr;
+          }
+
           const rowItem: SmartStudentRowData = {
             id: Math.random().toString(36).substring(2, 9),
             className: finalClass,
@@ -798,6 +810,7 @@ export default function SocialPassportImportSection({
             motherFullName: cleanCellValue(rowData[idxMotherFIO]),
             motherDocumentNo: normalizeDocumentNo(cleanCellValue(rowData[idxMotherDoc])),
             motherPhone: cleanPhoneNumber(cleanCellValue(rowData[idxMotherPhone])),
+            enrollmentDate: parsedEnrollmentDate,
           };
 
           rows.push(rowItem);
@@ -885,6 +898,7 @@ export default function SocialPassportImportSection({
           student_middle_name: r.studentMiddleName,
           student_birthdate: r.studentBirthdate,
           student_document_no: r.studentDocumentNo,
+          enrollment_date: r.enrollmentDate || new Date().toISOString().split("T")[0],
           address: r.address,
           father_full_name: r.fatherFullName,
           father_document_no: r.fatherDocumentNo,
@@ -1101,6 +1115,7 @@ export default function SocialPassportImportSection({
                   <th className="px-3 py-3 w-40">Onasi F.I.Sh</th>
                   <th className="px-3 py-3 w-28">Onasi Pasport</th>
                   <th className="px-3 py-3 w-32">Onasi Tel</th>
+                  <th className="px-3 py-3 w-32">Maktabga kirish sanasi</th>
                   <th className="px-3 py-3 w-12 text-center">Amal</th>
                 </tr>
               </thead>

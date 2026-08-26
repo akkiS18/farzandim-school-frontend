@@ -170,10 +170,57 @@ export default function ClassesSection({
   const [quickSubjectLoading, setQuickSubjectLoading] = useState(false);
   const [quickSubjectError, setQuickSubjectError] = useState("");
 
+  const getSubjectTargetLevels = (sub: SubjectItem): number[] => {
+    if (sub.target_levels && sub.target_levels.length > 0) {
+      return sub.target_levels;
+    }
+    const name = sub.name.toLowerCase().trim();
+
+    // 7-11 sinflar
+    if (name.includes("algebra") || name.includes("geometriya") || name.includes("kimyo")) {
+      return [7, 8, 9, 10, 11];
+    }
+    if (name.includes("fizika")) {
+      return [6, 7, 8, 9, 10, 11];
+    }
+    // 5-11 sinflar
+    if (
+      name.includes("tarix") || 
+      name.includes("adabiyot") || 
+      name.includes("biologiya") || 
+      name.includes("geografiya") || 
+      name.includes("botanika") || 
+      name.includes("zoologiya") || 
+      name.includes("anatomiya")
+    ) {
+      return [5, 6, 7, 8, 9, 10, 11];
+    }
+    // 8-11 sinflar
+    if (name.includes("huquq") || name.includes("iqtisod")) {
+      return [8, 9, 10, 11];
+    }
+    // 10-11 sinflar
+    if (name.includes("chqbt") || name.includes("harbiy") || name.includes("astronomiya")) {
+      return [10, 11];
+    }
+    // 1-4 sinflar
+    if (name.includes("savodxonlik") || name.includes("o'qish") || name.includes("atrofimizdagi olam")) {
+      return [1, 2, 3, 4];
+    }
+    if (name === "matematika") {
+      return [1, 2, 3, 4, 5, 6];
+    }
+
+    // Umumiy fanlar (Ona tili, Ingliz tili, Rus tili, Jismoniy tarbiya, Tarbiya, Musiqa, Tasviriy san'at, Texnologiya, Informatika va h.k.)
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  };
+
+  const currentClassLevel = selectedClass?.level || (selectedClass?.name ? parseInt(selectedClass.name.match(/\d+/)?.[0] || "0", 10) : 0);
+
   const filteredSubjectsForClass = subjects.filter((sub) => {
-    if (!selectedClass || !selectedClass.level) return true;
-    if (!sub.target_levels || sub.target_levels.length === 0) return true;
-    return sub.target_levels.includes(selectedClass.level);
+    if (!currentClassLevel) return true;
+    const levels = getSubjectTargetLevels(sub);
+    return levels.includes(currentClassLevel);
   });
 
   // Contextual Sub-lists
@@ -207,6 +254,7 @@ export default function ClassesSection({
   const [studentPhone, setStudentPhone] = useState("");
   const [studentAddress, setStudentAddress] = useState("");
   const [studentBirthDate, setStudentBirthDate] = useState("");
+  const [studentEnrollmentDate, setStudentEnrollmentDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [studentINA, setStudentINA] = useState("");
   const [studentPassword, setStudentPassword] = useState("password123");
 
@@ -217,6 +265,7 @@ export default function ClassesSection({
   const [editStudentMiddleName, setEditStudentMiddleName] = useState("");
   const [editStudentAddress, setEditStudentAddress] = useState("");
   const [editStudentBirthDate, setEditStudentBirthDate] = useState("");
+  const [editStudentEnrollmentDate, setEditStudentEnrollmentDate] = useState("");
   const [editStudentINA, setEditStudentINA] = useState("");
 
   const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
@@ -792,6 +841,7 @@ export default function ClassesSection({
           middle_name: studentMiddleName.trim() || undefined,
           address: studentAddress.trim() || undefined,
           birthdate: studentBirthDate || undefined,
+          enrollment_date: studentEnrollmentDate || new Date().toISOString().split("T")[0],
           ina: studentINA.trim() || undefined,
         }),
       });
@@ -805,6 +855,7 @@ export default function ClassesSection({
       setStudentPhone("");
       setStudentAddress("");
       setStudentBirthDate("");
+      setStudentEnrollmentDate(new Date().toISOString().split("T")[0]);
       setStudentINA("");
       setStudentPassword("password123");
       setShowAddStudentModal(false);
@@ -837,6 +888,7 @@ export default function ClassesSection({
           middle_name: editStudentMiddleName.trim() || undefined,
           address: editStudentAddress.trim() || undefined,
           birthdate: editStudentBirthDate || undefined,
+          enrollment_date: editStudentEnrollmentDate || undefined,
           ina: editStudentINA.trim() || undefined,
         }),
       });
@@ -1417,17 +1469,17 @@ export default function ClassesSection({
               ) : (
                 <div className="space-y-4">
                   <div className="overflow-x-auto rounded-2xl border border-slate-100 relative">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[950px]">
                       <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                         <tr>
-                          <th className="px-6 py-4">T/R</th>
-                          <th className="px-6 py-4 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">F.I.SH</th>
-                          <th className="px-6 py-4">Qo'shilgan sana</th>
-                          <th className="px-6 py-4">Manzil</th>
-                          <th className="px-6 py-4">Tug'ilgan sana</th>
-                          <th className="px-6 py-4">INA</th>
-                          <th className="px-6 py-4">Balans</th>
-                          <th className="px-6 py-4 text-right">Amallar</th>
+                          <th className="px-6 py-4 whitespace-nowrap">T/R</th>
+                          <th className="px-6 py-4 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap">F.I.SH</th>
+                          <th className="px-6 py-4 whitespace-nowrap">Maktabga kirish sanasi</th>
+                          <th className="px-6 py-4 whitespace-nowrap">Manzil</th>
+                          <th className="px-6 py-4 whitespace-nowrap">Tug'ilgan sana</th>
+                          <th className="px-6 py-4 whitespace-nowrap">INA</th>
+                          <th className="px-6 py-4 whitespace-nowrap">Balans</th>
+                          <th className="px-6 py-4 text-right whitespace-nowrap">Amallar</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
@@ -1444,7 +1496,7 @@ export default function ClassesSection({
                               </td>
                               <td className="px-6 py-4 text-slate-600 font-mono font-bold whitespace-nowrap">
                                 <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-[11px]">
-                                  📅 {formatUzbekDate(student.created_at)}
+                                  📅 {formatUzbekDate(student.enrollment_date || student.created_at)}
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-slate-500">{student.address || "Kiritilmagan"}</td>
@@ -1479,6 +1531,7 @@ export default function ClassesSection({
                                         setEditStudentMiddleName(student.middle_name || "");
                                         setEditStudentAddress(student.address || "");
                                         setEditStudentBirthDate(student.birthdate ? student.birthdate.split("T")[0] : "");
+                                        setEditStudentEnrollmentDate(student.enrollment_date ? student.enrollment_date.split("T")[0] : (student.created_at ? student.created_at.split("T")[0] : new Date().toISOString().split("T")[0]));
                                         setEditStudentINA(student.ina || "");
                                         setShowEditStudentModal(true);
                                       }}
@@ -2363,15 +2416,25 @@ export default function ClassesSection({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Maktabga kirish sanasi</label>
                     <input
-                      type="text"
-                      placeholder="I-TV No 123456"
-                      value={studentINA}
-                      onChange={(e) => setStudentINA(e.target.value)}
+                      type="date"
+                      value={studentEnrollmentDate}
+                      onChange={(e) => setStudentEnrollmentDate(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                  <input
+                    type="text"
+                    placeholder="I-TV No 123456"
+                    value={studentINA}
+                    onChange={(e) => setStudentINA(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                  />
                 </div>
 
                 <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
@@ -2385,6 +2448,7 @@ export default function ClassesSection({
                       setStudentPhone("");
                       setStudentAddress("");
                       setStudentBirthDate("");
+                      setStudentEnrollmentDate(new Date().toISOString().split("T")[0]);
                       setStudentINA("");
                       setStudentPassword("password123");
                       setActionError("");
@@ -2498,18 +2562,28 @@ export default function ClassesSection({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Maktabga kirish sanasi</label>
                     <input
-                      type="text"
-                      value={editStudentINA}
-                      onChange={(e) => setEditStudentINA(e.target.value)}
+                      type="date"
+                      value={editStudentEnrollmentDate}
+                      onChange={(e) => setEditStudentEnrollmentDate(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Maktabga qo'shilgan sana</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                  <input
+                    type="text"
+                    value={editStudentINA}
+                    onChange={(e) => setEditStudentINA(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tizimga kiritilgan sana</label>
                   <div className="w-full bg-slate-100/80 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold flex items-center gap-2">
                     <span>📅</span>
                     <span>{formatUzbekDate(editingStudent?.created_at)}</span>
