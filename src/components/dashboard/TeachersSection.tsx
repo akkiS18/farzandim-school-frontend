@@ -4,6 +4,8 @@ import CustomDialogModal from "../CustomDialogModal";
 import { Pencil, Trash2 } from "lucide-react";
 import { TenantUser, UserInfo, ImportResult } from "./types";
 
+import PasswordInput from "@/components/common/PasswordInput";
+
 interface TeachersSectionProps {
   teachers: TenantUser[];
   token: string;
@@ -503,12 +505,10 @@ export default function TeachersSection({
 
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Parol (Default: password123) *</label>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   value={teacherPassword}
                   onChange={(e) => setTeacherPassword(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 
@@ -765,12 +765,10 @@ export default function TeachersSection({
 
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Yangi Parol (ixtiyoriy)</label>
-                <input
-                  type="password"
+                <PasswordInput
                   placeholder="O'zgarishsiz qoldirish uchun bo'sh qo'ying"
                   value={editTeacherPassword}
                   onChange={(e) => setEditTeacherPassword(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                 />
               </div>
 

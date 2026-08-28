@@ -29,6 +29,19 @@ const clearSchoolAuth = () => {
   localStorage.removeItem("school_user");
 };
 
+const isInternalApiUrl = (url: string): boolean => {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  if (API_URL && url.startsWith(API_URL)) return true;
+  try {
+    const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+    const apiOrigin = new URL(API_URL).origin;
+    if (parsed.origin === (typeof window !== "undefined" ? window.location.origin : "") || parsed.origin === apiOrigin) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+};
+
 export default function AuthInterceptor({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -37,6 +50,12 @@ export default function AuthInterceptor({ children }: { children: React.ReactNod
 
     window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
       let requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      // Do NOT intercept external requests (e.g. OpenStreetMap, Nominatim, CDNs)
+      // to avoid leaking private Authorization tokens and credentials to third-party domains.
+      if (!isInternalApiUrl(requestUrl)) {
+        return originalFetch.apply(this, [input, init]);
+      }
 
       // Do not intercept refresh or auth requests to avoid infinite loops
       if (

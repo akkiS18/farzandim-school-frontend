@@ -2,15 +2,39 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import api from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import SmartCalendarModal from "@/components/SmartCalendarModal";
 import CustomDialogModal from "@/components/CustomDialogModal";
+import PasswordInput from "@/components/common/PasswordInput";
 import LibrarySection from "@/components/dashboard/LibrarySection";
 import DateRangePresets from "@/components/DateRangePresets";
 import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
 import LessonPlansSection from "@/components/teacher/LessonPlansSection";
+import TeacherSidebar from "@/components/teacher/TeacherSidebar";
+import TeacherHeader from "@/components/teacher/TeacherHeader";
+import FeedbackTab from "@/components/teacher/FeedbackTab";
+import TeacherSettingsTab from "@/components/teacher/TeacherSettingsTab";
+import JournalTab from "@/components/teacher/JournalTab";
+import ScheduleTab from "@/components/teacher/ScheduleTab";
+import StudentsTab from "@/components/teacher/StudentsTab";
+import UnapprovedGradesTab from "@/components/teacher/UnapprovedGradesTab";
+import ParentsTab from "@/components/teacher/ParentsTab";
+import ClubsTab from "@/components/teacher/ClubsTab";
+import ChatModal from "@/components/teacher/modals/ChatModal";
+import TodayLessonsModal from "@/components/teacher/modals/TodayLessonsModal";
+import GradeCommentModal from "@/components/teacher/modals/GradeCommentModal";
+import ParentsListModal from "@/components/teacher/modals/ParentsListModal";
+import { ImportParentsModal } from "@/components/teacher/modals/ImportParentsModal";
+import { ImportStudentsModal } from "@/components/teacher/modals/ImportStudentsModal";
+import { AddClubModal } from "@/components/teacher/modals/AddClubModal";
+import { EditClubModal } from "@/components/teacher/modals/EditClubModal";
+import { AddScheduleModal } from "@/components/teacher/modals/AddScheduleModal";
+import { ClubStudentsModal } from "@/components/teacher/modals/ClubStudentsModal";
+import { AddParentModal } from "@/components/teacher/modals/AddParentModal";
+import { ClubGradingModal } from "@/components/teacher/modals/ClubGradingModal";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 import {
   LayoutDashboard,
@@ -118,8 +142,24 @@ const getInitialDate = (): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-export default function TeacherDashboard() {
+type TeacherTabType =
+  | "dashboard"
+  | "journal"
+  | "schedule"
+  | "lesson-plans"
+  | "students"
+  | "parents"
+  | "unapproved"
+  | "feedback"
+  | "announcements"
+  | "clubs"
+  | "books"
+  | "social-passport"
+  | "settings";
+
+function TeacherDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Auth States
   const [token, setToken] = useState("");
@@ -131,8 +171,36 @@ export default function TeacherDashboard() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  // Teacher navigation view tab: "dashboard" | "journal" | "schedule" | "lesson-plans" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings"
-  const [teacherTab, setTeacherTab] = useState<"dashboard" | "journal" | "schedule" | "lesson-plans" | "students" | "parents" | "unapproved" | "feedback" | "announcements" | "clubs" | "books" | "social-passport" | "settings">("dashboard");
+  // Teacher navigation view tab synchronized with URL query params (supports mobile back button)
+  const tabParam = searchParams.get("tab") as TeacherTabType | null;
+  const validTabs: TeacherTabType[] = [
+    "dashboard",
+    "journal",
+    "schedule",
+    "lesson-plans",
+    "students",
+    "parents",
+    "unapproved",
+    "feedback",
+    "announcements",
+    "clubs",
+    "books",
+    "social-passport",
+    "settings",
+  ];
+  const teacherTab: TeacherTabType =
+    tabParam && validTabs.includes(tabParam) ? tabParam : "dashboard";
+
+  const setTeacherTab = (newTab: TeacherTabType | string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newTab === "dashboard") {
+      params.delete("tab");
+    } else {
+      params.set("tab", newTab);
+    }
+    const qs = params.toString();
+    router.push(qs ? `/teacher?${qs}` : "/teacher", { scroll: false });
+  };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Default expanded (shows labels/tabs)
 
@@ -214,17 +282,12 @@ export default function TeacherDashboard() {
     );
   };
 
-  const fetchFeedbackFeed = async (authToken: string) => {
+  const fetchFeedbackFeed = async (_authToken?: string) => {
     setTeacherTab("feedback");
     setFeedbackLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/comments/feed`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setFeedbackFeed(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get("/api/schools/comments/feed");
+      setFeedbackFeed(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching feedback:", err);
     } finally {
@@ -234,15 +297,10 @@ export default function TeacherDashboard() {
 
   // All Students state (for teacher targeted announcements)
   const [allStudents, setAllStudents] = useState<any[]>([]);
-  const fetchAllStudents = async (authToken: string) => {
+  const fetchAllStudents = async (_authToken?: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setAllStudents(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get("/api/schools/users?role=STUDENT");
+      setAllStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching students:", err);
     }
@@ -317,17 +375,10 @@ export default function TeacherDashboard() {
   const fetchClubStudentsAndGrades = async (clubId: number, dateStr: string) => {
     setClubGradingLoading(true);
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
-      if (sId) headers["X-School-ID"] = sId;
-
-      const [stRes, grRes] = await Promise.all([
-        fetch(`${API_URL}/api/schools/clubs/${clubId}/students`, { headers }),
-        fetch(`${API_URL}/api/schools/clubs/${clubId}/grades?date=${dateStr}`, { headers }),
+      const [stData, grData] = await Promise.all([
+        api.get(`/api/schools/clubs/${clubId}/students`),
+        api.get(`/api/schools/clubs/${clubId}/grades?date=${dateStr}`),
       ]);
-
-      const stData = await stRes.json();
-      const grData = await grRes.json();
 
       const approvedStudents = Array.isArray(stData) ? stData.filter((s: any) => s.status === "APPROVED") : [];
       const existingGrades = Array.isArray(grData) ? grData : [];
@@ -360,13 +411,6 @@ export default function TeacherDashboard() {
     if (!selectedClubForGrading) return;
     setSavingClubGrades(true);
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
       const payload = {
         lesson_date: clubGradingDate,
         grades: clubGradingStudents.map((st) => ({
@@ -377,15 +421,7 @@ export default function TeacherDashboard() {
         })),
       };
 
-      const res = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForGrading.id}/grades`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Baholarni saqlashda xatolik");
-
+      await api.post(`/api/schools/clubs/${selectedClubForGrading.id}/grades`, payload);
       setToast({ message: "To'garak mashg'uloti baholari va davomati muvaffaqiyatli saqlandi!", type: "success" });
       setShowClubGradingModal(false);
     } catch (err: any) {
@@ -395,16 +431,11 @@ export default function TeacherDashboard() {
     }
   };
 
-  const fetchClubs = async (authToken: string) => {
+  const fetchClubs = async (_authToken?: string) => {
     setClubsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/clubs`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setClubs(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get("/api/schools/clubs");
+      setClubs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching clubs:", err);
     } finally {
@@ -421,46 +452,29 @@ export default function TeacherDashboard() {
     setClubsError("");
     setClubsSuccess("");
     try {
-      const response = await fetch(`${API_URL}/api/schools/clubs`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: newClubName.trim(),
-          subject_id: Number(newClubSubjectId),
-          allowed_class_levels: newClubAllowedLevels,
-          extra_student_ids: newClubExtraStudentIds,
-        }),
+      await api.post("/api/schools/clubs", {
+        name: newClubName.trim(),
+        subject_id: Number(newClubSubjectId),
+        allowed_class_levels: newClubAllowedLevels,
+        extra_student_ids: newClubExtraStudentIds,
       });
-      const data = await response.json();
-      if (response.ok) {
-        setClubsSuccess("To'garak muvaffaqiyatli yaratildi");
-        setNewClubName("");
-        setNewClubSubjectId("");
-        setNewClubAllowedLevels([]);
-        setNewClubExtraStudentIds([]);
-        fetchClubs(token);
-        setTimeout(() => setShowAddClubModal(false), 1500);
-      } else {
-        setClubsError(data.error || "Xatolik yuz berdi");
-      }
-    } catch {
-      setClubsError("Server bilan bog'lanishda xatolik");
+      setClubsSuccess("To'garak muvaffaqiyatli yaratildi");
+      setNewClubName("");
+      setNewClubSubjectId("");
+      setNewClubAllowedLevels([]);
+      setNewClubExtraStudentIds([]);
+      fetchClubs();
+      setTimeout(() => setShowAddClubModal(false), 1500);
+    } catch (err: any) {
+      setClubsError(err.message || "Server bilan bog'lanishda xatolik");
     }
   };
 
   const fetchClubStudents = async (clubId: number) => {
     setClubStudentsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/${clubId}/students`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setClubStudents(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get(`/api/schools/clubs/${clubId}/students`);
+      setClubStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -469,55 +483,29 @@ export default function TeacherDashboard() {
   };
 
   const handleAddDirectStudent = async (studentId: number) => {
-    if (!selectedClubForStudents || !token) return;
+    if (!selectedClubForStudents) return;
     try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/add-student`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ student_id: studentId }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setToast({ message: "O'quvchi to'garakka muvaffaqiyatli qo'shildi", type: "success" });
-        fetchClubStudents(selectedClubForStudents.id);
-      } else {
-        setToast({ message: data.error || "Qo'shishda xatolik", type: "error" });
-      }
-    } catch (err) {
-      console.error(err);
-      setToast({ message: "Tarmoq xatoligi", type: "error" });
+      await api.post(`/api/schools/clubs/${selectedClubForStudents.id}/add-student`, { student_id: studentId });
+      setToast({ message: "O'quvchi to'garakka muvaffaqiyatli qo'shildi", type: "success" });
+      fetchClubStudents(selectedClubForStudents.id);
+    } catch (err: any) {
+      setToast({ message: err.message || "Qo'shishda xatolik", type: "error" });
     }
   };
 
   const handleApproveStudent = async (studentId: number) => {
-    if (!selectedClubForStudents || !token) return;
+    if (!selectedClubForStudents) return;
     try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/approve-student`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ student_id: studentId }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setToast({ message: "Qo'shilish so'rovi tasdiqlandi", type: "success" });
-        fetchClubStudents(selectedClubForStudents.id);
-      } else {
-        setToast({ message: data.error || "Tasdiqlashda xatolik", type: "error" });
-      }
-    } catch (err) {
-      console.error(err);
-      setToast({ message: "Tarmoq xatoligi", type: "error" });
+      await api.post(`/api/schools/clubs/${selectedClubForStudents.id}/approve-student`, { student_id: studentId });
+      setToast({ message: "Qo'shilish so'rovi tasdiqlandi", type: "success" });
+      fetchClubStudents(selectedClubForStudents.id);
+    } catch (err: any) {
+      setToast({ message: err.message || "Tasdiqlashda xatolik", type: "error" });
     }
   };
 
   const handleRemoveStudent = (studentId: number) => {
-    if (!selectedClubForStudents || !token) return;
+    if (!selectedClubForStudents) return;
     setTeacherDialog({
       isOpen: true,
       type: "danger",
@@ -527,24 +515,14 @@ export default function TeacherDashboard() {
       onConfirm: async () => {
         setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
         try {
-          const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForStudents.id}/remove-student`, {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ student_id: studentId }),
+          await api.delete(`/api/schools/clubs/${selectedClubForStudents.id}/remove-student`, {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id: studentId })
           });
-          const data = await response.json();
-          if (response.ok) {
-            setToast({ message: "O'quvchi to'garakdan chiqarildi", type: "success" });
-            fetchClubStudents(selectedClubForStudents.id);
-          } else {
-            setToast({ message: data.error || "Chiqarishda xatolik", type: "error" });
-          }
-        } catch (err) {
-          console.error(err);
-          setToast({ message: "Tarmoq xatoligi", type: "error" });
+          setToast({ message: "O'quvchi to'garakdan chiqarildi", type: "success" });
+          fetchClubStudents(selectedClubForStudents.id);
+        } catch (err: any) {
+          setToast({ message: err.message || "Tarmoq xatoligi", type: "error" });
         }
       },
     });
@@ -552,23 +530,15 @@ export default function TeacherDashboard() {
 
   const handleAddSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedClubForSchedule) return;
     try {
-      const response = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForSchedule.id}/schedules`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          day_of_week: Number(newScheduleDay),
-          start_time: newScheduleStartTime,
-          end_time: newScheduleEndTime,
-        }),
+      await api.post(`/api/schools/clubs/${selectedClubForSchedule.id}/schedules`, {
+        day_of_week: Number(newScheduleDay),
+        start_time: newScheduleStartTime,
+        end_time: newScheduleEndTime,
       });
-      if (response.ok) {
-        fetchClubs(token);
-        setShowAddScheduleModal(false);
-      }
+      fetchClubs();
+      setShowAddScheduleModal(false);
     } catch (err) {
       console.error(err);
     }
@@ -584,14 +554,9 @@ export default function TeacherDashboard() {
       onConfirm: async () => {
         setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
         try {
-          const response = await fetch(`${API_URL}/api/schools/clubs/schedules/${scheduleId}`, {
-            method: "DELETE",
-            headers: { "Authorization": `Bearer ${token}` },
-          });
-          if (response.ok) {
-            showToast("success", "Jadval o'chirildi!");
-            fetchClubs(token);
-          }
+          await api.delete(`/api/schools/clubs/schedules/${scheduleId}`);
+          showToast("success", "Jadval o'chirildi!");
+          fetchClubs();
         } catch (e) {
           console.error(e);
         }
@@ -612,25 +577,10 @@ export default function TeacherDashboard() {
     };
 
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      };
-      if (sId) headers["X-School-ID"] = sId;
-
-      const res = await fetch(`${API_URL}/api/schools/clubs/${editingClub.id}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "To'garakni yangilab bo'lmadi");
-
+      await api.put(`/api/schools/clubs/${editingClub.id}`, payload);
       showToast("success", "To'garak muvaffaqiyatli yangilandi!");
       setShowEditClubModal(false);
-      fetchClubs(token);
+      fetchClubs();
     } catch (err: any) {
       setActionError(err.message);
     } finally {
@@ -648,17 +598,9 @@ export default function TeacherDashboard() {
       onConfirm: async () => {
         setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
         try {
-          const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-          const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
-          if (sId) headers["X-School-ID"] = sId;
-          const res = await fetch(`${API_URL}/api/schools/clubs/${clubId}`, {
-            method: "DELETE",
-            headers,
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "To'garakni o'chirib bo'lmadi");
+          await api.delete(`/api/schools/clubs/${clubId}`);
           showToast("success", "To'garak o'chirildi!");
-          fetchClubs(token);
+          fetchClubs();
         } catch (err: any) {
           showToast("error", err.message);
         }
@@ -678,22 +620,15 @@ export default function TeacherDashboard() {
   const fetchChatMessages = async (comment: any) => {
     setChatLoading(true);
     try {
-      let url = "";
+      let endpoint = "";
       if (comment.type === "GRADE") {
-        url = `${API_URL}/api/schools/grades/${comment.grade_id}/comments`;
+        endpoint = `/api/schools/grades/${comment.grade_id}/comments`;
       } else {
         const dateStr = comment.menu_date ? comment.menu_date.split("T")[0] : "";
-        url = `${API_URL}/api/schools/menu/comments?menu_date=${dateStr}&parent_id=${comment.parent_id}`;
+        endpoint = `/api/schools/menu/comments?menu_date=${dateStr}&parent_id=${comment.parent_id}`;
       }
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setChatMessages(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get(endpoint);
+      setChatMessages(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching chat:", err);
     } finally {
@@ -703,19 +638,19 @@ export default function TeacherDashboard() {
 
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || !selectedChatComment) return;
 
     setReplySubmitLoading(true);
     setReplyError("");
     try {
-      let url = "";
+      let endpoint = "";
       let body = {};
       if (selectedChatComment.type === "GRADE") {
-        url = `${API_URL}/api/schools/grades/${selectedChatComment.grade_id}/comments`;
+        endpoint = `/api/schools/grades/${selectedChatComment.grade_id}/comments`;
         body = { content: replyText.trim() };
       } else {
         const dateStr = selectedChatComment.menu_date ? selectedChatComment.menu_date.split("T")[0] : "";
-        url = `${API_URL}/api/schools/menu/comments`;
+        endpoint = `/api/schools/menu/comments`;
         body = {
           menu_date: dateStr,
           parent_id: selectedChatComment.parent_id,
@@ -723,24 +658,11 @@ export default function TeacherDashboard() {
         };
       }
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setReplyText("");
-        fetchChatMessages(selectedChatComment);
-      } else {
-        setReplyError(data.error || "Xatolik yuz berdi");
-      }
-    } catch {
-      setReplyError("Server bilan bog'lanishda xatolik");
+      await api.post(endpoint, body);
+      setReplyText("");
+      fetchChatMessages(selectedChatComment);
+    } catch (err: any) {
+      setReplyError(err.message || "Server bilan bog'lanishda xatolik");
     } finally {
       setReplySubmitLoading(false);
     }
@@ -823,21 +745,14 @@ export default function TeacherDashboard() {
     const fetchCurrentLessonTopic = async () => {
       setCurrentJournalTopicLoading(true);
       try {
-        const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-        const headers: Record<string, string> = {
-          Authorization: `Bearer ${token}`,
-        };
-        if (sId) headers["X-School-ID"] = sId;
-
         const params = new URLSearchParams();
         params.append("class_id", String(selectedClassId));
         params.append("subject_id", String(selectedSubjectId));
         params.append("start_date_from", journalDate);
         params.append("start_date_to", journalDate);
 
-        const res = await fetch(`${API_URL}/api/schools/lesson-plans?${params.toString()}`, { headers });
-        const data = await res.json();
-        if (res.ok && Array.isArray(data) && data.length > 0) {
+        const data = await api.get(`/api/schools/lesson-plans?${params.toString()}`);
+        if (Array.isArray(data) && data.length > 0) {
           const matched = selectedLessonNumber
             ? data.find((p: any) => p.lesson_number === Number(selectedLessonNumber)) || data[0]
             : data[0];
@@ -961,16 +876,11 @@ export default function TeacherDashboard() {
         options.map(async (opt) => {
           if (!opt.grade?.id) return;
           try {
-            const res = await fetch(`${API_URL}/api/schools/grades/${opt.grade.id}/comments`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (Array.isArray(data)) {
-                data.forEach((c: any) => {
-                  allComments.push({ ...c, gradeColName: opt.colName, gradeVal: opt.value });
-                });
-              }
+            const data = await api.get(`/api/schools/grades/${opt.grade.id}/comments`);
+            if (Array.isArray(data)) {
+              data.forEach((c: any) => {
+                allComments.push({ ...c, gradeColName: opt.colName, gradeVal: opt.value });
+              });
             }
           } catch (e) {
             console.error(e);
@@ -1034,38 +944,25 @@ export default function TeacherDashboard() {
 
           // If grade is not yet saved to DB, save it first!
           if (!targetGradeId) {
-            const createRes = await fetch(`${API_URL}/api/schools/grades`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                student_id: selectedStudentForComment.id,
-                subject_id: Number(selectedSubjectId),
-                lesson_number: Number(selectedLessonNumber),
-                grade_type: opt.colId,
-                value: opt.value,
-                grade_date: journalDate,
-                grade_category: selectedGradeCategory || "DAILY",
-                grading_system_id: columnGradingSystems[opt.colId] || undefined,
-              }),
+            const createdGrade = await api.post("/api/schools/grades", {
+              student_id: selectedStudentForComment.id,
+              subject_id: Number(selectedSubjectId),
+              lesson_number: Number(selectedLessonNumber),
+              grade_type: opt.colId,
+              value: opt.value,
+              grade_date: journalDate,
+              grade_category: selectedGradeCategory || "DAILY",
+              grading_system_id: columnGradingSystems[opt.colId] || undefined,
             });
-            const createdGrade = await createRes.json();
-            if (createRes.ok && createdGrade.id) {
+            if (createdGrade && createdGrade.id) {
               targetGradeId = createdGrade.id;
               opt.grade = createdGrade;
             }
           }
 
           if (targetGradeId) {
-            await fetch(`${API_URL}/api/schools/grades/${targetGradeId}/comments`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ content: newGradeCommentText.trim() }),
+            await api.post(`/api/schools/grades/${targetGradeId}/comments`, {
+              content: newGradeCommentText.trim(),
             });
           }
         })
@@ -1246,79 +1143,53 @@ export default function TeacherDashboard() {
   }, [router]);
 
   const fetchClassesList = async () => {
-    const t = token || localStorage.getItem("school_token") || "";
-    const s = schoolId || localStorage.getItem("school_id") || "";
-    if (!t) return;
     try {
-      const clsRes = await fetch(`${API_URL}/api/schools/classes`, {
-        headers: { "Authorization": `Bearer ${t}`, "X-School-ID": s },
-      });
-      const clsData = await clsRes.json();
-      if (clsRes.ok) setClasses(Array.isArray(clsData) ? clsData : []);
+      const clsData = await api.get("/api/schools/classes");
+      setClasses(Array.isArray(clsData) ? clsData : []);
     } catch (e) {
       console.error("Error fetching classes:", e);
     }
   };
 
-  const loadInitialData = async (authToken: string, currentSchoolId: string) => {
+  const loadInitialData = async (_authToken?: string, _currentSchoolId?: string) => {
     setLoading(true);
     try {
       // Load classes
-      const clsRes = await fetch(`${API_URL}/api/schools/classes`, {
-        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
-      });
-      const clsData = await clsRes.json();
+      const clsData = await api.get("/api/schools/classes");
       const classesList = Array.isArray(clsData) ? clsData : [];
-      if (clsRes.ok) setClasses(classesList);
+      setClasses(classesList);
 
       // Load subjects
-      const subRes = await fetch(`${API_URL}/api/schools/subjects`, {
-        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
-      });
-      const subData = await subRes.json();
+      const subData = await api.get("/api/schools/subjects");
       const subjectsList = Array.isArray(subData) ? subData : [];
-      if (subRes.ok) setSubjects(subjectsList);
-
-
+      setSubjects(subjectsList);
 
       // Load active grading system
-      const gsRes = await fetch(`${API_URL}/api/schools/grading-systems/active`, {
-        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
-      });
-      const gsData = await gsRes.json();
-      if (gsRes.ok) setActiveGS(gsData);
+      const gsData = await api.get("/api/schools/grading-systems/active").catch(() => null);
+      if (gsData) setActiveGS(gsData);
 
       // Load all grading systems
-      const gsListRes = await fetch(`${API_URL}/api/schools/grading-systems`, {
-        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
-      });
-      const gsListData = await gsListRes.json();
-      if (gsListRes.ok) setGradingSystemsList(Array.isArray(gsListData) ? gsListData : []);
+      const gsListData = await api.get("/api/schools/grading-systems").catch(() => []);
+      setGradingSystemsList(Array.isArray(gsListData) ? gsListData : []);
 
       // Load all students for dashboard analytics
       try {
-        const studRes = await fetch(`${API_URL}/api/schools/users?role=STUDENT`, {
-          headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
-        });
-        const studData = await studRes.json();
-        if (studRes.ok && Array.isArray(studData)) setDashboardStudents(studData);
+        const studData = await api.get("/api/schools/users?role=STUDENT");
+        if (Array.isArray(studData)) setDashboardStudents(studData);
       } catch (e) {
         console.error("Dashboard students load failed", e);
       }
 
       // Load grades for dashboard analytics
       try {
-        const gradesRes = await fetch(`${API_URL}/api/schools/grades`, {
-          headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId },
-        });
-        const gradesData = await gradesRes.json();
-        if (gradesRes.ok && Array.isArray(gradesData)) setDashboardGrades(gradesData);
+        const gradesData = await api.get("/api/schools/grades");
+        if (Array.isArray(gradesData)) setDashboardGrades(gradesData);
       } catch (e) {
         console.error("Dashboard grades load failed", e);
       }
 
       // Load holidays
-      await fetchHolidays(authToken, currentSchoolId);
+      await fetchHolidays();
     } catch (e) {
       console.error("Initial load failed", e);
     } finally {
@@ -1326,14 +1197,11 @@ export default function TeacherDashboard() {
     }
   };
 
-  const fetchHolidays = async (authToken: string, currentSchoolId: string) => {
+  const fetchHolidays = async (_authToken?: string, _currentSchoolId?: string) => {
     setHolidaysLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/schools/holidays`, {
-        headers: { "Authorization": `Bearer ${authToken}`, "X-School-ID": currentSchoolId }
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
+      const data = await api.get("/api/schools/holidays");
+      if (Array.isArray(data)) {
         setHolidays(data);
       }
     } catch (e) {
@@ -1436,13 +1304,8 @@ export default function TeacherDashboard() {
     if (!selectedClassId) return;
     setClassTeachersLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/teachers`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setClassTeachers(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get(`/api/schools/classes/${selectedClassId}/teachers`);
+      setClassTeachers(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1455,11 +1318,8 @@ export default function TeacherDashboard() {
     setClassScheduleLoading(true);
     const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule?date=${dateQuery}`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
+      const data = await api.get(`/api/schools/classes/${selectedClassId}/schedule?date=${dateQuery}`);
+      if (Array.isArray(data)) {
         setClassSchedule(data);
         if (data.length > 0 && data[0].start_date && data[0].end_date) {
           setScheduleStartDate(data[0].start_date);
@@ -1486,56 +1346,47 @@ export default function TeacherDashboard() {
   };
 
   const fetchOverallTeacherSchedule = async (targetDate?: string) => {
-    if (!classes.length || !token) return;
+    if (!classes.length) return;
     setOverallScheduleLoading(true);
     const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
     try {
-      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-      if (sId) headers["X-School-ID"] = sId;
-
       const results: { [key: string]: Array<{ class_id: number; class_name: string; subject_id: number; subject_name: string }> } = {};
 
       await Promise.all(
         classes.map(async (cls) => {
           try {
-            const [schRes, tchRes] = await Promise.all([
-              fetch(`${API_URL}/api/schools/classes/${cls.id}/schedule?date=${dateQuery}`, { headers }),
-              fetch(`${API_URL}/api/schools/classes/${cls.id}/teachers`, { headers }),
+            const [schData, tchData] = await Promise.all([
+              api.get(`/api/schools/classes/${cls.id}/schedule?date=${dateQuery}`).catch(() => []),
+              api.get(`/api/schools/classes/${cls.id}/teachers`).catch(() => []),
             ]);
 
-            if (schRes.ok) {
-              const schData = await schRes.json();
-              const tchData = tchRes.ok ? await tchRes.json() : [];
+            const myTeacherSubjects = new Set(
+              Array.isArray(tchData)
+                ? tchData.filter((t: any) => t.teacher_id === userInfo?.id).map((t: any) => t.subject_id)
+                : []
+            );
 
-              const myTeacherSubjects = new Set(
-                Array.isArray(tchData)
-                  ? tchData.filter((t: any) => t.teacher_id === userInfo?.id).map((t: any) => t.subject_id)
-                  : []
-              );
+            const isMyClass = cls.main_teacher_id === userInfo?.id || cls.is_main_teacher || userInfo?.role === "ADMIN";
 
-              const isMyClass = cls.main_teacher_id === userInfo?.id || cls.is_main_teacher || userInfo?.role === "ADMIN";
+            if (Array.isArray(schData)) {
+              schData.forEach((item: any) => {
+                if (!item.subject_id || item.subject_id === 0) return;
+                const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && cls.subject_id === item.subject_id);
 
-              if (Array.isArray(schData)) {
-                schData.forEach((item: any) => {
-                  if (!item.subject_id || item.subject_id === 0) return;
-                  const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && cls.subject_id === item.subject_id);
-
-                  if (isMySubject) {
-                    const slotKey = `${item.day_of_week}-${item.lesson_number}`;
-                    if (!results[slotKey]) results[slotKey] = [];
-                    if (!results[slotKey].some(r => r.class_id === cls.id && r.subject_id === item.subject_id)) {
-                      const foundSub = subjects.find(s => s.id === item.subject_id);
-                      results[slotKey].push({
-                        class_id: cls.id,
-                        class_name: cls.name,
-                        subject_id: item.subject_id,
-                        subject_name: item.subject_name || foundSub?.name || "Dars",
-                      });
-                    }
+                if (isMySubject) {
+                  const slotKey = `${item.day_of_week}-${item.lesson_number}`;
+                  if (!results[slotKey]) results[slotKey] = [];
+                  if (!results[slotKey].some(r => r.class_id === cls.id && r.subject_id === item.subject_id)) {
+                    const foundSub = subjects.find(s => s.id === item.subject_id);
+                    results[slotKey].push({
+                      class_id: cls.id,
+                      class_name: cls.name,
+                      subject_id: item.subject_id,
+                      subject_name: item.subject_name || foundSub?.name || "Dars",
+                    });
                   }
-                });
-              }
+                }
+              });
             }
           } catch (e) {
             console.error("Error fetching class schedule for", cls.id, e);
@@ -1564,13 +1415,8 @@ export default function TeacherDashboard() {
     if (!selectedClassId) return;
     setScheduleExceptionsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setScheduleExceptions(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get(`/api/schools/classes/${selectedClassId}/schedule-exceptions`);
+      setScheduleExceptions(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1582,13 +1428,8 @@ export default function TeacherDashboard() {
     if (!selectedClassId) return;
     setSchedulePeriodsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-periods`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSchedulePeriods(Array.isArray(data) ? data : []);
-      }
+      const data = await api.get(`/api/schools/classes/${selectedClassId}/schedule-periods`);
+      setSchedulePeriods(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1609,18 +1450,7 @@ export default function TeacherDashboard() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Dars o'zgarishini saqlab bo'lmadi");
-
+      await api.post(`/api/schools/classes/${selectedClassId}/schedule-exceptions`, payload);
       showToast("success", "Dars o'zgarishi muvaffaqiyatli saqlandi!");
       setShowAddExceptionModal(false);
       
@@ -1649,12 +1479,7 @@ export default function TeacherDashboard() {
         setActionLoading(true);
         setActionError("");
         try {
-          const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule-exceptions/${exceptionId}`, {
-            method: "DELETE",
-            headers: { "Authorization": `Bearer ${token}` },
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "O'zgarishni o'chirib bo'lmadi");
+          await api.delete(`/api/schools/classes/${selectedClassId}/schedule-exceptions/${exceptionId}`);
           showToast("success", "Dars o'zgarishi muvaffaqiyatli o'chirildi!");
           fetchClassSchedule();
           fetchScheduleExceptions();
@@ -1685,22 +1510,12 @@ export default function TeacherDashboard() {
       });
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          start_date: scheduleStartDate,
-          end_date: scheduleEndDate,
-          original_start_date: editingScheduleOriginalStartDate || undefined,
-          lessons: lessonsPayload
-        }),
+      await api.post(`/api/schools/classes/${selectedClassId}/schedule`, {
+        start_date: scheduleStartDate,
+        end_date: scheduleEndDate,
+        original_start_date: editingScheduleOriginalStartDate || undefined,
+        lessons: lessonsPayload
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Haftalik dars jadvalini saqlab bo'lmadi");
 
       showToast("success", "Haftalik dars jadvali muvaffaqiyatli saqlandi!");
       setShowEditScheduleModal(false);
@@ -1717,10 +1532,7 @@ export default function TeacherDashboard() {
     setDataLoading(true);
     try {
       // Fetch students
-      const studRes = await fetch(`${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const studData = await studRes.json();
+      const studData = await api.get(`/api/schools/users?role=STUDENT&class_id=${selectedClassId}`);
       const studentsList = Array.isArray(studData) ? studData.map((u: any) => ({
         id: u.student_id || u.id,
         user_id: u.id,
@@ -1731,10 +1543,7 @@ export default function TeacherDashboard() {
       setStudents(studentsList);
 
       // Fetch grades
-      const gradeRes = await fetch(`${API_URL}/api/schools/grades?class_id=${selectedClassId}&subject_id=${selectedSubjectId}`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const gradeData = await gradeRes.json();
+      const gradeData = await api.get(`/api/schools/grades?class_id=${selectedClassId}&subject_id=${selectedSubjectId}`);
       setExistingGrades(Array.isArray(gradeData) ? gradeData.filter((g: any) => g.lesson_number && g.lesson_number > 0) : []);
 
       // Initialize inputs empty
@@ -1769,39 +1578,24 @@ export default function TeacherDashboard() {
     setJournalLoading(true);
     try {
       // 1. Fetch latest subjects, class teachers, holidays, and schedule in parallel
-      const [schedRes, subRes, teacherRes, holidayRes] = await Promise.all([
-        fetch(`${API_URL}/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/schools/subjects`, {
-          headers: { "Authorization": `Bearer ${token}`, "X-School-ID": schoolId }
-        }),
-        fetch(`${API_URL}/api/schools/classes/${selectedClassId}/teachers`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/schools/holidays`, {
-          headers: { "Authorization": `Bearer ${token}`, "X-School-ID": schoolId }
-        })
-      ]);
-
       const [schedData, subData, teacherData, holidayData] = await Promise.all([
-        schedRes.json(),
-        subRes.json(),
-        teacherRes.json(),
-        holidayRes.json()
+        api.get(`/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`).catch(() => []),
+        api.get("/api/schools/subjects").catch(() => []),
+        api.get(`/api/schools/classes/${selectedClassId}/teachers`).catch(() => []),
+        api.get("/api/schools/holidays").catch(() => [])
       ]);
 
-      if (subRes.ok && Array.isArray(subData)) {
+      if (Array.isArray(subData)) {
         setSubjects(subData);
       }
 
       let latestClassTeachers = classTeachers;
-      if (teacherRes.ok && Array.isArray(teacherData)) {
+      if (Array.isArray(teacherData)) {
         latestClassTeachers = teacherData;
         setClassTeachers(teacherData);
       }
 
-      if (holidayRes.ok && Array.isArray(holidayData)) {
+      if (Array.isArray(holidayData)) {
         setHolidays(holidayData);
       }
 
@@ -1874,11 +1668,9 @@ export default function TeacherDashboard() {
       }
 
       // 2. Students for this class
-      const studRes = await fetch(
-        `${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}&date=${targetDate}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const studData = await studRes.json();
+      const studData = await api.get(
+        `/api/schools/users?role=STUDENT&class_id=${selectedClassId}&date=${targetDate}`
+      ).catch(() => []);
       const studentsList = Array.isArray(studData) ? studData.map((u: any) => ({
         id: u.student_id || u.id,
         user_id: u.id,
@@ -1889,11 +1681,9 @@ export default function TeacherDashboard() {
       setStudents(studentsList);
 
       // 3. All grades for this class
-      const gradesRes = await fetch(
-        `${API_URL}/api/schools/grades?class_id=${selectedClassId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const gradesData = await gradesRes.json();
+      const gradesData = await api.get(
+        `/api/schools/grades?class_id=${selectedClassId}`
+      ).catch(() => []);
       const gradesList = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.lesson_number && g.lesson_number > 0) : [];
       setJournalAllGrades(gradesList);
 
@@ -2016,21 +1806,14 @@ export default function TeacherDashboard() {
       if (value === '') {
         // DELETE existing grade
         if (!existingGrade) return;
-        const res = await fetch(`${API_URL}/api/schools/grades/${existingGrade.id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Bahoni o\'chirib bo\'lmadi');
-        }
+        await api.delete(`/api/schools/grades/${existingGrade.id}`);
         // Update local state
         setJournalAllGrades(prev => prev.filter(g => g.id !== existingGrade.id));
         setCellInputs(prev => ({ ...prev, [key]: '' }));
         showToast('success', 'Baho o\'chirildi');
       } else {
         // Create or Update
-        let res;
+        let data;
         const gradePayload = {
           student_id: studentId,
           subject_id: subjectId,
@@ -2044,22 +1827,11 @@ export default function TeacherDashboard() {
 
         if (existingGrade) {
           // PUT update
-          res = await fetch(`${API_URL}/api/schools/grades/${existingGrade.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify(gradePayload)
-          });
+          data = await api.put(`/api/schools/grades/${existingGrade.id}`, gradePayload);
         } else {
           // POST create
-          res = await fetch(`${API_URL}/api/schools/grades`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify(gradePayload)
-          });
+          data = await api.post("/api/schools/grades", gradePayload);
         }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Bahoni saqlab bo\'lmadi');
 
         // Update local state
         if (existingGrade) {
@@ -2083,10 +1855,7 @@ export default function TeacherDashboard() {
           });
           for (const og of otherGrades) {
             try {
-              await fetch(`${API_URL}/api/schools/grades/${og.id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` }
-              });
+              await api.delete(`/api/schools/grades/${og.id}`);
               setJournalAllGrades(prev => prev.filter(g => g.id !== og.id));
               const colKey = `${studentId}_${subjectId}_${lessonNumber}_${og.grade_type}`;
               setCellInputs(prev => ({ ...prev, [colKey]: '' }));
@@ -2106,13 +1875,10 @@ export default function TeacherDashboard() {
 
   // Fetch unapproved (marked) grades for the selected class
   const fetchUnapprovedGrades = async () => {
-    if (!selectedClassId || !token) return;
+    if (!selectedClassId) return;
     setUnapprovedLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/schools/grades?class_id=${selectedClassId}&status=marked`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await api.get(`/api/schools/grades?class_id=${selectedClassId}&status=marked`);
       const gradesList = Array.isArray(data) ? data.filter((g: any) => g.lesson_number && g.lesson_number > 0) : [];
 
       // Filter by role/subject assignment:
@@ -2133,16 +1899,12 @@ export default function TeacherDashboard() {
 
   // Students list for CRUD operations
   const fetchStudentsTabList = async () => {
-    if (!token) return;
     setStudentsTabLoading(true);
     try {
       const url = selectedClassId
-        ? `${API_URL}/api/schools/users?role=STUDENT&class_id=${selectedClassId}`
-        : `${API_URL}/api/schools/users?role=STUDENT`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+        ? `/api/schools/users?role=STUDENT&class_id=${selectedClassId}`
+        : `/api/schools/users?role=STUDENT`;
+      const data = await api.get(url);
       setStudentsTabList(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
@@ -2154,7 +1916,7 @@ export default function TeacherDashboard() {
   // Student form submission handler
   const handleStudentFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClassId || !token) return;
+    if (!selectedClassId) return;
     
     const body: any = {
       first_name: studentForm.first_name.trim(),
@@ -2168,27 +1930,15 @@ export default function TeacherDashboard() {
     };
 
     try {
-      let res;
       if (studentModalMode === "create") {
         body.password = studentForm.password.trim() || "123456";
-        res = await fetch(`${API_URL}/api/schools/classes/${selectedClassId}/students`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body)
-        });
+        await api.post(`/api/schools/classes/${selectedClassId}/students`, body);
       } else {
         if (studentForm.password.trim()) {
           body.password = studentForm.password.trim();
         }
-        res = await fetch(`${API_URL}/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body)
-        });
+        await api.put(`/api/schools/students/${editingStudent.student_id || editingStudent.id}`, body);
       }
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Saqlashda xatolik");
 
       showToast("success", studentModalMode === "create" ? "O'quvchi muvaffaqiyatli qo'shildi" : "O'quvchi ma'lumotlari yangilandi");
       setShowStudentModal(false);
@@ -2210,12 +1960,7 @@ export default function TeacherDashboard() {
       onConfirm: async () => {
         setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
         try {
-          const res = await fetch(`${API_URL}/api/schools/students/${studentId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "O'chirishda xatolik");
+          await api.delete(`/api/schools/students/${studentId}`);
           showToast("success", "O'quvchi muvaffaqiyatli o'chirildi");
           fetchStudentsTabList();
           fetchJournalData();
@@ -2230,15 +1975,8 @@ export default function TeacherDashboard() {
   const fetchLinkedParents = async (studentId: number) => {
     setLinkedParentsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${studentId}/parents`, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setLinkedParents(Array.isArray(data) ? data : []);
-      } else {
-        setLinkedParents([]);
-      }
+      const data = await api.get(`/api/schools/students/${studentId}/parents`);
+      setLinkedParents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
       setLinkedParents([]);
@@ -2248,24 +1986,16 @@ export default function TeacherDashboard() {
   };
 
   const fetchClassParents = async () => {
-    if (!token) return;
     setClassParentsLoading(true);
     try {
       if (studentsTabList.length === 0) {
         fetchStudentsTabList();
       }
       const url = selectedClassId
-        ? `${API_URL}/api/schools/users?role=PARENT&class_id=${selectedClassId}`
-        : `${API_URL}/api/schools/users?role=PARENT`;
-      const response = await fetch(url, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setClassParents(Array.isArray(data) ? data : []);
-      } else {
-        setClassParents([]);
-      }
+        ? `/api/schools/users?role=PARENT&class_id=${selectedClassId}`
+        : `/api/schools/users?role=PARENT`;
+      const data = await api.get(url);
+      setClassParents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
       setClassParents([]);
@@ -2287,24 +2017,14 @@ export default function TeacherDashboard() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentIdForAdd}/parents`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          first_name: parentFirstName.trim(),
-          last_name: parentLastName.trim(),
-          middle_name: parentMiddleName.trim() || undefined,
-          phone: parentPhone.trim(),
-          passport: parentPassport.trim() || undefined,
-          password: parentPassword,
-        }),
+      await api.post(`/api/schools/students/${selectedStudentIdForAdd}/parents`, {
+        first_name: parentFirstName.trim(),
+        last_name: parentLastName.trim(),
+        middle_name: parentMiddleName.trim() || undefined,
+        phone: parentPhone.trim(),
+        passport: parentPassport.trim() || undefined,
+        password: parentPassword,
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Ota-onani yaratib bo'lmadi");
 
       setParentFirstName("");
       setParentLastName("");
@@ -2334,12 +2054,7 @@ export default function TeacherDashboard() {
         setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
         setActionLoading(true);
         try {
-          const response = await fetch(`${API_URL}/api/schools/students/${studentId}/parents/${parentId}`, {
-            method: "DELETE",
-            headers: { "Authorization": `Bearer ${token}` },
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Ajratishda xatolik yuz berdi");
+          await api.delete(`/api/schools/students/${studentId}/parents/${parentId}`);
           showToast("success", "Ota-ona muvaffaqiyatli ajratildi");
           fetchClassParents();
         } catch (err: any) {
@@ -2361,26 +2076,14 @@ export default function TeacherDashboard() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id || selectedStudentForParents.user_id}/parents`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          first_name: parentFirstName.trim(),
-          last_name: parentLastName.trim(),
-          middle_name: parentMiddleName.trim() || undefined,
-          phone: parentPhone.trim(),
-          passport: parentPassport.trim() || undefined,
-          password: parentPassword,
-        }),
+      await api.post(`/api/schools/students/${selectedStudentForParents.id || selectedStudentForParents.user_id}/parents`, {
+        first_name: parentFirstName.trim(),
+        last_name: parentLastName.trim(),
+        middle_name: parentMiddleName.trim() || undefined,
+        phone: parentPhone.trim(),
+        passport: parentPassport.trim() || undefined,
+        password: parentPassword,
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Ota-onani bog'lab bo'lmadi");
-      }
 
       setParentFirstName("");
       setParentLastName("");
@@ -2410,14 +2113,7 @@ export default function TeacherDashboard() {
         setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
         setActionLoading(true);
         try {
-          const response = await fetch(`${API_URL}/api/schools/students/${selectedStudentForParents.id || selectedStudentForParents.user_id}/parents/${parentId}`, {
-            method: "DELETE",
-            headers: { "Authorization": `Bearer ${token}` },
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error || "O'chirishda xatolik yuz berdi");
-          }
+          await api.delete(`/api/schools/students/${selectedStudentForParents.id || selectedStudentForParents.user_id}/parents/${parentId}`);
           fetchLinkedParents(selectedStudentForParents.id || selectedStudentForParents.user_id);
           showToast("success", "Bog'liqlik muvaffaqiyatli o'chirildi");
         } catch (err: any) {
@@ -2440,14 +2136,7 @@ export default function TeacherDashboard() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/import/parents`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Faylni yuklashda xatolik yuz berdi");
+      const data = await api.post("/api/schools/import/parents", formData);
 
       setImportResult(data);
       setSelectedFile(null);
@@ -2493,14 +2182,7 @@ export default function TeacherDashboard() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/import/students?class_id=${selectedClassId}`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Faylni yuklashda xatolik yuz berdi");
+      const data = await api.post(`/api/schools/import/students?class_id=${selectedClassId}`, formData);
 
       setImportResult(data);
       setSelectedFile(null);
@@ -2558,17 +2240,7 @@ export default function TeacherDashboard() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/grades/batch`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ grades: gradesToSubmit }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Baholarni saqlashda xatolik yuz berdi");
+      await api.post("/api/schools/grades/batch", { grades: gradesToSubmit });
 
       showToast("success", "Barcha kiritilgan baholar muvaffaqiyatli saqlandi!");
       fetchClassData(); // Reload list
@@ -2588,19 +2260,10 @@ export default function TeacherDashboard() {
     }
     setApproveLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mark_uids: Array.from(selectedGradeIds),
-          status: "approved",
-        }),
+      const data = await api.post("/api/schools/grades/change-status", {
+        mark_uids: Array.from(selectedGradeIds),
+        status: "approved",
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik yuz berdi");
 
       showToast("success", `${data.updated_count} ta baho muvaffaqiyatli tasdiqlandi!`);
       setSelectedGradeIds(new Set());
@@ -2673,18 +2336,7 @@ export default function TeacherDashboard() {
         setApproveLoading(true);
         try {
           if (gradesToCreate.length > 0) {
-            const createRes = await fetch(`${API_URL}/api/schools/grades/batch`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-              },
-              body: JSON.stringify({ grades: gradesToCreate }),
-            });
-            const createdData = await createRes.json();
-            if (!createRes.ok) {
-              throw new Error(createdData.error || "Yangi baholarni saqlashda xatolik yuz berdi");
-            }
+            const createdData = await api.post("/api/schools/grades/batch", { grades: gradesToCreate });
             if (Array.isArray(createdData)) {
               createdData.forEach((g: any) => {
                 gradesToApprove.push(g.id);
@@ -2693,21 +2345,10 @@ export default function TeacherDashboard() {
           }
 
           if (gradesToApprove.length > 0) {
-            const approveRes = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                mark_uids: gradesToApprove,
-                status: "approved",
-              }),
+            await api.post("/api/schools/grades/change-status", {
+              mark_uids: gradesToApprove,
+              status: "approved",
             });
-            const approveData = await approveRes.json();
-            if (!approveRes.ok) {
-              throw new Error(approveData.error || "Baholarni tasdiqlashda xatolik yuz berdi");
-            }
           }
 
           showToast("success", `Barcha ${totalToSave} ta baho muvaffaqiyatli saqlandi va tasdiqlandi (🔒 qulflab saqlandi)!`);
@@ -2739,14 +2380,7 @@ export default function TeacherDashboard() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/import/grades`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Excel yuklashda xatolik");
+      const data = await api.post("/api/schools/import/grades", formData);
 
       setImportResult(data);
       setSelectedFile(null);
@@ -3237,12 +2871,10 @@ export default function TeacherDashboard() {
               <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
                 {studentModalMode === "create" ? "Parol *" : "Yangi Parol (Ixtiyoriy)"}
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 required={studentModalMode === "create"}
                 value={studentForm.password}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                 placeholder={studentModalMode === "create" ? "Tizimga kirish paroli (Kamida 6 ta belgi)" : "O'zgartirmaslik uchun bo'sh qoldiring"}
               />
             </div>
@@ -3509,188 +3141,30 @@ export default function TeacherDashboard() {
 
   return (
     <div className="h-screen w-full overflow-hidden bg-[#F4F5FB] text-zinc-900 flex font-sans relative">
-      {/* Mobile Backdrop Overlay */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-xs"
-        />
-      )}
-
-      {/* Left Fixed Vertical Sidebar (Collapsible on Desktop, Full-width Drawer on Mobile) */}
-      {(() => {
-        const isCollapsedDesktop = sidebarCollapsed && !sidebarOpen;
-
-        return (
-          <aside className={`fixed md:sticky top-0 left-0 h-screen bg-[#16193E] text-white flex flex-col justify-between shrink-0 z-50 transition-all duration-300 ease-in-out ${
-            sidebarOpen ? 'translate-x-0 w-64' : `-translate-x-full md:translate-x-0 ${isCollapsedDesktop ? 'w-20' : 'w-64'}`
-          }`}>
-            {/* Brand logo & collapse toggle header */}
-            <div>
-              <div className={`h-20 flex items-center border-b border-white/10 ${isCollapsedDesktop ? 'justify-center px-2' : 'justify-between px-6'}`}>
-                {isCollapsedDesktop ? (
-                  <button
-                    type="button"
-                    onClick={() => setSidebarCollapsed(false)}
-                    title="Yonga kengaytirish"
-                    className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0 cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    <GraduationCap className="w-6 h-6" />
-                  </button>
-                ) : (
-                  <>
-                    <div className="flex items-center space-x-3 overflow-hidden">
-                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0">
-                        <GraduationCap className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h1 className="text-base font-black tracking-wider text-white uppercase">FARZANDIM</h1>
-                        <p className="text-[9px] text-indigo-200/70 uppercase tracking-widest font-mono font-bold">O'qituvchi Portali</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (sidebarOpen) {
-                          setSidebarOpen(false);
-                        } else {
-                          setSidebarCollapsed(true);
-                        }
-                      }}
-                      className="flex items-center justify-center w-8 h-8 text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer shrink-0"
-                      title={sidebarOpen ? "Yopish" : "Yonga qisqartirish"}
-                    >
-                      {sidebarOpen ? <X className="w-5 h-5 text-white" /> : <PanelLeftClose className="w-4 h-4 hidden md:block" />}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Sidebar Nav Items */}
-              <nav className="p-3 space-y-2 overflow-y-auto max-h-[calc(100vh-160px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                {[
-                  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-                  { id: "journal", label: "Sinf Jurnali", icon: BookOpen },
-                  { id: "schedule", label: "Dars Jadvali", icon: Calendar },
-                  { id: "lesson-plans", label: "Ish rejasi", icon: FileText },
-                  { id: "students", label: "O'quvchilar", icon: Users },
-                  { id: "parents", label: "Ota-onalar", icon: UserCheck },
-                  { id: "social-passport", label: "Ijtimoiy pasport", icon: FileSpreadsheet },
-                  { id: "unapproved", label: "Tasdiqlanmagan", icon: CheckSquare, badge: unapprovedGrades.length },
-                  { id: "feedback", label: "Izoh va Fikrlar", icon: MessageSquare },
-                  { id: "announcements", label: "E'lonlar", icon: Megaphone },
-                  { id: "clubs", label: "To'garaklar", icon: Sparkles },
-                  { id: "books", label: "Kitobxonlik", icon: BookMarked },
-                  { id: "settings", label: "Sozlamalar", icon: Settings },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const isActive = teacherTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      title={isCollapsedDesktop ? item.label : undefined}
-                      onClick={() => {
-                        setTeacherTab(item.id as any);
-                        if (item.id === "feedback") fetchFeedbackFeed(token);
-                        if (item.id === "announcements") fetchAllStudents(token);
-                        if (item.id === "clubs") fetchClubs(token);
-                        setSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center rounded-xl text-xs font-semibold transition-all relative cursor-pointer group ${
-                        isCollapsedDesktop ? "justify-center p-3" : "space-x-3.5 px-4 py-3"
-                      } ${
-                        isActive
-                          ? "text-white font-bold bg-white/10"
-                          : "text-indigo-200/60 hover:text-white hover:bg-white/5 font-medium"
-                      }`}
-                    >
-                      {/* Left Pill Notch */}
-                      {isActive && (
-                        <span className={`absolute top-1/2 -translate-y-1/2 w-2 h-7 bg-white rounded-r-full shadow-sm ${
-                          isCollapsedDesktop ? "-left-3" : "-left-4"
-                        }`} />
-                      )}
-                      <Icon className={`w-4 h-4 shrink-0 transition-transform ${isActive ? "text-white scale-110" : "text-indigo-300/60 group-hover:text-white"}`} />
-                      {!isCollapsedDesktop && <span className="truncate">{item.label}</span>}
-                      
-                      {item.badge && item.badge > 0 ? (
-                        isCollapsedDesktop ? (
-                          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#16193E]" />
-                        ) : (
-                          <span className="ml-auto bg-rose-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                            {item.badge}
-                          </span>
-                        )
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* User Profile & Logout Footer */}
-            <div className="p-3 border-t border-white/10">
-              {isCollapsedDesktop ? (
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSidebarCollapsed(false)}
-                    title={`${userInfo?.first_name} ${userInfo?.last_name} (${userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"}) - Bosib yonga kengaytirish`}
-                    className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border-2 border-indigo-400/40 text-white font-black text-sm flex items-center justify-center shadow-md hover:scale-105 transition cursor-pointer shrink-0"
-                  >
-                    {userInfo?.first_name ? userInfo.first_name[0] : "T"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowLogoutModal(true)}
-                    title="Tizimdan chiqish"
-                    className="w-8 h-8 flex items-center justify-center text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3 overflow-hidden">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border border-indigo-400/40 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                      {userInfo?.first_name ? userInfo.first_name[0] : "T"}
-                    </div>
-                    <div className="truncate">
-                      <p className="text-xs font-semibold text-white truncate">{userInfo?.first_name} {userInfo?.last_name}</p>
-                      <p className="text-[10px] text-indigo-300/80 truncate">{userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowLogoutModal(true)}
-                    title="Chiqish"
-                    className="p-2 text-indigo-300 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </aside>
-        );
-      })()}
+      <TeacherSidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        teacherTab={teacherTab}
+        setTeacherTab={setTeacherTab}
+        userInfo={userInfo}
+        unapprovedCount={unapprovedGrades.length}
+        onTabClick={(tabId) => {
+          if (tabId === "feedback") fetchFeedbackFeed(token);
+          if (tabId === "announcements") fetchAllStudents(token);
+          if (tabId === "clubs") fetchClubs(token);
+        }}
+        onLogout={() => setShowLogoutModal(true)}
+      />
 
       {/* Main Workspace (Scrollable) */}
       <div className="flex-1 h-screen flex flex-col min-w-0 overflow-y-auto">
-        {/* Mobile Menu Button (Visible on mobile screens only) */}
-        <div className="md:hidden pt-4 px-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 bg-white text-zinc-700 hover:text-zinc-900 rounded-xl shadow-xs border border-zinc-200/80 transition cursor-pointer flex items-center space-x-2 text-xs font-bold"
-          >
-            <Menu className="w-4 h-4" />
-            <span>Menyu</span>
-          </button>
-          <span className="text-xs font-black text-indigo-900 tracking-wider">FARZANDIM</span>
-        </div>
+        <TeacherHeader
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          title="FARZANDIM"
+        />
 
         {/* Content Container */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-36">
@@ -3973,1635 +3447,312 @@ export default function TeacherDashboard() {
 
           {/* TAB CONTENT: Grading Journal — Daily Grid */}
           {teacherTab === "journal" && (
-            (selectedClassId ? (
-              <div className="space-y-6">
-                {/* Compact Low-Height Header Bar */}
-                {(() => {
-                  const clsName = classes.find(c => c.id === selectedClassId)?.name || "";
-                  const subjObj = selectedSubjectId ? subjects.find(s => s.id === selectedSubjectId) : null;
-                  const subjName = subjObj ? subjObj.name : "Fanni tanlang";
-                  
-                  const days = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
-                  const dateObj = new Date(journalDate + 'T00:00:00');
-                  const dayName = !isNaN(dateObj.getTime()) ? days[dateObj.getDay()] : "";
+            <JournalTab
+              selectedClassId={selectedClassId}
+              classes={classes}
+              subjects={subjects}
+              selectedSubjectId={selectedSubjectId}
+              selectedLessonNumber={selectedLessonNumber}
+              journalDate={journalDate}
+              currentJournalTopic={currentJournalTopic}
+              currentJournalTopicLoading={currentJournalTopicLoading}
+              selectedGradeCategory={selectedGradeCategory}
+              setSelectedGradeCategory={setSelectedGradeCategory}
+              students={students}
+              holidays={holidays}
+              journalLoading={journalLoading}
+              classSchedule={classSchedule}
+              journalAllGrades={journalAllGrades}
+              journalColumns={journalColumns}
+              columnGradingSystems={columnGradingSystems}
+              gradingSystemsList={gradingSystemsList}
+              cellInputs={cellInputs}
+              setCellInputs={setCellInputs}
+              cellSaving={cellSaving}
+              selectedGradeIds={selectedGradeIds}
+              setSelectedGradeIds={setSelectedGradeIds}
+              onAddJournalColumn={handleAddJournalColumn}
+              onRemoveJournalColumn={handleRemoveJournalColumn}
+              onColumnGradingSystemChange={handleColumnGradingSystemChange}
+              onCellSave={handleCellSave}
+              onOpenCalendar={() => {
+                setTeacherCalendarTarget("journal");
+                setIsTeacherCalendarOpen(true);
+              }}
+              onOpenStudentCommentModal={handleOpenStudentCommentModal}
+              findGradeForDayAndType={findGradeForDayAndType}
+            />
+          )}
 
-                  return (
-                    <div className="bg-white border border-zinc-200/70 rounded-2xl sm:rounded-3xl px-5 py-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
-                      {/* Left: Class Info, Single Prominent Subject Badge, and Topic Badge */}
-                      <div className="flex items-center space-x-3 flex-wrap gap-y-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Kunlik Jurnal</span>
-                          <span className="text-zinc-300 font-light">•</span>
-                          <span className="text-xs font-extrabold text-[#16193E]">{clsName ? `${clsName} sinfi` : "Sinf"}</span>
-                        </div>
-
-                        <span className="text-zinc-300 font-light hidden sm:inline">•</span>
-
-                        {/* Single Prominent Subject Name */}
-                        <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100/80 px-3.5 py-1 rounded-xl">
-                          <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse shrink-0"></span>
-                          <span className="text-sm sm:text-base font-extrabold text-indigo-900 tracking-tight">
-                            {subjName}
-                          </span>
-                          {selectedLessonNumber ? (
-                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md ml-1">
-                              {selectedLessonNumber}-soat
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {/* PROMINENT LESSON TOPIC BADGE (Picture 2) */}
-                        <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 px-3.5 py-1 rounded-xl shadow-2xs">
-                          <BookOpen className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                          <span className="text-[10px] font-black text-blue-900 uppercase font-mono tracking-tight shrink-0">Mavzu:</span>
-                          <span className="text-xs font-bold text-blue-950 font-sans truncate max-w-[180px] sm:max-w-xs md:max-w-md">
-                            {currentJournalTopicLoading ? (
-                              <span className="text-zinc-400 font-mono text-[10px]">Yuklanmoqda...</span>
-                            ) : currentJournalTopic ? (
-                              currentJournalTopic
-                            ) : (
-                              <span className="text-zinc-400 font-normal italic">Mavzu belgilanmagan</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right: Date & Category Badges */}
-                      <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-500">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTeacherCalendarTarget("journal");
-                            setIsTeacherCalendarOpen(true);
-                          }}
-                          className="bg-zinc-100/80 hover:bg-zinc-200/80 text-zinc-700 px-3 py-1 rounded-xl flex items-center gap-1.5 font-medium transition cursor-pointer"
-                          title="Sana tanlash (Smart Calendar)"
-                        >
-                          <Calendar className="w-3.5 h-3.5 text-[#5B50EC]" />
-                          <span>{journalDate} {dayName ? `(${dayName})` : ""}</span>
-                        </button>
-                        <span className="bg-purple-50 text-purple-700 border border-purple-100/80 px-2.5 py-1 rounded-xl text-[11px] font-bold">
-                          {selectedGradeCategory === "DAILY" ? "Kundalik" : selectedGradeCategory === "QUARTERLY_EXAM" ? "🏆 Choraklik" : "🎓 Imtihon"}
-                        </span>
-                        <span className="text-zinc-400 font-mono text-[11px] hidden lg:inline">
-                          ({students.length} ta o'quvchi)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Holiday Warning Banner */}
-                {(() => {
-                  const activeHoliday = holidays.find(h => {
-                    const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
-                    return hDate === journalDate;
-                  });
-                  if (activeHoliday) {
-                    return (
-                      <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-center space-x-3 text-xs font-semibold animate-fadeIn mb-4">
-                        <span className="text-lg">⚠️</span>
-                        <div>
-                          <p className="font-bold">Dam olish kuni: {activeHoliday.name}</p>
-                          <p className="text-[10px] text-red-600 mt-0.5">Bugun maktab admini tomonidan dam olish kuni deb belgilangan. Jurnalda baho qo'yish imkoniyati bloklanadi.</p>
-                        </div>
-                      </div>
-                    );
+          {/* TAB CONTENT: Class Schedule */}
+          {teacherTab === "schedule" && (
+            <ScheduleTab
+              selectedClassId={selectedClassId}
+              classes={classes}
+              isMainTeacherOfClass={isMainTeacherOfClass}
+              userInfo={userInfo}
+              classTeachers={classTeachers}
+              schedulePeriods={schedulePeriods}
+              scheduleViewDate={scheduleViewDate}
+              onSelectPeriodDate={(startDate) => {
+                setScheduleViewDate(startDate);
+                fetchClassSchedule(startDate);
+              }}
+              onOpenEditScheduleModal={() => {
+                const initialFormState: { [key: string]: number } = {};
+                for (let d = 1; d <= 6; d++) {
+                  for (let l = 1; l <= 8; l++) {
+                    initialFormState[`${d}-${l}`] = 0;
                   }
-                  return null;
-                })()}
+                }
+                classSchedule.forEach((item) => {
+                  if (item.subject_id > 0) {
+                    initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
+                  }
+                });
+                setActionError("");
 
-                {/* Journal Grid Container Card */}
-                {journalLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                  </div>
-                ) : !selectedSubjectId ? (
-                  (() => {
-                    const isScheduleEmpty = classSchedule.length === 0 || classSchedule.every(item => item.subject_id === 0 || !item.subject_id);
-                    if (isScheduleEmpty) {
-                      return (
-                        <div className="text-center py-16 bg-white border border-dashed border-red-200 rounded-3xl animate-fadeIn">
-                          <p className="text-sm text-red-650 font-bold mb-1">Dars jadvali hali qo'shilmagan</p>
-                          <p className="text-xs text-zinc-400 font-mono">
-                            Dars baholarini ko'rish va kiritish uchun birinchi navbatda haftalik dars jadvalini kiriting.
-                          </p>
-                        </div>
-                      );
+                const currentPeriod =
+                  schedulePeriods.find((p: any) => scheduleViewDate >= p.start_date && scheduleViewDate <= p.end_date) ||
+                  schedulePeriods[0];
+                const activeStart =
+                  currentPeriod?.start_date ||
+                  (classSchedule.length > 0 && classSchedule[0].start_date) ||
+                  "2026-09-01";
+                const activeEnd =
+                  currentPeriod?.end_date ||
+                  (classSchedule.length > 0 && classSchedule[0].end_date) ||
+                  "2027-05-31";
+                setEditingScheduleOriginalStartDate(activeStart);
+                setScheduleStartDate(activeStart);
+                setScheduleEndDate(activeEnd);
+                setShowEditScheduleModal(true);
+              }}
+              onOpenNewPeriodModal={() => {
+                const initialFormState: { [key: string]: number } = {};
+                for (let d = 1; d <= 6; d++) {
+                  for (let l = 1; l <= 8; l++) {
+                    initialFormState[`${d}-${l}`] = 0;
+                  }
+                }
+                setScheduleFormState(initialFormState);
+                setActionError("");
+                setEditingScheduleOriginalStartDate("");
+
+                if (schedulePeriods.length > 0) {
+                  const sorted = [...schedulePeriods].sort((a, b) => a.end_date.localeCompare(b.end_date));
+                  const lastPeriod = sorted[sorted.length - 1];
+                  if (lastPeriod && lastPeriod.end_date) {
+                    const nextStart = new Date(lastPeriod.end_date + "T00:00:00");
+                    nextStart.setDate(nextStart.getDate() + 1);
+                    const nextEnd = new Date(nextStart);
+                    nextEnd.setMonth(nextEnd.getMonth() + 2);
+                    const yyyy1 = nextStart.getFullYear();
+                    const mm1 = String(nextStart.getMonth() + 1).padStart(2, "0");
+                    const dd1 = String(nextStart.getDate()).padStart(2, "0");
+                    const yyyy2 = nextEnd.getFullYear();
+                    const mm2 = String(nextEnd.getMonth() + 1).padStart(2, "0");
+                    const dd2 = String(nextEnd.getDate()).padStart(2, "0");
+                    setScheduleStartDate(`${yyyy1}-${mm1}-${dd1}`);
+                    setScheduleEndDate(`${yyyy2}-${mm2}-${dd2}`);
+                  } else {
+                    setScheduleStartDate("2026-09-01");
+                    setScheduleEndDate("2026-10-24");
+                  }
+                } else {
+                  setScheduleStartDate("2026-09-01");
+                  setScheduleEndDate("2026-10-24");
+                }
+                setShowEditScheduleModal(true);
+              }}
+              overallSchedule={overallSchedule}
+              overallScheduleLoading={overallScheduleLoading}
+              classSchedule={classSchedule}
+              classScheduleLoading={classScheduleLoading}
+              exceptionsSectionRef={exceptionsSectionRef}
+              onOpenAddExceptionModal={() => {
+                setExcDate(new Date().toISOString().split("T")[0]);
+                setExcLesson(1);
+                setExcType("replace");
+                setExcSubjectId("");
+                setActionError("");
+                setShowAddExceptionModal(true);
+              }}
+              scheduleExceptions={scheduleExceptions}
+              scheduleExceptionsLoading={scheduleExceptionsLoading}
+              onDeleteException={handleDeleteException}
+            />
+          )}
+
+          {/* TAB CONTENT: Student Management */}
+          {teacherTab === "students" && (
+            <StudentsTab
+              selectedClassId={selectedClassId}
+              studentsTabList={studentsTabList}
+              studentsTabLoading={studentsTabLoading}
+              studentsSearch={studentsSearch}
+              setStudentsSearch={setStudentsSearch}
+              studentsPage={studentsPage}
+              setStudentsPage={setStudentsPage}
+              studentsPageSize={studentsPageSize}
+              setStudentsPageSize={setStudentsPageSize}
+              onOpenTransferModal={() => setShowTransferModal(true)}
+              onOpenImportStudentsModal={() => {
+                setSelectedFile(null);
+                setImportResult(null);
+                setImportError("");
+                setShowImportStudentsModal(true);
+              }}
+              onOpenCreateStudentModal={() => {
+                setStudentModalMode("create");
+                setStudentForm({
+                  first_name: "",
+                  last_name: "",
+                  middle_name: "",
+                  phone: "",
+                  password: "123456",
+                  address: "",
+                  birthdate: "",
+                  enrollment_date: new Date().toISOString().split("T")[0],
+                  ina: "",
+                });
+                setShowStudentModal(true);
+              }}
+              onOpenParentsModal={(st) => {
+                setSelectedStudentForParents(st);
+                setParentFirstName("");
+                setParentLastName("");
+                setParentMiddleName("");
+                setParentPhone("");
+                setParentEmail("");
+                setParentPassword("password123");
+                fetchLinkedParents(Number(st.id || st.student_id));
+                setShowParentsModal(true);
+              }}
+              onOpenEditStudentModal={(st) => {
+                setEditingStudent(st);
+                setStudentModalMode("edit");
+                setStudentForm({
+                  first_name: st.first_name || "",
+                  last_name: st.last_name || "",
+                  middle_name: st.middle_name || "",
+                  phone: st.phone || "",
+                  password: "",
+                  address: st.address || "",
+                  birthdate: st.birthdate ? st.birthdate.split("T")[0] : "",
+                  enrollment_date: st.enrollment_date
+                    ? st.enrollment_date.split("T")[0]
+                    : st.created_at
+                    ? st.created_at.split("T")[0]
+                    : new Date().toISOString().split("T")[0],
+                  ina: st.ina || "",
+                });
+                setShowStudentModal(true);
+              }}
+              onDeleteStudent={handleDeleteStudent}
+            />
+          )}
+
+          {/* TAB CONTENT: Unapproved Grades List */}
+          {teacherTab === "unapproved" && (
+            <UnapprovedGradesTab
+              selectedClassId={selectedClassId}
+              selectedSubjectId={selectedSubjectId}
+              unapprovedGrades={unapprovedGrades}
+              unapprovedLoading={unapprovedLoading}
+              selectedGradeIds={selectedGradeIds}
+              setSelectedGradeIds={setSelectedGradeIds}
+              unapprovedPage={unapprovedPage}
+              setUnapprovedPage={setUnapprovedPage}
+              unapprovedPageSize={unapprovedPageSize}
+              setUnapprovedPageSize={setUnapprovedPageSize}
+              onApproveBatch={async () => {
+                try {
+                  const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      mark_uids: Array.from(selectedGradeIds),
+                      status: "approved",
+                    }),
+                  });
+                  const data = await response.json();
+                  if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
+
+                  showToast("success", `${selectedGradeIds.size} ta baho tasdiqlandi!`);
+                  setSelectedGradeIds(new Set());
+                  fetchUnapprovedGrades();
+                } catch (err: any) {
+                  showToast("error", err.message);
+                }
+              }}
+              onApproveSingle={async (gId) => {
+                try {
+                  const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      mark_uids: [gId],
+                      status: "approved",
+                    }),
+                  });
+                  const data = await response.json();
+                  if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
+
+                  showToast("success", "Baho tasdiqlandi!");
+                  fetchUnapprovedGrades();
+                } catch (err: any) {
+                  showToast("error", err.message);
+                }
+              }}
+              onDeleteSingle={(gId) => {
+                setTeacherDialog({
+                  isOpen: true,
+                  type: "danger",
+                  title: "Bahoni o'chirish",
+                  message: "Haqiqatan ham bu bahoni o'chirmoqchimisiz?",
+                  confirmText: "Ha, o'chirish",
+                  onConfirm: async () => {
+                    setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+                    try {
+                      const response = await fetch(`${API_URL}/api/schools/grades/${gId}`, {
+                        method: "DELETE",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                      });
+                      const data = await response.json();
+                      if (!response.ok) throw new Error(data.error || "O'chirishda xatolik");
+                      showToast("success", "Baho o'chirildi!");
+                      fetchUnapprovedGrades();
+                    } catch (err: any) {
+                      showToast("error", err.message);
                     }
-                    return (
-                      <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                        <p className="text-sm text-[#16193E] font-extrabold mb-1">Fanni tanlang</p>
-                        <p className="text-xs text-zinc-400 font-medium">Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.</p>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden animate-fadeIn">
-                    {/* Grid legend row */}
-                    <div className="px-6 py-4 bg-[#fafafa] border-b border-zinc-200/80 flex flex-wrap items-center justify-between gap-3 text-zinc-800">
-                      <div className="flex flex-wrap items-center gap-4">
-                        <span className="text-[10px] font-extrabold text-[#16193E] uppercase tracking-widest font-mono">
-                          {selectedLessonNumber ? `${selectedLessonNumber}-SOAT ` : ""}BAHOLAR JURNALI
-                        </span>
+                  },
+                });
+              }}
+            />
+          )}
 
-                        {(() => {
-                          const hasApprovedOrAnyGradesForToday = journalAllGrades.some(g => {
-                            const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
-                            return g.subject_id === Number(selectedSubjectId) &&
-                                   g.lesson_number === Number(selectedLessonNumber) &&
-                                   gDate === journalDate;
-                          });
-
-                          return (
-                            <div className="flex items-center space-x-1.5">
-                              <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Kategoriya:</span>
-                              <select
-                                value={selectedGradeCategory}
-                                onChange={(e) => setSelectedGradeCategory(e.target.value)}
-                                disabled={hasApprovedOrAnyGradesForToday}
-                                className={`bg-zinc-150 border-none rounded-md px-2 py-0.5 text-[9px] font-bold text-zinc-700 outline-none transition text-center ${
-                                  hasApprovedOrAnyGradesForToday 
-                                    ? 'opacity-65 cursor-not-allowed bg-zinc-200' 
-                                    : 'bg-zinc-150 hover:bg-zinc-200 cursor-pointer'
-                                }`}
-                                title={hasApprovedOrAnyGradesForToday ? "Ushbu darsda baholar kiritilgani sababli kategoriyani o'zgartirib bo'lmaydi" : ""}
-                              >
-                                <option value="DAILY">Kundalik</option>
-                                <option value="QUARTERLY_EXAM">🏆 Choraklik</option>
-                                <option value="SEMESTER_EXAM">🎓 Imtihon</option>
-                              </select>
-                            </div>
-                          );
-                        })()}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const name = prompt("Yangi baholash turi nomini kiriting (masalan: Uyga vazifa, Mustaqil ish):");
-                            if (name) {
-                              handleAddJournalColumn(name);
-                            }
-                          }}
-                          className="bg-[#5B50EC] hover:bg-indigo-700 text-white font-semibold text-[9px] py-1 px-2.5 rounded-md transition cursor-pointer"
-                        >
-                          + Yangi baho turi
-                        </button>
-
-                        {journalColumns.filter(c => !["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(c.id)).length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const customCols = journalColumns.filter(c => !["ATTENDANCE", "BEHAVIOR", "MASTERY"].includes(c.id));
-                              const names = customCols.map(c => c.name).join(", ");
-                              const toRemove = prompt(`O'chirmoqchi bo'lgan baholash turi nomini kiriting (${names}):`);
-                              if (toRemove) {
-                                const found = customCols.find(c => c.name.toLowerCase() === toRemove.trim().toLowerCase());
-                                if (found) {
-                                  setTeacherDialog({
-                                    isOpen: true,
-                                    type: "danger",
-                                    title: "Ustunni o'chirish",
-                                    message: `Haqiqatan ham "${found.name}" ustunini o'chirmoqchimisiz?`,
-                                    confirmText: "Ha, o'chirish",
-                                    onConfirm: () => {
-                                      setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
-                                      handleRemoveJournalColumn(found.id);
-                                    },
-                                  });
-                                } else {
-                                  setTeacherDialog({
-                                    isOpen: true,
-                                    type: "alert",
-                                    title: "Topilmadi",
-                                    message: "Bunday baholash turi topilmadi.",
-                                    confirmText: "OK",
-                                    onConfirm: () => setTeacherDialog((prev) => ({ ...prev, isOpen: false })),
-                                  });
-                                }
-                              }
-                            }}
-                            className="bg-red-50 hover:bg-red-105 border border-red-200 text-red-600 font-semibold text-[9px] py-1 px-2.5 rounded-md transition cursor-pointer"
-                          >
-                            O'chirish
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="overflow-x-auto max-h-[calc(100vh-310px)] sm:max-h-[calc(100vh-280px)] overflow-y-auto rounded-b-3xl">
-                      <table className="min-w-full divide-y divide-zinc-200 text-left border-separate border-spacing-0">
-                        <thead className="bg-[#fafafa] text-[9px] sm:text-[10px] font-bold text-zinc-450 uppercase tracking-wider sticky top-0 z-30 shadow-xs">
-                          <tr>
-                            <th className="px-2.5 py-2.5 sm:px-4 sm:py-4 w-10 sm:w-12 text-center font-mono sticky top-0 left-0 z-40 bg-[#fafafa] border-b border-zinc-200">№</th>
-                            <th className="px-2.5 py-2.5 sm:px-4 sm:py-4 sticky top-0 left-[40px] sm:left-[48px] z-40 bg-[#fafafa] border-b border-zinc-200 min-w-[120px] sm:min-w-[140px] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">O'quvchi ismi</th>
-                            {journalColumns.map((col) => (
-                              <th key={col.id} className="px-3 py-2.5 sm:px-6 sm:py-4 text-center border-b border-zinc-200 sticky top-0 z-30 bg-[#fafafa]">
-                                <div>{col.name}</div>
-                                {col.id !== "ATTENDANCE" && (() => {
-                                  const hasGradesInThisColumn = journalAllGrades.some(g => {
-                                    const gDate = g.grade_date ? (typeof g.grade_date === 'string' ? g.grade_date.split('T')[0] : new Date(g.grade_date).toISOString().split('T')[0]) : '';
-                                    return g.subject_id === Number(selectedSubjectId) &&
-                                           g.lesson_number === Number(selectedLessonNumber) &&
-                                           g.grade_type === col.id &&
-                                           gDate === journalDate;
-                                  });
-
-                                  return (
-                                    <div className="flex flex-col items-center mt-1">
-                                      <select
-                                        value={
-                                          columnGradingSystems[col.id] ||
-                                          (col.id === "BEHAVIOR"
-                                            ? String(
-                                                gradingSystemsList.find(
-                                                  (gs) =>
-                                                    gs.name.toLowerCase().includes("xulq") ||
-                                                    gs.name.toLowerCase().includes("behavior") ||
-                                                    gs.type === "BEHAVIOR" ||
-                                                    gs.code === "BEHAVIOR"
-                                                )?.id || ""
-                                              )
-                                            : "")
-                                        }
-                                        onChange={(e) => handleColumnGradingSystemChange(col.id, e.target.value)}
-                                        disabled={hasGradesInThisColumn}
-                                        className={`border border-zinc-200 rounded-md px-1.5 py-0.5 text-[8px] font-bold text-zinc-650 outline-none transition text-center max-w-[100px] ${
-                                          hasGradesInThisColumn 
-                                            ? 'opacity-65 cursor-not-allowed bg-zinc-200' 
-                                            : 'bg-zinc-100 hover:bg-zinc-150 cursor-pointer'
-                                        }`}
-                                        title={hasGradesInThisColumn ? "Ushbu ustunda baholar kiritilgani sababli baholash tizimini o'zgartirib bo'lmaydi" : ""}
-                                      >
-                                        <option value="">Oddiy tizim</option>
-                                        {gradingSystemsList.map(gs => (
-                                          <option key={gs.id} value={gs.id}>{gs.name}</option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  );
-                                })()}
-                              </th>
-                            ))}
-                            <th className="px-3 py-2.5 sm:px-4 sm:py-4 text-center border-b border-zinc-200 sticky top-0 z-30 bg-[#fafafa] w-12 sm:w-16">
-                              <div className="flex items-center justify-center gap-1 text-[9px] text-zinc-400 font-extrabold uppercase" title="Baho izohlari">
-                                <MessageSquare className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Izoh</span>
-                              </div>
-                            </th>
-                          </tr>
-                        </thead>
-            <tbody className="divide-y divide-zinc-100 text-xs bg-white">
-              {students.length === 0 ? (
-                <tr>
-                  <td colSpan={3 + journalColumns.length} className="px-6 py-10 text-center text-zinc-450 italic font-mono">
-                    Bu sinfda o'quvchilar topilmadi.
-                  </td>
-                </tr>
-              ) : (
-                students.map((st, idx) => {
-                  const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
-                  const attendanceVal = cellInputs[attKey] || "+";
-
-                  return (
-                    <tr key={st.id} className={`hover:bg-zinc-50/50 transition ${attendanceVal === "-" ? "opacity-60 bg-zinc-50/30" : ""}`}>
-                      {/* No. */}
-                      <td className="px-2.5 py-2.5 sm:px-4 sm:py-4 text-center font-mono text-zinc-400 text-xs font-semibold sticky left-0 z-10 bg-white border-b border-zinc-100">
-                        {String(idx + 1).padStart(2, '0')}
-                      </td>
-                      
-                      {/* Student Name */}
-                      <td className="px-2.5 py-2.5 sm:px-4 sm:py-4 font-bold text-zinc-800 text-xs sm:text-sm whitespace-nowrap sticky left-[40px] sm:left-[48px] z-10 bg-white border-b border-zinc-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
-                        {st.first_name} {st.last_name}
-                      </td>
-                      
-                      {/* Columns */}
-                      {journalColumns.map((col) => {
-                        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
-                        const cellVal = cellInputs[key] || "";
-                        const grade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
-                        const isApproved = grade?.status === 'approved';
-                        const isParentApproved = grade?.approved_by_parent;
-                        const isSaving = cellSaving === key;
-                        const isHoliday = holidays.some(h => {
-                          const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
-                          return hDate === journalDate;
-                        });
-
-                        return (
-                          <td key={col.id} className="px-6 py-3 text-center">
-                            <div className="relative inline-block group">
-                              {grade && !isApproved && (
-                                <input
-                                  type="checkbox"
-                                  checked={selectedGradeIds.has(grade.id)}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setSelectedGradeIds(prev => {
-                                      const next = new Set(prev);
-                                      if (checked) {
-                                        next.add(grade.id);
-                                      } else {
-                                        next.delete(grade.id);
-                                      }
-                                      return next;
-                                    });
-                                  }}
-                                  className="absolute -left-6 top-2.5 w-3 h-3 text-[#5B50EC] border-zinc-300 rounded focus:ring-0 cursor-pointer z-20"
-                                  title="Tasdiqlash uchun tanlash"
-                                />
-                              )}
-
-                              {col.id === "ATTENDANCE" ? (
-                                <select
-                                  value={cellVal}
-                                  onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "ATTENDANCE", e.target.value)}
-                                  disabled={isSaving || isApproved || isHoliday}
-                                  className={`w-14 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
-                                    ${cellVal === "+" ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
-                                      cellVal === "-" ? "bg-red-50 border-red-300 text-red-700" :
-                                      "bg-amber-50 border-amber-300 text-amber-700"
-                                    }
-                                  `}
-                                >
-                                  <option value="+">+</option>
-                                  <option value="-">-</option>
-                                  <option value="k">k</option>
-                                </select>
-                              ) : (() => {
-                                const colGSId = columnGradingSystems[col.id];
-                                const colGS = gradingSystemsList.find(gs => gs.id === colGSId);
-                                if (colGS) {
-                                  let options: { label: string; numeric_value?: number }[] = [];
-                                  if (colGS.options) {
-                                    try {
-                                      options = typeof colGS.options === 'string' ? JSON.parse(colGS.options) : colGS.options;
-                                    } catch (e) {
-                                      console.error("Failed to parse options", e);
-                                    }
-                                  }
-                                  if (Array.isArray(options) && options.length > 0) {
-                                    return (
-                                      <select
-                                        value={cellVal}
-                                        onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, e.target.value)}
-                                        disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                        className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer bg-white border-zinc-300 text-zinc-800
-                                          ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
-                                        `}
-                                      >
-                                        <option value="">—</option>
-                                        {options.map((opt, oidx) => (
-                                          <option key={oidx} value={opt.label}>
-                                            {opt.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    );
-                                  }
-                                              
-                                              return (
-                                                <input
-                                                  type="text"
-                                                  value={cellVal}
-                                                  onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                                                  onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                      e.preventDefault();
-                                                      handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
-                                                    }
-                                                  }}
-                                                  onBlur={() => {
-                                                    handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
-                                                  }}
-                                                  disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                                  placeholder={`${colGS.min_value !== undefined && colGS.max_value !== undefined ? `${colGS.min_value}-${colGS.max_value}` : "—"}`}
-                                                  className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500
-                                                    ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : 'bg-white border-zinc-300 text-zinc-800'}
-                                                    ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
-                                                  `}
-                                                />
-                                              );
-                                            }
-
-                                            if (col.id === "BEHAVIOR") {
-                                              return (
-                                                <select
-                                                  value={cellVal || "0"}
-                                                  onChange={(e) => handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), "BEHAVIOR", e.target.value)}
-                                                  disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                                  className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500 cursor-pointer
-                                                    ${(cellVal || "0") === "0" ? "bg-zinc-50 border-zinc-300 text-zinc-700" :
-                                                      Number(cellVal) > 0 ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
-                                                      "bg-red-50 border-red-300 text-red-700"
-                                                    }
-                                                  `}
-                                                >
-                                                  <option value="5">+5</option>
-                                                  <option value="4">+4</option>
-                                                  <option value="3">+3</option>
-                                                  <option value="2">+2</option>
-                                                  <option value="1">+1</option>
-                                                  <option value="0">0</option>
-                                                  <option value="-1">-1</option>
-                                                  <option value="-2">-2</option>
-                                                  <option value="-3">-3</option>
-                                                  <option value="-4">-4</option>
-                                                  <option value="-5">-5</option>
-                                                </select>
-                                              );
-                                            }
-
-                                            return (
-                                              <input
-                                                type="text"
-                                                value={cellVal}
-                                                onChange={(e) => setCellInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
-                                                  }
-                                                }}
-                                                onBlur={() => {
-                                                  handleCellSave(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id, cellVal);
-                                                }}
-                                                disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                                placeholder="—"
-                                                className={`w-16 h-8 rounded-lg text-center border font-bold font-mono text-xs outline-none transition focus:ring-2 focus:ring-indigo-500
-                                                  ${isSaving ? 'border-indigo-400 animate-pulse bg-indigo-50/30' : 'bg-white border-zinc-300 text-zinc-800'}
-                                                  ${attendanceVal === "-" ? "bg-zinc-100/50 cursor-not-allowed text-zinc-300 border-zinc-200" : ""}
-                                                `}
-                                              />
-                                            );
-                                          })()}
-
-                                          {/* Status badges */}
-                                          {isApproved && (
-                                            <span 
-                                              className="absolute -right-2 -top-2 bg-white border border-zinc-200 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] shadow-sm select-none z-20"
-                                              title="Baho tasdiqlangan"
-                                            >
-                                              🔒
-                                            </span>
-                                          )}
-                                          {!isApproved && isParentApproved && (
-                                            <span 
-                                              className="absolute -right-2 -top-2 bg-white border border-teal-200 text-teal-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-extrabold shadow-sm select-none z-20"
-                                              title="Ota-ona ko'rdi"
-                                            >
-                                              ✓
-                                            </span>
-                                          )}
-                                        </div>
-                                      </td>
-                                    );
-                                  })}
-
-                                  {/* Action: Comment Button Column */}
-                                  {(() => {
-                                    const studentGrades = journalColumns
-                                      .filter(col => col.id !== "ATTENDANCE")
-                                      .map(col => {
-                                        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
-                                        const grade = findGradeForDayAndType(st.id, Number(selectedSubjectId), Number(selectedLessonNumber), col.id);
-                                        const val = (cellInputs[key] !== undefined ? cellInputs[key] : (grade ? grade.value : "")).trim();
-                                        return {
-                                          colId: col.id,
-                                          colName: col.name,
-                                          value: val,
-                                          grade,
-                                          key,
-                                        };
-                                      })
-                                      .filter(item => item.value !== "" && item.value !== "—");
-
-                                    const hasAnyGrade = studentGrades.length > 0;
-
-                                    return (
-                                      <td className="px-3 py-3 text-center border-b border-zinc-100">
-                                        <button
-                                          type="button"
-                                          disabled={!hasAnyGrade}
-                                          onClick={() => handleOpenStudentCommentModal(st, studentGrades)}
-                                          title={hasAnyGrade ? "Izoh yozish / ko'rish" : "Izoh yozish uchun avval baho qo'ying"}
-                                          className={`w-8 h-8 rounded-xl flex items-center justify-center transition mx-auto ${
-                                            hasAnyGrade
-                                              ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
-                                              : "bg-zinc-100 text-zinc-300 border border-transparent cursor-not-allowed opacity-40"
-                                          }`}
-                                        >
-                                          <MessageSquare className="w-4 h-4" />
-                                        </button>
-                                      </td>
-                                    );
-                                  })()}
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* Footer hint */}
-                    <div className="px-5 py-3 border-t border-zinc-150 bg-zinc-50 flex items-center justify-between">
-                      <p className="text-[10px] text-zinc-400 font-mono">
-                        O'zgarishlar kiritilganda avtomatik saqlanadi.
-                      </p>
-                      <p className="text-[10px] text-zinc-400 font-mono">
-                        {journalAllGrades.filter(g => {
-                          const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split('T')[0] : '';
-                          return gDate === journalDate && g.subject_id === Number(selectedSubjectId);
-                        }).length} ta baho kiritilgan
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-                <div className="bg-white border border-zinc-200/80 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xs my-12">
-                  <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xs">
-                    <BookOpen className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-base font-bold text-zinc-800 tracking-tight mb-2">SINF JURNALI (BAHOLASH)</h2>
-                  <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
-                    Baholash va darslarni kiritish uchun pastdagi floating panel orqali kerakli sinf va fanni tanlang.
-                  </p>
-                </div>
-              ))
-            )}
-
-            {/* TAB CONTENT: Class Schedule */}
-            {teacherTab === "schedule" && (
-              <div className="space-y-6 pb-40">
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100/80 pb-3">
-                    <div className="space-y-1">
-                      <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100 px-3.5 py-1 rounded-full text-indigo-700 text-xs font-bold">
-                        <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                        <span>
-                          {!selectedClassId
-                            ? "🌐 Mening Shaxsiy Dars Jadvalim (Umumiy)"
-                            : isMainTeacherOfClass()
-                            ? `⭐ Sinf Rahbari: ${classes.find(c => c.id === selectedClassId)?.name || "Sinf"} Haftalik Dars Jadvali`
-                            : `📚 ${classes.find(c => c.id === selectedClassId)?.name || "Sinf"} Dars Jadvali (Fan o'qituvchisi ko'rinishi)`}
-                        </span>
-                      </div>
-                      <p className="text-xs text-zinc-500 font-medium">
-                        {!selectedClassId
-                          ? "Siz dars beradigan barcha sinflarning haftalik rejasi. Bir xil vaqtda 2 ta sinf darsi bo'lsa, sariq rang bilan ziddiyat ko'rsatiladi."
-                          : isMainTeacherOfClass()
-                          ? "Sinfingizdagi barcha fanlar va dars jadvali."
-                          : "Ushbu sinfda siz kiradigan darslar alohida ta'kidlab ko'rsatilgan."}
-                      </p>
-                    </div>
-
-                    {/* Quick Header Action Buttons */}
-                    <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-2">
-                      {selectedClassId && (isMainTeacherOfClass() || userInfo?.role === "ADMIN") && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const initialFormState: { [key: string]: number } = {};
-                            for (let d = 1; d <= 6; d++) {
-                              for (let l = 1; l <= 8; l++) {
-                                initialFormState[`${d}-${l}`] = 0;
-                              }
-                            }
-                            classSchedule.forEach((item) => {
-                              if (item.subject_id > 0) {
-                                initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
-                              }
-                            });
-                            setActionError("");
-
-                            const currentPeriod = schedulePeriods.find((p: any) => scheduleViewDate >= p.start_date && scheduleViewDate <= p.end_date) || schedulePeriods[0];
-                            const activeStart = currentPeriod?.start_date || (classSchedule.length > 0 && classSchedule[0].start_date) || "2026-09-01";
-                            const activeEnd = currentPeriod?.end_date || (classSchedule.length > 0 && classSchedule[0].end_date) || "2027-05-31";
-                            setEditingScheduleOriginalStartDate(activeStart);
-                            setScheduleStartDate(activeStart);
-                            setScheduleEndDate(activeEnd);
-
-                            setShowEditScheduleModal(true);
-                          }}
-                          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs hover:scale-105"
-                          title="Sinf haftalik dars jadvalini tahrirlash"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-white" />
-                          <span>Jadvalni tahrirlash</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          exceptionsSectionRef.current?.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
-                        title="Pastdagi o'zgarishlar jadvaliga silliq tushish"
-                      >
-                        <span>O'zgarishlarni ko'rish ({scheduleExceptions.length})</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Schedule Periods / Quarters Filter Bar */}
-                  {selectedClassId && (
-                    <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/80 border border-indigo-100 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-extrabold text-[#16193E] uppercase font-mono tracking-wider flex items-center gap-1.5 shrink-0">
-                          <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Dars Jadvali Davrlari (Choraklar):</span>
-                        </span>
-
-                        {schedulePeriods.length === 0 ? (
-                          <span className="text-xs text-zinc-500 font-medium italic">Hali davrlar belgilanmagan</span>
-                        ) : (
-                          schedulePeriods.map((period: any, pIdx: number) => {
-                            const isCurrentActive = scheduleViewDate >= period.start_date && scheduleViewDate <= period.end_date;
-                            return (
-                              <button
-                                key={pIdx}
-                                type="button"
-                                onClick={() => {
-                                  setScheduleViewDate(period.start_date);
-                                  fetchClassSchedule(period.start_date);
-                                }}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
-                                  isCurrentActive
-                                    ? "bg-[#5B50EC] text-white shadow-xs scale-105"
-                                    : "bg-white text-zinc-700 hover:bg-zinc-100 border border-zinc-200"
-                                }`}
-                              >
-                                <span>{pIdx + 1}-chorak/davr:</span>
-                                <span className="font-mono text-[11px]">{period.start_date} — {period.end_date}</span>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {(isMainTeacherOfClass() || userInfo?.role === "ADMIN") && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const initialFormState: { [key: string]: number } = {};
-                            for (let d = 1; d <= 6; d++) {
-                              for (let l = 1; l <= 8; l++) {
-                                initialFormState[`${d}-${l}`] = 0;
-                              }
-                            }
-                            setScheduleFormState(initialFormState);
-                            setActionError("");
-                            setEditingScheduleOriginalStartDate(""); // Brand new period
-
-                            if (schedulePeriods.length > 0) {
-                              const sorted = [...schedulePeriods].sort((a, b) => a.end_date.localeCompare(b.end_date));
-                              const lastPeriod = sorted[sorted.length - 1];
-                              if (lastPeriod && lastPeriod.end_date) {
-                                const nextStart = new Date(lastPeriod.end_date + "T00:00:00");
-                                nextStart.setDate(nextStart.getDate() + 1);
-                                const nextEnd = new Date(nextStart);
-                                nextEnd.setMonth(nextEnd.getMonth() + 2);
-                                const yyyy1 = nextStart.getFullYear();
-                                const mm1 = String(nextStart.getMonth() + 1).padStart(2, '0');
-                                const dd1 = String(nextStart.getDate()).padStart(2, '0');
-                                const yyyy2 = nextEnd.getFullYear();
-                                const mm2 = String(nextEnd.getMonth() + 1).padStart(2, '0');
-                                const dd2 = String(nextEnd.getDate()).padStart(2, '0');
-                                setScheduleStartDate(`${yyyy1}-${mm1}-${dd1}`);
-                                setScheduleEndDate(`${yyyy2}-${mm2}-${dd2}`);
-                              } else {
-                                setScheduleStartDate("2026-09-01");
-                                setScheduleEndDate("2026-10-24");
-                              }
-                            } else {
-                              setScheduleStartDate("2026-09-01");
-                              setScheduleEndDate("2026-10-24");
-                            }
-                            setShowEditScheduleModal(true);
-                          }}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] py-1.5 px-3 rounded-xl transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-1"
-                          title="Yangi chorak yoki vaqt oralig'i dars jadvalini qo'shish"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Yangi Davr Jadvali Qo'shish</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {!selectedClassId ? (
-                    /* OVERALL TEACHER SCHEDULE VIEW */
-                    overallScheduleLoading ? (
-                      <div className="text-center py-10">
-                        <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
-                        <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
-                          <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
-                            <tr>
-                              <th className="px-3 py-3 w-16 text-center bg-[#fafafa]">Soat</th>
-                              <th className="px-3 py-3">Dushanba</th>
-                              <th className="px-3 py-3">Seshanba</th>
-                              <th className="px-3 py-3">Chorshanba</th>
-                              <th className="px-3 py-3">Payshanba</th>
-                              <th className="px-3 py-3">Juma</th>
-                              <th className="px-3 py-3">Shanba</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                              <tr key={period} className="hover:bg-indigo-50/20 transition">
-                                <td className="px-2.5 py-3 font-mono font-bold text-zinc-400 bg-[#fafafa]">
-                                  {period}-dars
-                                </td>
-                                {[1, 2, 3, 4, 5, 6].map((day) => {
-                                  const items = overallSchedule[`${day}-${period}`] || [];
-                                  const hasConflict = items.length >= 2;
-
-                                  return (
-                                    <td key={day} className="px-2 py-2 border-l border-zinc-100 align-middle">
-                                      {items.length === 0 ? (
-                                        <span className="text-zinc-300 italic text-xs font-mono">-</span>
-                                      ) : hasConflict ? (
-                                        <div className="bg-amber-100 border-2 border-amber-400 text-amber-950 p-2 rounded-xl text-center shadow-xs">
-                                          <span className="text-[9px] font-black uppercase text-amber-800 tracking-tight block">⚠️ 2 TA DARS ZIDDIYATI</span>
-                                          {items.map((it, idx) => (
-                                            <div key={idx} className="text-[10px] font-black text-amber-950 border-t border-amber-300/60 pt-0.5 mt-0.5">
-                                              {it.class_name} — {it.subject_name}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <div className="bg-indigo-50/90 border border-indigo-200/80 p-2 rounded-xl text-center shadow-2xs">
-                                          <span className="text-[10px] font-black text-indigo-700 block font-mono uppercase">{items[0].class_name}</span>
-                                          <span className="text-[11px] font-black text-zinc-900 block">{items[0].subject_name}</span>
-                                        </div>
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                  ) : (
-                    /* SPECIFIC CLASS SCHEDULE VIEW */
-                    classScheduleLoading ? (
-                      <div className="text-center py-10">
-                        <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
-                        <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
-                          <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
-                            <tr>
-                              <th className="px-3 py-3 w-16 text-center bg-[#fafafa]">Soat</th>
-                              <th className="px-3 py-3">Dushanba</th>
-                              <th className="px-3 py-3">Seshanba</th>
-                              <th className="px-3 py-3">Chorshanba</th>
-                              <th className="px-3 py-3">Payshanba</th>
-                              <th className="px-3 py-3">Juma</th>
-                              <th className="px-3 py-3">Shanba</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                              <tr key={period} className="hover:bg-indigo-50/20 transition">
-                                <td className="px-2.5 py-3 font-mono font-bold text-zinc-400 bg-[#fafafa]">
-                                  {period}-dars
-                                </td>
-                                {[1, 2, 3, 4, 5, 6].map((day) => {
-                                  const lesson = classSchedule.find(
-                                    (item) => item.day_of_week === day && item.lesson_number === period
-                                  );
-
-                                  const isMyClass = isMainTeacherOfClass();
-                                  const isMyTaughtSubject = lesson && classTeachers.some(ct => ct.teacher_id === userInfo?.id && ct.subject_id === lesson.subject_id);
-
-                                  return (
-                                    <td key={day} className="px-2.5 py-3 border-l border-zinc-100 align-middle">
-                                      {lesson ? (
-                                        lesson.subject_id === 0 || lesson.subject_name === "Bekor qilingan" ? (
-                                          <span className="text-red-500 font-bold line-through block italic text-xs">
-                                            Bekor qilingan
-                                          </span>
-                                        ) : isMyClass ? (
-                                          /* Main Teacher View: Full details */
-                                          <span className="text-zinc-900 font-extrabold block text-xs">
-                                            {lesson.subject_name}
-                                          </span>
-                                        ) : isMyTaughtSubject ? (
-                                          /* Subject Teacher View: My own lesson in this class */
-                                          <div className="bg-emerald-50 border-2 border-emerald-300 p-2 rounded-xl text-center shadow-2xs">
-                                            <span className="text-[9px] font-black text-emerald-600 uppercase block tracking-wider font-mono">Darsim</span>
-                                            <span className="text-xs font-black text-emerald-950 block">{lesson.subject_name}</span>
-                                          </div>
-                                        ) : (
-                                          /* Subject Teacher View: Another teacher's lesson */
-                                          <div className="bg-zinc-50/90 border border-zinc-200/80 p-2 rounded-xl text-center">
-                                            <span className="text-xs font-bold text-zinc-700 block">{lesson.subject_name}</span>
-                                          </div>
-                                        )
-                                      ) : (
-                                        <span className="text-zinc-300 italic text-xs font-mono">-</span>
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Exceptions manager */}
-                <div ref={exceptionsSectionRef} className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs space-y-4 animate-fadeIn">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">Kunlik Dars Jadvali O'zgarishlari</h3>
-                      <p className="text-xs text-zinc-500 font-medium mt-1">Sinf o'qituvchisi yoki fan o'qituvchilari tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setExcDate(new Date().toISOString().split("T")[0]);
-                        setExcLesson(1);
-                        setExcType("replace");
-                        setExcSubjectId("");
-                        setActionError("");
-                        setShowAddExceptionModal(true);
-                      }}
-                      className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
-                    >
-                      <span>+ O'zgarish kiritish</span>
-                    </button>
-                  </div>
-
-                  {scheduleExceptionsLoading ? (
-                    <div className="text-center py-6">
-                      <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    </div>
-                  ) : scheduleExceptions.length === 0 ? (
-                    <p className="text-zinc-400 text-xs font-mono py-6 text-center border border-dashed border-zinc-200/80 rounded-2xl bg-zinc-50/40">Hech qanday dars o'zgarishi kiritilmagan.</p>
-                  ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
-                      <table className="min-w-full divide-y divide-zinc-200/60 text-left text-xs text-zinc-700">
-                        <thead className="bg-[#fafafa] text-[9px] sm:text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
-                          <tr>
-                            <th className="px-4 py-3">Sana</th>
-                            <th className="px-4 py-3">Dars soati</th>
-                            <th className="px-4 py-3">Holat / Fan</th>
-                            <th className="px-4 py-3">Kiritilgan vaqt</th>
-                            <th className="px-4 py-3 text-right">Amal</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-200/60">
-                          {scheduleExceptions.map((exc) => {
-                            const isPast = new Date(exc.date + "T23:59:59") < new Date();
-                            return (
-                              <tr key={exc.id} className="hover:bg-zinc-50/30 transition">
-                                <td className="px-4 py-3 font-semibold text-zinc-800">{exc.date}</td>
-                                <td className="px-4 py-3 font-mono text-zinc-500">{exc.lesson_number}-dars</td>
-                                <td className="px-4 py-3">
-                                  {exc.is_deleted ? (
-                                    <span className="text-zinc-400 line-through italic text-[11px]">O'chirilgan</span>
-                                  ) : exc.subject_id === null ? (
-                                    <span className="bg-red-500/10 border border-red-500/20 text-red-500 px-2 py-0.5 rounded text-[10px] font-semibold font-mono">Bekor qilingan</span>
-                                  ) : (
-                                    <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded text-[10px] font-semibold font-mono">
-                                      {exc.subject_name} (O'zgartirilgan)
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-zinc-400 text-[10px] font-mono">
-                                  {new Date(exc.created_at).toLocaleString()}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  {!exc.is_deleted && !isPast && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteException(exc.id)}
-                                      className="text-red-650 hover:text-red-500 font-semibold text-[10px] bg-red-50 border border-red-200 px-2.5 py-1 rounded-md transition cursor-pointer"
-                                    >
-                                      O'chirish (Tiklash)
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB CONTENT: Student Management */}
-            {teacherTab === "students" && (() => {
-              const filteredStudents = studentsTabList.filter((st) => {
-                const q = studentsSearch.toLowerCase().trim();
-                if (!q) return true;
-                const name = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
-                const phone = (st.phone || "").toLowerCase();
-                const cls = (st.class_name || "").toLowerCase();
-                return name.includes(q) || phone.includes(q) || cls.includes(q);
-              });
-              const totalStudentsPages = Math.ceil(filteredStudents.length / studentsPageSize) || 1;
-              const currentPage = Math.min(studentsPage, totalStudentsPages);
-              const paginatedStudents = filteredStudents.slice((currentPage - 1) * studentsPageSize, currentPage * studentsPageSize);
-
-              return (
-                <div className="space-y-4 animate-fadeIn pb-36">
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                    <div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">
-                        {selectedClassId ? "Sinf O'quvchilari" : "Barcha O'quvchilar"}
-                      </h3>
-                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                        {selectedClassId
-                          ? "Sinf rahbari sifatida o'quvchilarni qo'shishingiz va boshqarishingiz mumkin"
-                          : "Maktabdagi barcha sinf o'quvchilarining umumiy ro'yxati"}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3 py-2">
-                        <Search className="w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={studentsSearch}
-                          onChange={(e) => {
-                            setStudentsSearch(e.target.value);
-                            setStudentsPage(1);
-                          }}
-                          placeholder="O'quvchi qidirish..."
-                          className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-32 sm:w-44 transition-all"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        title="O'quvchilarni sinfdan sinfga ko'chirish"
-                        onClick={() => setShowTransferModal(true)}
-                        className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
-                      >
-                        <ArrowRightLeft className="w-4 h-4" />
-                        <span className="hidden sm:inline">Sinfga Ko'chirish</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Excel orqali yuklash"
-                        onClick={() => {
-                          setSelectedFile(null);
-                          setImportResult(null);
-                          setImportError("");
-                          setShowImportStudentsModal(true);
-                        }}
-                        className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                      >
-                        <FileSpreadsheet className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="O'quvchi qo'shish"
-                        onClick={() => {
-                          setStudentModalMode("create");
-                          setStudentForm({
-                            first_name: "",
-                            last_name: "",
-                            middle_name: "",
-                            phone: "",
-                            password: "123456",
-                            address: "",
-                            birthdate: "",
-                            enrollment_date: new Date().toISOString().split("T")[0],
-                            ina: ""
-                          });
-                          setShowStudentModal(true);
-                        }}
-                        className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {studentsTabLoading ? (
-                    <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                    </div>
-                  ) : filteredStudents.length === 0 ? (
-                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                      <p className="text-xs text-zinc-400 font-mono">
-                        {studentsSearch
-                          ? "Qidiruv bo'yicha hech qanday o'quvchi topilmadi."
-                          : selectedClassId
-                          ? "Ushbu sinfda hozircha o'quvchilar yo'q."
-                          : "Maktabda hozircha o'quvchilar ro'yxatga olinmagan."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs min-w-[920px]">
-                          <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
-                            <tr>
-                              <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50 whitespace-nowrap">T/R</th>
-                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-nowrap min-w-[180px]">Ism Familiya</th>
-                              <th className="px-6 py-3.5 whitespace-nowrap min-w-[90px]">Sinf</th>
-                              <th className="px-6 py-3.5 whitespace-nowrap">Telefon</th>
-                              <th className="px-6 py-3.5 whitespace-nowrap">Tug'ilgan sana</th>
-                              <th className="px-6 py-3.5 whitespace-nowrap">Maktabga kirish sanasi</th>
-                              <th className="px-6 py-3.5 text-right whitespace-nowrap">Amallar</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
-                            {paginatedStudents.map((st, idx) => {
-                              const globalIndex = (currentPage - 1) * studentsPageSize + idx + 1;
-                              return (
-                                <tr key={st.id} className="group hover:bg-zinc-50/80 transition">
-                                  <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{globalIndex}</td>
-                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition min-w-[180px] whitespace-nowrap">
-                                    {st.first_name} {st.last_name} {st.middle_name && <span className="text-zinc-400 font-normal">({st.middle_name})</span>}
-                                  </td>
-                                  <td className="px-6 py-3.5 font-mono whitespace-nowrap">
-                                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 inline-block whitespace-nowrap shrink-0">
-                                      {st.class_name || "—"}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-3.5 font-mono text-zinc-500 whitespace-nowrap">{st.phone || "—"}</td>
-                                  <td className="px-6 py-3.5 font-mono text-zinc-500 whitespace-nowrap">{st.birthdate ? st.birthdate.split("T")[0] : "—"}</td>
-                                  <td className="px-6 py-3.5 font-mono text-zinc-600 font-bold whitespace-nowrap">
-                                    <span className="bg-indigo-50/70 text-indigo-800 px-2.5 py-1 rounded-xl text-[11px] border border-indigo-100/60 inline-block whitespace-nowrap">
-                                      📅 {st.enrollment_date ? st.enrollment_date.split("T")[0] : (st.created_at ? st.created_at.split("T")[0] : "—")}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      title="Vasiylar (Ota-onalar)"
-                                      onClick={() => {
-                                        setSelectedStudentForParents(st);
-                                        setParentFirstName("");
-                                        setParentLastName("");
-                                        setParentMiddleName("");
-                                        setParentPhone("");
-                                        setParentEmail("");
-                                        setParentPassword("password123");
-                                        fetchLinkedParents(st.id || st.student_id);
-                                        setShowParentsModal(true);
-                                      }}
-                                      className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                    >
-                                      <Users className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      title="Tahrirlash"
-                                      onClick={() => {
-                                        setEditingStudent(st);
-                                        setStudentModalMode("edit");
-                                        setStudentForm({
-                                          first_name: st.first_name || "",
-                                          last_name: st.last_name || "",
-                                          middle_name: st.middle_name || "",
-                                          phone: st.phone || "",
-                                          password: "",
-                                          address: st.address || "",
-                                          birthdate: st.birthdate ? st.birthdate.split("T")[0] : "",
-                                          enrollment_date: st.enrollment_date ? st.enrollment_date.split("T")[0] : (st.created_at ? st.created_at.split("T")[0] : new Date().toISOString().split("T")[0]),
-                                          ina: st.ina || ""
-                                        });
-                                        setShowStudentModal(true);
-                                      }}
-                                      className="p-2 bg-zinc-100 hover:bg-zinc-200 text-[#16193E] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      title="O'chirish"
-                                      onClick={() => handleDeleteStudent(st.student_id || st.id)}
-                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination Bar */}
-                      <div className="bg-zinc-50 border-t border-zinc-200/70 px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
-                        <div className="flex items-center gap-3">
-                          <span>
-                            Jami <b>{filteredStudents.length}</b> ta o'quvchidan{" "}
-                            <b>{(currentPage - 1) * studentsPageSize + 1}</b>-
-                            <b>{Math.min(currentPage * studentsPageSize, filteredStudents.length)}</b> ko'rsatilmoqda
-                          </span>
-
-                          <select
-                            value={studentsPageSize}
-                            onChange={(e) => {
-                              setStudentsPageSize(Number(e.target.value));
-                              setStudentsPage(1);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-700 outline-none cursor-pointer"
-                          >
-                            <option value={15}>15 tadan</option>
-                            <option value={25}>25 tadan</option>
-                            <option value={50}>50 tadan</option>
-                            <option value={100}>100 tadan</option>
-                          </select>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            disabled={currentPage <= 1}
-                            onClick={() => setStudentsPage((p) => Math.max(p - 1, 1))}
-                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                            <span className="hidden sm:inline">Oldingi</span>
-                          </button>
-
-                          <div className="flex items-center gap-1 px-1">
-                            {Array.from({ length: totalStudentsPages }, (_, i) => i + 1)
-                              .filter((p) => p === 1 || p === totalStudentsPages || Math.abs(p - currentPage) <= 1)
-                              .map((p, idx, arr) => {
-                                const prev = arr[idx - 1];
-                                const showEllipsis = prev && p - prev > 1;
-                                return (
-                                  <React.Fragment key={p}>
-                                    {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
-                                    <button
-                                      type="button"
-                                      onClick={() => setStudentsPage(p)}
-                                      className={`w-8 h-8 rounded-xl font-extrabold text-xs transition cursor-pointer ${
-                                        currentPage === p
-                                          ? "bg-[#5B50EC] text-white shadow-xs"
-                                          : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
-                                      }`}
-                                    >
-                                      {p}
-                                    </button>
-                                  </React.Fragment>
-                                );
-                              })}
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={currentPage >= totalStudentsPages}
-                            onClick={() => setStudentsPage((p) => Math.min(p + 1, totalStudentsPages))}
-                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
-                          >
-                            <span className="hidden sm:inline">Keyingi</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* TAB CONTENT: Unapproved Grades List */}
-            {teacherTab === "unapproved" && (() => {
-              // 1. Filter by selectedSubjectId if set
-              const filteredUnapprovedGrades = unapprovedGrades.filter((g) => {
-                if (!selectedSubjectId) return true;
-                return Number(g.subject_id) === Number(selectedSubjectId);
-              });
-
-              // 2. Pagination calculation
-              const totalItems = filteredUnapprovedGrades.length;
-              const totalPages = Math.ceil(totalItems / unapprovedPageSize) || 1;
-              const safePage = Math.min(unapprovedPage, totalPages);
-              const startIndex = (safePage - 1) * unapprovedPageSize;
-              const paginatedGrades = filteredUnapprovedGrades.slice(startIndex, startIndex + unapprovedPageSize);
-
-              return (
-                <div className="space-y-4 animate-fadeIn">
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                    <div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Tasdiqlanmagan Baholar Ro'yxati</h3>
-                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                        Bu oynada tasdiqlanmagan (draft) baholar sanasi bo'yicha kamayish tartibida ko'rinadi.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      {selectedGradeIds.size > 0 && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({
-                                  mark_uids: Array.from(selectedGradeIds),
-                                  status: "approved",
-                                }),
-                              });
-                              const data = await response.json();
-                              if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
-
-                              showToast("success", `${selectedGradeIds.size} ta baho tasdiqlandi!`);
-                              setSelectedGradeIds(new Set());
-                              fetchUnapprovedGrades();
-                            } catch (err: any) {
-                              showToast("error", err.message);
-                            }
-                          }}
-                          className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2.5 px-4 rounded-2xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Tanlangan ({selectedGradeIds.size}) ta bahoni tasdiqlash</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {!selectedClassId ? (
-                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl animate-fadeIn">
-                      <div className="w-12 h-12 rounded-full bg-indigo-50 text-[#5B50EC] flex items-center justify-center mx-auto mb-3">
-                        <Users className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm font-extrabold text-[#16193E] mb-1">Sinf tanlanmadi</p>
-                      <p className="text-xs text-zinc-500 font-medium max-w-sm mx-auto">
-                        Tasdiqlanmagan baholarni ko'rish uchun pastdagi paneldan sinfni tanlang.
-                      </p>
-                    </div>
-                  ) : unapprovedLoading ? (
-                    <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                    </div>
-                  ) : filteredUnapprovedGrades.length === 0 ? (
-                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl animate-fadeIn">
-                      <p className="text-sm font-bold text-zinc-800 mb-1">
-                        {selectedSubjectId ? "Tanlangan fan bo'yicha baholar mavjud emas" : "Barcha baholar tasdiqlangan! 🎉"}
-                      </p>
-                      <p className="text-xs text-zinc-400 font-mono">Ushbu sinfda hozircha yangi tasdiqlanmagan (draft) baholar mavjud emas.</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
-                      <div className="max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-290px)] overflow-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
-                            <tr>
-                              <th className="px-4 py-3.5 w-12 text-center sticky left-0 z-30 bg-zinc-50">
-                                <input
-                                  type="checkbox"
-                                  checked={paginatedGrades.length > 0 && paginatedGrades.every(g => selectedGradeIds.has(g.id))}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setSelectedGradeIds(() => {
-                                      const next = new Set<number>();
-                                      if (checked) {
-                                        paginatedGrades.forEach(g => next.add(g.id));
-                                      }
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
-                                />
-                              </th>
-                              <th className="px-6 py-3.5 whitespace-nowrap">Sana</th>
-                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">O'quvchi</th>
-                              <th className="px-6 py-3.5">Fan</th>
-                              <th className="px-4 py-3.5 text-center">Baho</th>
-                              <th className="px-6 py-3.5">Kiritdi</th>
-                              <th className="px-6 py-3.5 text-right">Amallar</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
-                            {paginatedGrades.map((g) => {
-                              const formattedDate = g.grade_date ? new Date(g.grade_date).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
-                              const numericVal = parseFloat(g.value);
-                              const badgeColorClass = !isNaN(numericVal)
-                                ? numericVal >= 4.5
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : numericVal >= 3.5
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : numericVal >= 2.5
-                                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                                  : "bg-red-50 text-red-700 border-red-200"
-                                : "bg-zinc-100 text-zinc-700 border-zinc-200";
-
-                              return (
-                                <tr key={g.id} className="group hover:bg-zinc-50/80 transition">
-                                  <td className="px-4 py-3.5 text-center sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedGradeIds.has(g.id)}
-                                      onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setSelectedGradeIds(prev => {
-                                          const next = new Set(prev);
-                                          if (checked) {
-                                            next.add(g.id);
-                                          } else {
-                                            next.delete(g.id);
-                                          }
-                                          return next;
-                                        });
-                                      }}
-                                      className="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
-                                    />
-                                  </td>
-                                  <td className="px-6 py-3.5 text-zinc-500 font-mono font-bold whitespace-nowrap">{formattedDate}</td>
-                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
-                                    {g.student_name}
-                                  </td>
-                                  <td className="px-6 py-3.5">
-                                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
-                                      {g.subject_name}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3.5 text-center">
-                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full border text-xs font-black font-mono shadow-2xs ${badgeColorClass}`}>
-                                      {g.value}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-3.5 text-zinc-500 font-medium">{g.teacher_name}</td>
-                                  <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      title="Tasdiqlash"
-                                      onClick={async () => {
-                                        try {
-                                          const response = await fetch(`${API_URL}/api/schools/grades/change-status`, {
-                                            method: "POST",
-                                            headers: {
-                                              "Content-Type": "application/json",
-                                              "Authorization": `Bearer ${token}`,
-                                            },
-                                            body: JSON.stringify({
-                                              mark_uids: [g.id],
-                                              status: "approved",
-                                            }),
-                                          });
-                                          const data = await response.json();
-                                          if (!response.ok) throw new Error(data.error || "Tasdiqlashda xatolik");
-
-                                          showToast("success", "Baho tasdiqlandi!");
-                                          fetchUnapprovedGrades();
-                                        } catch (err: any) {
-                                          showToast("error", err.message);
-                                        }
-                                      }}
-                                      className="p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                    >
-                                      <CheckCircle2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      title="O'chirish"
-                                      onClick={() => {
-                                        setTeacherDialog({
-                                          isOpen: true,
-                                          type: "danger",
-                                          title: "Bahoni o'chirish",
-                                          message: "Haqiqatan ham bu bahoni o'chirmoqchimisiz?",
-                                          confirmText: "Ha, o'chirish",
-                                          onConfirm: async () => {
-                                            setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
-                                            try {
-                                              const response = await fetch(`${API_URL}/api/schools/grades/${g.id}`, {
-                                                method: "DELETE",
-                                                headers: {
-                                                  "Authorization": `Bearer ${token}`,
-                                                },
-                                              });
-                                              const data = await response.json();
-                                              if (!response.ok) throw new Error(data.error || "O'chirishda xatolik");
-                                              showToast("success", "Baho o'chirildi!");
-                                              fetchUnapprovedGrades();
-                                            } catch (err: any) {
-                                              showToast("error", err.message);
-                                            }
-                                          },
-                                        });
-                                      }}
-                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination Bar */}
-                      <div className="px-6 py-3.5 border-t border-zinc-200/70 bg-zinc-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
-                        <div className="flex items-center gap-2">
-                          <span>Har bir sahifada:</span>
-                          <select
-                            value={unapprovedPageSize}
-                            onChange={(e) => {
-                              setUnapprovedPageSize(Number(e.target.value));
-                              setUnapprovedPage(1);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                          >
-                            <option value={10}>10 ta</option>
-                            <option value={15}>15 ta</option>
-                            <option value={30}>30 ta</option>
-                            <option value={50}>50 ta</option>
-                          </select>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono text-zinc-500">
-                            {startIndex + 1} - {Math.min(startIndex + unapprovedPageSize, totalItems)} / {totalItems} ta baho
-                          </span>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              disabled={safePage <= 1}
-                              onClick={() => setUnapprovedPage(prev => Math.max(prev - 1, 1))}
-                              className="p-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 transition cursor-pointer"
-                            >
-                              <ChevronLeft className="w-4 h-4 text-zinc-700" />
-                            </button>
-                            <span className="px-2 font-bold font-mono text-zinc-800">
-                              {safePage} / {totalPages}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={safePage >= totalPages}
-                              onClick={() => setUnapprovedPage(prev => Math.min(prev + 1, totalPages))}
-                              className="p-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 transition cursor-pointer"
-                            >
-                              <ChevronRight className="w-4 h-4 text-zinc-700" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* TAB CONTENT: Feedback / Comments Feed */}
-            {teacherTab === "feedback" && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Ota-onalardan Kelgan Fikr-mulohazalar</h3>
-                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                      Siz dars beradigan fanlar va siz rahbarlik qiladigan sinf ota-onalarining izohlari.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3.5 py-2 shrink-0">
-                    <Search className="w-4 h-4 text-zinc-400" />
-                    <input
-                      type="text"
-                      value={feedbackSearch}
-                      onChange={(e) => setFeedbackSearch(e.target.value)}
-                      placeholder="Qidirish..."
-                      className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-36 sm:w-48 transition-all"
-                    />
-                  </div>
-                </div>
-
-                {feedbackLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                  </div>
-                ) : feedbackFeed.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                    <p className="text-sm font-bold text-zinc-800 mb-1">Fikrlar mavjud emas</p>
-                    <p className="text-xs text-zinc-400 font-mono">Hozircha ota-onalardan hech qanday izoh yoki fikrlar kelmagan.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {buildThreads(feedbackFeed)
-                      .filter((thread) => {
-                        const q = feedbackSearch.toLowerCase();
-                        return (
-                          thread.author_name.toLowerCase().includes(q) ||
-                          thread.messages.some((m: any) => m.content.toLowerCase().includes(q)) ||
-                          (thread.student_name && thread.student_name.toLowerCase().includes(q)) ||
-                          (thread.subject_name && thread.subject_name.toLowerCase().includes(q))
-                        );
-                      })
-                      .map((thread) => {
-                        const isGrade = thread.type === "GRADE";
-                        const rep = thread.representative;
-
-                        return (
-                          <div
-                            key={thread.key}
-                            onClick={() => {
-                              setSelectedChatComment(rep);
-                              setReplyText("");
-                              setReplyError("");
-                              setChatModalOpen(true);
-                              fetchChatMessages(rep);
-                            }}
-                            className="bg-white border border-zinc-200/70 border-l-4 border-l-[#5B50EC] rounded-3xl p-5 shadow-xs hover:shadow-md transition text-zinc-900 space-y-3.5 cursor-pointer"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 pb-3">
-                              <div className="flex items-center space-x-2.5">
-                                {isGrade ? (
-                                  <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-[#0284C7] bg-[#E0F2FE] px-3 py-1 rounded-xl">
-                                    <FileText className="w-3.5 h-3.5" />
-                                    <span>Bahoga izoh</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl">
-                                    <Utensils className="w-3.5 h-3.5" />
-                                    <span>Taomnomaga izoh</span>
-                                  </span>
-                                )}
-                                <span className="text-xs font-extrabold text-[#16193E]">{thread.author_name}</span>
-                                <span className="text-[10px] text-zinc-400 font-medium">Ota-ona</span>
-                                {thread.messages.length > 1 && (
-                                  <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full font-mono">
-                                    💬 {thread.messages.length} ta xabar
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[11px] text-zinc-400 font-mono font-medium">
-                                {new Date(rep.created_at).toLocaleString("uz-UZ", {
-                                  day: "numeric",
-                                  month: "long",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-
-                            {isGrade ? (
-                              <div className="flex items-center space-x-3 bg-zinc-50/80 border border-zinc-200/60 p-3 rounded-2xl text-xs">
-                                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black flex items-center justify-center font-mono shrink-0">
-                                  {thread.grade_value || "-"}
-                                </div>
-                                <div>
-                                  <span className="text-[#16193E] font-extrabold block text-xs">{thread.subject_name}</span>
-                                  <span className="text-zinc-500 text-[11px] font-medium">
-                                    O&apos;quvchi: <b className="text-zinc-800">{thread.student_name}</b> {thread.class_name && `(${thread.class_name})`}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 bg-zinc-50/80 border border-zinc-200/60 p-3 rounded-2xl text-xs font-bold text-zinc-700">
-                                <Utensils className="w-4 h-4 text-amber-600 shrink-0" />
-                                <span>
-                                  Taomnoma kuni: {new Date(thread.menu_date || "").toLocaleDateString("uz-UZ", {
-                                    weekday: "long",
-                                    day: "numeric",
-                                    month: "long",
-                                    year: "numeric"
-                                  })}
-                                </span>
-                              </div>
-                            )}
-
-                            <div className="text-xs text-zinc-700 bg-zinc-50/60 p-3.5 rounded-2xl border border-zinc-200/60 font-medium leading-relaxed italic flex items-center justify-between">
-                              <span>&ldquo;{rep.content}&rdquo;</span>
-                              <span className="text-[10px] text-indigo-600 font-bold not-italic hover:underline cursor-pointer shrink-0 ml-2">
-                                💬 Chatni ochish &rarr;
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
+          {/* TAB CONTENT: Feedback / Comments Feed */}
+          {teacherTab === "feedback" && (
+              <FeedbackTab
+                feedbackFeed={feedbackFeed}
+                feedbackLoading={feedbackLoading}
+                onOpenChat={(rep) => {
+                  setSelectedChatComment(rep);
+                  setReplyText("");
+                  setReplyError("");
+                  setChatModalOpen(true);
+                  fetchChatMessages(rep);
+                }}
+              />
             )}
 
             {/* TAB CONTENT: Announcements */}
@@ -5616,469 +3767,95 @@ export default function TeacherDashboard() {
               />
             )}
             {/* TAB CONTENT: Parents List */}
-            {teacherTab === "parents" && (() => {
-              const filteredParents = classParents.filter((pt) => {
-                const q = parentsSearch.toLowerCase().trim();
-                if (!q) return true;
-                const name = `${pt.first_name || ""} ${pt.last_name || ""} ${pt.middle_name || ""}`.toLowerCase();
-                const phone = (pt.phone || "").toLowerCase();
-                const child = (pt.student_name || "").toLowerCase();
-                const cls = (pt.class_name || "").toLowerCase();
-                return name.includes(q) || phone.includes(q) || child.includes(q) || cls.includes(q);
-              });
-              const totalParentsPages = Math.ceil(filteredParents.length / parentsPageSize) || 1;
-              const currentPage = Math.min(parentsPage, totalParentsPages);
-              const paginatedParents = filteredParents.slice((currentPage - 1) * parentsPageSize, currentPage * parentsPageSize);
-
-              return (
-                <div className="space-y-4 animate-fadeIn pb-36">
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                    <div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">
-                        {selectedClassId ? "Sinf Ota-onalari (Vasiylar)" : "Barcha Ota-onalar (Vasiylar)"}
-                      </h3>
-                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                        {selectedClassId
-                          ? "Sinfdagi barcha o'quvchilarning ota-onalari (vasiylari) va ularni boshqarish"
-                          : "Maktabdagi barcha o'quvchilarning ota-onalari (vasiylari) ro'yxati"}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3 py-2">
-                        <Search className="w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={parentsSearch}
-                          onChange={(e) => {
-                            setParentsSearch(e.target.value);
-                            setParentsPage(1);
-                          }}
-                          placeholder="Ota-ona qidirish..."
-                          className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-32 sm:w-44 transition-all"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        title="Excel orqali yuklash"
-                        onClick={() => {
-                          setSelectedFile(null);
-                          setImportResult(null);
-                          setImportError("");
-                          setShowImportParentsModal(true);
-                        }}
-                        className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                      >
-                        <FileSpreadsheet className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Ota-ona qo'shish"
-                        onClick={() => {
-                          setParentFirstName("");
-                          setParentLastName("");
-                          setParentMiddleName("");
-                          setParentPhone("");
-                          setParentEmail("");
-                          setParentPassword("password123");
-                          setSelectedStudentIdForAdd("");
-                          setShowAddParentModal(true);
-                        }}
-                        className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {classParentsLoading ? (
-                    <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                    </div>
-                  ) : filteredParents.length === 0 ? (
-                    <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                      <p className="text-sm font-bold text-zinc-800 mb-1">Ota-onalar mavjud emas</p>
-                      <p className="text-xs text-zinc-400 font-mono">
-                        {parentsSearch
-                          ? "Qidiruv bo'yicha hech qanday ota-ona topilmadi."
-                          : selectedClassId
-                          ? "Ushbu sinfda hozircha bog'langan ota-onalar ro'yxatga olinmagan."
-                          : "Maktabda hozircha bog'langan ota-onalar ro'yxatga olinmagan."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
-                            <tr>
-                              <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
-                              <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Ism Familiya</th>
-                              <th className="px-6 py-3.5">Telefon</th>
-                              <th className="px-6 py-3.5">Pasport</th>
-                              <th className="px-6 py-3.5">O'quvchi (Farzand)</th>
-                              <th className="px-6 py-3.5 text-right">Amallar</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
-                            {paginatedParents.map((pt, idx) => {
-                              const globalIndex = (currentPage - 1) * parentsPageSize + idx + 1;
-                              return (
-                                <tr key={`${pt.id || pt.user_id}-${idx}`} className="group hover:bg-zinc-50/80 transition">
-                                  <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">{globalIndex}</td>
-                                  <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
-                                    {pt.first_name} {pt.last_name} {pt.middle_name && <span className="text-zinc-400 font-normal">({pt.middle_name})</span>}
-                                  </td>
-                                  <td className="px-6 py-3.5 font-mono text-zinc-500">{pt.phone || "—"}</td>
-                                  <td className="px-6 py-3.5 font-mono text-indigo-700 font-bold">{pt.passport || "Kiritilmagan"}</td>
-                                  <td className="px-6 py-3.5">
-                                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
-                                      {pt.student_name || "Noma'lum"} {pt.class_name && <span className="font-mono text-zinc-500 text-[10px]">({pt.class_name})</span>}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-3.5 text-right whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      title="Farzanddan ajratish"
-                                      onClick={() => handleUnlinkParentFromStudent(pt.student_id, pt.id || pt.user_id)}
-                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
-                                    >
-                                      <UserMinus className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination Bar */}
-                      <div className="bg-zinc-50 border-t border-zinc-200/70 px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
-                        <div className="flex items-center gap-3">
-                          <span>
-                            Jami <b>{filteredParents.length}</b> ta ota-onadan{" "}
-                            <b>{(currentPage - 1) * parentsPageSize + 1}</b>-
-                            <b>{Math.min(currentPage * parentsPageSize, filteredParents.length)}</b> ko'rsatilmoqda
-                          </span>
-
-                          <select
-                            value={parentsPageSize}
-                            onChange={(e) => {
-                              setParentsPageSize(Number(e.target.value));
-                              setParentsPage(1);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-700 outline-none cursor-pointer"
-                          >
-                            <option value={15}>15 tadan</option>
-                            <option value={25}>25 tadan</option>
-                            <option value={50}>50 tadan</option>
-                            <option value={100}>100 tadan</option>
-                          </select>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            disabled={currentPage <= 1}
-                            onClick={() => setParentsPage((p) => Math.max(p - 1, 1))}
-                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                            <span className="hidden sm:inline">Oldingi</span>
-                          </button>
-
-                          <div className="flex items-center gap-1 px-1">
-                            {Array.from({ length: totalParentsPages }, (_, i) => i + 1)
-                              .filter((p) => p === 1 || p === totalParentsPages || Math.abs(p - currentPage) <= 1)
-                              .map((p, idx, arr) => {
-                                const prev = arr[idx - 1];
-                                const showEllipsis = prev && p - prev > 1;
-                                return (
-                                  <React.Fragment key={p}>
-                                    {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
-                                    <button
-                                      type="button"
-                                      onClick={() => setParentsPage(p)}
-                                      className={`w-8 h-8 rounded-xl font-extrabold text-xs transition cursor-pointer ${
-                                        currentPage === p
-                                          ? "bg-[#5B50EC] text-white shadow-xs"
-                                          : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
-                                      }`}
-                                    >
-                                      {p}
-                                    </button>
-                                  </React.Fragment>
-                                );
-                              })}
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={currentPage >= totalParentsPages}
-                            onClick={() => setParentsPage((p) => Math.min(p + 1, totalParentsPages))}
-                            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
-                          >
-                            <span className="hidden sm:inline">Keyingi</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {teacherTab === "parents" && (
+              <ParentsTab
+                selectedClassId={selectedClassId}
+                classParents={classParents}
+                classParentsLoading={classParentsLoading}
+                parentsSearch={parentsSearch}
+                setParentsSearch={setParentsSearch}
+                parentsPage={parentsPage}
+                setParentsPage={setParentsPage}
+                parentsPageSize={parentsPageSize}
+                setParentsPageSize={setParentsPageSize}
+                onOpenImportParentsModal={() => {
+                  setSelectedFile(null);
+                  setImportResult(null);
+                  setImportError("");
+                  setShowImportParentsModal(true);
+                }}
+                onOpenAddParentModal={() => {
+                  setParentFirstName("");
+                  setParentLastName("");
+                  setParentMiddleName("");
+                  setParentPhone("");
+                  setParentEmail("");
+                  setParentPassword("password123");
+                  setSelectedStudentIdForAdd("");
+                  setShowAddParentModal(true);
+                }}
+                onUnlinkParentFromStudent={handleUnlinkParentFromStudent}
+              />
+            )}
 
             {/* TAB CONTENT: Extracurricular Clubs */}
             {teacherTab === "clubs" && (
-              <div className="space-y-4 animate-fadeIn">
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">To'garaklar (Fan To'garaklari)</h3>
-                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                      Foydalanuvchilarga o'z fanlaringizdan to'garaklar tashkil qilish va jadvallarni boshqarish
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setClubsError("");
-                        setClubsSuccess("");
-                        setNewClubName("");
-                        setNewClubSubjectId("");
-                        setNewClubAllowedLevels([]);
-                        setNewClubExtraStudentIds([]);
-                        setShowAddClubModal(true);
-                      }}
-                      className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs py-2.5 px-4 rounded-2xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs shrink-0"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Yangi To'garak</span>
-                    </button>
-                  </div>
-                </div>
-
-                {clubsLoading ? (
-                  <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                  </div>
-                ) : clubs.length === 0 ? (
-                  <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-                    <p className="text-sm font-bold text-zinc-800 mb-1">To'garaklar mavjud emas</p>
-                    <p className="text-xs text-zinc-400 font-mono">Siz yaratgan to'garaklar hali yo'q. "Yangi To'garak" tugmasi orqali yaratishingiz mumkin.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {clubs.map((club) => (
-                      <div key={club.id} className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 text-zinc-900 relative hover:shadow-md transition">
-                        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3.5">
-                          <div className="space-y-1 min-w-0 flex-1 pr-2">
-                            <span className="text-[10px] font-extrabold text-[#0284C7] bg-[#E0F2FE] px-3 py-1 rounded-xl font-mono inline-block">
-                              {club.subject_name}
-                            </span>
-                            <h4 className="text-base font-extrabold text-[#16193E] truncate">{club.name}</h4>
-                            <p className="text-xs text-zinc-500 font-medium">
-                              Ruxsat etilgan sinflar: <b className="text-zinc-800">{club.allowed_class_levels ? club.allowed_class_levels.join(", ") + "-sinflar" : "Barchasi"}</b>
-                            </p>
-                          </div>
-
-                          <div className={`relative flex items-center gap-1.5 shrink-0 club-menu-container-${club.id}`}>
-                            {/* Desktop Edit & Delete buttons (hidden on mobile, visible on sm and up) */}
-                            <div className="hidden sm:flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenClubMenuId(null);
-                                  setEditingClub(club);
-                                  setEditClubName(club.name);
-                                  setEditClubSubjectId(club.subject_id);
-                                  setEditClubAllowedLevels(club.allowed_class_levels || []);
-                                  setActionError("");
-                                  setShowEditClubModal(true);
-                                }}
-                                className="p-2 sm:p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-800 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                                title="To'garakni tahrirlash"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenClubMenuId(null);
-                                  handleDeleteClub(club.id);
-                                }}
-                                className="p-2 sm:p-2.5 bg-red-50 hover:bg-red-100 border border-red-200/80 text-red-600 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
-                                title="To'garakni o'chirish"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            {/* 3-dots Menu Button (MoreVertical) */}
-                            <button
-                              type="button"
-                              onClick={() => setOpenClubMenuId(openClubMenuId === club.id ? null : club.id)}
-                              className={`p-2 sm:p-2.5 rounded-2xl border transition cursor-pointer flex items-center justify-center shadow-2xs ${
-                                openClubMenuId === club.id
-                                  ? "bg-indigo-600 border-indigo-600 text-white shadow-md scale-105"
-                                  : "bg-zinc-100/90 hover:bg-zinc-200/80 border-zinc-200/80 text-zinc-700 hover:text-zinc-900"
-                              }`}
-                              title="Boshqa amallar"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-
-                            {/* Dropdown Menu Popup */}
-                            {openClubMenuId === club.id && (
-                              <div className="absolute right-0 top-full mt-2 w-56 sm:w-64 bg-white/95 backdrop-blur-md border border-zinc-200/90 rounded-2xl shadow-xl p-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 space-y-0.5 font-sans">
-                                
-                                {/* Mobile-only Edit Option */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenClubMenuId(null);
-                                    setEditingClub(club);
-                                    setEditClubName(club.name);
-                                    setEditClubSubjectId(club.subject_id);
-                                    setEditClubAllowedLevels(club.allowed_class_levels || []);
-                                    setActionError("");
-                                    setShowEditClubModal(true);
-                                  }}
-                                  className="sm:hidden w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-xl transition cursor-pointer"
-                                >
-                                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </div>
-                                  <span>To'garakni tahrirlash</span>
-                                </button>
-
-                                {/* Option 1: A'zolar va So'rovlar */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenClubMenuId(null);
-                                    setSelectedClubForStudents(club);
-                                    setSearchStudentTerm("");
-                                    setClubStudents([]);
-                                    fetchClubStudents(club.id);
-                                    if (token) {
-                                      if (allStudents.length === 0) fetchAllStudents(token);
-                                      if (studentsTabList.length === 0) fetchStudentsTabList();
-                                    }
-                                    setShowClubStudentsModal(true);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition cursor-pointer"
-                                >
-                                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                                    <Users className="w-3.5 h-3.5" />
-                                  </div>
-                                  <span>To'garak a'zolari</span>
-                                </button>
-
-                                {/* Option 2: Jadval qo'shish */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenClubMenuId(null);
-                                    setSelectedClubForSchedule(club);
-                                    setNewScheduleDay(1);
-                                    setNewScheduleStartTime("14:00");
-                                    setNewScheduleEndTime("15:30");
-                                    setShowAddScheduleModal(true);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition cursor-pointer"
-                                >
-                                  <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                  </div>
-                                  <span>Dars jadvali</span>
-                                </button>
-
-                                {/* Option 3: Mashg'ulot jurnali va baholash */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenClubMenuId(null);
-                                    setSelectedClubForGrading(club);
-                                    const today = new Date().toISOString().split("T")[0];
-                                    setClubGradingDate(today);
-                                    setClubJournalTab("grade");
-                                    setClubGradeHistory([]);
-                                    fetchClubStudentsAndGrades(club.id, today);
-                                    setShowClubGradingModal(true);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-purple-50 hover:text-purple-700 rounded-xl transition cursor-pointer"
-                                >
-                                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                                    <Award className="w-3.5 h-3.5" />
-                                  </div>
-                                  <span>To'garak jurnali & baholash</span>
-                                </button>
-
-                                {/* Mobile-only Delete Option */}
-                                <div className="sm:hidden border-t border-zinc-100 pt-1 mt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenClubMenuId(null);
-                                      handleDeleteClub(club.id);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
-                                  >
-                                    <div className="w-7 h-7 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </div>
-                                    <span>To'garakni o'chirish</span>
-                                  </button>
-                                </div>
-
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Schedule list for the club */}
-                        <div className="space-y-2.5">
-                          <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>To'garak Jadvali</span>
-                          </h5>
-                          {(!club.schedules || club.schedules.length === 0) ? (
-                            <p className="text-xs text-zinc-400 font-medium italic bg-zinc-50/50 p-3 rounded-2xl border border-zinc-150">Hali dars jadvali belgilanmagan</p>
-                          ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {club.schedules.map((sch: any) => {
-                                const days = ["", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"];
-                                return (
-                                  <div key={sch.id} className="flex items-center justify-between bg-zinc-50/80 border border-zinc-200/70 p-3 rounded-2xl text-xs">
-                                    <div>
-                                      <span className="font-extrabold text-[#16193E] block">{days[sch.day_of_week]}</span>
-                                      <span className="text-[11px] text-zinc-500 font-mono font-medium">{sch.start_time} - {sch.end_time}</span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteSchedule(sch.id)}
-                                      className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-xl transition cursor-pointer shrink-0"
-                                      title="O'chirish"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ClubsTab
+                clubs={clubs}
+                clubsLoading={clubsLoading}
+                openClubMenuId={openClubMenuId}
+                setOpenClubMenuId={setOpenClubMenuId}
+                onOpenAddClubModal={() => {
+                  setClubsError("");
+                  setClubsSuccess("");
+                  setNewClubName("");
+                  setNewClubSubjectId("");
+                  setNewClubAllowedLevels([]);
+                  setNewClubExtraStudentIds([]);
+                  setShowAddClubModal(true);
+                }}
+                onOpenEditClubModal={(club) => {
+                  setOpenClubMenuId(null);
+                  setEditingClub(club);
+                  setEditClubName(club.name);
+                  setEditClubSubjectId(club.subject_id);
+                  setEditClubAllowedLevels(club.allowed_class_levels || []);
+                  setActionError("");
+                  setShowEditClubModal(true);
+                }}
+                onDeleteClub={handleDeleteClub}
+                onOpenClubStudentsModal={(club) => {
+                  setOpenClubMenuId(null);
+                  setSelectedClubForStudents(club);
+                  setSearchStudentTerm("");
+                  setClubStudents([]);
+                  fetchClubStudents(club.id);
+                  if (token) {
+                    if (allStudents.length === 0) fetchAllStudents(token);
+                    if (studentsTabList.length === 0) fetchStudentsTabList();
+                  }
+                  setShowClubStudentsModal(true);
+                }}
+                onOpenAddScheduleModal={(club) => {
+                  setOpenClubMenuId(null);
+                  setSelectedClubForSchedule(club);
+                  setNewScheduleDay(1);
+                  setNewScheduleStartTime("14:00");
+                  setNewScheduleEndTime("15:30");
+                  setShowAddScheduleModal(true);
+                }}
+                onOpenClubGradingModal={(club) => {
+                  setOpenClubMenuId(null);
+                  setSelectedClubForGrading(club);
+                  const today = new Date().toISOString().split("T")[0];
+                  setClubGradingDate(today);
+                  setClubJournalTab("grade");
+                  setClubGradeHistory([]);
+                  fetchClubStudentsAndGrades(club.id, today);
+                  setShowClubGradingModal(true);
+                }}
+                onDeleteSchedule={handleDeleteSchedule}
+              />
             )}
 
             {/* TAB CONTENT: Lesson Plans (Dars Ish Rejalari) */}
@@ -6110,188 +3887,14 @@ export default function TeacherDashboard() {
 
             {/* TAB CONTENT: Sozlamalar (Settings) */}
             {teacherTab === "settings" && (
-              <div className="space-y-6 max-w-3xl mx-auto animate-fadeIn pb-36 text-zinc-900">
-                <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-                  <div className="border-b border-zinc-100 pb-4 flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-extrabold text-[#16193E] flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-indigo-600" />
-                        <span>Sozlamalar va Profil</span>
-                      </h2>
-                      <p className="text-xs text-zinc-500 font-medium mt-1">
-                        Shaxsiy ma'lumotlaringizni tahrirlang va tizim sozlamalarini boshqaring.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Profile info form */}
-                  <div className="space-y-4">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
-                      Profil ma'lumotlari
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-700 mb-1">Ismingiz</label>
-                        <input
-                          type="text"
-                          value={profileFirstName}
-                          onChange={(e) => setProfileFirstName(e.target.value)}
-                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-700 mb-1">Familiyangiz</label>
-                        <input
-                          type="text"
-                          value={profileLastName}
-                          onChange={(e) => setProfileLastName(e.target.value)}
-                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          setProfileLoading(true);
-                          const res = await fetch(`${API_URL}/api/schools/teachers/${userInfo?.id}`, {
-                            method: "PUT",
-                            headers: {
-                              "Content-Type": "application/json",
-                              "Authorization": `Bearer ${token}`,
-                            },
-                            body: JSON.stringify({
-                              first_name: profileFirstName,
-                              last_name: profileLastName,
-                            }),
-                          });
-                          if (!res.ok) throw new Error("Profilni saqlab bo'lmadi");
-                          
-                          const updatedUser = { ...userInfo, first_name: profileFirstName, last_name: profileLastName };
-                          setUserInfo(updatedUser as any);
-                          localStorage.setItem("school_user", JSON.stringify(updatedUser));
-                          setToast({ type: "success", message: "Profil ma'lumotlari yangilandi!" });
-                        } catch (err: any) {
-                          setToast({ type: "error", message: err.message || "Xatolik yuz berdi" });
-                        } finally {
-                          setProfileLoading(false);
-                        }
-                      }}
-                      disabled={profileLoading}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>{profileLoading ? "Saqlanmoqda..." : "Profilni saqlash"}</span>
-                    </button>
-                  </div>
-
-                  {/* Password Change form */}
-                  <div className="border-t border-zinc-100 pt-6 space-y-4">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
-                      Parolni o'zgartirish
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-700 mb-1">Eski parol</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          value={profileOldPassword}
-                          onChange={(e) => setProfileOldPassword(e.target.value)}
-                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-700 mb-1">Yangi parol</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          value={profileNewPassword}
-                          onChange={(e) => setProfileNewPassword(e.target.value)}
-                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-700 mb-1">Yangi parolni tasdiqlash</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          value={profileConfirmPassword}
-                          onChange={(e) => setProfileConfirmPassword(e.target.value)}
-                          className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!profileOldPassword || !profileNewPassword || !profileConfirmPassword) {
-                          setToast({ type: "error", message: "Iltimos, barcha parol maydonlarini to'ldiring!" });
-                          return;
-                        }
-                        if (profileNewPassword !== profileConfirmPassword) {
-                          setToast({ type: "error", message: "Yangi parollar bir-biriga mos kelmadi!" });
-                          return;
-                        }
-                        if (profileNewPassword.length < 6) {
-                          setToast({ type: "error", message: "Yangi parol kamida 6 ta belgidan iborat bo'lishi kerak!" });
-                          return;
-                        }
-                        try {
-                          setProfileLoading(true);
-                          const res = await fetch(`${API_URL}/api/schools/change-password`, {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              "Authorization": `Bearer ${token}`,
-                            },
-                            body: JSON.stringify({
-                              old_password: profileOldPassword,
-                              new_password: profileNewPassword,
-                            }),
-                          });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.error || "Parolni o'zgartirib bo'lmadi");
-
-                          setProfileOldPassword("");
-                          setProfileNewPassword("");
-                          setProfileConfirmPassword("");
-                          setToast({ type: "success", message: "Parol muvaffaqiyatli o'zgartirildi!" });
-                        } catch (err: any) {
-                          setToast({ type: "error", message: err.message || "Xatolik yuz berdi" });
-                        } finally {
-                          setProfileLoading(false);
-                        }
-                      }}
-                      disabled={profileLoading}
-                      className="bg-zinc-800 hover:bg-zinc-900 text-white font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                    >
-                      <Lock className="w-4 h-4" />
-                      <span>Parolni yangilash</span>
-                    </button>
-                  </div>
-
-                  {/* System Logout Button Section */}
-                  <div className="border-t border-zinc-100 pt-6 space-y-3">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-red-600 font-mono">
-                      Tizimdan Chiqish
-                    </h3>
-                    <p className="text-xs text-zinc-500 font-medium">
-                      Platformadagi sessiyangizni yakunlash va akkauntdan chiqish uchun pastdagi tugmani bosing.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowLogoutModal(true)}
-                      className="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl transition cursor-pointer flex items-center justify-center space-x-2 shadow-md hover:scale-[1.01]"
-                    >
-                      <LogOut className="w-5 h-5 text-white" />
-                      <span>Tizimdan Chiqish (Log Out)</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <TeacherSettingsTab
+                token={token}
+                API_URL={API_URL}
+                userInfo={userInfo}
+                setUserInfo={setUserInfo}
+                setToast={setToast}
+                onLogoutClick={() => setShowLogoutModal(true)}
+              />
             )}
         </main>
       </div>
@@ -6705,19 +4308,237 @@ export default function TeacherDashboard() {
       {renderAddExceptionModal()}
       {renderPeriodsModal()}
       {renderStudentModal()}
-      {renderParentsModal()}
-      {renderImportParentsModal()}
-      {renderImportStudentsModal()}
-      {renderAddParentModal()}
-      {renderClubGradingModal()}
-      {renderLogoutModal()}
-      {renderTeacherDialogModal()}
-      {renderAddClubModal()}
-      {renderEditClubModal()}
-      {renderAddScheduleModal()}
-      {renderClubStudentsModal()}
-      {renderGradeCommentModal()}
-      {renderTodayLessonsModal()}
+      <ImportParentsModal
+        isOpen={showImportParentsModal}
+        onClose={() => setShowImportParentsModal(false)}
+        onDownloadTemplate={downloadParentsTemplate}
+        onSubmit={handleParentsExcelImport}
+        selectedFile={selectedFile}
+        onFileChange={setSelectedFile}
+        importLoading={importLoading}
+        importError={importError}
+        importResult={importResult}
+      />
+
+      <ImportStudentsModal
+        isOpen={showImportStudentsModal}
+        onClose={() => setShowImportStudentsModal(false)}
+        onDownloadTemplate={downloadStudentsTemplate}
+        onSubmit={handleStudentsExcelImport}
+        selectedFile={selectedFile}
+        onFileChange={setSelectedFile}
+        importLoading={importLoading}
+        importError={importError}
+        importResult={importResult}
+      />
+
+      <AddParentModal
+        isOpen={showAddParentModal}
+        onClose={() => setShowAddParentModal(false)}
+        onSubmit={handleCreateAndLinkParent}
+        studentsTabList={studentsTabList}
+        selectedStudentIdForAdd={selectedStudentIdForAdd}
+        setSelectedStudentIdForAdd={setSelectedStudentIdForAdd}
+        parentFirstName={parentFirstName}
+        setParentFirstName={setParentFirstName}
+        parentLastName={parentLastName}
+        setParentLastName={setParentLastName}
+        parentMiddleName={parentMiddleName}
+        setParentMiddleName={setParentMiddleName}
+        parentPhone={parentPhone}
+        setParentPhone={setParentPhone}
+        parentPassport={parentPassport}
+        setParentPassport={setParentPassport}
+        parentPassword={parentPassword}
+        setParentPassword={setParentPassword}
+        actionLoading={actionLoading}
+      />
+
+      <AddClubModal
+        isOpen={showAddClubModal}
+        onClose={() => setShowAddClubModal(false)}
+        onSubmit={handleCreateClub}
+        newClubName={newClubName}
+        setNewClubName={setNewClubName}
+        newClubSubjectId={newClubSubjectId}
+        setNewClubSubjectId={setNewClubSubjectId}
+        newClubAllowedLevels={newClubAllowedLevels}
+        setNewClubAllowedLevels={setNewClubAllowedLevels}
+        subjects={subjects}
+        clubsError={clubsError}
+        clubsSuccess={clubsSuccess}
+      />
+
+      <EditClubModal
+        isOpen={showEditClubModal}
+        onClose={() => setShowEditClubModal(false)}
+        editingClub={editingClub}
+        editClubName={editClubName}
+        setEditClubName={setEditClubName}
+        editClubSubjectId={editClubSubjectId}
+        setEditClubSubjectId={setEditClubSubjectId}
+        editClubAllowedLevels={editClubAllowedLevels}
+        setEditClubAllowedLevels={setEditClubAllowedLevels}
+        subjects={subjects}
+        actionLoading={actionLoading}
+        actionError={actionError}
+        onSubmit={handleEditClubSubmit}
+      />
+
+      <AddScheduleModal
+        isOpen={showAddScheduleModal}
+        onClose={() => setShowAddScheduleModal(false)}
+        selectedClubForSchedule={selectedClubForSchedule}
+        newScheduleDay={newScheduleDay}
+        setNewScheduleDay={setNewScheduleDay}
+        newScheduleStartTime={newScheduleStartTime}
+        setNewScheduleStartTime={setNewScheduleStartTime}
+        newScheduleEndTime={newScheduleEndTime}
+        setNewScheduleEndTime={setNewScheduleEndTime}
+        onSubmit={handleAddSchedule}
+      />
+
+      <ClubStudentsModal
+        isOpen={showClubStudentsModal}
+        onClose={() => setShowClubStudentsModal(false)}
+        selectedClubForStudents={selectedClubForStudents}
+        searchStudentTerm={searchStudentTerm}
+        setSearchStudentTerm={setSearchStudentTerm}
+        filteredToDirectAdd={(() => {
+          const studentSourceMap = new Map<number, any>();
+          allStudents.forEach((st) => studentSourceMap.set(st.id || st.student_id, st));
+          studentsTabList.forEach((st) => {
+            const id = st.id || st.student_id;
+            if (!studentSourceMap.has(id)) studentSourceMap.set(id, st);
+          });
+          const combinedStudents = Array.from(studentSourceMap.values());
+          return combinedStudents.filter((st) => {
+            const stId = st.id || st.student_id;
+            const isMember = clubStudents.some((cs) => cs.student_id === stId || cs.student_id === st.id);
+            if (isMember) return false;
+            const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+            const clsName = (st.class_name || "").toLowerCase();
+            if (!searchStudentTerm.trim()) return true;
+            const q = searchStudentTerm.toLowerCase().trim();
+            return fullName.includes(q) || clsName.includes(q);
+          });
+        })()}
+        onAddDirectStudent={handleAddDirectStudent}
+        clubStudentsLoading={clubStudentsLoading}
+        clubStudents={clubStudents}
+        onApproveStudent={handleApproveStudent}
+        onRemoveStudent={handleRemoveStudent}
+      />
+
+      <ClubGradingModal
+        isOpen={showClubGradingModal}
+        onClose={() => setShowClubGradingModal(false)}
+        selectedClubForGrading={selectedClubForGrading}
+        clubJournalTab={clubJournalTab}
+        setClubJournalTab={setClubJournalTab}
+        clubGradingDate={clubGradingDate}
+        setClubGradingDate={setClubGradingDate}
+        onDateChange={(newDate) => {
+          if (selectedClubForGrading) {
+            fetchClubStudentsAndGrades(selectedClubForGrading.id, newDate);
+          }
+        }}
+        clubGradingLoading={clubGradingLoading}
+        clubGradingStudents={clubGradingStudents}
+        setClubGradingStudents={setClubGradingStudents}
+        savingClubGrades={savingClubGrades}
+        onSaveClubGradesBatch={handleSaveClubGradesBatch}
+        clubGradeHistoryLoading={clubGradeHistoryLoading}
+        clubGradeHistory={clubGradeHistory}
+        fetchHistory={async () => {
+          if (!selectedClubForGrading) return;
+          setClubGradeHistoryLoading(true);
+          try {
+            const data = await api.get(`/api/schools/clubs/${selectedClubForGrading.id}/grades/history`);
+            setClubGradeHistory(Array.isArray(data) ? data : []);
+          } catch (err) {
+            console.error("Error fetching club grade history:", err);
+            setClubGradeHistory([]);
+          } finally {
+            setClubGradeHistoryLoading(false);
+          }
+        }}
+      />
+
+      <CustomDialogModal
+        isOpen={showLogoutModal}
+        type="danger"
+        title="Tizimdan chiqish"
+        message="Haqiqatan ham o'qituvchi portalidan chiqmoqchimisiz?"
+        confirmText="Ha, chiqish"
+        cancelText="Bekor qilish"
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        onCancel={() => setShowLogoutModal(false)}
+      />
+
+      <CustomDialogModal
+        isOpen={teacherDialog.isOpen}
+        type={teacherDialog.type}
+        title={teacherDialog.title}
+        message={teacherDialog.message}
+        confirmText={teacherDialog.confirmText}
+        cancelText="Bekor qilish"
+        onConfirm={teacherDialog.onConfirm}
+        onCancel={() => setTeacherDialog((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      <ParentsListModal
+        isOpen={showParentsModal}
+        onClose={() => setShowParentsModal(false)}
+        selectedStudent={selectedStudentForParents}
+        linkedParents={linkedParents}
+        linkedParentsLoading={linkedParentsLoading}
+        onUnlinkParent={handleUnlinkParent}
+        parentFirstName={parentFirstName}
+        setParentFirstName={setParentFirstName}
+        parentLastName={parentLastName}
+        setParentLastName={setParentLastName}
+        parentMiddleName={parentMiddleName}
+        setParentMiddleName={setParentMiddleName}
+        parentPhone={parentPhone}
+        setParentPhone={setParentPhone}
+        parentPassport={parentPassport}
+        setParentPassport={setParentPassport}
+        parentPassword={parentPassword}
+        setParentPassword={setParentPassword}
+        actionLoading={actionLoading}
+        onLinkParentSubmit={handleLinkParent}
+      />
+
+      <GradeCommentModal
+        isOpen={showGradeCommentModal}
+        onClose={() => setShowGradeCommentModal(false)}
+        selectedStudent={selectedStudentForComment}
+        availableGradeOptions={availableGradeOptions}
+        selectedGradeColIds={selectedGradeColIds}
+        onToggleGradeColId={handleToggleGradeColId}
+        onToggleSelectAllGrades={handleToggleSelectAllGrades}
+        gradeCommentsLoading={gradeCommentsLoading}
+        gradeCommentsList={gradeCommentsList}
+        newGradeCommentText={newGradeCommentText}
+        setNewGradeCommentText={setNewGradeCommentText}
+        commentSubmitting={commentSubmitting}
+        onSubmitComment={handleAddGradeComment}
+      />
+
+      <TodayLessonsModal
+        isOpen={showTodayLessonsModal}
+        onClose={() => setShowTodayLessonsModal(false)}
+        todayLessons={todayLessons}
+        clubs={clubs}
+        currentDayNumber={currentDayNumber}
+        currentMonthName={currentMonthName}
+        currentYear={currentYear}
+        onSelectLesson={handleSelectLessonAndGoToJournal}
+      />
 
       {/* BATCH STUDENT TRANSFER MODAL */}
       <TransferStudentsModal
@@ -6766,1759 +4587,33 @@ export default function TeacherDashboard() {
         }
       />
 
-      {chatModalOpen && selectedChatComment && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setChatModalOpen(false);
-            }
-          }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
-        >
-          <div className="bg-white border border-zinc-200/80 rounded-3xl p-5 sm:p-6 w-full max-w-[480px] shadow-2xl flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn space-y-3">
-            <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
-                  <span>💬 Muhokama (Chat)</span>
-                </h3>
-                <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                  Ota-ona: <b className="text-zinc-800">{selectedChatComment.author_name}</b>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setChatModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-                title="Yopish"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Chat messages */}
-            <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-200/70 rounded-2xl p-3 bg-zinc-50 flex flex-col gap-2.5 flex-1">
-              {chatLoading && chatMessages.length === 0 ? (
-                <div className="text-center py-6 text-xs text-zinc-400">Yuklanmoqda...</div>
-              ) : chatMessages.length === 0 ? (
-                <div className="text-center py-6 text-xs text-zinc-450 italic">Xabarlar yo'q.</div>
-              ) : (
-                chatMessages.map((msg, idx) => {
-                  const isMyMessage = msg.author_id === userInfo?.id;
-                  return (
-                    <div
-                      key={msg.id || idx}
-                      style={{
-                        alignSelf: isMyMessage ? "flex-end" : "flex-start",
-                        maxWidth: "80%",
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
-                    >
-                      {!isMyMessage && (
-                        <span style={{ fontSize: "9px", color: "#9CA3AF", marginBottom: "2px", fontWeight: 700 }}>
-                          {msg.author_name} ({msg.role === "PARENT" ? "Ota-ona" : "Maktab"})
-                        </span>
-                      )}
-                      <div
-                        style={{
-                          backgroundColor: isMyMessage ? "#5B50EC" : "#E5E7EB",
-                          color: isMyMessage ? "white" : "#374151",
-                          borderRadius: "14px",
-                          padding: "8px 12px",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          lineHeight: "1.4",
-                        }}
-                      >
-                        {msg.content}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: "8px",
-                          color: "#9CA3AF",
-                          marginTop: "2px",
-                          alignSelf: isMyMessage ? "flex-end" : "flex-start",
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {new Date(msg.created_at).toLocaleTimeString("uz-UZ", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {replyError && <div className="text-xs text-red-500 font-semibold mb-2">⚠️ {replyError}</div>}
-
-            <form onSubmit={handleReplySubmit} className="flex gap-2 items-end">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                rows={2}
-                className="flex-1 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 outline-none resize-none focus:ring-2 focus:ring-indigo-500 font-medium transition"
-                placeholder="Javobingizni yozing..."
-              />
-              <button
-                type="submit"
-                disabled={replySubmitLoading}
-                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-4 rounded-xl transition cursor-pointer h-10 flex items-center justify-center shrink-0 shadow-xs"
-              >
-                {replySubmitLoading ? "..." : "Yuborish"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <ChatModal
+        isOpen={chatModalOpen}
+        onClose={() => setChatModalOpen(false)}
+        selectedChatComment={selectedChatComment}
+        userInfo={userInfo}
+        chatLoading={chatLoading}
+        chatMessages={chatMessages}
+        replyText={replyText}
+        setReplyText={setReplyText}
+        replyError={replyError}
+        replySubmitLoading={replySubmitLoading}
+        onReplySubmit={handleReplySubmit}
+      />
     </div>
   );
+}
 
-  function renderParentsModal() {
-    if (!showParentsModal || !selectedStudentForParents) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowParentsModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-2xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh] animate-fadeIn">
-          {/* Modal Header */}
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Vasiylar Boshqaruvi</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                O'quvchi: <strong className="text-zinc-800">{selectedStudentForParents.first_name} {selectedStudentForParents.last_name}</strong>
-              </p>
-            </div>
-            <button
-              onClick={() => setShowParentsModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-6 overflow-y-auto space-y-6 flex-1">
-            {/* Linked Parents list */}
-            <div>
-              <h4 className="text-xs font-bold text-zinc-700 mb-3 flex items-center">
-                <span>Bog'langan Ota-onalar</span>
-                <span className="ml-2 px-2 py-0.5 text-[10px] bg-indigo-50 text-indigo-700 rounded-full font-mono font-bold">
-                  {linkedParents.length}
-                </span>
-              </h4>
-
-              {linkedParentsLoading ? (
-                <div className="text-center py-8 border border-dashed border-zinc-200 rounded-2xl">
-                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                  <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                </div>
-              ) : linkedParents.length === 0 ? (
-                <div className="text-center py-8 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
-                  <p className="text-xs text-zinc-400 font-mono">Ushbu o'quvchiga hali ota-ona bog'lanmagan.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {linkedParents.map((parent) => (
-                    <div
-                      key={parent.id || parent.user_id}
-                      className="flex items-center justify-between p-3.5 border border-zinc-200/70 rounded-2xl bg-zinc-50/50 hover:bg-zinc-50 transition"
-                    >
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <p className="text-xs font-extrabold text-zinc-800">
-                            {parent.first_name} {parent.last_name} {parent.middle_name || ""}
-                          </p>
-                          {parent.relation_type && (
-                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
-                              {parent.relation_type === "ota" ? "Otasi" : parent.relation_type === "ona" ? "Onasi" : parent.relation_type}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-zinc-500 font-mono mt-1 flex flex-wrap items-center gap-2">
-                          <span>Tel: <b className="text-zinc-700">{parent.phone || "— (Otasi/Onasi raqamiga biriktirilgan)"}</b></span>
-                          <span>|</span>
-                          <span>Pasport: <b className="text-indigo-700 font-bold">{parent.passport || "Kiritilmagan"}</b></span>
-                          {parent.email && <span>| Email: {parent.email}</span>}
-                        </p>
-                        {parent.parent_code && (
-                          <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-mono inline-block mt-1 font-bold">
-                            Taklif kodi: {parent.parent_code}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleUnlinkParent(parent.id || parent.user_id)}
-                        className="text-xs bg-red-50 border border-red-200 text-red-650 hover:bg-red-100 font-bold py-1.5 px-3 rounded-xl transition cursor-pointer"
-                      >
-                        Ajratish
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <hr className="border-zinc-100" />
-
-            {/* Manual Link/Add parent Form */}
-            <form onSubmit={handleLinkParent} className="space-y-4">
-              <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider">Yangi Ota-onani Bog'lash (Qo'shish)</h4>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Ism *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={parentFirstName}
-                    onChange={(e) => setParentFirstName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: Asror"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Familiya *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={parentLastName}
-                    onChange={(e) => setParentLastName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: Karimov"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Otasining ismi (Sharifi)
-                  </label>
-                  <input
-                    type="text"
-                    value={parentMiddleName}
-                    onChange={(e) => setParentMiddleName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: Baxtiyorovich"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Telefon *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={parentPhone}
-                    onChange={(e) => setParentPhone(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: +998901234567"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Pasport
-                  </label>
-                  <input
-                    type="text"
-                    value={parentPassport}
-                    onChange={(e) => setParentPassport(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: AA1234567"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Parol *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={parentPassword}
-                    onChange={(e) => setParentPassword(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                    placeholder="Kamida 6 ta belgi"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowParentsModal(false)}
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                >
-                  {actionLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
-                  <span>Ota-onani bog'lash</span>
-                </button>
-              </div>
-            </form>
-          </div>
+export default function TeacherDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fafafa] flex items-center justify-center font-sans">
+          <div className="w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      </div>
-    );
-  }
-
-  function renderImportParentsModal() {
-    if (!showImportParentsModal) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowImportParentsModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden transition-all transform scale-100 animate-fadeIn">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Excel Orqali Ota-onalarni Yuklash</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                Bir vaqtning o'zida bir nechta ota-ona hisobini bog'lash
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowImportParentsModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-6 space-y-5">
-            {/* Step 1: Download Template */}
-            <div className="bg-zinc-50/70 border border-zinc-200/70 p-4 rounded-2xl flex items-center justify-between">
-              <div>
-                <p className="text-xs font-extrabold text-[#16193E]">1-bosqich: Shablonni yuklab olish</p>
-                <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-                  Sinf o'quvchilari ro'yxati biriktirilgan tayyor shablon
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={downloadParentsTemplate}
-                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer shrink-0 shadow-xs"
-              >
-                Shablonni yuklash
-              </button>
-            </div>
-
-            {/* Step 2: Upload Excel File */}
-            <form onSubmit={handleParentsExcelImport} className="space-y-4">
-              <div>
-                <p className="text-xs font-extrabold text-[#16193E] mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
-                <label className="border-2 border-dashed border-zinc-200 rounded-2xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50/80 transition">
-                  <input
-                    type="file"
-                    accept=".xlsx, .xls"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setSelectedFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <svg className="w-8 h-8 text-zinc-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-xs font-bold text-zinc-800">
-                    {selectedFile ? selectedFile.name : "Excel faylini tanlang (.xlsx)"}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
-                </label>
-              </div>
-
-              {importError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs font-bold">
-                  {importError}
-                </div>
-              )}
-
-              {importResult && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs space-y-1">
-                  <p className="font-extrabold">Muvaffaqiyatli yuklandi!</p>
-                  <ul className="list-disc pl-4 font-mono text-[11px] space-y-0.5 font-semibold">
-                    <li>Yuklangan ota-onalar: {importResult.imported_count} ta</li>
-                    <li>O'quvchilarga bog'landi: {importResult.linked_count || importResult.imported_count} ta</li>
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowImportParentsModal(false)}
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={importLoading || !selectedFile}
-                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                >
-                  {importLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
-                  <span>Yuklash</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function renderImportStudentsModal() {
-    if (!showImportStudentsModal) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowImportStudentsModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden transition-all transform scale-100 animate-fadeIn">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between text-zinc-900">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Excel Orqali O'quvchilarni Yuklash</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                Bir vaqtning o'zida bir nechta o'quvchi hisobini yaratish va sinflarga joylash
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowImportStudentsModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-6 space-y-5 text-zinc-900">
-            {/* Step 1: Download Template */}
-            <div className="bg-zinc-50/70 border border-zinc-200/70 p-4 rounded-2xl flex items-center justify-between">
-              <div>
-                <p className="text-xs font-extrabold text-[#16193E]">1-bosqich: Shablonni yuklab olish</p>
-                <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-                  Ustunlar: ism, familiya, sharif, sinf (namuna bilan birga)
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={downloadStudentsTemplate}
-                className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-3.5 rounded-xl transition cursor-pointer shrink-0 shadow-xs"
-              >
-                Shablonni yuklash
-              </button>
-            </div>
-
-            {/* Step 2: Upload Excel File */}
-            <form onSubmit={handleStudentsExcelImport} className="space-y-4">
-              <div>
-                <p className="text-xs font-extrabold text-[#16193E] mb-2">2-bosqich: To'ldirilgan shablonni yuklash</p>
-                <label className="border-2 border-dashed border-zinc-200 rounded-2xl py-6 px-4 text-center block cursor-pointer hover:bg-zinc-50/80 transition">
-                  <input
-                    type="file"
-                    accept=".xlsx, .xls"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setSelectedFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <svg className="w-8 h-8 text-zinc-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-xs font-bold text-zinc-800">
-                    {selectedFile ? selectedFile.name : "Excel faylini tanlang (.xlsx)"}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 font-mono mt-1">Fayl hajmi 5MB dan oshmasligi kerak</p>
-                </label>
-              </div>
-
-              {importError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-xs font-bold">
-                  {importError}
-                </div>
-              )}
-
-              {importResult && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs space-y-1">
-                  <p className="font-extrabold">Muvaffaqiyatli yuklandi!</p>
-                  <ul className="list-disc pl-4 font-mono text-[11px] space-y-0.5 font-semibold">
-                    <li>Yuklangan o'quvchilar: {importResult.imported_count} ta</li>
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowImportStudentsModal(false)}
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={importLoading || !selectedFile}
-                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                >
-                  {importLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
-                  <span>Yuklash</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 1. Add Club Modal
-  function renderAddClubModal() {
-    if (!showAddClubModal) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowAddClubModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-zinc-200/80 animate-fadeIn">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Yangi To'garak Yaratish</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">Fan to'garagini tashkil etish</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAddClubModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleCreateClub} className="p-6 overflow-y-auto space-y-4">
-            {clubsError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl">
-                {clubsError}
-              </div>
-            )}
-            {clubsSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">
-                {clubsSuccess}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">To'garak nomi *</label>
-              <input
-                type="text"
-                required
-                value={newClubName}
-                onChange={(e) => setNewClubName(e.target.value)}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                placeholder="Masalan: Yosh Fiziklar"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Fan *</label>
-              <select
-                required
-                value={newClubSubjectId}
-                onChange={(e) => setNewClubSubjectId(Number(e.target.value))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
-              >
-                <option value="">-- Fanni tanlang --</option>
-                {subjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Ruxsat etilgan sinflar (Level)*</label>
-              <div className="grid grid-cols-4 gap-2 border border-zinc-200/70 p-3 rounded-2xl bg-zinc-50/30">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => {
-                  const isChecked = newClubAllowedLevels.includes(lvl);
-                  return (
-                    <label key={lvl} className="flex items-center space-x-1.5 text-xs font-bold text-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setNewClubAllowedLevels([...newClubAllowedLevels, lvl]);
-                          } else {
-                            setNewClubAllowedLevels(newClubAllowedLevels.filter((x) => x !== lvl));
-                          }
-                        }}
-                        className="w-3.5 h-3.5 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
-                      />
-                      <span>{lvl}-sinf</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAddClubModal(false)}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
-              >
-                Tashkil qilish
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  function renderEditClubModal() {
-    if (!showEditClubModal || !editingClub) return null;
-
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowEditClubModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn text-zinc-900">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">To'garakni tahrirlash</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">To'garak nomi, fani va sinf darajalarini o'zgartirish</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowEditClubModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {actionError && (
-            <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-2xl">
-              {actionError}
-            </div>
-          )}
-
-          <form onSubmit={handleEditClubSubmit} className="p-6 space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">To'garak nomi *</label>
-              <input
-                type="text"
-                required
-                value={editClubName}
-                onChange={(e) => setEditClubName(e.target.value)}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                placeholder="Masalan: IT scratch to'garagi"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Biriktirilgan fan *</label>
-              <select
-                required
-                value={editClubSubjectId}
-                onChange={(e) => setEditClubSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
-              >
-                <option value="">Fanni tanlang</option>
-                {subjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>{sub.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Ruxsat etilgan sinflar *</label>
-              <div className="grid grid-cols-4 gap-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => {
-                  const isSelected = editClubAllowedLevels.includes(lvl);
-                  return (
-                    <button
-                      key={lvl}
-                      type="button"
-                      onClick={() => {
-                        if (isSelected) {
-                          setEditClubAllowedLevels(editClubAllowedLevels.filter(l => l !== lvl));
-                        } else {
-                          setEditClubAllowedLevels([...editClubAllowedLevels, lvl].sort((a, b) => a - b));
-                        }
-                      }}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
-                        isSelected ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
-                      }`}
-                    >
-                      {lvl}-sinf
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
-              <button
-                type="button"
-                onClick={() => setShowEditClubModal(false)}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="submit"
-                disabled={actionLoading}
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
-              >
-                {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  // 2. Add Schedule Modal
-  function renderAddScheduleModal() {
-    if (!showAddScheduleModal || !selectedClubForSchedule) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowAddScheduleModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Jadval qo'shish</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">{selectedClubForSchedule.name} to'garagi uchun</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAddScheduleModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleAddSchedule} className="p-6 space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Hafta kuni *</label>
-              <select
-                value={newScheduleDay}
-                onChange={(e) => setNewScheduleDay(Number(e.target.value))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
-              >
-                <option value={1}>Dushanba</option>
-                <option value={2}>Seshanba</option>
-                <option value={3}>Chorshanba</option>
-                <option value={4}>Payshanba</option>
-                <option value={5}>Juma</option>
-                <option value={6}>Shanba</option>
-                <option value={7}>Yakshanba</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Boshlanish vaqti *</label>
-                <input
-                  type="time"
-                  required
-                  value={newScheduleStartTime}
-                  onChange={(e) => setNewScheduleStartTime(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Tugash vaqti *</label>
-                <input
-                  type="time"
-                  required
-                  value={newScheduleEndTime}
-                  onChange={(e) => setNewScheduleEndTime(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAddScheduleModal(false)}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
-              >
-                Saqlash
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  // 3. Club Students Modal
-  function renderClubStudentsModal() {
-    if (!showClubStudentsModal || !selectedClubForStudents) return null;
-
-    // Combine all students roster
-    const studentSourceMap = new Map<number, any>();
-    allStudents.forEach((st) => studentSourceMap.set(st.id || st.student_id, st));
-    studentsTabList.forEach((st) => {
-      const id = st.id || st.student_id;
-      if (!studentSourceMap.has(id)) studentSourceMap.set(id, st);
-    });
-    const combinedStudents = Array.from(studentSourceMap.values());
-
-    // Filter students to directly add (excluding existing club members or pending applicants)
-    const filteredToDirectAdd = combinedStudents.filter((st) => {
-      const stId = st.id || st.student_id;
-      const isMember = clubStudents.some((cs) => cs.student_id === stId || cs.student_id === st.id);
-      if (isMember) return false;
-
-      const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
-      const clsName = (st.class_name || "").toLowerCase();
-      if (!searchStudentTerm.trim()) return true;
-      const q = searchStudentTerm.toLowerCase().trim();
-      return fullName.includes(q) || clsName.includes(q);
-    });
-
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowClubStudentsModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-zinc-200/80 animate-fadeIn">
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">A'zolar va Qo'shilish So'rovlari</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">{selectedClubForStudents.name} to'garagi</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowClubStudentsModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-6 overflow-y-auto space-y-6 flex-1 text-zinc-900">
-            {/* Direct Add Student Section */}
-            <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-4 space-y-3">
-              <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wide">To'g'ridan-to'g'ri o'quvchi qo'shish</h4>
-              <div className="flex items-center gap-2 bg-white border border-zinc-200/80 rounded-xl px-3.5 py-2">
-                <span className="text-zinc-400 text-xs">🔍</span>
-                <input
-                  type="text"
-                  value={searchStudentTerm}
-                  onChange={(e) => setSearchStudentTerm(e.target.value)}
-                  placeholder="Ism-familiya bo'yicha qidirish..."
-                  className="bg-transparent border-none text-xs text-zinc-800 font-bold outline-none w-full focus:ring-0"
-                />
-              </div>
-
-              <div className="max-h-44 overflow-y-auto border border-zinc-200/70 rounded-xl bg-white divide-y divide-zinc-100">
-                {filteredToDirectAdd.length === 0 ? (
-                  <p className="text-xs text-zinc-400 p-3 italic text-center">
-                    {searchStudentTerm.trim()
-                      ? "Qidiruv bo'yicha o'quvchi topilmadi"
-                      : "Barcha o'quvchilar ushbu to'garakka a'zo bo'lgan"}
-                  </p>
-                ) : (
-                  filteredToDirectAdd.map((st) => (
-                    <div key={st.id || st.student_id} className="flex items-center justify-between p-2.5 text-xs hover:bg-indigo-50/20 transition">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-zinc-800">{st.first_name} {st.last_name}</span>
-                        {st.class_name && (
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-50 text-indigo-700 font-mono border border-indigo-100">
-                            {st.class_name}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleAddDirectStudent(st.student_id || st.id)}
-                        className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-[10px] py-1 px-3 rounded-lg transition cursor-pointer shadow-xs"
-                      >
-                        + Qo'shish
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* List of current requests & members */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wide">To'garakdagilar ro'yxati</h4>
-              {clubStudentsLoading ? (
-                <div className="text-center py-6">
-                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                  <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                </div>
-              ) : clubStudents.length === 0 ? (
-                <p className="text-xs text-zinc-400 italic text-center py-6 bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl">Hozircha a'zolar yoki so'rovlar mavjud emas.</p>
-              ) : (
-                <div className="border border-zinc-200/70 rounded-2xl overflow-hidden">
-                  <table className="min-w-full divide-y divide-zinc-200/70 text-left text-xs bg-white">
-                    <thead className="bg-[#fafafa] text-[10px] font-extrabold text-zinc-500 uppercase tracking-wider">
-                      <tr>
-                        <th className="px-4 py-2.5">F.I.SH</th>
-                        <th className="px-4 py-2.5">Sinfi</th>
-                        <th className="px-4 py-2.5">Holati</th>
-                        <th className="px-4 py-2.5 text-right">Amallar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                      {clubStudents.map((cs) => (
-                        <tr key={cs.id} className="hover:bg-zinc-50/50 transition">
-                          <td className="px-4 py-2.5 font-bold text-zinc-900">{cs.student_name}</td>
-                          <td className="px-4 py-2.5 font-mono font-semibold text-zinc-500">{cs.class_name}</td>
-                          <td className="px-4 py-2.5">
-                            {cs.status === "PENDING" ? (
-                              <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
-                                Kutilmoqda (Ariza)
-                              </span>
-                            ) : (
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
-                                A'zo ✓
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-right space-x-2">
-                            {cs.status === "PENDING" && (
-                              <button
-                                type="button"
-                                onClick={() => handleApproveStudent(cs.student_id)}
-                                className="text-[10px] bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold py-1 px-2.5 rounded-lg transition cursor-pointer"
-                              >
-                                Tasdiqlash
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveStudent(cs.student_id)}
-                              className="text-[10px] bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 font-bold py-1 px-2.5 rounded-lg transition cursor-pointer"
-                            >
-                              {cs.status === "PENDING" ? "Rad etish" : "Chiqarish"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="px-6 py-3 border-t border-zinc-100 text-right">
-            <button
-              onClick={() => setShowClubStudentsModal(false)}
-              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-            >
-              Yopish
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  function renderAddParentModal() {
-    if (!showAddParentModal) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowAddParentModal(false);
-          }
-        }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-      >
-        <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh] text-zinc-900 animate-fadeIn">
-          {/* Modal Header */}
-          <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Yangi Ota-onani Bog'lash (Qo'shish)</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                Ota-onani ro'yxatdan o'tkazish va o'quvchiga biriktirish
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAddParentModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="p-6 overflow-y-auto space-y-4">
-            <form onSubmit={handleCreateAndLinkParent} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                  O'quvchini tanlang *
-                </label>
-                <select
-                  required
-                  value={selectedStudentIdForAdd}
-                  onChange={(e) => setSelectedStudentIdForAdd(Number(e.target.value))}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
-                >
-                  <option value="">-- O'quvchini tanlang --</option>
-                  {studentsTabList.map((st) => (
-                    <option key={st.id} value={st.id || st.student_id}>
-                      {st.first_name} {st.last_name} ({st.phone || "Telefon kiritilmagan"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Ism *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={parentFirstName}
-                    onChange={(e) => setParentFirstName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: Asror"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Familiya *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={parentLastName}
-                    onChange={(e) => setParentLastName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                    placeholder="Masalan: Karimov"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Otasining ismi (Sharifi)
-                  </label>
-                  <input
-                    type="text"
-                    value={parentMiddleName}
-                    onChange={(e) => setParentMiddleName(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
-                    placeholder="Sharifini kiriting"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Telefon *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={parentPhone}
-                    onChange={(e) => setParentPhone(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                    placeholder="Telefon raqamini kiriting"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Pasport
-                  </label>
-                  <input
-                    type="text"
-                    value={parentPassport}
-                    onChange={(e) => setParentPassport(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                    placeholder="AA1234567"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                    Parol *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={parentPassword}
-                    onChange={(e) => setParentPassword(e.target.value)}
-                    className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
-                    placeholder="Kamida 6 ta belgi"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddParentModal(false)}
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                >
-                  {actionLoading && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>}
-                  <span>Ota-onani bog'lash</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function renderClubGradingModal() {
-    if (!showClubGradingModal || !selectedClubForGrading) return null;
-
-    const fetchHistory = async () => {
-      if (!selectedClubForGrading) return;
-      setClubGradeHistoryLoading(true);
-      try {
-        const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-        const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
-        if (sId) headers["X-School-ID"] = sId;
-        const res = await fetch(`${API_URL}/api/schools/clubs/${selectedClubForGrading.id}/grades/history`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          setClubGradeHistory(Array.isArray(data) ? data : []);
-        } else {
-          // Fallback: fetch grades for the current date as history
-          setClubGradeHistory([]);
-        }
-      } catch {
-        setClubGradeHistory([]);
-      } finally {
-        setClubGradeHistoryLoading(false);
       }
-    };
-
-    const attendanceBadge = (att: string) => {
-      if (att === "PRESENT") return <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-lg">Keldi</span>;
-      if (att === "ABSENT") return <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-lg">Kelmadi</span>;
-      if (att === "EXCUSED") return <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">Sababli</span>;
-      return null;
-    };
-
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-fadeIn"
-        onClick={(e) => { if (e.target === e.currentTarget) setShowClubGradingModal(false); }}
-        onKeyDown={(e) => { if (e.key === "Escape") setShowClubGradingModal(false); }}
-      >
-        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
-          {/* Header */}
-          <div className="px-6 py-4 bg-[#16193E] text-white flex items-center justify-between shrink-0">
-            <div>
-              <h3 className="text-base font-extrabold flex items-center gap-2">
-                <Award className="w-5 h-5 text-purple-400" />
-                <span>To'garak Jurnali va Baholash</span>
-              </h3>
-              <p className="text-xs text-zinc-400 font-medium">{selectedClubForGrading.name} — {selectedClubForGrading.subject_name}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowClubGradingModal(false)}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-zinc-300 hover:text-white transition cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex items-center gap-1 px-6 pt-4 pb-0 border-b border-zinc-100 bg-white shrink-0">
-            <button
-              type="button"
-              onClick={() => setClubJournalTab("grade")}
-              className={`px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition flex items-center gap-1.5 border-b-2 ${
-                clubJournalTab === "grade"
-                  ? "border-purple-600 text-purple-700 bg-purple-50/60"
-                  : "border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50"
-              }`}
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Baholash
-            </button>
-            <button
-              type="button"
-              onClick={() => { setClubJournalTab("history"); fetchHistory(); }}
-              className={`px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition flex items-center gap-1.5 border-b-2 ${
-                clubJournalTab === "history"
-                  ? "border-purple-600 text-purple-700 bg-purple-50/60"
-                  : "border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50"
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              O'tgan Mashg'ulotlar
-            </button>
-          </div>
-
-          {/* Tab: Grading */}
-          {clubJournalTab === "grade" && (
-            <form onSubmit={handleSaveClubGradesBatch} className="p-5 overflow-y-auto space-y-4 flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50/60 border border-purple-200/60 p-4 rounded-2xl">
-                <div>
-                  <label className="block text-[10px] font-extrabold text-purple-800 uppercase tracking-wider mb-1.5 font-mono">Mashg'ulot Sanasi</label>
-                  <input
-                    type="date"
-                    required
-                    value={clubGradingDate}
-                    onChange={(e) => {
-                      const newDate = e.target.value;
-                      setClubGradingDate(newDate);
-                      fetchClubStudentsAndGrades(selectedClubForGrading.id, newDate);
-                    }}
-                    className="px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-extrabold text-purple-950 outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <span className="text-xs text-purple-700 font-medium max-w-xs bg-purple-50 px-3 py-2 rounded-xl border border-purple-200/60">
-                  Sana tanlang va o'quvchilarning davomati va baholarini kiriting.
-                </span>
-              </div>
-
-              {clubGradingLoading ? (
-                <div className="text-center py-12">
-                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                  <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-                </div>
-              ) : clubGradingStudents.length === 0 ? (
-                <div className="p-8 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl text-zinc-500 text-xs font-medium space-y-1">
-                  <Users className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
-                  <p className="font-bold text-zinc-800">O'quvchilar topilmadi</p>
-                  <p>To'garakda hali rasman tasdiqlangan o'quvchilar yo'q. Avval "A'zolar" bo'limidan o'quvchilarni qo'shing.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto border border-zinc-200 rounded-2xl">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-zinc-50 border-b border-zinc-200">
-                      <tr>
-                        <th className="p-3 font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">O'quvchi</th>
-                        <th className="p-3 text-center font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">Davomat</th>
-                        <th className="p-3 w-24 font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">Baho</th>
-                        <th className="p-3 font-extrabold text-zinc-500 uppercase tracking-wide text-[10px]">Izoh</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 bg-white">
-                      {clubGradingStudents.map((st, idx) => (
-                        <tr key={st.student_id} className="hover:bg-purple-50/30 transition">
-                          <td className="p-3 font-bold text-zinc-900">
-                            {st.student_name}
-                            <span className="block text-[10px] text-zinc-400 font-medium">{st.class_name}</span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
-                              {(["PRESENT", "ABSENT", "EXCUSED"] as const).map((att) => (
-                                <button
-                                  key={att}
-                                  type="button"
-                                  onClick={() => setClubGradingStudents((prev) =>
-                                    prev.map((item, i) => (i === idx ? { ...item, attendance: att } : item))
-                                  )}
-                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-                                    st.attendance === att
-                                      ? att === "PRESENT" ? "bg-emerald-600 text-white" : att === "ABSENT" ? "bg-rose-600 text-white" : "bg-amber-500 text-white"
-                                      : "text-zinc-500 hover:text-zinc-900"
-                                  }`}
-                                >
-                                  {att === "PRESENT" ? "Keldi" : att === "ABSENT" ? "Kelmadi" : "Sababli"}
-                                </button>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <input
-                              type="text"
-                              placeholder="—"
-                              value={st.score_value}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setClubGradingStudents((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, score_value: val } : item))
-                                );
-                              }}
-                              className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-black text-zinc-900 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-300 text-center"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <input
-                              type="text"
-                              placeholder="Izoh..."
-                              value={st.feedback}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setClubGradingStudents((prev) =>
-                                  prev.map((item, i) => (i === idx ? { ...item, feedback: val } : item))
-                                );
-                              }}
-                              className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-800 outline-none focus:border-purple-500"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowClubGradingModal(false)}
-                  className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingClubGrades || clubGradingStudents.length === 0}
-                  className="px-5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {savingClubGrades && <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>}
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Saqlash</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Tab: History */}
-          {clubJournalTab === "history" && (
-            <div className="p-5 overflow-y-auto flex-1 space-y-3">
-              {clubGradeHistoryLoading ? (
-                <div className="text-center py-12">
-                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                  <p className="text-xs text-zinc-400 font-mono">Tarix yuklanmoqda...</p>
-                </div>
-              ) : clubGradeHistory.length === 0 ? (
-                <div className="p-10 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl">
-                  <History className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
-                  <p className="text-sm font-bold text-zinc-700">O'tgan mashg'ulotlar mavjud emas</p>
-                  <p className="text-xs text-zinc-400 font-medium mt-1">Hozircha baholangan mashg'ulotlar yo'q yoki API history endpoint mavjud emas.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {clubGradeHistory.map((session: any, si: number) => (
-                    <div key={si} className="border border-zinc-200 rounded-2xl overflow-hidden">
-                      <div className="bg-purple-50 border-b border-purple-100 px-4 py-3 flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-purple-800 flex items-center gap-2">
-                          <CalendarDays className="w-3.5 h-3.5" />
-                          {new Date(session.lesson_date || session.date || "").toLocaleDateString("uz-UZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                        </span>
-                        <span className="text-[10px] font-mono text-purple-600">{session.grades?.length || 0} ta o'quvchi</span>
-                      </div>
-                      <div className="divide-y divide-zinc-100">
-                        {(session.grades || []).map((g: any) => (
-                          <div key={g.student_id || g.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-50/60 transition text-xs">
-                            <div>
-                              <span className="font-bold text-zinc-900">{g.student_name}</span>
-                              <span className="text-zinc-400 ml-2 font-medium">{g.class_name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {attendanceBadge(g.attendance)}
-                              {g.score_value && (
-                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border ${
-                                  Number(g.score_value) >= 5 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                  Number(g.score_value) >= 4 ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                  Number(g.score_value) >= 3 ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                  "bg-rose-50 text-rose-700 border-rose-200"
-                                }`}>{g.score_value}</span>
-                              )}
-                              {g.feedback && <span className="text-[10px] text-zinc-500 font-medium italic max-w-[120px] truncate">{g.feedback}</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  function renderLogoutModal() {
-    return (
-      <CustomDialogModal
-        isOpen={showLogoutModal}
-        type="danger"
-        title="Tizimdan chiqish"
-        message="Haqiqatan ham o'qituvchi portalidan chiqmoqchimisiz?"
-        confirmText="Ha, chiqish"
-        cancelText="Bekor qilish"
-        onConfirm={() => {
-          setShowLogoutModal(false);
-          handleLogout();
-        }}
-        onCancel={() => setShowLogoutModal(false)}
-      />
-    );
-  }
-
-  function renderTeacherDialogModal() {
-    return (
-      <CustomDialogModal
-        isOpen={teacherDialog.isOpen}
-        type={teacherDialog.type}
-        title={teacherDialog.title}
-        message={teacherDialog.message}
-        confirmText={teacherDialog.confirmText}
-        cancelText="Bekor qilish"
-        onConfirm={teacherDialog.onConfirm}
-        onCancel={() => setTeacherDialog((prev) => ({ ...prev, isOpen: false }))}
-      />
-    );
-  }
-
-  // 4. Grade Comment Modal (Multiple Choice Support)
-  function renderGradeCommentModal() {
-    if (!showGradeCommentModal || !selectedStudentForComment || availableGradeOptions.length === 0) return null;
-    return (
-      <div 
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowGradeCommentModal(false);
-          }
-        }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
-      >
-        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-            <div>
-              <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-indigo-600" />
-                <span>Baho bo'yicha izoh / xabar</span>
-              </h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                {selectedStudentForComment.first_name} {selectedStudentForComment.last_name}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowGradeCommentModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Grade Selector Multiple Choice Pills */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
-                Qaysi baholar uchun izoh yozilmoqda (Multiple choice):
-              </label>
-              {availableGradeOptions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={handleToggleSelectAllGrades}
-                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold transition cursor-pointer"
-                >
-                  {selectedGradeColIds.length === availableGradeOptions.length ? "Barchasini bekor qilish" : "Barchasini tanlash"}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableGradeOptions.map((opt) => {
-                const isChecked = selectedGradeColIds.includes(opt.colId);
-                return (
-                  <button
-                    key={opt.colId}
-                    type="button"
-                    onClick={() => handleToggleGradeColId(opt.colId)}
-                    className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border select-none ${
-                      isChecked
-                        ? "bg-[#5B50EC] text-white border-[#5B50EC] shadow-xs"
-                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-600 border-zinc-200"
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-black border transition ${
-                      isChecked ? "bg-white text-[#5B50EC] border-white" : "border-zinc-300 bg-white text-transparent"
-                    }`}>
-                      ✓
-                    </div>
-                    <span>{opt.colName}:</span>
-                    <span className={`px-2 py-0.5 rounded-lg text-xs font-mono font-black ${
-                      isChecked ? "bg-white/20 text-white" : "bg-zinc-200 text-zinc-800"
-                    }`}>
-                      {opt.value}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Comment Thread List */}
-          <div className="max-h-56 overflow-y-auto space-y-3 p-1">
-            {gradeCommentsLoading ? (
-              <div className="py-8 text-center text-xs text-zinc-400 font-mono">
-                Izohlar yuklanmoqda...
-              </div>
-            ) : gradeCommentsList.length === 0 ? (
-              <div className="py-8 text-center text-xs text-zinc-400 italic bg-zinc-50 rounded-2xl">
-                Ushbu baholar uchun hali izoh yozilmagan. Ilk izohni yozing.
-              </div>
-            ) : (
-              gradeCommentsList.map((comm) => (
-                <div key={comm.id} className="p-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-xs space-y-1">
-                  <div className="flex items-center justify-between font-bold text-zinc-800">
-                    <div className="flex items-center gap-2">
-                      <span>{comm.author_name || `Foydalanuvchi #${comm.author_id}`}</span>
-                      {comm.gradeColName && (
-                        <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 text-[9px] rounded-md font-medium">
-                          {comm.gradeColName} ({comm.gradeVal})
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-zinc-400 font-mono font-normal">
-                      {new Date(comm.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-zinc-700 leading-relaxed font-medium">{comm.content}</p>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* New Comment Input */}
-          <form onSubmit={handleAddGradeComment} className="pt-2 border-t border-zinc-100 space-y-3">
-            <textarea
-              required
-              rows={2}
-              placeholder="Tanlangan baholar bo'yicha izoh yoki ota-onaga bildirishnoma yozing..."
-              value={newGradeCommentText}
-              onChange={(e) => setNewGradeCommentText(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl p-3 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-            ></textarea>
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={() => setShowGradeCommentModal(false)}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold rounded-xl text-xs"
-              >
-                Yopish
-              </button>
-              <button
-                type="submit"
-                disabled={commentSubmitting || selectedGradeColIds.length === 0}
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold rounded-xl text-xs shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-              >
-                {commentSubmitting ? "Yuborilmoqda..." : `Izoh Qoldirish (${selectedGradeColIds.length})`}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  function renderTodayLessonsModal() {
-    if (!showTodayLessonsModal) return null;
-    return (
-      <div
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowTodayLessonsModal(false);
-          }
-        }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
-      >
-        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-fadeIn space-y-6 text-zinc-900">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                <Clock className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-[#16193E]">Bugungi Darslar</h3>
-                <p className="text-xs text-zinc-400 font-medium mt-0.5">
-                  {currentDayNumber}-{currentMonthName}, {currentYear} kungi dars jadvali
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowTodayLessonsModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
-              title="Yopish (Esc)"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Lessons List */}
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-400 font-mono">Dars Jadvali</h4>
-            {todayLessons.length > 0 ? (
-              todayLessons.map((lesson, idx) => {
-                const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
-                const accentColor = borderAccents[idx % borderAccents.length];
-
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => handleSelectLessonAndGoToJournal(lesson)}
-                    className="bg-zinc-50/80 border border-zinc-200/70 rounded-2xl p-4 relative overflow-hidden flex items-center justify-between transition hover:border-indigo-300 cursor-pointer group"
-                  >
-                    <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
-                    <div className="pl-2 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h5 className="text-sm font-extrabold text-[#16193E] group-hover:text-indigo-600 transition">{lesson.subject_name}</h5>
-                        <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md">
-                          {lesson.lesson_number}-soat
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-indigo-600 flex items-center gap-2">
-                        <span>{lesson.class_name}</span>
-                        <span className="text-zinc-300">•</span>
-                        <span className="font-mono text-zinc-500">{lesson.time}</span>
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectLessonAndGoToJournal(lesson);
-                      }}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
-                    >
-                      Jurnalni ochish
-                    </button>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-xs text-zinc-400 font-medium bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
-                Bugun darslar mavjud emas
-              </div>
-            )}
-
-            {/* Teacher Clubs (To'garaklar) Section at bottom of modal */}
-            {clubs.length > 0 && (
-              <div className="pt-4 border-t border-zinc-100 space-y-3">
-                <div className="flex items-center space-x-2 text-indigo-600">
-                  <Sparkles className="w-4 h-4" />
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E] font-mono">To'garaklar</h4>
-                </div>
-                <div className="space-y-2">
-                  {clubs.map((club, idx) => (
-                    <div key={club.id || idx} className="bg-purple-50/60 border border-purple-100 rounded-2xl p-3.5 flex items-center justify-between">
-                      <div>
-                        <h5 className="text-xs font-extrabold text-purple-900">{club.name}</h5>
-                        <p className="text-[11px] text-purple-600 font-medium">{club.subject_name || "Qo'shimcha dars"}</p>
-                      </div>
-                      <span className="text-[10px] font-bold bg-purple-200/70 text-purple-900 px-2.5 py-1 rounded-xl">To'garak</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-end pt-3 border-t border-zinc-100">
-            <button
-              type="button"
-              onClick={() => setShowTodayLessonsModal(false)}
-              className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
-            >
-              Yopish
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    >
+      <TeacherDashboardContent />
+    </Suspense>
+  );
 }

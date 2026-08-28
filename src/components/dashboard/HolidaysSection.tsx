@@ -125,7 +125,7 @@ export default function HolidaysSection({
     if (targetType === "levels") payloadLevels = selectedLevels;
     else if (targetType === "classes") payloadClasses = selectedClasses;
 
-    let failedDates: string[] = [];
+    let errorMessages: string[] = [];
     for (const dateStr of selectedDates) {
       try {
         const response = await fetch(`${API_URL}/api/schools/holidays`, {
@@ -138,15 +138,18 @@ export default function HolidaysSection({
             target_classes: payloadClasses,
           }),
         });
-        if (!response.ok) failedDates.push(dateStr);
+        if (!response.ok) {
+          const resData = await response.json().catch(() => ({}));
+          errorMessages.push(resData.error || `${dateStr} sanasini saqlashda xatolik`);
+        }
       } catch {
-        failedDates.push(dateStr);
+        errorMessages.push(`${dateStr} sanasini saqlashda xatolik`);
       }
     }
 
     setActionLoading(false);
-    if (failedDates.length > 0) {
-      setActionError(`Quyidagi sanalarni saqlashda xatolik: ${failedDates.join(", ")}`);
+    if (errorMessages.length > 0) {
+      setActionError(errorMessages.join("; "));
     } else {
       setShowAddModal(false);
       setSelectedDates([]);

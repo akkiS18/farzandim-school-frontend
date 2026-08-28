@@ -1,40 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  FileSpreadsheet,
-  Plus,
-  Download,
-  UploadCloud,
-  Search,
-  Trash2,
-  Edit3,
-  BookOpen,
-  GraduationCap,
-  Layers,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  X,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Sparkles,
-  Check,
+  ChevronLeft,
+  GraduationCap,
   Calendar,
+  BookOpen,
   ArrowRight,
   ClipboardPaste,
-  Save,
-  Split,
+  Edit3,
   Combine,
-  GripVertical,
   PlusCircle,
-  HelpCircle,
+  Trash2,
+  GripVertical,
+  Save,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
+
+import api from "@/lib/api";
 
 interface ClassItem {
   id: number;
   name: string;
+  is_main_teacher?: boolean;
 }
 
 interface SubjectItem {
@@ -42,36 +33,18 @@ interface SubjectItem {
   name: string;
 }
 
-interface LessonPlanItem {
-  id: number;
-  teacher_id: number;
-  teacher_name?: string;
-  class_id: number;
-  class_name: string;
-  subject_id: number;
-  subject_name: string;
-  day_of_week: number;
-  lesson_number: number;
-  start_date: string;
-  topic_name: string;
-  notes: string;
-  created_at: string;
-}
-
 interface SchedulePeriod {
   start_date: string;
   end_date: string;
 }
 
-interface SmartGridRow {
+interface FixedScheduleSlot {
   id: string;
   date: string; // YYYY-MM-DD
   displayDate: string; // DD.MM.YYYY
   dayLetter: string; // D, S, Ch, P, J, Sh
   dayOfWeek: number; // 1-7
   lessonNumber: number; // 1, 2, 3...
-  topicName: string;
-  notes: string;
 }
 
 interface LessonPlansSectionProps {
@@ -97,72 +70,42 @@ export default function LessonPlansSection({
   API_URL,
   userInfo,
 }: LessonPlansSectionProps) {
-  const effectiveApiUrl = API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
+  // Step Navigation State (No Modal!)
+  const [viewStep, setViewStep] = useState<
+    "step1_class" | "step2_quarter" | "step3_subject" | "step4_editor"
+  >("step1_class");
 
-  // Teacher's specific assigned classes and subjects
+  // Selection states
+  const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
+  const [selectedQuarter, setSelectedQuarter] = useState<SchedulePeriod | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectItem | null>(null);
+
+  // Loaded metadata
   const [myClasses, setMyClasses] = useState<ClassItem[]>([]);
-  const [mySubjects, setMySubjects] = useState<SubjectItem[]>([]);
-  const [metaLoading, setMetaLoading] = useState(false);
-
-  // Data states
-  const [plans, setPlans] = useState<LessonPlanItem[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
-
-  // Multi-choice Class Filter States
-  const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
-  const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
-  const [classSearchTerm, setClassSearchTerm] = useState("");
-  const classDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Subject & Search Filters
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number | "all">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Single Modals state
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  // Selected item for Edit / Delete
-  const [editingPlan, setEditingPlan] = useState<LessonPlanItem | null>(null);
-  const [deletingPlanId, setDeletingPlanId] = useState<number | null>(null);
-
-  // Form State for Single Edit
-  const [formClassId, setFormClassId] = useState<number | "">("");
-  const [formSubjectId, setFormSubjectId] = useState<number | "">("");
-  const [formDayOfWeek, setFormDayOfWeek] = useState<number>(1);
-  const [formLessonNumber, setFormLessonNumber] = useState<number>(1);
-  const [formStartDate, setFormStartDate] = useState(new Date().toISOString().split("T")[0]);
-  const [formTopicName, setFormTopicName] = useState("");
-  const [formNotes, setFormNotes] = useState("");
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  // ==========================================
-  // SMART PLAN BUILDER & GRID EDITOR STATES
-  // ==========================================
-  const [showSmartModal, setShowSmartModal] = useState(false);
-  const [builderClassId, setBuilderClassId] = useState<number | "">("");
-  const [builderSubjectId, setBuilderSubjectId] = useState<number | "">("");
-  const [builderStartDate, setBuilderStartDate] = useState("");
-  const [builderEndDate, setBuilderEndDate] = useState("");
   const [schedulePeriods, setSchedulePeriods] = useState<SchedulePeriod[]>([]);
-  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState<number | "custom">(0);
-  const [pasteText, setPasteText] = useState("");
-  const [smartRows, setSmartRows] = useState<SmartGridRow[]>([]);
-  const [builderStep, setBuilderStep] = useState<"setup" | "grid">("setup");
-  const [builderLoading, setBuilderLoading] = useState(false);
-  const [builderError, setBuilderError] = useState("");
+  const [classSubjects, setClassSubjects] = useState<SubjectItem[]>([]);
+  const [selectedClassIsMain, setSelectedClassIsMain] = useState(false);
+
+  // Loading states
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [periodsLoading, setPeriodsLoading] = useState(false);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [editorLoading, setEditorLoading] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
 
-  // Interactive Table Edit / Formula bar states
-  const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
+  // Editor Grid States
+  // Fixed Schedule Slots (Dates, Day of Week, Lesson Numbers) - 100% Fixed & Static!
+  const [fixedSlots, setFixedSlots] = useState<FixedScheduleSlot[]>([]);
+
+  // Topics Array - 1-to-1 matching with fixedSlots index! (Only this array is edited, dragged, merged, inserted, or deleted!)
+  const [topicList, setTopicList] = useState<string[]>([]);
+  const [pasteText, setPasteText] = useState("");
   const [formulaValue, setFormulaValue] = useState("");
-  const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
-  const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null);
+  const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
+
+  // Drag & Drop topic state
+  const [draggedTopicIdx, setDraggedTopicIdx] = useState<number | null>(null);
+  const [dragOverSlotIdx, setDragOverSlotIdx] = useState<number | null>(null);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -172,51 +115,12 @@ export default function LessonPlansSection({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const safeFetchHeaders = () => {
-    const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-    };
-    if (sId) headers["X-School-ID"] = sId;
-    return headers;
-  };
-
-  // Keyboard listener for Escape key & outside click
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowEditModal(false);
-        setShowDeleteModal(false);
-        setIsClassDropdownOpen(false);
-      }
-    };
-    const handleClickOutside = (e: MouseEvent) => {
-      if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node)) {
-        setIsClassDropdownOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Fetch Teacher's assigned metadata (classes & subjects only)
+  // Load teacher's assigned classes on mount
   const fetchTeacherMeta = async () => {
-    if (!token) return;
     setMetaLoading(true);
     try {
-      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/meta`, {
-        headers: safeFetchHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMyClasses(Array.isArray(data.classes) ? data.classes : []);
-        setMySubjects(Array.isArray(data.subjects) ? data.subjects : []);
-      }
+      const data = await api.get("/api/schools/lesson-plans/meta");
+      setMyClasses(Array.isArray(data.classes) ? data.classes : []);
     } catch (err) {
       console.error("Failed to load teacher metadata:", err);
     } finally {
@@ -226,131 +130,80 @@ export default function LessonPlansSection({
 
   useEffect(() => {
     fetchTeacherMeta();
-  }, [token]);
+  }, []);
 
-  // Fetch lesson plans from backend
-  const fetchLessonPlans = async () => {
-    if (!token) return;
-    setLoading(true);
+  // Step 1 -> Step 2: Select Class
+  const handleSelectClass = async (cls: ClassItem) => {
+    setSelectedClass(cls);
+    setSelectedQuarter(null);
+    setSelectedSubject(null);
+    setPeriodsLoading(true);
+    setSubjectsLoading(true);
+    setViewStep("step2_quarter");
+
     try {
-      const params = new URLSearchParams();
-      if (selectedClassIds.length > 0) {
-        params.append("class_ids", selectedClassIds.join(","));
-      }
-      if (selectedSubjectId !== "all") {
-        params.append("subject_id", String(selectedSubjectId));
-      }
-      if (searchQuery.trim()) {
-        params.append("search", searchQuery.trim());
-      }
-
-      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans?${params.toString()}`, {
-        headers: safeFetchHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setPlans(data);
-      } else {
-        setPlans([]);
-      }
-      setCurrentPage(1); // Reset to page 1 on filter
+      const periodsData = await api.get(`/api/schools/classes/${cls.id}/schedule-periods`);
+      setSchedulePeriods(Array.isArray(periodsData) ? periodsData : []);
     } catch (err) {
-      console.error("Failed to load lesson plans:", err);
-      showToast("Dars rejalarini yuklashda xatolik yuz berdi", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLessonPlans();
-  }, [token, selectedClassIds, selectedSubjectId, searchQuery]);
-
-  // Load schedule periods when builderClassId changes
-  useEffect(() => {
-    if (!builderClassId || !token) {
+      console.error("Failed to load schedule periods:", err);
       setSchedulePeriods([]);
-      return;
+    } finally {
+      setPeriodsLoading(false);
     }
-    const fetchPeriods = async () => {
-      try {
-        const res = await fetch(`${effectiveApiUrl}/api/schools/classes/${builderClassId}/schedule-periods`, {
-          headers: safeFetchHeaders(),
-        });
-        const data = await res.json();
-        if (res.ok && Array.isArray(data) && data.length > 0) {
-          setSchedulePeriods(data);
-          setSelectedPeriodIdx(0);
-          setBuilderStartDate(data[0].start_date);
-          setBuilderEndDate(data[0].end_date);
-        } else {
-          setSchedulePeriods([]);
-          setSelectedPeriodIdx("custom");
-          const now = new Date();
-          const y = now.getFullYear();
-          setBuilderStartDate(`${y}-09-02`);
-          setBuilderEndDate(`${y}-11-04`);
-        }
-      } catch (err) {
-        console.error("Failed to load schedule periods:", err);
-      }
-    };
-    fetchPeriods();
-  }, [builderClassId, token]);
-
-  // Update dates when period selection changes
-  const handlePeriodChange = (val: string) => {
-    if (val === "custom") {
-      setSelectedPeriodIdx("custom");
-    } else {
-      const idx = Number(val);
-      setSelectedPeriodIdx(idx);
-      if (schedulePeriods[idx]) {
-        setBuilderStartDate(schedulePeriods[idx].start_date);
-        setBuilderEndDate(schedulePeriods[idx].end_date);
-      }
-    }
-  };
-
-  // Format date helper: YYYY-MM-DD -> DD.MM.YYYY
-  const toDisplayDate = (dStr: string) => {
-    if (!dStr) return "";
-    const parts = dStr.split("-");
-    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    return dStr;
-  };
-
-  // ==========================================
-  // SMART SCHEDULE & ROW GENERATOR
-  // ==========================================
-  const handleGenerateSmartGrid = async () => {
-    if (!builderClassId || !builderSubjectId) {
-      setBuilderError("Iltimos, sinf va fanni tanlang");
-      return;
-    }
-    if (!builderStartDate || !builderEndDate) {
-      setBuilderError("Iltimos, boshlanish va tugash sanalarini belgilang");
-      return;
-    }
-    if (new Date(builderStartDate) > new Date(builderEndDate)) {
-      setBuilderError("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
-      return;
-    }
-
-    setBuilderLoading(true);
-    setBuilderError("");
 
     try {
-      const resSched = await fetch(`${effectiveApiUrl}/api/schools/classes/${builderClassId}/schedule`, {
-        headers: safeFetchHeaders(),
-      });
-      const schedData = await resSched.json();
-      if (!resSched.ok) throw new Error(schedData.error || "Dars jadvalini olib bo'lmadi");
+      const subjData = await api.get(`/api/schools/lesson-plans/class-subjects?class_id=${cls.id}`);
+      setClassSubjects(Array.isArray(subjData.subjects) ? subjData.subjects : []);
+      setSelectedClassIsMain(!!subjData.is_main_teacher);
+    } catch (err) {
+      console.error("Failed to load class subjects:", err);
+      setClassSubjects([]);
+    } finally {
+      setSubjectsLoading(false);
+    }
+  };
 
+  // Step 2 -> Step 3: Select Quarter
+  const handleSelectQuarter = (period: SchedulePeriod) => {
+    setSelectedQuarter(period);
+    setSelectedSubject(null);
+    setViewStep("step3_subject");
+  };
+
+  // Step 3 -> Step 4: Select Subject & Load Editor
+  const handleSelectSubject = (subj: SubjectItem) => {
+    setSelectedSubject(subj);
+    if (selectedClass && selectedQuarter) {
+      loadEditorData(selectedClass.id, selectedQuarter, subj.id);
+    }
+    setViewStep("step4_editor");
+  };
+
+  // Back Navigation Helper
+  const handleGoBackStep = () => {
+    if (viewStep === "step4_editor") {
+      setViewStep("step3_subject");
+    } else if (viewStep === "step3_subject") {
+      setViewStep("step2_quarter");
+    } else if (viewStep === "step2_quarter") {
+      setViewStep("step1_class");
+    }
+  };
+
+  // Load Fixed Schedule Slots & Saved Topics for Editor
+  const loadEditorData = async (classId: number, quarter: SchedulePeriod, subjectId: number) => {
+    setEditorLoading(true);
+    setPasteText("");
+    setActiveCellIndex(null);
+    setFormulaValue("");
+
+    try {
+      // 1. Fetch weekly schedule for this class
+      const schedData = await api.get(`/api/schools/classes/${classId}/schedule`);
       const subjectSlots: { dayOfWeek: number; lessonNumber: number }[] = [];
       if (Array.isArray(schedData)) {
         for (const item of schedData) {
-          if (item.subject_id === Number(builderSubjectId)) {
+          if (item.subject_id === Number(subjectId)) {
             subjectSlots.push({
               dayOfWeek: item.day_of_week,
               lessonNumber: item.lesson_number,
@@ -358,22 +211,20 @@ export default function LessonPlansSection({
           }
         }
       }
-
-      if (subjectSlots.length === 0) {
-        throw new Error(
-          "Ushbu sinf dars jadvalida tanlangan fan uchun haftalik darslar biriktirilmagan. Avval dars jadvalini to'ldiring."
-        );
-      }
-
       subjectSlots.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.lessonNumber - b.lessonNumber);
 
+      if (subjectSlots.length === 0) {
+        showToast("Ushbu sinf dars jadvalida tanlangan fan uchun haftalik darslar biriktirilmagan", "error");
+        setFixedSlots([]);
+        setTopicList([]);
+        return;
+      }
+
+      // 2. Fetch holidays
       let holidaysSet = new Set<string>();
       try {
-        const resHol = await fetch(`${effectiveApiUrl}/api/schools/holidays`, {
-          headers: safeFetchHeaders(),
-        });
-        const holData = await resHol.json();
-        if (resHol.ok && Array.isArray(holData)) {
+        const holData = await api.get("/api/schools/holidays");
+        if (Array.isArray(holData)) {
           holData.forEach((h: any) => {
             if (h.holiday_date) {
               const dStr = typeof h.holiday_date === "string" ? h.holiday_date.split("T")[0] : "";
@@ -385,9 +236,10 @@ export default function LessonPlansSection({
         console.warn("Holidays fetch error:", err);
       }
 
-      const generatedRows: SmartGridRow[] = [];
-      const curDate = new Date(builderStartDate + "T00:00:00");
-      const stopDate = new Date(builderEndDate + "T23:59:59");
+      // 3. Generate Fixed Schedule Slots
+      const generatedSlots: FixedScheduleSlot[] = [];
+      const curDate = new Date(quarter.start_date + "T00:00:00");
+      const stopDate = new Date(quarter.end_date + "T23:59:59");
 
       while (curDate <= stopDate) {
         const yyyy = curDate.getFullYear();
@@ -402,303 +254,208 @@ export default function LessonPlansSection({
           const matchingSlots = subjectSlots.filter((s) => s.dayOfWeek === dayOfWeek);
           for (const slot of matchingSlots) {
             const wk = WEEKDAYS.find((w) => w.id === dayOfWeek);
-            generatedRows.push({
-              id: `${dateStr}_${slot.lessonNumber}_${Math.random().toString(36).substr(2, 5)}`,
+            generatedSlots.push({
+              id: `${dateStr}_${slot.lessonNumber}`,
               date: dateStr,
               displayDate: `${dd}.${mm}.${yyyy}`,
               dayLetter: wk ? wk.letter : "D",
               dayOfWeek: dayOfWeek,
               lessonNumber: slot.lessonNumber,
-              topicName: "",
-              notes: "",
             });
           }
         }
         curDate.setDate(curDate.getDate() + 1);
       }
 
-      if (generatedRows.length === 0) {
-        throw new Error("Belgilangan sana oralig'ida birorta ham dars kuni topilmadi.");
+      setFixedSlots(generatedSlots);
+
+      // 4. Fetch existing saved lesson plans from DB
+      const existingMap: Record<string, string> = {};
+      try {
+        const existingPlans = await api.get(
+          `/api/schools/lesson-plans?class_id=${classId}&subject_id=${subjectId}&start_date_from=${quarter.start_date}&start_date_to=${quarter.end_date}`
+        );
+        if (Array.isArray(existingPlans)) {
+          existingPlans.forEach((p: any) => {
+            const key = `${p.start_date}_${p.lesson_number}`;
+            existingMap[key] = p.topic_name || "";
+          });
+        }
+      } catch (err) {
+        console.warn("Fetch existing plans error:", err);
       }
 
-      if (pasteText.trim()) {
-        const lines = pasteText
-          .split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0);
-
-        lines.forEach((line, idx) => {
-          if (idx < generatedRows.length) {
-            generatedRows[idx].topicName = line;
-          } else {
-            generatedRows.push({
-              id: `extra_${idx}_${Math.random().toString(36).substr(2, 5)}`,
-              date: generatedRows[generatedRows.length - 1]?.date || builderEndDate,
-              displayDate: toDisplayDate(generatedRows[generatedRows.length - 1]?.date || builderEndDate),
-              dayLetter: "+",
-              dayOfWeek: 1,
-              lessonNumber: 1,
-              topicName: line,
-              notes: "Qo'shimcha dars",
-            });
-          }
-        });
-      }
-
-      setSmartRows(generatedRows);
-      setBuilderStep("grid");
-      if (generatedRows.length > 0) {
-        setActiveCellIndex(0);
-        setFormulaValue(generatedRows[0].topicName);
-      }
+      // Map topics to slots
+      const initialTopics = generatedSlots.map(
+        (slot) => existingMap[slot.id] || ""
+      );
+      setTopicList(initialTopics);
     } catch (err: any) {
-      setBuilderError(err.message || "Ish rejasini generatsiya qilishda xatolik");
+      showToast(err.message || "Ish rejasini yuklashda xatolik", "error");
+      setFixedSlots([]);
+      setTopicList([]);
     } finally {
-      setBuilderLoading(false);
+      setEditorLoading(false);
     }
   };
 
+  // ==========================================
+  // TOPIC MANIPULATION HANDLERS (Topic-Only!)
+  // ==========================================
+
+  // Single Topic Input change
   const handleTopicChange = (index: number, val: string) => {
-    setSmartRows((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], topicName: val };
-      return updated;
+    setTopicList((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
     });
     if (activeCellIndex === index) {
       setFormulaValue(val);
     }
   };
 
+  // Formula bar change
   const handleFormulaChange = (val: string) => {
     setFormulaValue(val);
-    if (activeCellIndex !== null && smartRows[activeCellIndex]) {
-      setSmartRows((prev) => {
-        const updated = [...prev];
-        updated[activeCellIndex] = { ...updated[activeCellIndex], topicName: val };
-        return updated;
+    if (activeCellIndex !== null && activeCellIndex < topicList.length) {
+      setTopicList((prev) => {
+        const copy = [...prev];
+        copy[activeCellIndex] = val;
+        return copy;
       });
     }
   };
 
-  const handleInsertRowAfter = (index: number) => {
-    setSmartRows((prev) => {
-      const updated = [...prev];
-      const target = updated[index];
-      const newRow: SmartGridRow = {
-        id: `inserted_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        date: target?.date || builderStartDate,
-        displayDate: target?.displayDate || toDisplayDate(builderStartDate),
-        dayLetter: target?.dayLetter || "D",
-        dayOfWeek: target?.dayOfWeek || 1,
-        lessonNumber: target?.lessonNumber || 1,
-        topicName: "",
-        notes: "",
-      };
-      updated.splice(index + 1, 0, newRow);
-      return updated;
+  // Excel paste listener
+  const handlePasteTopics = () => {
+    if (!pasteText.trim()) return;
+    const lines = pasteText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    setTopicList((prev) =>
+      prev.map((t, idx) => (lines[idx] !== undefined ? lines[idx] : t))
+    );
+    showToast(`${lines.length} ta mavzu joylashtirildi!`, "success");
+  };
+
+  // 1-Click Button Topic Merge
+  const handleMergeWithNextTopic = (index: number) => {
+    if (index >= topicList.length - 1) {
+      showToast("Keyingi qator mavzusi mavjud emas", "error");
+      return;
+    }
+    setTopicList((prev) => {
+      const copy = [...prev];
+      const t1 = copy[index]?.trim() || "";
+      const t2 = copy[index + 1]?.trim() || "";
+      if (!t2) return prev;
+      copy[index] = t1 ? `${t1} / ${t2}` : t2;
+      copy[index + 1] = "";
+      return copy;
+    });
+    showToast("2 ta mavzu bitta dars kuni uchun birlashtirildi!", "success");
+  };
+
+  // Drag and Drop Topic Merge (Target slot gets merged topic, source slot is cleared)
+  const handleDropTopic = (targetSlotIdx: number) => {
+    if (draggedTopicIdx === null || draggedTopicIdx === targetSlotIdx) {
+      setDraggedTopicIdx(null);
+      setDragOverSlotIdx(null);
+      return;
+    }
+
+    const sourceIdx = draggedTopicIdx;
+    const targetIdx = targetSlotIdx;
+
+    setTopicList((prev) => {
+      const copy = [...prev];
+      const sourceTopic = copy[sourceIdx]?.trim() || "";
+      const targetTopic = copy[targetIdx]?.trim() || "";
+
+      if (!sourceTopic) {
+        return prev;
+      }
+
+      copy[targetIdx] = targetTopic ? `${targetTopic} / ${sourceTopic}` : sourceTopic;
+      copy[sourceIdx] = "";
+      return copy;
+    });
+
+    setDraggedTopicIdx(null);
+    setDragOverSlotIdx(null);
+    showToast("Mavzular bitta dars sanasiga birlashtirildi!", "success");
+  };
+
+  // Insert empty Topic slot at index + 1 (shifts topic names down)
+  const handleInsertTopicAfter = (index: number) => {
+    setTopicList((prev) => {
+      const copy = [...prev];
+      copy.splice(index + 1, 0, "");
+      copy.pop(); // keep array length equal to fixedSlots
+      return copy;
     });
     setActiveCellIndex(index + 1);
     setFormulaValue("");
-    showToast("Yangi dars qatori oraliqqa qo'shildi", "success");
+    showToast("Yangi mavzu joyi ajratildi", "success");
   };
 
-  const handleMergeRows = (sourceIdx: number, targetIdx: number) => {
-    if (sourceIdx === targetIdx) return;
-    setSmartRows((prev) => {
-      const updated = [...prev];
-      const sourceTopic = updated[sourceIdx]?.topicName.trim();
-      const targetTopic = updated[targetIdx]?.topicName.trim();
-
-      const combinedTopic = targetTopic && sourceTopic ? `${targetTopic} / ${sourceTopic}` : targetTopic || sourceTopic;
-      updated[targetIdx] = { ...updated[targetIdx], topicName: combinedTopic };
-      updated.splice(sourceIdx, 1);
-      return updated;
+  // Delete Topic at index (shifts topic names up)
+  const handleDeleteTopic = (index: number) => {
+    setTopicList((prev) => {
+      const copy = [...prev];
+      copy.splice(index, 1);
+      copy.push("");
+      return copy;
     });
-    showToast("2 ta mavzu bitta sanaga muvaffaqiyatli birlashtirildi!", "success");
-  };
-
-  const handleDeleteGridRow = (index: number) => {
-    setSmartRows((prev) => prev.filter((_, i) => i !== index));
     if (activeCellIndex === index) {
       setActiveCellIndex(null);
       setFormulaValue("");
     }
   };
 
-  const handleDragStart = (index: number) => {
-    setDraggedRowIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (dragOverRowIndex !== index) {
-      setDragOverRowIndex(index);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    if (draggedRowIndex !== null && draggedRowIndex !== targetIndex) {
-      handleMergeRows(draggedRowIndex, targetIndex);
-    }
-    setDraggedRowIndex(null);
-    setDragOverRowIndex(null);
-  };
-
-  // Batch save to backend
+  // Save Batch Plans to Backend
   const handleSaveBatchPlans = async () => {
-    if (!builderClassId || !builderSubjectId) {
-      setBuilderError("Sinf va fan tanlanmagan");
+    if (!selectedClass || !selectedQuarter || !selectedSubject) {
+      showToast("Sinf, chorak va fan tanlanmagan", "error");
       return;
     }
 
-    const validItems = smartRows
-      .filter((r) => r.topicName.trim().length > 0)
-      .map((r) => ({
-        start_date: r.date,
-        day_of_week: r.dayOfWeek,
-        lesson_number: r.lessonNumber,
-        topic_name: r.topicName.trim(),
-        notes: r.notes.trim(),
-      }));
+    const validItems = fixedSlots
+      .map((slot, idx) => ({
+        start_date: slot.date,
+        day_of_week: slot.dayOfWeek,
+        lesson_number: slot.lessonNumber,
+        topic_name: (topicList[idx] || "").trim(),
+        notes: "",
+      }))
+      .filter((item) => item.topic_name.length > 0);
 
     if (validItems.length === 0) {
-      setBuilderError("Saqlash uchun kamida 1 ta to'ldirilgan dars mavzusi bo'lishi kerak");
+      showToast("Saqlash uchun kamida 1 ta mavzu kiritilgan bo'lishi kerak", "error");
       return;
     }
 
     setSavingBatch(true);
-    setBuilderError("");
-
     try {
-      const headers = safeFetchHeaders();
-      headers["Content-Type"] = "application/json";
-
-      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/batch`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          class_id: Number(builderClassId),
-          subject_id: Number(builderSubjectId),
-          start_date_from: builderStartDate,
-          start_date_to: builderEndDate,
-          overwrite: true,
-          items: validItems,
-        }),
+      const data = await api.post("/api/schools/lesson-plans/batch", {
+        class_id: selectedClass.id,
+        subject_id: selectedSubject.id,
+        start_date_from: selectedQuarter.start_date,
+        start_date_to: selectedQuarter.end_date,
+        overwrite: true,
+        items: validItems,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Ish rejasini saqlab bo'lmadi");
-
       showToast(data.message || `${validItems.length} ta dars rejasi saqlandi!`, "success");
-      setShowSmartModal(false);
-      setBuilderStep("setup");
-      setSmartRows([]);
-      setPasteText("");
-      fetchLessonPlans();
     } catch (err: any) {
-      setBuilderError(err.message || "Saqlashda xatolik yuz berdi");
+      showToast(err.message || "Saqlashda xatolik yuz berdi", "error");
     } finally {
       setSavingBatch(false);
     }
   };
-
-  const openSmartModal = () => {
-    setBuilderStep("setup");
-    setBuilderError("");
-    setPasteText("");
-    setSmartRows([]);
-    if (myClasses.length > 0 && !builderClassId) {
-      setBuilderClassId(myClasses[0].id);
-    }
-    if (mySubjects.length > 0 && !builderSubjectId) {
-      setBuilderSubjectId(mySubjects[0].id);
-    }
-    setShowSmartModal(true);
-  };
-
-  // Single Edit Save
-  const handleSingleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formClassId || !formSubjectId || !formTopicName.trim()) {
-      setFormError("Barcha majburiy maydonlarni to'ldiring");
-      return;
-    }
-
-    setFormSubmitting(true);
-    setFormError("");
-
-    try {
-      const headers = safeFetchHeaders();
-      headers["Content-Type"] = "application/json";
-
-      const payload = {
-        class_id: Number(formClassId),
-        subject_id: Number(formSubjectId),
-        day_of_week: Number(formDayOfWeek),
-        lesson_number: Number(formLessonNumber),
-        start_date: formStartDate,
-        topic_name: formTopicName.trim(),
-        notes: formNotes.trim(),
-      };
-
-      const url = `${effectiveApiUrl}/api/schools/lesson-plans/${editingPlan?.id}`;
-      const res = await fetch(url, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Rejani saqlab bo'lmadi");
-
-      showToast("Dars mavzusi muvaffaqiyatli tahrirlandi", "success");
-      setShowEditModal(false);
-      setEditingPlan(null);
-      fetchLessonPlans();
-    } catch (err: any) {
-      setFormError(err.message || "Saqlashda xatolik yuz berdi");
-    } finally {
-      setFormSubmitting(false);
-    }
-  };
-
-  const handleDeletePlan = async () => {
-    if (!deletingPlanId) return;
-    try {
-      const res = await fetch(`${effectiveApiUrl}/api/schools/lesson-plans/${deletingPlanId}`, {
-        method: "DELETE",
-        headers: safeFetchHeaders(),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "O'chirib bo'lmadi");
-      }
-      showToast("Dars mavzusi o'chirildi", "success");
-      setShowDeleteModal(false);
-      setDeletingPlanId(null);
-      fetchLessonPlans();
-    } catch (err: any) {
-      showToast(err.message || "Xatolik", "error");
-    }
-  };
-
-  // Helper labels
-  const classDropdownLabel = useMemo(() => {
-    if (selectedClassIds.length === 0) return "Barcha sinflar";
-    if (selectedClassIds.length === 1) {
-      const found = myClasses.find((c) => c.id === selectedClassIds[0]);
-      return found ? `${found.name} sinfi` : "1 ta sinf";
-    }
-    return `${selectedClassIds.length} ta sinf tanlangan`;
-  }, [selectedClassIds, myClasses]);
-
-  // Pagination calculation
-  const totalPages = Math.ceil(plans.length / pageSize) || 1;
-  const paginatedPlans = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return plans.slice(startIndex, startIndex + pageSize);
-  }, [plans, currentPage, pageSize]);
 
   return (
     <div className="space-y-5 animate-fadeIn pb-32">
@@ -720,820 +477,511 @@ export default function LessonPlansSection({
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#16193E] via-[#2A2B6A] to-[#16193E] rounded-3xl p-5 sm:p-6 lg:p-7 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-white/10">
+      {/* Main Header & Step Breadcrumbs Banner */}
+      <div className="bg-gradient-to-r from-[#16193E] via-[#2A2B6A] to-[#16193E] rounded-3xl p-5 sm:p-6 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-white/10">
         <div>
           <div className="inline-flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full text-[11px] font-mono font-bold tracking-wide uppercase mb-2 border border-white/15">
             <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-            <span>Ish Rejasi</span>
+            <span>Ish Rejasi (Syllabus)</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight">Ish Rejasi (Syllabus)</h2>
-          <p className="text-xs sm:text-sm text-indigo-200/80 mt-1 max-w-xl">
-            Sinf dars jadvali asosida sanalarni avtomatik tuzing, Excel mavzularini bir zumda copy-paste qiling va tahrirlang.
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={openSmartModal}
-            className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-[#D4F562] to-[#BFEA42] hover:from-[#c7ea50] hover:to-[#b0dc33] text-[#1D1E26] font-black text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg shadow-[#D4F562]/20 cursor-pointer"
-          >
-            <ClipboardPaste className="w-4 h-4 sm:w-5 sm:h-5 text-[#1D1E26]" />
-            <span>+ Yangi Ish Reja (Excel Paste)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-white border border-zinc-200/80 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-          {/* Multiple Choice Searchable Class Dropdown */}
-          <div className="relative shrink-0" ref={classDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setIsClassDropdownOpen(!isClassDropdownOpen)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between gap-2.5 border select-none min-w-[200px] sm:min-w-[220px] ${
-                selectedClassIds.length > 0
-                  ? "bg-indigo-50 text-indigo-900 border-indigo-200 shadow-2xs"
-                  : "bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200"
-              }`}
-            >
-              <div className="flex items-center gap-2 truncate">
-                <GraduationCap className={`w-4 h-4 shrink-0 ${selectedClassIds.length > 0 ? "text-indigo-600" : "text-zinc-400"}`} />
-                <span className="truncate">{classDropdownLabel}</span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {selectedClassIds.length > 0 && (
-                  <span className="px-1.5 py-0.5 bg-indigo-600 text-white rounded-full text-[10px] font-mono font-black">
-                    {selectedClassIds.length}
-                  </span>
-                )}
-                <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${isClassDropdownOpen ? "rotate-180" : ""}`} />
-              </div>
-            </button>
-
-            {/* Dropdown Panel */}
-            {isClassDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 bg-white border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-3 z-50 animate-fadeIn space-y-2.5">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Sinf nomini qidirish..."
-                    value={classSearchTerm}
-                    onChange={(e) => setClassSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-7 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-indigo-500 transition"
-                  />
-                  {classSearchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => setClassSearchTerm("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
-                  {myClasses.map((cls) => {
-                    const isSelected = selectedClassIds.includes(cls.id);
-                    return (
-                      <label
-                        key={cls.id}
-                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition select-none ${
-                          isSelected ? "bg-indigo-50/80 text-indigo-900" : "hover:bg-zinc-50 text-zinc-700"
-                        }`}
-                      >
-                        <span>{cls.name} sinfi</span>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => {
-                            setSelectedClassIds((prev) =>
-                              prev.includes(cls.id) ? prev.filter((id) => id !== cls.id) : [...prev, cls.id]
-                            );
-                          }}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight flex flex-wrap items-center gap-2">
+            <span>Ish Rejasi Paneli</span>
+            {selectedClass && (
+              <>
+                <span className="text-indigo-400 font-normal text-sm">➔</span>
+                <span className="bg-indigo-500/30 text-indigo-200 text-xs px-2.5 py-1 rounded-lg border border-indigo-400/30 font-bold">
+                  {selectedClass.name} sinfi
+                </span>
+              </>
             )}
-          </div>
+            {selectedQuarter && (
+              <>
+                <span className="text-indigo-400 font-normal text-sm">➔</span>
+                <span className="bg-emerald-500/30 text-emerald-200 text-xs px-2.5 py-1 rounded-lg border border-emerald-400/30 font-bold">
+                  {selectedQuarter.start_date} — {selectedQuarter.end_date}
+                </span>
+              </>
+            )}
+            {selectedSubject && (
+              <>
+                <span className="text-indigo-400 font-normal text-sm">➔</span>
+                <span className="bg-purple-500/30 text-purple-200 text-xs px-2.5 py-1 rounded-lg border border-purple-400/30 font-bold">
+                  {selectedSubject.name}
+                </span>
+              </>
+            )}
+          </h2>
+        </div>
 
-          {/* Subject Filter */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        {/* Action / Back Button */}
+        <div className="flex items-center gap-2 shrink-0">
+          {viewStep !== "step1_class" && (
             <button
               type="button"
-              onClick={() => setSelectedSubjectId("all")}
-              className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer shrink-0 ${
-                selectedSubjectId === "all"
-                  ? "bg-zinc-900 text-white shadow-xs"
-                  : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
-              }`}
+              onClick={handleGoBackStep}
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-white/15"
             >
-              Barcha fanlar
+              <ChevronLeft className="w-4 h-4" />
+              <span>Orqaga qaytish</span>
             </button>
-            {mySubjects.map((sub) => (
-              <button
-                key={sub.id}
-                type="button"
-                onClick={() => setSelectedSubjectId(sub.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer shrink-0 ${
-                  selectedSubjectId === sub.id
-                    ? "bg-[#5B50EC] text-white shadow-xs"
-                    : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
-                }`}
-              >
-                {sub.name}
-              </button>
-            ))}
-          </div>
+          )}
 
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-xs">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Mavzu nomi bo'yicha qidirish..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-indigo-500 transition"
-            />
-          </div>
+          {viewStep === "step4_editor" && (
+            <button
+              type="button"
+              onClick={handleSaveBatchPlans}
+              disabled={savingBatch || fixedSlots.length === 0}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#D4F562] to-[#BFEA42] hover:from-[#c7ea50] hover:to-[#b0dc33] text-[#1D1E26] font-black text-xs shadow-lg shadow-[#D4F562]/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {savingBatch ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 text-[#1D1E26]" />
+              )}
+              <span>{savingBatch ? "Saqlanmoqda..." : "Barcha Mavzularni Saqlash"}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Main Table / List View */}
-      {loading ? (
-        <div className="py-20 text-center bg-white rounded-3xl border border-zinc-200/80 shadow-xs">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono text-zinc-400">Ish rejalari yuklanmoqda...</p>
-        </div>
-      ) : plans.length === 0 ? (
-        <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-zinc-300 p-8 shadow-xs">
-          <BookOpen className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-          <h3 className="text-base font-extrabold text-zinc-800">Ish rejalari topilmadi</h3>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-            Hali ushbu sinf va fanlar uchun ish rejalari kiritilmagan. Yuqoridagi tugma orqali osongina Excel mavzularini qo'shing.
-          </p>
-          <button
-            type="button"
-            onClick={openSmartModal}
-            className="mt-4 px-4 py-2.5 rounded-xl bg-[#5B50EC] text-white text-xs font-bold hover:bg-[#4a3fdb] transition cursor-pointer shadow-md inline-flex items-center gap-2"
-          >
-            <ClipboardPaste className="w-4 h-4" />
-            <span>Ish rejasini kiritish</span>
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden flex flex-col">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-zinc-700">
-              <thead className="bg-zinc-50/80 border-b border-zinc-200/80 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider font-mono">
-                <tr>
-                  <th className="px-4 py-3.5 w-12 text-center">#</th>
-                  <th className="px-4 py-3.5">Sana</th>
-                  <th className="px-4 py-3.5">Kun</th>
-                  <th className="px-4 py-3.5">Soat</th>
-                  <th className="px-4 py-3.5">Sinf</th>
-                  <th className="px-4 py-3.5">Fan</th>
-                  <th className="px-4 py-3.5">Mavzu nomi</th>
-                  <th className="px-4 py-3.5 text-right">Amallar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {paginatedPlans.map((p, idx) => {
-                  const wk = WEEKDAYS.find((w) => w.id === p.day_of_week);
-                  const globalIdx = (currentPage - 1) * pageSize + idx + 1;
-                  return (
-                    <tr key={p.id} className="hover:bg-indigo-50/30 transition">
-                      <td className="px-4 py-3 text-center text-zinc-400 font-mono font-bold">{globalIdx}</td>
-                      <td className="px-4 py-3 font-mono font-bold text-zinc-900">{toDisplayDate(p.start_date)}</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 font-bold text-[11px]">
-                          {wk ? wk.letter : "D"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-mono font-bold text-indigo-700">{p.lesson_number}-soat</td>
-                      <td className="px-4 py-3 font-bold text-zinc-800">{p.class_name}</td>
-                      <td className="px-4 py-3 font-bold text-zinc-800">{p.subject_name}</td>
-                      <td className="px-4 py-3 font-medium text-zinc-900 font-sans max-w-md">{p.topic_name}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingPlan(p);
-                              setFormClassId(p.class_id);
-                              setFormSubjectId(p.subject_id);
-                              setFormDayOfWeek(p.day_of_week);
-                              setFormLessonNumber(p.lesson_number);
-                              setFormStartDate(p.start_date);
-                              setFormTopicName(p.topic_name);
-                              setFormNotes(p.notes || "");
-                              setFormError("");
-                              setShowEditModal(true);
-                            }}
-                            className="p-1.5 rounded-lg text-zinc-500 hover:text-amber-600 hover:bg-amber-50 transition cursor-pointer"
-                            title="Tahrirlash"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeletingPlanId(p.id);
-                              setShowDeleteModal(true);
-                            }}
-                            className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            title="O'chirish"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* ========================================================================= */}
+      {/* STEP 1: SINFLAR CARD KO'RINISHIDA                                         */}
+      {/* ========================================================================= */}
+      {viewStep === "step1_class" && (
+        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-black text-zinc-900">1. Sinfni tanlang</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Ish rejasi ko'riladigan yoki kiritiladigan sinf kartochkasini tanlang
+              </p>
+            </div>
+            <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+              Jami {myClasses.length} ta sinf
+            </span>
           </div>
 
-          {/* Smart Pagination Bar */}
-          {plans.length > 0 && (
-            <div className="px-6 py-3.5 bg-zinc-50/80 border-t border-zinc-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-semibold">
-              <div className="flex items-center gap-2">
-                <span>Jami: <b className="text-zinc-900 font-mono">{plans.length}</b> ta dars mavzusi</span>
-                <span className="text-zinc-300">•</span>
-                <span>Ko'rsatish:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="bg-white border border-zinc-200 rounded-lg px-2 py-1 text-xs font-bold outline-none cursor-pointer"
+          {metaLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center text-zinc-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+              <span className="text-xs font-medium">Sinflar yuklanmoqda...</span>
+            </div>
+          ) : myClasses.length === 0 ? (
+            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-500 text-xs">
+              Sizga biriktirilgan sinflar topilmadi. Avval admin tomonidan sinf va darslar biriktirilganiga ishonch hosil qiling.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myClasses.map((cls) => (
+                <div
+                  key={cls.id}
+                  onClick={() => handleSelectClass(cls)}
+                  className="p-6 rounded-2xl border-2 border-zinc-200/90 bg-white hover:border-[#5B50EC] hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group relative overflow-hidden"
                 >
-                  <option value={10}>10 ta</option>
-                  <option value={15}>15 ta</option>
-                  <option value={25}>25 ta</option>
-                  <option value={50}>50 ta</option>
-                </select>
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                    title="Oldingi sahifa"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                      .map((p, idx, arr) => {
-                        const prev = arr[idx - 1];
-                        const showEllipsis = prev && p - prev > 1;
-                        return (
-                          <React.Fragment key={p}>
-                            {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
-                            <button
-                              type="button"
-                              onClick={() => setCurrentPage(p)}
-                              className={`w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                currentPage === p
-                                  ? "bg-[#5B50EC] text-white shadow-xs"
-                                  : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
-                              }`}
-                            >
-                              {p}
-                            </button>
-                          </React.Fragment>
-                        );
-                      })}
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-[#5B50EC] group-hover:text-white transition-all duration-200">
+                      <GraduationCap className="w-6 h-6" />
+                    </div>
+                    {cls.is_main_teacher ? (
+                      <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full font-mono">
+                        👑 Sinf rahbari
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full font-mono">
+                        📚 Fan o'qituvchisi
+                      </span>
+                    )}
                   </div>
-
-                  <button
-                    type="button"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                    title="Keyingi sahifa"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  <div className="mt-5">
+                    <h4 className="text-xl font-black text-zinc-900 group-hover:text-[#5B50EC] transition">
+                      {cls.name} sinfi
+                    </h4>
+                    <p className="text-xs text-zinc-500 mt-1 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-all">
+                      <span>Choraklar va fanlarni ko'rish</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
+                    </p>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: SMART AUTO SCHEDULE & EXCEL PASTE GRID BUILDER                     */}
+      {/* STEP 2: CHORAKLAR CARD KO'RINISHIDA (Strict Schedule Period Check)         */}
       {/* ========================================================================= */}
-      {showSmartModal && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !savingBatch) {
-              setShowSmartModal(false);
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto"
-        >
-          <div className="w-full max-w-5xl bg-white border border-zinc-200 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-fadeIn">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-[#16193E] text-white flex items-center justify-between border-b border-white/10 shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#D4F562] to-[#A3E635] text-[#1D1E26] flex items-center justify-center font-black">
-                  <ClipboardPaste className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black tracking-tight">Aqlli Ish Rejasi Yaratish</h3>
-                  <p className="text-[11px] text-indigo-200/80 font-medium">
-                    Sinf dars jadvali asosida sanalarni tuzing va Excel mavzularini to'ldiring
-                  </p>
-                </div>
-              </div>
+      {viewStep === "step2_quarter" && selectedClass && (
+        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div>
               <button
                 type="button"
-                onClick={() => setShowSmartModal(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold transition cursor-pointer"
+                onClick={() => setViewStep("step1_class")}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-2 cursor-pointer"
               >
-                ✕
+                <ChevronLeft className="w-4 h-4" />
+                <span>Sinflarga qaytish</span>
+              </button>
+              <h3 className="text-base font-black text-zinc-900">2. Chorakni tanlang</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Ushbu sinf dars jadvalida belgilangan chorak / davr kartochkasini tanlang
+              </p>
+            </div>
+            <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+              Tanlangan: {selectedClass.name} sinfi
+            </span>
+          </div>
+
+          {periodsLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center text-zinc-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+              <span className="text-xs font-medium">Choraklar va jadval davrlari yuklanmoqda...</span>
+            </div>
+          ) : schedulePeriods.length === 0 ? (
+            /* Strict Requirement: If no schedule period is defined, show EMPTY STATE! */
+            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl space-y-3">
+              <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+              <h3 className="text-base font-black text-zinc-800">
+                Ushbu sinf uchun dars jadvali va choraklar belgilanmagan
+              </h3>
+              <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+                {selectedClass.name} sinfi uchun hali dars jadvali va choraklar kiritilmagan. Avval Dars Jadvali bo'limida ushbu sinf uchun dars jadvalini tuzing.
+              </p>
+              <button
+                type="button"
+                onClick={() => setViewStep("step1_class")}
+                className="px-5 py-2.5 bg-[#5B50EC] text-white font-bold text-xs rounded-xl hover:bg-indigo-700 transition cursor-pointer"
+              >
+                Boshqa sinf tanlash
               </button>
             </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-              {builderError && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                  <span>{builderError}</span>
-                </div>
-              )}
-
-              {builderStep === "setup" ? (
-                /* STEP 1: SETUP CLASS, SUBJECT, PERIOD, EXCEL TEXT */
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Class Select */}
-                    <div>
-                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
-                        Sinfni tanlang *
-                      </label>
-                      <select
-                        value={builderClassId}
-                        onChange={(e) => setBuilderClassId(Number(e.target.value) || "")}
-                        className="w-full bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold cursor-pointer"
-                      >
-                        <option value="">-- Sinfni tanlang --</option>
-                        {myClasses.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} sinfi
-                          </option>
-                        ))}
-                      </select>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {schedulePeriods.map((p, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleSelectQuarter(p)}
+                  className="p-6 rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 hover:border-indigo-600 hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black font-mono text-sm shadow-md">
+                      {idx + 1}
                     </div>
-
-                    {/* Subject Select */}
-                    <div>
-                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
-                        Fanni tanlang *
-                      </label>
-                      <select
-                        value={builderSubjectId}
-                        onChange={(e) => setBuilderSubjectId(Number(e.target.value) || "")}
-                        className="w-full bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold cursor-pointer"
-                      >
-                        <option value="">-- Fanni tanlang --</option>
-                        {mySubjects.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Period / Quarter Select */}
-                    <div>
-                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
-                        Dars davri / Chorak *
-                      </label>
-                      <select
-                        value={selectedPeriodIdx}
-                        onChange={(e) => handlePeriodChange(e.target.value)}
-                        className="w-full bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold cursor-pointer"
-                      >
-                        {schedulePeriods.map((p, idx) => (
-                          <option key={idx} value={idx}>
-                            {idx + 1}-chorak ({p.start_date} — {p.end_date})
-                          </option>
-                        ))}
-                        <option value="custom">Boshqa sana oralig'i...</option>
-                      </select>
-                    </div>
+                    <span className="text-[10px] font-mono font-bold bg-white px-2.5 py-1 rounded-full text-indigo-800 border border-indigo-200 shadow-2xs">
+                      Dars Jadvali Davri
+                    </span>
                   </div>
-
-                  {/* Date Range Inputs (if custom or verify) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-50/80 p-4 rounded-2xl border border-zinc-200/80">
-                    <div>
-                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
-                        Boshlanish sanasi
-                      </label>
-                      <input
-                        type="date"
-                        value={builderStartDate}
-                        onChange={(e) => setBuilderStartDate(e.target.value)}
-                        className="w-full bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2 text-xs outline-none font-bold"
-                      />
+                  <div className="mt-5">
+                    <h4 className="text-lg font-black text-zinc-900 group-hover:text-indigo-600 transition">
+                      {idx + 1}-Chorak / Davr
+                    </h4>
+                    <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-indigo-900 mt-1 bg-white/80 px-3 py-1.5 rounded-xl border border-indigo-100">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{p.start_date} — {p.end_date}</span>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
-                        Tugash sanasi
-                      </label>
-                      <input
-                        type="date"
-                        value={builderEndDate}
-                        onChange={(e) => setBuilderEndDate(e.target.value)}
-                        className="w-full bg-white border border-zinc-200 text-zinc-800 rounded-xl px-3.5 py-2 text-xs outline-none font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Excel Copy-Paste Textarea */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[10px] font-extrabold text-zinc-500 uppercase font-mono">
-                        Excel'dan mavzular ustunini copy-paste qilib tashlang (ixtiyoriy)
-                      </label>
-                      <span className="text-[10px] text-zinc-400 font-mono font-medium">
-                        (Har bir qator alohida mavzu bo'lib tushadi)
-                      </span>
-                    </div>
-                    <textarea
-                      rows={6}
-                      value={pasteText}
-                      onChange={(e) => setPasteText(e.target.value)}
-                      placeholder="Masalan:&#10;1-mavzu. Kirish va takrorlash&#10;2-mavzu. O'nli kasrlar ustida amallar&#10;3-mavzu. FASTAS nazorat ishi..."
-                      className="w-full p-4 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-mono text-zinc-800 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-indigo-500 transition leading-relaxed resize-y"
-                    />
                   </div>
                 </div>
-              ) : (
-                /* STEP 2: INTERACTIVE GRID EDITOR (Social Passport Style) */
-                <div className="space-y-4">
-                  {/* Top Formula Bar & Quick Edit Toolbar */}
-                  <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-zinc-600 font-mono">
-                      <Edit3 className="w-4 h-4 text-indigo-600" />
-                      <span>Formula / Tahrirlash:</span>
-                    </div>
-                    <input
-                      type="text"
-                      value={formulaValue}
-                      onChange={(e) => handleFormulaChange(e.target.value)}
-                      placeholder="Tanlangan qatordagi mavzu nomini shu yerda tezkor tahrirlashingiz mumkin..."
-                      className="flex-1 px-3.5 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                    />
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] font-mono font-bold text-zinc-400">
-                        Jami: {smartRows.length} ta dars
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-zinc-500 font-medium px-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      <span>Qatorlar orasidagi <b>+</b> tugmasi orqali oraliqqa yangi dars qo'shishingiz mumkin.</span>
-                    </div>
-                    <div className="text-[11px] text-zinc-400 hidden sm:block">
-                      Mavzuni boshqa mavzu ustiga sudrab tashlab birlashtirish mumkin
-                    </div>
-                  </div>
-
-                  {/* 4-Column Table Grid */}
-                  <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-xs max-h-[50vh] overflow-y-auto">
-                    <table className="w-full text-left text-xs text-zinc-800 border-collapse">
-                      <thead className="bg-[#16193E] text-white sticky top-0 z-10 text-[10px] font-extrabold uppercase font-mono tracking-wider">
-                        <tr>
-                          <th className="px-3 py-3 w-10 text-center">#</th>
-                          <th className="px-3 py-3 w-28">1. Sana</th>
-                          <th className="px-3 py-3 w-16 text-center">2. Kun</th>
-                          <th className="px-3 py-3 w-16 text-center">3. Soat</th>
-                          <th className="px-3 py-3">4. Mavzu nomi (Tahrirlanadigan)</th>
-                          <th className="px-3 py-3 w-20 text-right">Amal</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {smartRows.map((row, idx) => {
-                          const isActive = activeCellIndex === idx;
-                          const isDragOver = dragOverRowIndex === idx;
-
-                          return (
-                            <React.Fragment key={row.id}>
-                              <tr
-                                draggable
-                                onDragStart={() => handleDragStart(idx)}
-                                onDragOver={(e) => handleDragOver(e, idx)}
-                                onDrop={(e) => handleDrop(e, idx)}
-                                onClick={() => {
-                                  setActiveCellIndex(idx);
-                                  setFormulaValue(row.topicName);
-                                }}
-                                className={`transition group cursor-pointer ${
-                                  isActive ? "bg-indigo-50/70" : "hover:bg-zinc-50/80"
-                                } ${isDragOver ? "bg-amber-100 border-2 border-dashed border-amber-500" : ""}`}
-                              >
-                                <td className="px-2 py-2.5 text-center text-zinc-400 font-mono font-bold select-none">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <GripVertical className="w-3 h-3 text-zinc-300 opacity-0 group-hover:opacity-100 transition cursor-grab" />
-                                    <span>{idx + 1}</span>
-                                  </div>
-                                </td>
-
-                                <td className="px-3 py-2.5 font-mono font-bold text-zinc-900 whitespace-nowrap">
-                                  {row.displayDate}
-                                </td>
-
-                                <td className="px-3 py-2.5 text-center">
-                                  <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 font-extrabold text-[11px] font-mono">
-                                    {row.dayLetter}
-                                  </span>
-                                </td>
-
-                                <td className="px-3 py-2.5 text-center font-mono font-bold text-indigo-700">
-                                  {row.lessonNumber}
-                                </td>
-
-                                <td className="px-3 py-1.5">
-                                  <input
-                                    type="text"
-                                    value={row.topicName}
-                                    onChange={(e) => handleTopicChange(idx, e.target.value)}
-                                    placeholder="Dars mavzusini kiriting..."
-                                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium font-sans border transition outline-none ${
-                                      isActive
-                                        ? "border-indigo-500 bg-white shadow-2xs font-semibold"
-                                        : "border-transparent bg-transparent hover:border-zinc-200 focus:bg-white focus:border-indigo-500"
-                                    }`}
-                                  />
-                                </td>
-
-                                <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleInsertRowAfter(idx);
-                                      }}
-                                      className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
-                                      title="Ostiga yangi qator qo'shish"
-                                    >
-                                      <PlusCircle className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteGridRow(idx);
-                                      }}
-                                      className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                      title="Qatorni o'chirish"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-
-                              {/* Desktop Hover Row-Divider Inserter (+) */}
-                              <tr className="hidden sm:table-row h-0">
-                                <td colSpan={6} className="p-0 border-0 relative">
-                                  <div className="h-2 -my-1 relative group/insert flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-10">
-                                    <div className="w-full h-0.5 bg-emerald-400 absolute"></div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleInsertRowAfter(idx)}
-                                      className="relative bg-emerald-600 hover:bg-emerald-700 text-white rounded-full p-1 shadow-md text-[10px] font-bold flex items-center gap-1 px-2.5 cursor-pointer transform -translate-y-0.5 hover:scale-105 transition"
-                                    >
-                                      <Plus className="w-3 h-3" />
-                                      <span>Oraliqqa dars qo'shish</span>
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-200 flex items-center justify-between shrink-0">
-              {builderStep === "grid" ? (
-                <button
-                  type="button"
-                  onClick={() => setBuilderStep("setup")}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold transition cursor-pointer"
-                >
-                  ← Qaytadan sozlash
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowSmartModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-bold transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-              )}
-
-              {builderStep === "setup" ? (
-                <button
-                  type="button"
-                  onClick={handleGenerateSmartGrid}
-                  disabled={builderLoading}
-                  className="px-6 py-2.5 rounded-xl bg-[#5B50EC] hover:bg-[#4A3FDB] text-white text-xs font-bold transition cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-md shadow-indigo-500/20"
-                >
-                  {builderLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Jadval hisoblanmoqda...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Jadvalni tuzish</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSaveBatchPlans}
-                  disabled={savingBatch}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D4F562] to-[#BFEA42] hover:from-[#c7ea50] hover:to-[#b0dc33] text-[#1D1E26] text-xs font-black transition cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-[#D4F562]/30"
-                >
-                  {savingBatch ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saqlanmoqda...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 text-[#1D1E26]" />
-                      <span>Ish Rejasini Saqlash ({smartRows.filter((r) => r.topicName.trim()).length} ta mavzu)</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: SINGLE EDIT LESSON PLAN                                            */}
+      {/* STEP 3: FANLAR CARD KO'RINISHIDA                                          */}
       {/* ========================================================================= */}
-      {showEditModal && editingPlan && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !formSubmitting) {
-              setShowEditModal(false);
-              setEditingPlan(null);
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
-        >
-          <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-              <h3 className="text-base font-black text-zinc-900">Dars Mavzusini Tahrirlash</h3>
+      {viewStep === "step3_subject" && selectedClass && selectedQuarter && (
+        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div>
               <button
                 type="button"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingPlan(null);
-                }}
-                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 font-bold text-xs cursor-pointer shrink-0"
+                onClick={() => setViewStep("step2_quarter")}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-2 cursor-pointer"
               >
-                ✕
+                <ChevronLeft className="w-4 h-4" />
+                <span>Choraklarga qaytish</span>
+              </button>
+              <h3 className="text-base font-black text-zinc-900">3. Fanni tanlang</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {selectedClassIsMain
+                  ? "Siz ushbu sinfning Sinf Rahbarisiz — sinfning barcha fanlari ko'rsatilmoqda"
+                  : "Siz ushbu sinfda o'zingiz dars beradigan fan kartochkasini tanlang"}
+              </p>
+            </div>
+            <span className="text-xs font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-xl">
+              Jami {classSubjects.length} ta fan
+            </span>
+          </div>
+
+          {subjectsLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center text-zinc-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+              <span className="text-xs font-medium">Sinf fanlari yuklanmoqda...</span>
+            </div>
+          ) : classSubjects.length === 0 ? (
+            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-500 text-xs space-y-2">
+              <div>Ushbu sinf uchun biror fan topilmadi. Avval dars jadvali kiritilganini tekshiring.</div>
+              <button
+                type="button"
+                onClick={() => setViewStep("step1_class")}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs cursor-pointer"
+              >
+                Boshqa sinf tanlash
               </button>
             </div>
-
-            {formError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSingleSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Sana *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formStartDate}
-                    onChange={(e) => setFormStartDate(e.target.value)}
-                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
-                  />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {classSubjects.map((subj) => (
+                <div
+                  key={subj.id}
+                  onClick={() => handleSelectSubject(subj)}
+                  className="p-6 rounded-2xl border-2 border-zinc-200/90 bg-white hover:border-purple-600 hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all duration-200">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-1 rounded-full font-mono">
+                      {selectedClassIsMain ? "Sinf fani" : "Dars fangingiz"}
+                    </span>
+                  </div>
+                  <div className="mt-5">
+                    <h4 className="text-xl font-black text-zinc-900 group-hover:text-purple-600 transition">
+                      {subj.name}
+                    </h4>
+                    <p className="text-xs text-zinc-500 mt-1 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-all">
+                      <span>Ish rejasini tahrirlash va ko'rish</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-purple-600" />
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Dars soati *</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    required
-                    value={formLessonNumber}
-                    onChange={(e) => setFormLessonNumber(Number(e.target.value))}
-                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
-                  />
-                </div>
-              </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-              <div>
-                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">Mavzu nomi *</label>
+      {/* ========================================================================= */}
+      {/* STEP 4: INTERAKTIV ISH REJA TAHRIRLASH JADVALI (TOPIC-ONLY MANIPULATION)  */}
+      {/* ========================================================================= */}
+      {viewStep === "step4_editor" && selectedClass && selectedQuarter && selectedSubject && (
+        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-zinc-50 p-4 rounded-2xl border border-zinc-200">
+            <div>
+              <button
+                type="button"
+                onClick={() => setViewStep("step3_subject")}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-1 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Fanlarga qaytish</span>
+              </button>
+              <h3 className="text-base font-black text-zinc-900">
+                {selectedClass.name} sinfi • {selectedSubject.name} fani
+              </h3>
+              <p className="text-xs text-zinc-500 mt-0.5 font-mono">
+                Davr: {selectedQuarter.start_date} — {selectedQuarter.end_date} (Jami {fixedSlots.length} ta dars kuni)
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveBatchPlans}
+                disabled={savingBatch || fixedSlots.length === 0}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{savingBatch ? "Saqlanmoqda..." : "Barcha Mavzularni Saqlash"}</span>
+              </button>
+            </div>
+          </div>
+
+          {editorLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center text-zinc-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+              <span className="text-xs font-medium">Sinf dars jadvali va rejasi hisoblanmoqda...</span>
+            </div>
+          ) : fixedSlots.length === 0 ? (
+            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-500 text-xs">
+              Ushbu fan uchun dars kunlari hisoblanmadi. Avval Dars Jadvalida haftalik dars soatlari biriktirilganini tekshiring.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Excel Copy-Paste Box */}
+              <div className="space-y-2 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-indigo-900 font-mono flex items-center gap-2">
+                    <ClipboardPaste className="w-4 h-4 text-indigo-600" />
+                    <span>Excel'dan mavzular ustunini (Ctrl+V) nusxalab tashlang:</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handlePasteTopics}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] rounded-lg cursor-pointer transition shadow-2xs"
+                  >
+                    Mavzularni Joylashtirish
+                  </button>
+                </div>
                 <textarea
                   rows={3}
-                  required
-                  value={formTopicName}
-                  onChange={(e) => setFormTopicName(e.target.value)}
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  placeholder="Excel'dan mavzular ustunini nusxalab shu yerga yuboring (Ctrl+V)..."
+                  className="w-full p-3 bg-white border border-indigo-200 rounded-xl text-xs font-mono text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-indigo-400 transition leading-relaxed"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-700 text-xs font-bold hover:bg-zinc-100 transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="submit"
-                  disabled={formSubmitting}
-                  className="px-5 py-2.5 rounded-xl bg-[#5B50EC] hover:bg-[#4A3FDB] text-white text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                >
-                  {formSubmitting ? "Saqlanmoqda..." : "O'zgarishlarni saqlash"}
-                </button>
+              {/* Quick Edit Bar */}
+              <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-zinc-600 font-mono">
+                  <Edit3 className="w-4 h-4 text-indigo-600" />
+                  <span>Tezkor Tahrirlash:</span>
+                </div>
+                <input
+                  type="text"
+                  value={formulaValue}
+                  onChange={(e) => handleFormulaChange(e.target.value)}
+                  placeholder="Tanlangan qatordagi mavzu nomini shu yerda tezkor tahrirlashingiz mumkin..."
+                  className="flex-1 px-3.5 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                />
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-mono font-bold text-zinc-500">
+                    Jami: {fixedSlots.length} ta dars kuni
+                  </span>
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: DELETE CONFIRMATION                                                */}
-      {/* ========================================================================= */}
-      {showDeleteModal && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowDeleteModal(false);
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
-        >
-          <div className="w-full max-w-sm bg-white border border-zinc-200 rounded-3xl p-6 shadow-2xl text-zinc-900 space-y-4 animate-fadeIn">
-            <h3 className="text-base font-black text-zinc-900">Mavzuni o'chirish</h3>
-            <p className="text-xs text-zinc-600 leading-relaxed font-medium">
-              Haqiqatan ham ushbu dars mavzusini ish rejasidan o'chirmoqchimisiz?
-            </p>
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 text-xs font-bold hover:bg-zinc-100 transition cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="button"
-                onClick={handleDeletePlan}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer"
-              >
-                Ha, o'chirish
-              </button>
+              {/* Syllabus Table (Fixed Schedule Columns + Topic Column) */}
+              <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-xs max-h-[60vh] overflow-y-auto">
+                <table className="w-full text-left text-xs text-zinc-800 border-collapse">
+                  <thead className="bg-[#16193E] text-white sticky top-0 z-10 text-[10px] font-extrabold uppercase font-mono tracking-wider">
+                    <tr>
+                      <th className="px-3 py-3 w-10 text-center">#</th>
+                      <th className="px-3 py-3 w-28">Sana (O'zgarmas)</th>
+                      <th className="px-3 py-3 w-16 text-center">Kun</th>
+                      <th className="px-3 py-3 w-20 text-center">Soat</th>
+                      <th className="px-3 py-3">Dars Mavzusi (Tahrirlanadigan & Birlashtiriladigan)</th>
+                      <th className="px-3 py-3 w-28 text-right">Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 font-sans">
+                    {fixedSlots.map((slot, idx) => {
+                      const isActive = activeCellIndex === idx;
+                      const isDragOver = dragOverSlotIdx === idx;
+                      const currentTopic = topicList[idx] || "";
+
+                      return (
+                        <tr
+                          key={slot.id}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            if (dragOverSlotIdx !== idx) setDragOverSlotIdx(idx);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            handleDropTopic(idx);
+                          }}
+                          onClick={() => {
+                            setActiveCellIndex(idx);
+                            setFormulaValue(currentTopic);
+                          }}
+                          className={`transition cursor-pointer ${
+                            isDragOver
+                              ? "bg-indigo-100 border-2 border-dashed border-indigo-500"
+                              : isActive
+                              ? "bg-indigo-50/70"
+                              : "hover:bg-zinc-50"
+                          }`}
+                        >
+                          {/* Row # */}
+                          <td className="px-3 py-2 text-center font-mono text-zinc-400 font-bold select-none">
+                            {idx + 1}
+                          </td>
+
+                          {/* Fixed Date */}
+                          <td className="px-3 py-2 font-mono font-bold text-zinc-800 whitespace-nowrap">
+                            {slot.displayDate}
+                          </td>
+
+                          {/* Fixed Day of Week */}
+                          <td className="px-3 py-2 text-center whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md font-mono font-black text-[10px] bg-zinc-100 text-zinc-700">
+                              {slot.dayLetter}
+                            </span>
+                          </td>
+
+                          {/* Fixed Lesson Number */}
+                          <td className="px-3 py-2 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
+                            {slot.lessonNumber}-dars
+                          </td>
+
+                          {/* Editable & Draggable Topic Cell */}
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <div
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  setDraggedTopicIdx(idx);
+                                }}
+                                title="Mavzuni boshqa sanaga sudrab o'tkazish yoki birlashtirish"
+                                className="p-1 rounded-md text-zinc-300 hover:text-indigo-600 hover:bg-indigo-50 cursor-grab active:cursor-grabbing shrink-0"
+                              >
+                                <GripVertical className="w-4 h-4" />
+                              </div>
+                              <input
+                                type="text"
+                                value={currentTopic}
+                                onChange={(e) => handleTopicChange(idx, e.target.value)}
+                                placeholder="Dars mavzusini kiriting..."
+                                className={`w-full py-1 text-xs outline-none transition font-medium ${
+                                  isActive
+                                    ? "font-bold text-indigo-900 border-b-2 border-indigo-600 bg-white"
+                                    : "bg-transparent border-b border-transparent focus:border-indigo-400 text-zinc-800"
+                                }`}
+                              />
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleInsertTopicAfter(idx);
+                                }}
+                                className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+                                title="Yangi mavzu joyi ajratish"
+                              >
+                                <PlusCircle className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTopic(idx);
+                                }}
+                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
+                                title="Mavzuni o'chirish"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
