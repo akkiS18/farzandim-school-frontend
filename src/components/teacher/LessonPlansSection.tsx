@@ -45,6 +45,7 @@ interface FixedScheduleSlot {
   dayLetter: string; // D, S, Ch, P, J, Sh
   dayOfWeek: number; // 1-7
   lessonNumber: number; // 1, 2, 3...
+  isException?: boolean;
 }
 
 interface LessonPlansSectionProps {
@@ -190,7 +191,7 @@ export default function LessonPlansSection({
     }
   };
 
-  // Load Fixed Schedule Slots & Saved Topics for Editor
+  // Load Fixed Schedule Slots & Saved Topics for Editor from Backend
   const loadEditorData = async (classId: number, quarter: SchedulePeriod, subjectId: number) => {
     setEditorLoading(true);
     setPasteText("");
@@ -198,102 +199,42 @@ export default function LessonPlansSection({
     setFormulaValue("");
 
     try {
-      // 1. Fetch weekly schedule for this class
-      const schedData = await api.get(`/api/schools/classes/${classId}/schedule`);
-      const subjectSlots: { dayOfWeek: number; lessonNumber: number }[] = [];
-      if (Array.isArray(schedData)) {
-        for (const item of schedData) {
-          if (item.subject_id === Number(subjectId)) {
-            subjectSlots.push({
-              dayOfWeek: item.day_of_week,
-              lessonNumber: item.lesson_number,
-            });
-          }
-        }
-      }
-      subjectSlots.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.lessonNumber - b.lessonNumber);
+      // Fetch dynamically calculated and deduplicated slots directly from backend
+      const res = await api.get(
+        `/api/schools/lesson-plans/slots?class_id=${classId}&subject_id=${subjectId}&start_date=${quarter.start_date}&end_date=${quarter.end_date}`
+      );
 
-      if (subjectSlots.length === 0) {
-        showToast("Ushbu sinf dars jadvalida tanlangan fan uchun haftalik darslar biriktirilmagan", "error");
+      const slots = Array.isArray(res?.slots) ? res.slots : [];
+
+      if (slots.length === 0) {
+        showToast("Ushbu chorakda tanlangan fan uchun darslar topilmadi", "error");
         setFixedSlots([]);
         setTopicList([]);
+        setPasteText("");
         return;
       }
 
-      // 2. Fetch holidays
-      let holidaysSet = new Set<string>();
-      try {
-        const holData = await api.get("/api/schools/holidays");
-        if (Array.isArray(holData)) {
-          holData.forEach((h: any) => {
-            if (h.holiday_date) {
-              const dStr = typeof h.holiday_date === "string" ? h.holiday_date.split("T")[0] : "";
-              if (dStr) holidaysSet.add(dStr);
-            }
-          });
-        }
-      } catch (err) {
-        console.warn("Holidays fetch error:", err);
-      }
+      const mappedSlots: FixedScheduleSlot[] = slots.map((s: any) => ({
+        id: s.id,
+        date: s.date,
+        displayDate: s.display_date,
+        dayLetter: s.day_letter,
+        dayOfWeek: s.day_of_week,
+        lessonNumber: s.lesson_number,
+        isException: s.is_exception,
+      }));
 
-      // 3. Generate Fixed Schedule Slots
-      const generatedSlots: FixedScheduleSlot[] = [];
-      const curDate = new Date(quarter.start_date + "T00:00:00");
-      const stopDate = new Date(quarter.end_date + "T23:59:59");
+      const topics = slots.map((s: any) => s.topic_name || "");
 
-      while (curDate <= stopDate) {
-        const yyyy = curDate.getFullYear();
-        const mm = String(curDate.getMonth() + 1).padStart(2, "0");
-        const dd = String(curDate.getDate()).padStart(2, "0");
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-
-        if (!holidaysSet.has(dateStr)) {
-          let dayOfWeek = curDate.getDay();
-          if (dayOfWeek === 0) dayOfWeek = 7;
-
-          const matchingSlots = subjectSlots.filter((s) => s.dayOfWeek === dayOfWeek);
-          for (const slot of matchingSlots) {
-            const wk = WEEKDAYS.find((w) => w.id === dayOfWeek);
-            generatedSlots.push({
-              id: `${dateStr}_${slot.lessonNumber}`,
-              date: dateStr,
-              displayDate: `${dd}.${mm}.${yyyy}`,
-              dayLetter: wk ? wk.letter : "D",
-              dayOfWeek: dayOfWeek,
-              lessonNumber: slot.lessonNumber,
-            });
-          }
-        }
-        curDate.setDate(curDate.getDate() + 1);
-      }
-
-      setFixedSlots(generatedSlots);
-
-      // 4. Fetch existing saved lesson plans from DB
-      const existingMap: Record<string, string> = {};
-      try {
-        const existingPlans = await api.get(
-          `/api/schools/lesson-plans?class_id=${classId}&subject_id=${subjectId}&start_date_from=${quarter.start_date}&start_date_to=${quarter.end_date}`
-        );
-        if (Array.isArray(existingPlans)) {
-          existingPlans.forEach((p: any) => {
-            const key = `${p.start_date}_${p.lesson_number}`;
-            existingMap[key] = p.topic_name || "";
-          });
-        }
-      } catch (err) {
-        console.warn("Fetch existing plans error:", err);
-      }
-
-      // Map topics to slots
-      const initialTopics = generatedSlots.map(
-        (slot) => existingMap[slot.id] || ""
-      );
-      setTopicList(initialTopics);
+      setFixedSlots(mappedSlots);
+      setTopicList(topics);
+      // Pre-fill the top textarea box so user can edit/view/paste topics immediately!
+      setPasteText(topics.join("\n"));
     } catch (err: any) {
       showToast(err.message || "Ish rejasini yuklashda xatolik", "error");
       setFixedSlots([]);
       setTopicList([]);
+      setPasteText("");
     } finally {
       setEditorLoading(false);
     }
@@ -308,6 +249,7 @@ export default function LessonPlansSection({
     setTopicList((prev) => {
       const copy = [...prev];
       copy[index] = val;
+      setPasteText(copy.join("\n"));
       return copy;
     });
     if (activeCellIndex === index) {
@@ -322,23 +264,23 @@ export default function LessonPlansSection({
       setTopicList((prev) => {
         const copy = [...prev];
         copy[activeCellIndex] = val;
+        setPasteText(copy.join("\n"));
         return copy;
       });
     }
   };
 
-  // Excel paste listener
+  // Excel paste listener / Apply textarea topics
   const handlePasteTopics = () => {
-    if (!pasteText.trim()) return;
-    const lines = pasteText
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    if (!pasteText.trim() && topicList.length === 0) return;
+    const lines = pasteText.split(/\r?\n/).map((l) => l.trim());
 
-    setTopicList((prev) =>
-      prev.map((t, idx) => (lines[idx] !== undefined ? lines[idx] : t))
-    );
-    showToast(`${lines.length} ta mavzu joylashtirildi!`, "success");
+    setTopicList((prev) => {
+      const updated = prev.map((t, idx) => (lines[idx] !== undefined ? lines[idx] : t));
+      return updated;
+    });
+    const count = lines.filter((l) => l.length > 0).length;
+    showToast(`${count} ta mavzu joylashtirildi!`, "success");
   };
 
   // 1-Click Button Topic Merge
@@ -354,6 +296,7 @@ export default function LessonPlansSection({
       if (!t2) return prev;
       copy[index] = t1 ? `${t1} / ${t2}` : t2;
       copy[index + 1] = "";
+      setPasteText(copy.join("\n"));
       return copy;
     });
     showToast("2 ta mavzu bitta dars kuni uchun birlashtirildi!", "success");
@@ -381,6 +324,7 @@ export default function LessonPlansSection({
 
       copy[targetIdx] = targetTopic ? `${targetTopic} / ${sourceTopic}` : sourceTopic;
       copy[sourceIdx] = "";
+      setPasteText(copy.join("\n"));
       return copy;
     });
 
@@ -395,6 +339,7 @@ export default function LessonPlansSection({
       const copy = [...prev];
       copy.splice(index + 1, 0, "");
       copy.pop(); // keep array length equal to fixedSlots
+      setPasteText(copy.join("\n"));
       return copy;
     });
     setActiveCellIndex(index + 1);
@@ -408,6 +353,7 @@ export default function LessonPlansSection({
       const copy = [...prev];
       copy.splice(index, 1);
       copy.push("");
+      setPasteText(copy.join("\n"));
       return copy;
     });
     if (activeCellIndex === index) {
@@ -916,7 +862,14 @@ export default function LessonPlansSection({
 
                           {/* Fixed Lesson Number */}
                           <td className="px-3 py-2 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
-                            {slot.lessonNumber}-dars
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span>{slot.lessonNumber}-dars</span>
+                              {slot.isException && (
+                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-bold rounded" title="Dars jadvalidagi o'zgarish (istisno)">
+                                  o'zgarish
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* Editable & Draggable Topic Cell */}
