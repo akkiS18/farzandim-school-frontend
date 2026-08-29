@@ -3,6 +3,7 @@ import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
 import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight, FileSpreadsheet, Upload, Download, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ClassItem, UserInfo } from "./types";
+import { formatLocalDate } from "@/lib/dateUtils";
 
 interface HolidayItem {
   id: number;
@@ -260,15 +261,13 @@ export default function HolidaysSection({
     const firstOfMonth = new Date(calYear, calMonth, 1);
     let startDow = firstOfMonth.getDay();
     startDow = startDow === 0 ? 6 : startDow - 1;
-    const start = new Date(firstOfMonth);
-    start.setDate(start.getDate() - startDow);
+    const start = new Date(calYear, calMonth, 1 - startDow);
 
     const days: { dateStr: string; day: number; isCurrentMonth: boolean; isToday: boolean }[] = [];
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = formatLocalDate(new Date());
     for (let i = 0; i < 42; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const dateStr = d.toISOString().split("T")[0];
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const dateStr = formatLocalDate(d);
       days.push({
         dateStr,
         day: d.getDate(),

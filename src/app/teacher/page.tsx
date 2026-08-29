@@ -2,8 +2,9 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import api from "@/lib/api";
+import { formatLocalDate, parseLocalDate } from "@/lib/dateUtils";
 import { useRouter, useSearchParams } from "next/navigation";
 import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
 import SmartCalendarModal from "@/components/SmartCalendarModal";
@@ -344,7 +345,18 @@ function TeacherDashboardContent() {
   const [clubStudentsLoading, setClubStudentsLoading] = useState(false);
 
   // Dashboard Interactive Date Picker State
-  const [selectedDashboardDate, setSelectedDashboardDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  const [selectedDashboardDate, setSelectedDashboardDate] = useState<string>(() => formatLocalDate(new Date()));
+  const dashboardDateInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenDashboardDatePicker = () => {
+    if (dashboardDateInputRef.current) {
+      if (typeof dashboardDateInputRef.current.showPicker === "function") {
+        dashboardDateInputRef.current.showPicker();
+      } else {
+        dashboardDateInputRef.current.focus();
+      }
+    }
+  };
 
   // Search & Pagination States for Students and Parents tabs
   const [studentsSearch, setStudentsSearch] = useState("");
@@ -1316,9 +1328,9 @@ function TeacherDashboardContent() {
   const fetchClassSchedule = async (targetDate?: string) => {
     if (!selectedClassId) return;
     setClassScheduleLoading(true);
-    const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
+    const dateQuery = targetDate || scheduleViewDate || formatLocalDate(new Date());
     try {
-      const data = await api.get(`/api/schools/classes/${selectedClassId}/schedule?date=${dateQuery}`);
+      const data = await api.get(`/api/schools/classes/${selectedClassId}/schedule?date=${dateQuery}&ignore_holiday=true&raw=true`);
       if (Array.isArray(data)) {
         setClassSchedule(data);
         if (data.length > 0 && data[0].start_date && data[0].end_date) {
@@ -1348,7 +1360,7 @@ function TeacherDashboardContent() {
   const fetchOverallTeacherSchedule = async (targetDate?: string) => {
     if (!classes.length) return;
     setOverallScheduleLoading(true);
-    const dateQuery = targetDate || scheduleViewDate || new Date().toISOString().split("T")[0];
+    const dateQuery = targetDate || scheduleViewDate || formatLocalDate(new Date());
     try {
       const results: { [key: string]: Array<{ class_id: number; class_name: string; subject_id: number; subject_name: string }> } = {};
 
@@ -1356,7 +1368,7 @@ function TeacherDashboardContent() {
         classes.map(async (cls) => {
           try {
             const [schData, tchData] = await Promise.all([
-              api.get(`/api/schools/classes/${cls.id}/schedule?date=${dateQuery}`).catch(() => []),
+              api.get(`/api/schools/classes/${cls.id}/schedule?date=${dateQuery}&ignore_holiday=true&raw=true`).catch(() => []),
               api.get(`/api/schools/classes/${cls.id}/teachers`).catch(() => []),
             ]);
 
@@ -3295,46 +3307,43 @@ function TeacherDashboardContent() {
                 <div className="lg:col-span-4 space-y-6">
                   {/* 1. Interactive Dashboard Date Picker Card */}
                   <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-3 relative">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 relative overflow-hidden group cursor-pointer">
+                    <div
+                      onClick={handleOpenDashboardDatePicker}
+                      className="flex items-center space-x-3 cursor-pointer group select-none flex-1"
+                    >
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 group-hover:bg-indigo-100 group-hover:border-indigo-200 transition">
                         <Calendar className="w-5 h-5" />
-                        <input
-                          type="date"
-                          value={selectedDashboardDate}
-                          onChange={(e) => setSelectedDashboardDate(e.target.value)}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                          title="Sana tanlash"
-                        />
                       </div>
                       <div>
                         <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Sana Tanlash</span>
-                        <div className="relative inline-flex items-center gap-1.5 cursor-pointer">
-                          <h4 className="text-sm font-extrabold text-[#16193E]">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-sm font-extrabold text-[#16193E] group-hover:text-indigo-600 transition">
                             {(() => {
-                              const d = new Date(selectedDashboardDate + "T00:00:00");
+                              const d = parseLocalDate(selectedDashboardDate);
                               const mNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
                               return `${d.getDate()}-${mNames[d.getMonth()]}, ${d.getFullYear()}`;
                             })()}
                           </h4>
-                          <input
-                            type="date"
-                            value={selectedDashboardDate}
-                            onChange={(e) => setSelectedDashboardDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                            title="Sana tanlash"
-                          />
                         </div>
                       </div>
+                      <input
+                        ref={dashboardDateInputRef}
+                        type="date"
+                        value={selectedDashboardDate}
+                        onChange={(e) => setSelectedDashboardDate(e.target.value)}
+                        className="sr-only"
+                        title="Sana tanlash"
+                      />
                     </div>
 
-                    {selectedDashboardDate === new Date().toISOString().split("T")[0] ? (
+                    {selectedDashboardDate === formatLocalDate(new Date()) ? (
                       <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full shrink-0">
                         Bugun
                       </span>
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setSelectedDashboardDate(new Date().toISOString().split("T")[0])}
+                        onClick={() => setSelectedDashboardDate(formatLocalDate(new Date()))}
                         className="text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1 rounded-full shrink-0 transition cursor-pointer"
                       >
                         Bugunga qaytish

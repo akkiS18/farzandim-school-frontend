@@ -2,6 +2,7 @@
 
 import React from "react";
 import { BookOpen, Calendar, MessageSquare } from "lucide-react";
+import { parseDateString } from "@/lib/dateUtils";
 
 interface Student {
   id: number;
@@ -139,7 +140,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   const dayName = !isNaN(dateObj.getTime()) ? days[dateObj.getDay()] : "";
 
   const activeHoliday = holidays.find((h) => {
-    const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split("T")[0] : "";
+    const hDate = parseDateString(h.holiday_date);
     return hDate === journalDate;
   });
 
@@ -266,11 +267,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 
               {(() => {
                 const hasApprovedOrAnyGradesForToday = journalAllGrades.some((g) => {
-                  const gDate = g.grade_date
-                    ? typeof g.grade_date === "string"
-                      ? g.grade_date.split("T")[0]
-                      : new Date(g.grade_date).toISOString().split("T")[0]
-                    : "";
+                  const gDate = parseDateString(g.grade_date);
                   return (
                     g.subject_id === Number(selectedSubjectId) &&
                     g.lesson_number === Number(selectedLessonNumber) &&
@@ -474,9 +471,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                           const isParentApproved = grade?.approved_by_parent;
                           const isSaving = cellSaving === key;
                           const isHoliday = holidays.some((h) => {
-                            const hDate = h.holiday_date
-                              ? new Date(h.holiday_date).toISOString().split("T")[0]
-                              : "";
+                            const hDate = parseDateString(h.holiday_date);
                             return hDate === journalDate;
                           });
 
@@ -794,7 +789,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
             <p className="text-[10px] text-zinc-400 font-mono">
               {
                 journalAllGrades.filter((g) => {
-                  const gDate = g.grade_date ? new Date(g.grade_date).toISOString().split("T")[0] : "";
+                  const gDate = parseDateString(g.grade_date);
                   return gDate === journalDate && g.subject_id === Number(selectedSubjectId);
                 }).length
               }{" "}

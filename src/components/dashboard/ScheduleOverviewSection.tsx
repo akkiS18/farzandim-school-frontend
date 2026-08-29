@@ -5,6 +5,7 @@ import { ClassItem, ClassScheduleItem } from "./types";
 import SmartCalendarModal, { SmartCalendarTrigger, formatWeekRangeLabel } from "@/components/SmartCalendarModal";
 import { Calendar, RefreshCw, X, Upload, Plus } from "lucide-react";
 import ScheduleImportSection from "./ScheduleImportSection";
+import { addDays, formatLocalDate } from "@/lib/dateUtils";
 
 interface ScheduleOverviewSectionProps {
   classes: ClassItem[];
@@ -185,16 +186,12 @@ export default function ScheduleOverviewSection({
             }
             onOpenCalendar={() => setIsCalendarOpen(true)}
             onPrevWeek={() => {
-              const current = selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
-              current.setDate(current.getDate() - 1);
-              const dayStr = current.toISOString().split("T")[0];
-              setSelectedDate(dayStr);
+              const base = selectedDate || formatLocalDate(new Date());
+              setSelectedDate(addDays(base, -1));
             }}
             onNextWeek={() => {
-              const current = selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
-              current.setDate(current.getDate() + 1);
-              const dayStr = current.toISOString().split("T")[0];
-              setSelectedDate(dayStr);
+              const base = selectedDate || formatLocalDate(new Date());
+              setSelectedDate(addDays(base, 1));
             }}
           />
 
