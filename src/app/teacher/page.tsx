@@ -63,6 +63,7 @@ import {
   X,
   FileText,
   Clock,
+  RotateCcw,
   TrendingUp,
   Plus,
   MoreVertical,
@@ -1890,8 +1891,23 @@ function TeacherDashboardContent() {
     if (!selectedClassId) return;
     setUnapprovedLoading(true);
     try {
-      const data = await api.get(`/api/schools/grades?class_id=${selectedClassId}&status=marked`);
-      const gradesList = Array.isArray(data) ? data.filter((g: any) => g.lesson_number && g.lesson_number > 0) : [];
+      // Determine academic study start date from schedule periods (default: 2026-09-01)
+      const academicStartDate = schedulePeriods.length > 0
+        ? schedulePeriods.reduce((min: string, p: any) => (p.start_date < min ? p.start_date : min), schedulePeriods[0].start_date)
+        : "2026-09-01";
+
+      const data = await api.get(`/api/schools/grades?class_id=${selectedClassId}&status=marked&start_date=${academicStartDate}`);
+      const rawList = Array.isArray(data) ? data : [];
+
+      // Filter out invalid/summer dates before study start date and invalid lesson numbers
+      const gradesList = rawList.filter((g: any) => {
+        if (!g.lesson_number || g.lesson_number <= 0) return false;
+        if (g.grade_date) {
+          const gDateStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
+          if (gDateStr && gDateStr < academicStartDate) return false;
+        }
+        return true;
+      });
 
       // Filter by role/subject assignment:
       // If SUBJECT_TEACHER (and not advisor/admin), only show their assigned subjects in this class
@@ -3207,11 +3223,25 @@ function TeacherDashboardContent() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowTodayLessonsModal(true)}
+                      onClick={() => {
+                        const isSelectedDateHoliday = (holidays || []).some((h: any) => {
+                          const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
+                          return hDate === scheduleViewDate;
+                        });
+                        if (!isSelectedDateHoliday) {
+                          setShowTodayLessonsModal(true);
+                        }
+                      }}
                       className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
                     >
                       <Clock className="w-4 h-4 text-indigo-600" />
-                      <span>Darslar ({todayLessons.length})</span>
+                      <span>
+                        Darslar (
+                        {(holidays || []).some((h: any) => (h.holiday_date ? h.holiday_date.split("T")[0] : "") === scheduleViewDate)
+                          ? 0
+                          : todayLessons.length}
+                        )
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -3306,18 +3336,18 @@ function TeacherDashboardContent() {
                 {/* Right Column: Today's Date Badge + Today's Lessons Card + Pending Approvals */}
                 <div className="lg:col-span-4 space-y-6">
                   {/* 1. Interactive Dashboard Date Picker Card */}
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-3 relative">
-                    <div
-                      onClick={handleOpenDashboardDatePicker}
-                      className="flex items-center space-x-3 cursor-pointer group select-none flex-1"
-                    >
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 group-hover:bg-indigo-100 group-hover:border-indigo-200 transition">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Sana Tanlash</span>
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-sm font-extrabold text-[#16193E] group-hover:text-indigo-600 transition">
+                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs space-y-3 relative">
+                    <div className="flex items-center justify-between">
+                      <div
+                        onClick={handleOpenDashboardDatePicker}
+                        className="flex items-center space-x-3 cursor-pointer group select-none flex-1 min-w-0"
+                      >
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 group-hover:bg-indigo-100 group-hover:border-indigo-200 transition">
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Sana Tanlash</span>
+                          <h4 className="text-sm font-extrabold text-[#16193E] group-hover:text-indigo-600 transition whitespace-nowrap">
                             {(() => {
                               const d = parseLocalDate(selectedDashboardDate);
                               const mNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
@@ -3325,29 +3355,34 @@ function TeacherDashboardContent() {
                             })()}
                           </h4>
                         </div>
+                        <input
+                          ref={dashboardDateInputRef}
+                          type="date"
+                          value={selectedDashboardDate}
+                          onChange={(e) => setSelectedDashboardDate(e.target.value)}
+                          className="sr-only"
+                          title="Sana tanlash"
+                        />
                       </div>
-                      <input
-                        ref={dashboardDateInputRef}
-                        type="date"
-                        value={selectedDashboardDate}
-                        onChange={(e) => setSelectedDashboardDate(e.target.value)}
-                        className="sr-only"
-                        title="Sana tanlash"
-                      />
+
+                      {selectedDashboardDate === formatLocalDate(new Date()) && (
+                        <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full shrink-0 ml-2">
+                          Bugun
+                        </span>
+                      )}
                     </div>
 
-                    {selectedDashboardDate === formatLocalDate(new Date()) ? (
-                      <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full shrink-0">
-                        Bugun
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDashboardDate(formatLocalDate(new Date()))}
-                        className="text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1 rounded-full shrink-0 transition cursor-pointer"
-                      >
-                        Bugunga qaytish
-                      </button>
+                    {selectedDashboardDate !== formatLocalDate(new Date()) && (
+                      <div className="pt-2 border-t border-zinc-100">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDashboardDate(formatLocalDate(new Date()))}
+                          className="w-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Bugunga qaytish</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -3360,51 +3395,86 @@ function TeacherDashboardContent() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setShowTodayLessonsModal(true)}
+                        onClick={() => {
+                          const isSelectedDateHoliday = (holidays || []).some((h: any) => {
+                            const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
+                            return hDate === scheduleViewDate;
+                          });
+                          if (!isSelectedDateHoliday) {
+                            setShowTodayLessonsModal(true);
+                          }
+                        }}
                         className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1 cursor-pointer bg-indigo-50 px-2.5 py-1 rounded-xl"
                       >
-                        <span>Darslar ({todayLessons.length})</span>
+                        <span>
+                          Darslar (
+                          {(holidays || []).some((h: any) => (h.holiday_date ? h.holiday_date.split("T")[0] : "") === scheduleViewDate)
+                            ? 0
+                            : todayLessons.length}
+                          )
+                        </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
                     <div className="space-y-3">
-                      {todayLessons.length > 0 ? (
-                        todayLessons.slice(0, 5).map((lesson, idx) => {
-                          const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
-                          const accentColor = borderAccents[idx % borderAccents.length];
+                      {(() => {
+                        const activeHolidayForView = (holidays || []).find((h: any) => {
+                          const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
+                          return hDate === scheduleViewDate;
+                        });
 
+                        if (activeHolidayForView) {
                           return (
-                            <div
-                              key={idx}
-                              onClick={() => handleSelectLessonAndGoToJournal(lesson)}
-                              className="bg-white border border-zinc-200/80 rounded-2xl p-3.5 shadow-2xs relative overflow-hidden flex items-center justify-between transition hover:border-indigo-400 hover:shadow-xs cursor-pointer group"
-                              title="Jurnalni ochish va baholash"
-                            >
-                              <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
-                              <div className="pl-2 space-y-0.5">
-                                <div className="flex items-center gap-1.5">
-                                  <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight group-hover:text-indigo-600 transition">{lesson.subject_name}</h4>
-                                  <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded-md">
-                                    {lesson.lesson_number}-soat
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-zinc-500 font-semibold">
-                                  {lesson.class_name} • {lesson.time}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition">
-                                <span>Jurnal</span>
-                                <ChevronRight className="w-4 h-4 text-indigo-600 transition shrink-0" />
-                              </div>
+                            <div className="p-6 bg-purple-50/90 border border-purple-200 rounded-2xl text-center space-y-2">
+                              <Calendar className="w-8 h-8 text-purple-600 mx-auto mb-1" />
+                              <h4 className="text-xs font-extrabold text-purple-900">Dam Olish Kuni ({activeHolidayForView.name})</h4>
+                              <p className="text-[11px] text-purple-700 font-medium leading-relaxed">
+                                Admin tomonidan ushbu sana dam olish kuni deb belgilangan. Darslar va baholash o'tkazilmaydi.
+                              </p>
                             </div>
                           );
-                        })
-                      ) : (
-                        <div className="text-center py-6 text-xs text-zinc-400 font-medium bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
-                          Ushbu sanada darslar mavjud emas
-                        </div>
-                      )}
+                        }
+
+                        if (todayLessons.length > 0) {
+                          return todayLessons.slice(0, 5).map((lesson, idx) => {
+                            const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
+                            const accentColor = borderAccents[idx % borderAccents.length];
+
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => handleSelectLessonAndGoToJournal(lesson)}
+                                className="bg-white border border-zinc-200/80 rounded-2xl p-3.5 shadow-2xs relative overflow-hidden flex items-center justify-between transition hover:border-indigo-400 hover:shadow-xs cursor-pointer group"
+                                title="Jurnalni ochish va baholash"
+                              >
+                                <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
+                                <div className="pl-2 space-y-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight group-hover:text-indigo-600 transition">{lesson.subject_name}</h4>
+                                    <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded-md">
+                                      {lesson.lesson_number}-soat
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-zinc-500 font-semibold">
+                                    {lesson.class_name} • {lesson.time}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition">
+                                  <span>Jurnal</span>
+                                  <ChevronRight className="w-4 h-4 text-indigo-600 transition shrink-0" />
+                                </div>
+                              </div>
+                            );
+                          });
+                        }
+
+                        return (
+                          <div className="text-center py-6 text-xs text-zinc-400 font-medium bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
+                            Ushbu sanada darslar mavjud emas
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -3745,6 +3815,29 @@ function TeacherDashboardContent() {
                     }
                   },
                 });
+              }}
+              onSelectGrade={(g) => {
+                if (!g) return;
+                if (g.class_id) {
+                  setSelectedClassId(g.class_id);
+                }
+                if (g.subject_id) {
+                  setSelectedSubjectId(g.subject_id);
+                }
+                if (g.grade_date) {
+                  const dateStr = typeof g.grade_date === "string"
+                    ? g.grade_date.split("T")[0]
+                    : formatLocalDate(new Date(g.grade_date));
+                  setJournalDate(dateStr);
+                  setSelectedDashboardDate(dateStr);
+                }
+                if (g.lesson_number) {
+                  setSelectedLessonNumber(g.lesson_number);
+                }
+                if (g.grade_category || g.grade_type) {
+                  setSelectedGradeCategory(g.grade_category || g.grade_type || "ACADEMIC");
+                }
+                setTeacherTab("journal");
               }}
             />
           )}
@@ -4541,7 +4634,11 @@ function TeacherDashboardContent() {
       <TodayLessonsModal
         isOpen={showTodayLessonsModal}
         onClose={() => setShowTodayLessonsModal(false)}
-        todayLessons={todayLessons}
+        todayLessons={
+          (holidays || []).some((h: any) => (h.holiday_date ? h.holiday_date.split("T")[0] : "") === scheduleViewDate)
+            ? []
+            : todayLessons
+        }
         clubs={clubs}
         currentDayNumber={currentDayNumber}
         currentMonthName={currentMonthName}

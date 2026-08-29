@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight, FileSpreadsheet, Upload, Download, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Trash2, Calendar, Plus, X, ChevronLeft, ChevronRight, FileSpreadsheet, Upload, Download, AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { ClassItem, UserInfo } from "./types";
 import { formatLocalDate } from "@/lib/dateUtils";
 
@@ -47,6 +47,7 @@ export default function HolidaysSection({
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [conflictData, setConflictData] = useState<any | null>(null);
 
   // Calendar state
   const today = new Date();
@@ -112,8 +113,8 @@ export default function HolidaysSection({
     fetchHolidays();
   }, [token]);
 
-  const handleSaveHoliday = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveHoliday = async (e?: React.FormEvent, forceOverwrite: boolean = false) => {
+    if (e) e.preventDefault();
     if (selectedDates.length === 0 || !holidayName.trim()) {
       setActionError("Kamida bitta sana va bayram nomini kiritish majburiy");
       return;
@@ -127,6 +128,8 @@ export default function HolidaysSection({
     else if (targetType === "classes") payloadClasses = selectedClasses;
 
     let errorMessages: string[] = [];
+    let foundConflict: any = null;
+
     for (const dateStr of selectedDates) {
       try {
         const response = await fetch(`${API_URL}/api/schools/holidays`, {
@@ -137,11 +140,16 @@ export default function HolidaysSection({
             name: holidayName.trim(),
             target_levels: payloadLevels,
             target_classes: payloadClasses,
+            force_overwrite: forceOverwrite,
           }),
         });
         if (!response.ok) {
           const resData = await response.json().catch(() => ({}));
-          errorMessages.push(resData.error || `${dateStr} sanasini saqlashda xatolik`);
+          if (response.status === 409 && resData.has_existing_grades) {
+            foundConflict = resData;
+          } else {
+            errorMessages.push(resData.error || `${dateStr} sanasini saqlashda xatolik`);
+          }
         }
       } catch {
         errorMessages.push(`${dateStr} sanasini saqlashda xatolik`);
@@ -149,9 +157,13 @@ export default function HolidaysSection({
     }
 
     setActionLoading(false);
-    if (errorMessages.length > 0) {
+
+    if (foundConflict) {
+      setConflictData(foundConflict);
+    } else if (errorMessages.length > 0) {
       setActionError(errorMessages.join("; "));
     } else {
+      setConflictData(null);
       setShowAddModal(false);
       setSelectedDates([]);
       setHolidayName("");
@@ -628,6 +640,46 @@ export default function HolidaysSection({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Conflict Confirmation */}
+      {conflictData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-rose-100 space-y-4">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-2xl">
+                <AlertTriangle className="w-6 h-6 text-rose-600" />
+              </div>
+              <h3 className="text-base font-extrabold text-slate-900">Mavjud Baholar Topildi</h3>
+            </div>
+            
+            <p className="text-xs text-slate-600 font-medium leading-relaxed bg-rose-50/70 p-4 rounded-2xl border border-rose-100">
+              {conflictData.error}
+            </p>
+
+            <div className="p-3 bg-slate-50 rounded-2xl text-[11px] text-slate-500 font-mono">
+              ⚡ Ushbu dam olish kuni tasdiqlansa, tanlangan sanadagi {conflictData.grade_count} ta baho arxivlanadi va dam olish kuni belgilanadi.
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConflictData(null)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => handleSaveHoliday(undefined, true)}
+                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {actionLoading ? "Saqlanmoqda..." : "Baholarni arxivlash va Saqlash"}
+              </button>
             </div>
           </div>
         </div>

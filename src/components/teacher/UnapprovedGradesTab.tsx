@@ -3,7 +3,7 @@
 import React from "react";
 import { Users, CheckCircle2, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
-interface UnapprovedGradeItem {
+export interface UnapprovedGradeItem {
   id: number;
   grade_date?: string;
   value: string;
@@ -11,6 +11,11 @@ interface UnapprovedGradeItem {
   subject_id: number;
   subject_name: string;
   teacher_name?: string;
+  class_id?: number;
+  class_name?: string;
+  grade_type?: string;
+  grade_category?: string;
+  lesson_number?: number;
 }
 
 interface UnapprovedGradesTabProps {
@@ -27,6 +32,7 @@ interface UnapprovedGradesTabProps {
   onApproveBatch: () => void;
   onApproveSingle: (gradeId: number) => void;
   onDeleteSingle: (gradeId: number) => void;
+  onSelectGrade?: (grade: UnapprovedGradeItem) => void;
 }
 
 export const UnapprovedGradesTab: React.FC<UnapprovedGradesTabProps> = ({
@@ -43,6 +49,7 @@ export const UnapprovedGradesTab: React.FC<UnapprovedGradesTabProps> = ({
   onApproveBatch,
   onApproveSingle,
   onDeleteSingle,
+  onSelectGrade,
 }) => {
   const filteredUnapprovedGrades = unapprovedGrades.filter((g) => {
     if (!selectedSubjectId) return true;
@@ -61,7 +68,7 @@ export const UnapprovedGradesTab: React.FC<UnapprovedGradesTabProps> = ({
         <div>
           <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">Tasdiqlanmagan Baholar Ro'yxati</h3>
           <p className="text-xs text-zinc-500 font-medium mt-0.5">
-            Bu oynada tasdiqlanmagan (draft) baholar sanasi bo'yicha kamayish tartibida ko'rinadi.
+            Bu oynada tasdiqlanmagan (draft) baholar sanasi bo'yicha kamayish tartibida ko'rinadi. Qator ustiga bossangiz jurnalga o'tadi.
           </p>
         </div>
 
@@ -134,6 +141,7 @@ export const UnapprovedGradesTab: React.FC<UnapprovedGradesTabProps> = ({
                   </th>
                   <th className="px-6 py-3.5">Fan</th>
                   <th className="px-4 py-3.5 text-center">Baho</th>
+                  <th className="px-4 py-3.5 text-center">Baho Turi</th>
                   <th className="px-6 py-3.5">Kiritdi</th>
                   <th className="px-6 py-3.5 text-right">Amallar</th>
                 </tr>
@@ -158,9 +166,11 @@ export const UnapprovedGradesTab: React.FC<UnapprovedGradesTabProps> = ({
                       : "bg-red-50 text-red-700 border-red-200"
                     : "bg-zinc-100 text-zinc-700 border-zinc-200";
 
+                  const isBehavior = g.grade_category === "BEHAVIOR" || g.grade_type === "BEHAVIOR";
+
                   return (
-                    <tr key={g.id} className="group hover:bg-zinc-50/80 transition">
-                      <td className="px-4 py-3.5 text-center sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">
+                    <tr key={g.id} className="group hover:bg-indigo-50/40 transition">
+                      <td className="px-4 py-3.5 text-center sticky left-0 z-10 bg-white group-hover:bg-indigo-50/40 transition">
                         <input
                           type="checkbox"
                           checked={selectedGradeIds.has(g.id)}
@@ -179,25 +189,56 @@ export const UnapprovedGradesTab: React.FC<UnapprovedGradesTabProps> = ({
                           className="w-4 h-4 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
                         />
                       </td>
-                      <td className="px-6 py-3.5 text-zinc-500 font-mono font-bold whitespace-nowrap">
+                      <td
+                        onClick={() => onSelectGrade && onSelectGrade(g)}
+                        className="px-6 py-3.5 text-zinc-500 font-mono font-bold whitespace-nowrap cursor-pointer hover:text-indigo-600"
+                      >
                         {formattedDate}
                       </td>
-                      <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                      <td
+                        onClick={() => onSelectGrade && onSelectGrade(g)}
+                        className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-indigo-50/40 transition cursor-pointer group-hover:text-indigo-600"
+                      >
                         {g.student_name}
                       </td>
-                      <td className="px-6 py-3.5">
+                      <td
+                        onClick={() => onSelectGrade && onSelectGrade(g)}
+                        className="px-6 py-3.5 cursor-pointer"
+                      >
                         <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
                           {g.subject_name}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td
+                        onClick={() => onSelectGrade && onSelectGrade(g)}
+                        className="px-4 py-3.5 text-center cursor-pointer"
+                      >
                         <span
                           className={`inline-flex items-center justify-center w-8 h-8 rounded-full border text-xs font-black font-mono shadow-2xs ${badgeColorClass}`}
                         >
                           {g.value}
                         </span>
                       </td>
-                      <td className="px-6 py-3.5 text-zinc-500 font-medium">{g.teacher_name}</td>
+                      <td
+                        onClick={() => onSelectGrade && onSelectGrade(g)}
+                        className="px-4 py-3.5 text-center cursor-pointer"
+                      >
+                        {isBehavior ? (
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200 inline-block shadow-2xs">
+                            Xulq
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 inline-block shadow-2xs">
+                            O'zlashtirish
+                          </span>
+                        )}
+                      </td>
+                      <td
+                        onClick={() => onSelectGrade && onSelectGrade(g)}
+                        className="px-6 py-3.5 text-zinc-500 font-medium cursor-pointer"
+                      >
+                        {g.teacher_name}
+                      </td>
                       <td className="px-6 py-3.5 text-right space-x-2 whitespace-nowrap">
                         <button
                           type="button"
