@@ -180,7 +180,16 @@ export default function GradeCommentModal({
             placeholder="Tanlangan baholar bo'yicha izoh yoki ota-onaga bildirishnoma yozing..."
             value={newGradeCommentText}
             onChange={(e) => setNewGradeCommentText(e.target.value)}
-            className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl p-3 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!commentSubmitting && selectedGradeColIds.length > 0 && newGradeCommentText.trim()) {
+                  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                  onSubmitComment(fakeEvent);
+                }
+              }
+            }}
+            className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl p-3 text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500 font-medium resize-none leading-relaxed"
           ></textarea>
           <div className="flex justify-end space-x-2">
             <button

@@ -732,18 +732,6 @@ export default function LessonPlansSection({
                 Davr: {selectedQuarter.start_date} — {selectedQuarter.end_date} (Jami {fixedSlots.length} ta dars kuni)
               </p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveBatchPlans}
-                disabled={savingBatch || fixedSlots.length === 0}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>{savingBatch ? "Saqlanmoqda..." : "Barcha Mavzularni Saqlash"}</span>
-              </button>
-            </div>
           </div>
 
           {editorLoading ? (
@@ -791,6 +779,21 @@ export default function LessonPlansSection({
                   type="text"
                   value={formulaValue}
                   onChange={(e) => handleFormulaChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const nextIdx = (activeCellIndex ?? -1) + 1;
+                      if (nextIdx < fixedSlots.length) {
+                        setActiveCellIndex(nextIdx);
+                        setFormulaValue(topicList[nextIdx] || "");
+                        const nextInput = document.getElementById(`lesson-plan-topic-input-${nextIdx}`);
+                        if (nextInput) {
+                          (nextInput as HTMLInputElement).focus();
+                          (nextInput as HTMLInputElement).select();
+                        }
+                      }
+                    }
+                  }}
                   placeholder="Tanlangan qatordagi mavzu nomini shu yerda tezkor tahrirlashingiz mumkin..."
                   className="flex-1 px-3.5 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 />
@@ -887,9 +890,34 @@ export default function LessonPlansSection({
                                 <GripVertical className="w-4 h-4" />
                               </div>
                               <input
+                                id={`lesson-plan-topic-input-${idx}`}
                                 type="text"
                                 value={currentTopic}
+                                onFocus={() => {
+                                  setActiveCellIndex(idx);
+                                  setFormulaValue(currentTopic);
+                                }}
                                 onChange={(e) => handleTopicChange(idx, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const nextInput = document.getElementById(`lesson-plan-topic-input-${idx + 1}`);
+                                    if (nextInput) {
+                                      (nextInput as HTMLInputElement).focus();
+                                      (nextInput as HTMLInputElement).select();
+                                    }
+                                  } else if (e.key === "ArrowDown") {
+                                    const nextInput = document.getElementById(`lesson-plan-topic-input-${idx + 1}`);
+                                    if (nextInput) {
+                                      (nextInput as HTMLInputElement).focus();
+                                    }
+                                  } else if (e.key === "ArrowUp") {
+                                    const prevInput = document.getElementById(`lesson-plan-topic-input-${idx - 1}`);
+                                    if (prevInput) {
+                                      (prevInput as HTMLInputElement).focus();
+                                    }
+                                  }
+                                }}
                                 placeholder="Dars mavzusini kiriting..."
                                 className={`w-full py-1 text-xs outline-none transition font-medium ${
                                   isActive
@@ -935,6 +963,19 @@ export default function LessonPlansSection({
               </div>
             </div>
           )}
+
+          {/* Floating Action Button for Quick Saving while scrolling */}
+          <div className="fixed bottom-6 right-8 z-40">
+            <button
+              type="button"
+              onClick={handleSaveBatchPlans}
+              disabled={savingBatch || fixedSlots.length === 0}
+              className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs shadow-2xl shadow-emerald-700/40 border-2 border-white transition-all flex items-center gap-2.5 cursor-pointer disabled:opacity-50 hover:shadow-emerald-600/50"
+            >
+              {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>{savingBatch ? "Saqlanmoqda..." : "Barcha Mavzularni Saqlash"}</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

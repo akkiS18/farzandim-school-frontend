@@ -131,9 +131,18 @@ export default function ChatModal({
           <textarea
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!replySubmitLoading && replyText.trim()) {
+                  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                  onReplySubmit(fakeEvent);
+                }
+              }
+            }}
             rows={2}
-            className="flex-1 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 outline-none resize-none focus:ring-2 focus:ring-indigo-500 font-medium transition"
-            placeholder="Javobingizni yozing..."
+            className="flex-1 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 outline-none resize-none focus:ring-2 focus:ring-indigo-500 font-medium transition leading-relaxed"
+            placeholder="Javobingizni yozing... (Enter: Yuborish, Shift+Enter: Yangi qator)"
           />
           <button
             type="submit"
