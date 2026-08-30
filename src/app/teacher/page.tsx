@@ -37,6 +37,7 @@ import { ClubStudentsModal } from "@/components/teacher/modals/ClubStudentsModal
 import { AddParentModal } from "@/components/teacher/modals/AddParentModal";
 import { ClubGradingModal } from "@/components/teacher/modals/ClubGradingModal";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
+import { ForcePasswordResetModal } from "@/components/ForcePasswordResetModal";
 import {
   LayoutDashboard,
   BookOpen,
@@ -90,6 +91,7 @@ interface UserInfo {
   last_name: string;
   role: string;
   school_id: string;
+  password_reset_required?: boolean;
 }
 
 interface ClassItem {
@@ -744,6 +746,8 @@ function TeacherDashboardContent() {
   const [selectedLessonNumber, setSelectedLessonNumber] = useState<number | "">("");
   const [selectedGradeType, setSelectedGradeType] = useState<string>("MASTERY");
   const [selectedGradeCategory, setSelectedGradeCategory] = useState<string>("DAILY");
+  const [isRedirectingFromUnapproved, setIsRedirectingFromUnapproved] = useState(false);
+  const [highlightStudentId, setHighlightStudentId] = useState<number | null>(null);
 
   // Lesson topic state for current journal view
   const [currentJournalTopic, setCurrentJournalTopic] = useState<string>("");
@@ -1666,17 +1670,25 @@ function TeacherDashboardContent() {
         l => l.subject_id === selectedSubjectId && l.lesson_number === selectedLessonNumber
       );
       if (!activeLesson) {
-        if (lessonsListToday.length > 0) {
-          activeLesson = lessonsListToday[0];
-          if (selectedSubjectId !== activeLesson.subject_id || selectedLessonNumber !== activeLesson.lesson_number) {
-            setSelectedSubjectId(activeLesson.subject_id);
-            setSelectedLessonNumber(activeLesson.lesson_number);
-          }
+        if (isRedirectingFromUnapproved) {
+          setIsRedirectingFromUnapproved(false);
         } else {
-          if (selectedSubjectId !== "" || selectedLessonNumber !== "") {
-            setSelectedSubjectId("");
-            setSelectedLessonNumber("");
+          if (lessonsListToday.length > 0) {
+            activeLesson = lessonsListToday[0];
+            if (selectedSubjectId !== activeLesson.subject_id || selectedLessonNumber !== activeLesson.lesson_number) {
+              setSelectedSubjectId(activeLesson.subject_id);
+              setSelectedLessonNumber(activeLesson.lesson_number);
+            }
+          } else {
+            if (selectedSubjectId !== "" || selectedLessonNumber !== "") {
+              setSelectedSubjectId("");
+              setSelectedLessonNumber("");
+            }
           }
+        }
+      } else {
+        if (isRedirectingFromUnapproved) {
+          setIsRedirectingFromUnapproved(false);
         }
       }
 
@@ -3560,6 +3572,8 @@ function TeacherDashboardContent() {
               }}
               onOpenStudentCommentModal={handleOpenStudentCommentModal}
               findGradeForDayAndType={findGradeForDayAndType}
+              highlightStudentId={highlightStudentId}
+              clearHighlightStudentId={() => setHighlightStudentId(null)}
             />
           )}
 
@@ -3818,6 +3832,8 @@ function TeacherDashboardContent() {
               }}
               onSelectGrade={(g) => {
                 if (!g) return;
+                setIsRedirectingFromUnapproved(true);
+                setHighlightStudentId(g.student_id || null);
                 if (g.class_id) {
                   setSelectedClassId(g.class_id);
                 }
@@ -4706,6 +4722,14 @@ function TeacherDashboardContent() {
         replySubmitLoading={replySubmitLoading}
         onReplySubmit={handleReplySubmit}
       />
+
+      {userInfo?.password_reset_required && (
+        <ForcePasswordResetModal
+          onSuccess={() => {
+            setUserInfo((prev) => prev ? { ...prev, password_reset_required: false } : null);
+          }}
+        />
+      )}
     </div>
   );
 }

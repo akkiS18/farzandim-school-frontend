@@ -26,6 +26,7 @@ import useSwipeMobileMenu from "../../hooks/useSwipeMobileMenu";
 import ParentSidebar, { TabIconAIReport } from "../../components/ParentSidebar";
 import AIReportSection from "../../components/parents/AIReportSection";
 import ParentLibrarySection from "../../components/parents/ParentLibrarySection";
+import { ForcePasswordResetModal } from "../../components/ForcePasswordResetModal";
 import dynamic from "next/dynamic";
 const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
@@ -43,6 +44,7 @@ interface UserInfo {
   email?: string;
   passport?: string;
   telegram_id?: string;
+  password_reset_required?: boolean;
 }
 
 interface StudentChild {
@@ -4704,6 +4706,14 @@ export default function ParentDashboard() {
           onConfirm={dialogState.onConfirm}
           onCancel={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
         />
+
+        {userInfo?.password_reset_required && (
+          <ForcePasswordResetModal
+            onSuccess={() => {
+              setUserInfo((prev) => prev ? { ...prev, password_reset_required: false } : null);
+            }}
+          />
+        )}
       </div>
     </div>
   );

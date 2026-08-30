@@ -83,6 +83,8 @@ interface JournalTabProps {
     lessonNumber: number,
     gradeType: string
   ) => any;
+  highlightStudentId?: number | null;
+  clearHighlightStudentId?: () => void;
 }
 
 export const JournalTab: React.FC<JournalTabProps> = ({
@@ -116,6 +118,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   onOpenCalendar,
   onOpenStudentCommentModal,
   findGradeForDayAndType,
+  highlightStudentId,
+  clearHighlightStudentId,
 }) => {
   if (!selectedClassId) {
     return (
@@ -130,6 +134,21 @@ export const JournalTab: React.FC<JournalTabProps> = ({
       </div>
     );
   }
+
+  React.useEffect(() => {
+    if (highlightStudentId) {
+      const timer = setTimeout(() => {
+        const row = document.getElementById(`student-row-${highlightStudentId}`);
+        if (row) {
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        if (clearHighlightStudentId) {
+          clearHighlightStudentId();
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightStudentId, students]);
 
   const clsName = classes.find((c) => c.id === selectedClassId)?.name || "";
   const subjObj = selectedSubjectId ? subjects.find((s) => s.id === selectedSubjectId) : null;
@@ -439,21 +458,23 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   students.map((st, idx) => {
                     const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
                     const attendanceVal = cellInputs[attKey] || "+";
-
+                    const isHighlighted = highlightStudentId === st.id;
+                    
                     return (
                       <tr
                         key={st.id}
+                        id={`student-row-${st.id}`}
                         className={`hover:bg-zinc-50/50 transition ${
                           attendanceVal === "-" ? "opacity-60 bg-zinc-50/30" : ""
-                        }`}
+                        } ${isHighlighted ? "bg-amber-50 shadow-[inset_0_0_0_2px_#f59e0b]/20" : ""}`}
                       >
                         {/* No. */}
-                        <td className="px-2.5 py-2.5 sm:px-4 sm:py-4 text-center font-mono text-zinc-400 text-xs font-semibold sticky left-0 z-20 bg-white border-b border-zinc-100">
+                        <td className={`px-2.5 py-2.5 sm:px-4 sm:py-4 text-center font-mono text-zinc-400 text-xs font-semibold sticky left-0 z-20 border-b border-zinc-100 ${isHighlighted ? "bg-amber-50 text-amber-950 font-bold" : "bg-white"}`}>
                           {String(idx + 1).padStart(2, "0")}
                         </td>
 
                         {/* Student Name */}
-                        <td className="px-2.5 py-2.5 sm:px-4 sm:py-4 font-bold text-zinc-800 text-xs sm:text-sm whitespace-nowrap sticky left-[40px] sm:left-[48px] z-20 bg-white border-b border-zinc-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                        <td className={`px-2.5 py-2.5 sm:px-4 sm:py-4 font-bold text-zinc-805 text-xs sm:text-sm whitespace-nowrap sticky left-[40px] sm:left-[48px] z-20 border-b border-zinc-100 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] ${isHighlighted ? "bg-amber-50 text-amber-950 font-black" : "bg-white text-zinc-800"}`}>
                           {st.first_name} {st.last_name}
                         </td>
 

@@ -5,6 +5,7 @@ import { Users, CheckCircle2, Trash2, ChevronLeft, ChevronRight } from "lucide-r
 
 export interface UnapprovedGradeItem {
   id: number;
+  student_id?: number;
   grade_date?: string;
   value: string;
   student_name: string;
