@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { BookOpen, Calendar, MessageSquare } from "lucide-react";
+import { BookOpen, Calendar, MessageSquare, Clock, ChevronDown, ChevronRight, Check, Award, ArrowRight } from "lucide-react";
 import { parseDateString } from "@/lib/dateUtils";
 
 interface Student {
@@ -19,6 +19,7 @@ interface Subject {
 interface ClassItem {
   id: number;
   name: string;
+  is_main_teacher?: boolean;
 }
 
 interface JournalColumn {
@@ -85,6 +86,11 @@ interface JournalTabProps {
   ) => any;
   highlightStudentId?: number | null;
   clearHighlightStudentId?: () => void;
+  onSelectClass?: (classId: number | "") => void;
+  onSelectSubject?: (subjectId: number | "", lessonNumber?: number | string | null) => void;
+  journalLessonsToday?: Array<{ subject_id: number; subject_name: string; lesson_number: number }>;
+  onSave?: () => void;
+  saveLoading?: boolean;
 }
 
 export const JournalTab: React.FC<JournalTabProps> = ({
@@ -120,20 +126,14 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   findGradeForDayAndType,
   highlightStudentId,
   clearHighlightStudentId,
+  onSelectClass,
+  onSelectSubject,
+  journalLessonsToday = [],
+  onSave,
+  saveLoading = false,
 }) => {
-  if (!selectedClassId) {
-    return (
-      <div className="bg-white border border-zinc-200/80 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xs my-12 text-zinc-900">
-        <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xs">
-          <BookOpen className="w-8 h-8" />
-        </div>
-        <h2 className="text-base font-bold text-zinc-800 tracking-tight mb-2">SINF JURNALI (BAHOLASH)</h2>
-        <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
-          Baholash va darslarni kiritish uchun pastdagi floating panel orqali kerakli sinf va fanni tanlang.
-        </p>
-      </div>
-    );
-  }
+  const [showClassDropdown, setShowClassDropdown] = React.useState(false);
+  const [showSubjectDropdown, setShowSubjectDropdown] = React.useState(false);
 
   React.useEffect(() => {
     if (highlightStudentId) {
@@ -164,119 +164,299 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Compact Low-Height Header Bar */}
-      <div className="bg-white border border-zinc-200/70 rounded-2xl sm:rounded-3xl px-5 py-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn text-zinc-900">
-        {/* Left: Class Info, Single Prominent Subject Badge, and Topic Badge */}
-        <div className="flex items-center space-x-3 flex-wrap gap-y-2">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Kunlik Jurnal</span>
-            <span className="text-zinc-300 font-light">•</span>
-            <span className="text-xs font-extrabold text-[#16193E]">{clsName ? `${clsName} sinfi` : "Sinf"}</span>
+    <div className="space-y-5">
+      {/* 1. TOP HARVARD CONTROLS TOOLBAR */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-slate-900">
+        {/* Left: Class, Subject, Date Controls */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          {/* Class Selector Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowClassDropdown(!showClassDropdown);
+                setShowSubjectDropdown(false);
+              }}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 transition cursor-pointer"
+            >
+              <span className="text-[10px] text-slate-500 uppercase font-semibold">Sinf:</span>
+              <span className="font-extrabold text-slate-900">{clsName || "Tanlang"}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+            </button>
+
+            {showClassDropdown && (
+              <div className="absolute top-full mt-2 left-0 w-60 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-2xl p-1.5 z-50 space-y-1 max-h-60 overflow-y-auto">
+                <div className="text-[10px] font-bold text-slate-400 uppercase px-3 py-1 tracking-wider">Sinfni tanlang</div>
+                {classes.map((cls) => {
+                  const isSelected = selectedClassId === cls.id;
+                  return (
+                    <button
+                      key={cls.id}
+                      type="button"
+                      onClick={() => {
+                        if (onSelectClass) onSelectClass(cls.id);
+                        setShowClassDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                        isSelected ? "bg-[#1A2232] text-white" : "hover:bg-slate-100 text-slate-800"
+                      }`}
+                    >
+                      <span>{cls.name}</span>
+                      {cls.is_main_teacher && <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Sinf Rahbari</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <span className="text-zinc-300 font-light hidden sm:inline">•</span>
+          {/* Subject Selector Dropdown (When class is selected) */}
+          {selectedClassId && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubjectDropdown(!showSubjectDropdown);
+                  setShowClassDropdown(false);
+                }}
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 transition cursor-pointer"
+              >
+                <span className="text-[10px] text-slate-500 uppercase font-semibold">Fan:</span>
+                <span className="font-extrabold text-slate-900">
+                  {selectedSubjectId
+                    ? selectedLessonNumber
+                      ? `${selectedLessonNumber}-soat: ${subjName}`
+                      : subjName
+                    : "Tanlang"}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+              </button>
 
-          {/* Single Prominent Subject Name */}
-          <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100/80 px-3.5 py-1 rounded-xl">
-            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse shrink-0"></span>
-            <span className="text-sm sm:text-base font-extrabold text-indigo-900 tracking-tight">{subjName}</span>
-            {selectedLessonNumber ? (
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md ml-1">
-                {selectedLessonNumber}-soat
-              </span>
-            ) : null}
-          </div>
-
-          {/* PROMINENT LESSON TOPIC BADGE */}
-          <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 px-3.5 py-1 rounded-xl shadow-2xs">
-            <BookOpen className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-            <span className="text-[10px] font-black text-blue-900 uppercase font-mono tracking-tight shrink-0">
-              Mavzu:
-            </span>
-            <span className="text-xs font-bold text-blue-950 font-sans truncate max-w-[180px] sm:max-w-xs md:max-w-md">
-              {currentJournalTopicLoading ? (
-                <span className="text-zinc-400 font-mono text-[10px]">Yuklanmoqda...</span>
-              ) : currentJournalTopic ? (
-                currentJournalTopic
-              ) : (
-                <span className="text-zinc-400 font-normal italic">Mavzu belgilanmagan</span>
+              {showSubjectDropdown && (
+                <div className="absolute top-full mt-2 left-0 w-72 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-2xl p-1.5 z-50 space-y-1 max-h-60 overflow-y-auto">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase px-3 py-1 tracking-wider">Darsni tanlang</div>
+                  {journalLessonsToday.length > 0 ? (
+                    journalLessonsToday.map((lesson) => {
+                      const isSelected = selectedSubjectId === lesson.subject_id && selectedLessonNumber === lesson.lesson_number;
+                      return (
+                        <button
+                          key={`sched_${lesson.subject_id}_${lesson.lesson_number}`}
+                          type="button"
+                          onClick={() => {
+                            if (onSelectSubject) onSelectSubject(lesson.subject_id, lesson.lesson_number);
+                            setShowSubjectDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                            isSelected ? "bg-[#A51C30] text-white" : "hover:bg-slate-100 text-slate-800"
+                          }`}
+                        >
+                          <span>{lesson.lesson_number}-soat: {lesson.subject_name}</span>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    subjects.map((sub) => {
+                      const isSelected = selectedSubjectId === sub.id;
+                      return (
+                        <button
+                          key={`sub_pop_${sub.id}`}
+                          type="button"
+                          onClick={() => {
+                            if (onSelectSubject) onSelectSubject(sub.id, null);
+                            setShowSubjectDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
+                            isSelected ? "bg-[#A51C30] text-white" : "hover:bg-slate-100 text-slate-800"
+                          }`}
+                        >
+                          <span>{sub.name}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               )}
-            </span>
-          </div>
-        </div>
+            </div>
+          )}
 
-        {/* Right: Date & Category Badges */}
-        <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-500">
+          {/* Date Picker Button */}
           <button
             type="button"
             onClick={onOpenCalendar}
-            className="bg-zinc-100/80 hover:bg-zinc-200/80 text-zinc-700 px-3 py-1 rounded-xl flex items-center gap-1.5 font-medium transition cursor-pointer"
-            title="Sana tanlash (Smart Calendar)"
+            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 transition cursor-pointer"
           >
-            <Calendar className="w-3.5 h-3.5 text-[#5B50EC]" />
-            <span>
-              {journalDate} {dayName ? `(${dayName})` : ""}
-            </span>
+            <Calendar className="w-3.5 h-3.5 text-[#A51C30]" />
+            <span>{journalDate} {dayName ? `(${dayName})` : ""}</span>
           </button>
-          <span className="bg-purple-50 text-purple-700 border border-purple-100/80 px-2.5 py-1 rounded-xl text-[11px] font-bold">
-            {selectedGradeCategory === "DAILY"
-              ? "Kundalik"
-              : selectedGradeCategory === "QUARTERLY_EXAM"
-              ? "🏆 Choraklik"
-              : "🎓 Imtihon"}
-          </span>
-          <span className="text-zinc-400 font-mono text-[11px] hidden lg:inline">
-            ({students.length} ta o'quvchi)
-          </span>
         </div>
+
+        {/* Right: Save Action Button */}
+        {selectedClassId && selectedSubjectId && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saveLoading}
+              className="px-5 py-2 bg-[#A51C30] hover:bg-[#8B1828] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              {saveLoading ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              <span>{selectedGradeIds.size > 0 ? `Saqlash (${selectedGradeIds.size})` : "Saqlash"}</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Holiday Warning Banner */}
-      {activeHoliday && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-center space-x-3 text-xs font-semibold animate-fadeIn mb-4">
-          <span className="text-lg">⚠️</span>
+      {/* 2. IF NO CLASS SELECTED: Direct Selection Grid */}
+      {!selectedClassId ? (
+        <div className="bg-white border border-slate-200 rounded-none sm:rounded-xs p-6 sm:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.06)] space-y-4">
           <div>
-            <p className="font-bold">Dam olish kuni: {activeHoliday.name}</p>
-            <p className="text-[10px] text-red-600 mt-0.5">
-              Bugun maktab admini tomonidan dam olish kuni deb belgilangan. Jurnalda baho qo'yish imkoniyati bloklanadi.
-            </p>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Boshlash</span>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-0.5">Sinfni tanlang</h2>
+            <p className="text-xs text-slate-600">Jurnalni ochish uchun quyidagi sinflardan birini tanlang:</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+            {classes.map((cls) => (
+              <div
+                key={cls.id}
+                onClick={() => {
+                  if (onSelectClass) onSelectClass(cls.id);
+                }}
+                className="p-5 rounded-xs border border-slate-200 hover:border-slate-400 bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all cursor-pointer group flex items-center justify-between"
+              >
+                <div>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">🏛️ MAKTAB SINFI</span>
+                  <h4 className="text-lg font-bold text-[#A51C30] group-hover:underline transition-colors mt-1">
+                    {cls.name} SINFI
+                  </h4>
+                  {cls.is_main_teacher && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded mt-2 inline-block">
+                      ⭐ Sinf Rahbari
+                    </span>
+                  )}
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#A51C30] group-hover:translate-x-1 transition-all shrink-0" />
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Harvard Clean Header Card (When class is selected) */}
+          <div className="bg-white border border-slate-200 rounded-none sm:rounded-xs p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] space-y-3 text-slate-900">
+            {/* Top Line: Category & Date */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                <BookOpen className="w-4 h-4 text-[#A51C30]" />
+                <span>KUNLIK JURNAL</span>
+              </div>
 
-      {/* Journal Grid Container Card */}
-      {journalLoading ? (
-        <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
-        </div>
-      ) : !selectedSubjectId ? (
-        (() => {
-          const isScheduleEmpty =
-            classSchedule.length === 0 ||
-            classSchedule.every((item) => item.subject_id === 0 || !item.subject_id);
-          if (isScheduleEmpty) {
-            return (
-              <div className="text-center py-16 bg-white border border-dashed border-red-200 rounded-3xl animate-fadeIn">
-                <p className="text-sm text-red-650 font-bold mb-1">Dars jadvali hali qo'shilmagan</p>
-                <p className="text-xs text-zinc-400 font-mono">
-                  Dars baholarini ko'rish va kiritish uchun birinchi navbatda haftalik dars jadvalini kiriting.
+              <div className="flex items-center gap-2">
+                <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xs text-xs font-bold uppercase">
+                  {selectedGradeCategory === "DAILY"
+                    ? "Kundalik"
+                    : selectedGradeCategory === "QUARTERLY_EXAM"
+                    ? "Choraklik"
+                    : "Imtihon"}
+                </span>
+              </div>
+            </div>
+
+            {/* Large Harvard Crimson Headline */}
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {clsName ? `${clsName} Sinfi` : "Sinf"}
+              </p>
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-[#A51C30] tracking-tight leading-tight mt-0.5">
+                {subjName} {selectedLessonNumber ? `• ${selectedLessonNumber}-soat` : ""}
+              </h3>
+            </div>
+
+            {/* Harvard Style Bulleted Metadata */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-slate-700 pt-2 border-t border-slate-100 uppercase tracking-wider">
+              <span>
+                • MAVZU:{" "}
+                {currentJournalTopicLoading ? (
+                  <span className="text-slate-400 font-normal">Yuklanmoqda...</span>
+                ) : currentJournalTopic ? (
+                  <span className="text-slate-900">{currentJournalTopic}</span>
+                ) : (
+                  <span className="text-slate-400 font-normal italic">Mavzu belgilanmagan</span>
+                )}
+              </span>
+              <span>• {students.length} TA O'QUVCHI</span>
+              <span>• {selectedGradeCategory === "DAILY" ? "KUNDALIK BAHOLASH" : selectedGradeCategory}</span>
+            </div>
+          </div>
+
+          {/* Holiday Warning Banner */}
+          {activeHoliday && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xs p-4 flex items-center space-x-3 text-xs font-semibold animate-fadeIn mb-4">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <p className="font-bold">Dam olish kuni: {activeHoliday.name}</p>
+                <p className="text-[11px] text-rose-700 mt-0.5 font-normal">
+                  Bugun maktab admini tomonidan dam olish kuni deb belgilangan. Jurnalda baho qo'yish imkoniyati bloklanadi.
                 </p>
               </div>
-            );
-          }
-          return (
-            <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-              <p className="text-sm text-[#16193E] font-extrabold mb-1">Fanni tanlang</p>
-              <p className="text-xs text-zinc-400 font-medium">
-                Dars baholarini ko'rish va kiritish uchun pastdagi panel orqali fanni tanlang.
-              </p>
             </div>
-          );
-        })()
-      ) : (
-        <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden animate-fadeIn text-zinc-900">
+          )}
+
+          {/* Journal Grid Container Card */}
+          {journalLoading ? (
+            <div className="text-center py-16 bg-white border border-slate-200 rounded-xs shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+              <div className="w-6 h-6 border-2 border-[#A51C30] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-xs text-slate-500 font-bold">Yuklanmoqda...</p>
+            </div>
+          ) : !selectedSubjectId ? (
+            (() => {
+              const isScheduleEmpty =
+                classSchedule.length === 0 ||
+                classSchedule.every((item) => item.subject_id === 0 || !item.subject_id);
+              if (isScheduleEmpty) {
+                return (
+                  <div className="text-center py-12 bg-white border border-slate-200 rounded-xs shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 space-y-2">
+                    <Clock className="w-8 h-8 text-[#A51C30] mx-auto" />
+                    <h4 className="text-base font-bold text-slate-900">Dars jadvali hali qo'shilmagan</h4>
+                    <p className="text-xs text-slate-600 font-normal max-w-sm mx-auto">
+                      Dars baholarini ko'rish va kiritish uchun birinchi navbatda haftalik dars jadvalini shakllantiring.
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="bg-white border border-slate-200 rounded-xs p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)] space-y-4">
+                  <div>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dars Tanlash</span>
+                    <h4 className="text-lg font-bold text-slate-900">Fanni tanlang</h4>
+                    <p className="text-xs text-slate-600">Bugungi dars jadvalidan fanni tanlang:</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {journalLessonsToday.map((lesson) => (
+                      <div
+                        key={`direct_lesson_${lesson.subject_id}_${lesson.lesson_number}`}
+                        onClick={() => {
+                          if (onSelectSubject) onSelectSubject(lesson.subject_id, lesson.lesson_number);
+                        }}
+                        className="p-5 rounded-xs border border-slate-200 hover:border-slate-400 bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all cursor-pointer group flex items-center justify-between"
+                      >
+                        <div>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">{lesson.lesson_number}-SOAT DARSI</span>
+                          <h5 className="text-lg font-bold text-[#A51C30] group-hover:underline transition-colors mt-1">{lesson.subject_name}</h5>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#A51C30] group-hover:translate-x-1 transition-all shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-fadeIn text-slate-900">
           {/* Grid legend row */}
           <div className="px-6 py-4 bg-[#fafafa] border-b border-zinc-200/80 flex flex-wrap items-center justify-between gap-3 text-zinc-800">
             <div className="flex flex-wrap items-center gap-4">
@@ -819,6 +999,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({
           </div>
         </div>
       )}
+      </>
+    )}
     </div>
   );
 };

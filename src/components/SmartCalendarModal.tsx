@@ -13,6 +13,7 @@ export interface SmartCalendarModalProps {
   onSelectWeek?: (weekStartStr: string, weekEndStr: string, label: string) => void;
   onSelectDate?: (dateStr: string) => void;
   title?: string;
+  theme?: "teacher" | "admin" | "parent";
 }
 
 const MONTH_NAMES_UZ = [
@@ -75,7 +76,9 @@ export default function SmartCalendarModal({
   onSelectWeek,
   onSelectDate,
   title = "Haftani tanlash",
+  theme = "admin",
 }: SmartCalendarModalProps) {
+  const isTeacherTheme = theme === "teacher";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -240,74 +243,59 @@ export default function SmartCalendarModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.4)",
-        backdropFilter: "blur(4px)",
-        padding: "16px",
-      }}
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
     >
       <div
-        style={{
-          width: "100%",
-          maxWidth: "380px",
-          backgroundColor: "#FFFFFF",
-          border: "1px solid #E2E8F0",
-          borderRadius: "24px",
-          padding: "20px",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.12)",
-          color: "#1E293B",
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          userSelect: "none",
-        }}
+        className={`w-full max-w-sm bg-white border ${
+          isTeacherTheme ? "border-neutral-200 rounded-none shadow-[0_16px_40px_rgba(0,0,0,0.12)] p-5" : "border-slate-200 rounded-3xl shadow-2xl p-5"
+        } text-slate-800 flex flex-col relative select-none`}
       >
         {/* Header bar */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #F1F5F9", paddingBottom: "12px", marginBottom: "14px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ width: "28px", height: "28px", borderRadius: "8px", backgroundColor: "#ECFDF5", color: "#00A389", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Calendar size={16} />
+        <div className={`flex items-center justify-between border-b ${isTeacherTheme ? "border-neutral-200 pb-3 mb-3.5" : "border-slate-100 pb-3 mb-3.5"}`}>
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-7 h-7 flex items-center justify-center ${
+                isTeacherTheme
+                  ? "rounded-none bg-slate-50 border border-neutral-200 text-[#A51C30]"
+                  : "rounded-lg bg-emerald-50 text-emerald-600"
+              }`}
+            >
+              <Calendar size={15} />
             </div>
-            <h3 style={{ fontSize: "15px", fontWeight: 800, color: "#1E293B", margin: 0 }}>{title}</h3>
+            <h3 className={`text-sm font-bold ${isTeacherTheme ? "font-serif text-slate-900" : "text-slate-800"}`}>
+              {title}
+            </h3>
           </div>
 
           {allowModeSwitch && (
-            <div style={{ display: "flex", alignItems: "center", backgroundColor: "#F1F5F9", padding: "2px", borderRadius: "10px" }}>
+            <div className={`flex items-center p-0.5 ${isTeacherTheme ? "rounded-none bg-slate-100 border border-neutral-200" : "rounded-lg bg-slate-100"}`}>
               <button
                 type="button"
                 onClick={() => setActiveMode("single")}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: activeMode === "single" ? "#00A389" : "transparent",
-                  color: activeMode === "single" ? "#FFFFFF" : "#64748B",
-                  cursor: "pointer",
-                }}
+                className={`px-2.5 py-1 text-[10px] font-bold font-sans uppercase tracking-wider transition ${
+                  isTeacherTheme ? "rounded-none" : "rounded-md"
+                } ${
+                  activeMode === "single"
+                    ? isTeacherTheme
+                      ? "bg-[#1E2B42] text-white"
+                      : "bg-emerald-600 text-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
                 Kunlik
               </button>
               <button
                 type="button"
                 onClick={() => setActiveMode("week")}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: activeMode === "week" ? "#00A389" : "transparent",
-                  color: activeMode === "week" ? "#FFFFFF" : "#64748B",
-                  cursor: "pointer",
-                }}
+                className={`px-2.5 py-1 text-[10px] font-bold font-sans uppercase tracking-wider transition ${
+                  isTeacherTheme ? "rounded-none" : "rounded-md"
+                } ${
+                  activeMode === "week"
+                    ? isTeacherTheme
+                      ? "bg-[#1E2B42] text-white"
+                      : "bg-emerald-600 text-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
                 Haftalik
               </button>
@@ -317,78 +305,53 @@ export default function SmartCalendarModal({
           <button
             type="button"
             onClick={onClose}
-            style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "50%",
-              backgroundColor: "#F1F5F9",
-              border: "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#64748B",
-              cursor: "pointer",
-            }}
+            className={`w-7 h-7 flex items-center justify-center transition text-slate-500 hover:text-slate-800 cursor-pointer ${
+              isTeacherTheme ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-neutral-100" : "rounded-full bg-slate-100 hover:bg-slate-200"
+            }`}
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
         {/* Month & Navigation Bar */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+        <div className="flex items-center justify-between mb-3">
           <button
             type="button"
             onClick={handlePrevMonth}
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "10px",
-              border: "1px solid #E2E8F0",
-              backgroundColor: "#FFFFFF",
-              color: "#475569",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-            }}
+            className={`w-8 h-8 flex items-center justify-center transition text-slate-700 cursor-pointer ${
+              isTeacherTheme
+                ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-slate-100"
+                : "rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+            }`}
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
 
-          <span style={{ fontSize: "14px", fontWeight: 800, color: "#1E293B" }}>
+          <span className={`text-sm font-bold ${isTeacherTheme ? "font-serif text-slate-900" : "text-slate-800"}`}>
             {MONTH_NAMES_UZ[viewMonth]} {viewYear}
           </span>
 
           <button
             type="button"
             onClick={handleNextMonth}
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "10px",
-              border: "1px solid #E2E8F0",
-              backgroundColor: "#FFFFFF",
-              color: "#475569",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-            }}
+            className={`w-8 h-8 flex items-center justify-center transition text-slate-700 cursor-pointer ${
+              isTeacherTheme
+                ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-slate-100"
+                : "rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+            }`}
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </button>
         </div>
 
         {/* Day of Week Headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", textAlign: "center", paddingBottom: "6px", marginBottom: "6px", borderBottom: "1px solid #F1F5F9" }}>
+        <div className={`grid grid-cols-7 text-center pb-1.5 mb-1.5 border-b ${isTeacherTheme ? "border-neutral-200" : "border-slate-100"}`}>
           {DAY_NAMES_SHORT.map((d, i) => (
             <span
               key={d}
-              style={{
-                fontSize: "11px",
-                fontWeight: 800,
-                color: i >= 5 ? "#EF4444" : "#94A3B8",
-              }}
+              className={`text-[10px] font-bold font-sans uppercase tracking-wider ${
+                i >= 5 ? (isTeacherTheme ? "text-[#A51C30]" : "text-red-500") : "text-slate-500"
+              }`}
             >
               {d}
             </span>
@@ -396,38 +359,20 @@ export default function SmartCalendarModal({
         </div>
 
         {/* 6-Week Grid Container */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} onMouseLeave={() => setHoveredWeekIdx(null)}>
+        <div className="flex flex-col gap-1 relative" onMouseLeave={() => setHoveredWeekIdx(null)}>
           {weeksGrid.map((weekDays, wIdx) => {
             const isHovered = activeMode === "week" && hoveredWeekIdx === wIdx;
             const isSelected = activeMode === "week" && isWeekSelected(weekDays);
 
-            let weekRowStyle: React.CSSProperties = {
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: "4px",
-              borderRadius: "12px",
-              padding: "3px",
-              transition: "all 0.15s ease",
-              cursor: activeMode === "week" ? "pointer" : "default",
-            };
+            let weekBorderClass = "border border-transparent";
+            let weekBgClass = "bg-transparent";
 
             if (isSelected) {
-              weekRowStyle = {
-                ...weekRowStyle,
-                border: "2px solid #00A389",
-                backgroundColor: "#ECFDF5",
-              };
+              weekBorderClass = isTeacherTheme ? "border border-[#A51C30]" : "border-2 border-emerald-500";
+              weekBgClass = isTeacherTheme ? "bg-[#A51C30]/5" : "bg-emerald-50";
             } else if (isHovered) {
-              weekRowStyle = {
-                ...weekRowStyle,
-                border: "2px solid #F5C542",
-                backgroundColor: "#FEFCE8",
-              };
-            } else {
-              weekRowStyle = {
-                ...weekRowStyle,
-                border: "2px solid transparent",
-              };
+              weekBorderClass = isTeacherTheme ? "border border-slate-300" : "border-2 border-amber-400";
+              weekBgClass = isTeacherTheme ? "bg-slate-50" : "bg-amber-50/50";
             }
 
             return (
@@ -435,28 +380,29 @@ export default function SmartCalendarModal({
                 key={wIdx}
                 onMouseEnter={() => activeMode === "week" && setHoveredWeekIdx(wIdx)}
                 onClick={() => activeMode === "week" && handleDayClick(weekDays[0])}
-                style={weekRowStyle}
+                className={`grid grid-cols-7 gap-1 p-0.5 transition-all ${
+                  isTeacherTheme ? "rounded-none" : "rounded-xl"
+                } ${weekBorderClass} ${weekBgClass} ${activeMode === "week" ? "cursor-pointer" : "cursor-default"}`}
               >
                 {weekDays.map((dayItem) => {
                   const daySel = isDaySelected(dayItem);
                   const isPrev = dayItem.monthType === "prev";
                   const isNext = dayItem.monthType === "next";
 
-                  let cellBg = "transparent";
-                  let cellColor = "#1E293B";
-                  let cellWeight = 700;
+                  let cellClass = "text-slate-800 font-semibold hover:bg-slate-100";
 
                   if (isPrev || isNext) {
-                    cellColor = "#CBD5E1";
-                    cellWeight = 500;
+                    cellClass = "text-slate-300 font-normal";
                   }
 
                   if (activeMode === "single" && daySel) {
-                    cellBg = "#00A389";
-                    cellColor = "#FFFFFF";
+                    cellClass = isTeacherTheme
+                      ? "bg-[#A51C30] text-white font-bold shadow-xs"
+                      : "bg-emerald-600 text-white font-bold shadow-xs";
                   } else if (dayItem.isToday) {
-                    cellBg = "#FEF3C7";
-                    cellColor = "#B45309";
+                    cellClass = isTeacherTheme
+                      ? "border border-[#1E2B42] text-[#1E2B42] font-bold bg-slate-50"
+                      : "bg-amber-100 text-amber-900 font-bold";
                   }
 
                   return (
@@ -468,18 +414,9 @@ export default function SmartCalendarModal({
                           handleDayClick(dayItem);
                         }
                       }}
-                      style={{
-                        height: "32px",
-                        borderRadius: "8px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "12px",
-                        fontWeight: cellWeight,
-                        color: cellColor,
-                        backgroundColor: cellBg,
-                        cursor: "pointer",
-                      }}
+                      className={`h-7.5 flex items-center justify-center text-xs transition-colors cursor-pointer ${
+                        isTeacherTheme ? "rounded-none" : "rounded-lg"
+                      } ${cellClass}`}
                     >
                       {dayItem.dayNum}
                     </div>
@@ -491,35 +428,40 @@ export default function SmartCalendarModal({
 
           {/* Quick Month/Year Selector Overlay */}
           {showMonthYearPicker && (
-            <div style={{ position: "absolute", inset: 0, backgroundColor: "#FFFFFF", borderRadius: "16px", padding: "16px", zIndex: 20, display: "flex", flexDirection: "column", justifyContent: "space-between", border: "1px solid #E2E8F0" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #F1F5F9", paddingBottom: "8px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 800, color: "#1E293B" }}>Oy va Yilni tanlang</span>
+            <div
+              className={`absolute inset-0 bg-white p-4 z-20 flex flex-col justify-between border ${
+                isTeacherTheme ? "border-neutral-200 rounded-none" : "border-slate-200 rounded-2xl"
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className={`text-xs font-bold ${isTeacherTheme ? "font-sans uppercase tracking-wider text-slate-700" : "text-slate-800"}`}>
+                  Oy va Yilni tanlang
+                </span>
                 <button
                   type="button"
                   onClick={() => setShowMonthYearPicker(false)}
-                  style={{ background: "none", border: "none", color: "#94A3B8", cursor: "pointer" }}
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
-                  <X size={16} />
+                  <X size={15} />
                 </button>
               </div>
 
               {/* Years bar */}
-              <div style={{ display: "flex", justifyContent: "center", gap: "6px", margin: "8px 0" }}>
+              <div className="flex justify-center gap-1.5 my-2">
                 {[2024, 2025, 2026, 2027, 2028].map((y) => (
                   <button
                     key={y}
                     type="button"
                     onClick={() => setViewYear(y)}
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: "8px",
-                      fontSize: "11px",
-                      fontWeight: 800,
-                      border: "none",
-                      backgroundColor: viewYear === y ? "#1E293B" : "#F1F5F9",
-                      color: viewYear === y ? "#FFFFFF" : "#475569",
-                      cursor: "pointer",
-                    }}
+                    className={`px-2.5 py-1 text-[11px] font-bold font-sans transition cursor-pointer ${
+                      isTeacherTheme ? "rounded-none" : "rounded-lg"
+                    } ${
+                      viewYear === y
+                        ? isTeacherTheme
+                          ? "bg-[#1E2B42] text-white"
+                          : "bg-slate-800 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                   >
                     {y}
                   </button>
@@ -527,7 +469,7 @@ export default function SmartCalendarModal({
               </div>
 
               {/* Months grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px" }}>
+              <div className="grid grid-cols-3 gap-1.5">
                 {MONTH_NAMES_UZ.map((mName, mIdx) => (
                   <button
                     key={mName}
@@ -536,16 +478,15 @@ export default function SmartCalendarModal({
                       setViewMonth(mIdx);
                       setShowMonthYearPicker(false);
                     }}
-                    style={{
-                      padding: "8px",
-                      borderRadius: "10px",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      border: "none",
-                      backgroundColor: viewMonth === mIdx ? "#00A389" : "#F8FAFC",
-                      color: viewMonth === mIdx ? "#FFFFFF" : "#334155",
-                      cursor: "pointer",
-                    }}
+                    className={`p-2 text-[11px] font-bold font-sans transition cursor-pointer ${
+                      isTeacherTheme ? "rounded-none" : "rounded-xl"
+                    } ${
+                      viewMonth === mIdx
+                        ? isTeacherTheme
+                          ? "bg-[#A51C30] text-white"
+                          : "bg-emerald-600 text-white"
+                        : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100"
+                    }`}
                   >
                     {mName}
                   </button>
@@ -556,42 +497,30 @@ export default function SmartCalendarModal({
         </div>
 
         {/* Footer Controls */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #F1F5F9", paddingTop: "12px", marginTop: "12px" }}>
+        <div className={`flex items-center justify-between border-t ${isTeacherTheme ? "border-neutral-200 pt-3 mt-3" : "border-slate-100 pt-3 mt-3"}`}>
           <button
             type="button"
             onClick={() => setShowMonthYearPicker((prev) => !prev)}
-            style={{
-              padding: "6px 14px",
-              borderRadius: "12px",
-              fontSize: "12px",
-              fontWeight: 800,
-              border: "1px solid #E2E8F0",
-              backgroundColor: "#F8FAFC",
-              color: "#0F766E",
-              cursor: "pointer",
-            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer ${
+              isTeacherTheme
+                ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-slate-100 text-slate-800"
+                : "rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
+            }`}
           >
-            🗓️ {String(viewMonth + 1).padStart(2, "0")} / {viewYear}
+            <Calendar size={13} className={isTeacherTheme ? "text-[#A51C30]" : "text-emerald-600"} />
+            <span>{String(viewMonth + 1).padStart(2, "0")} / {viewYear}</span>
           </button>
 
           <button
             type="button"
             onClick={handleJumpToday}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 14px",
-              borderRadius: "12px",
-              fontSize: "12px",
-              fontWeight: 800,
-              border: "1px solid #00A389",
-              backgroundColor: "#ECFDF5",
-              color: "#0F766E",
-              cursor: "pointer",
-            }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer ${
+              isTeacherTheme
+                ? "rounded-none border border-[#1E2B42] bg-[#1E2B42] hover:bg-[#141E2E] text-white"
+                : "rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+            }`}
           >
-            <RotateCcw size={14} />
+            <RotateCcw size={13} />
             <span>Bugun</span>
           </button>
         </div>

@@ -80,7 +80,7 @@ export default function TeacherSidebar({
 
       {/* Left Fixed Vertical Sidebar */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen bg-[#16193E] text-white flex flex-col justify-between shrink-0 z-50 transition-all duration-300 ease-in-out ${
+        className={`fixed md:sticky top-0 left-0 h-screen bg-[#1A2232] text-slate-100 border-r border-slate-800 flex flex-col justify-between shrink-0 z-50 transition-all duration-300 ease-in-out ${
           sidebarOpen
             ? "translate-x-0 w-64"
             : `-translate-x-full md:translate-x-0 ${isCollapsedDesktop ? "w-20" : "w-64"}`
@@ -89,8 +89,8 @@ export default function TeacherSidebar({
         {/* Brand logo & collapse toggle header */}
         <div>
           <div
-            className={`h-20 flex items-center border-b border-white/10 ${
-              isCollapsedDesktop ? "justify-center px-2" : "justify-between px-6"
+            className={`h-20 flex items-center border-b border-slate-700/60 ${
+              isCollapsedDesktop ? "justify-center px-2" : "justify-between px-5"
             }`}
           >
             {isCollapsedDesktop ? (
@@ -98,19 +98,19 @@ export default function TeacherSidebar({
                 type="button"
                 onClick={() => setSidebarCollapsed(false)}
                 title="Yonga kengaytirish"
-                className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                className="w-10 h-10 rounded-xl bg-[#A51C30] flex items-center justify-center text-white shadow-sm shrink-0 cursor-pointer hover:bg-[#8B1828] transition-all"
               >
-                <GraduationCap className="w-6 h-6" />
+                <GraduationCap className="w-5 h-5" />
               </button>
             ) : (
               <>
                 <div className="flex items-center space-x-3 overflow-hidden">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 shrink-0">
-                    <GraduationCap className="w-6 h-6" />
+                  <div className="w-10 h-10 rounded-xl bg-[#A51C30] flex items-center justify-center text-white shadow-sm shrink-0">
+                    <GraduationCap className="w-5 h-5" />
                   </div>
                   <div>
-                    <h1 className="text-base font-black tracking-wider text-white uppercase">FARZANDIM</h1>
-                    <p className="text-[9px] text-indigo-200/70 uppercase tracking-widest font-mono font-bold">
+                    <h1 className="text-sm font-black tracking-widest text-white uppercase">FARZANDIM</h1>
+                    <p className="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">
                       O'qituvchi Portali
                     </p>
                   </div>
@@ -125,7 +125,7 @@ export default function TeacherSidebar({
                       setSidebarCollapsed(true);
                     }
                   }}
-                  className="flex items-center justify-center w-8 h-8 text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer shrink-0"
+                  className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer shrink-0"
                   title={sidebarOpen ? "Yopish" : "Yonga qisqartirish"}
                 >
                   {sidebarOpen ? <X className="w-5 h-5 text-white" /> : <PanelLeftClose className="w-4 h-4 hidden md:block" />}
@@ -135,7 +135,7 @@ export default function TeacherSidebar({
           </div>
 
           {/* Sidebar Nav Items */}
-          <nav className="p-3 space-y-2 overflow-y-auto max-h-[calc(100vh-160px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-160px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = teacherTab === item.id;
@@ -149,34 +149,26 @@ export default function TeacherSidebar({
                     if (onTabClick) onTabClick(item.id);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center rounded-xl text-xs font-semibold transition-all relative cursor-pointer group ${
-                    isCollapsedDesktop ? "justify-center p-3" : "space-x-3.5 px-4 py-3"
+                  className={`w-full flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all relative cursor-pointer group ${
+                    isCollapsedDesktop ? "justify-center p-3" : "space-x-3 px-3.5 py-3"
                   } ${
                     isActive
-                      ? "text-white font-bold bg-white/10"
-                      : "text-indigo-200/60 hover:text-white hover:bg-white/5 font-medium"
+                      ? "text-white bg-slate-800/90 font-bold border-l-4 border-[#A51C30] shadow-2xs"
+                      : "text-slate-300 hover:text-white hover:bg-slate-800/50 font-medium"
                   }`}
                 >
-                  {/* Left Pill Notch */}
-                  {isActive && (
-                    <span
-                      className={`absolute top-1/2 -translate-y-1/2 w-2 h-7 bg-white rounded-r-full shadow-sm ${
-                        isCollapsedDesktop ? "-left-3" : "-left-4"
-                      }`}
-                    />
-                  )}
                   <Icon
-                    className={`w-4 h-4 shrink-0 transition-transform ${
-                      isActive ? "text-white scale-110" : "text-indigo-300/60 group-hover:text-white"
+                    className={`w-4.5 h-4.5 shrink-0 transition-transform ${
+                      isActive ? "text-[#A51C30] scale-105" : "text-slate-400 group-hover:text-white"
                     }`}
                   />
-                  {!isCollapsedDesktop && <span className="truncate">{item.label}</span>}
+                  {!isCollapsedDesktop && <span className="truncate text-xs">{item.label}</span>}
 
                   {item.badge && item.badge > 0 ? (
                     isCollapsedDesktop ? (
-                      <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#16193E]" />
+                      <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#A51C30] ring-2 ring-[#1A2232]" />
                     ) : (
-                      <span className="ml-auto bg-rose-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                      <span className="ml-auto bg-[#A51C30] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                         {item.badge}
                       </span>
                     )
@@ -187,8 +179,8 @@ export default function TeacherSidebar({
           </nav>
         </div>
 
-        {/* User Profile & Logout Footer */}
-        <div className="p-3 border-t border-white/10">
+        {/* User Profile & Logout Footer - HIDDEN ON MOBILE */}
+        <div className="hidden md:block p-3 border-t border-slate-700/60 bg-slate-900/40">
           {isCollapsedDesktop ? (
             <div className="flex flex-col items-center gap-2">
               <button
@@ -197,7 +189,7 @@ export default function TeacherSidebar({
                 title={`${userInfo?.first_name || ""} ${userInfo?.last_name || ""} (${
                   userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"
                 }) - Bosib yonga kengaytirish`}
-                className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border-2 border-indigo-400/40 text-white font-black text-sm flex items-center justify-center shadow-md hover:scale-105 transition cursor-pointer shrink-0"
+                className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-white font-bold text-xs flex items-center justify-center shadow-md hover:scale-105 transition cursor-pointer shrink-0"
               >
                 {userInfo?.first_name ? userInfo.first_name[0] : "T"}
               </button>
@@ -205,7 +197,7 @@ export default function TeacherSidebar({
                 type="button"
                 onClick={onLogout}
                 title="Tizimdan chiqish"
-                className="w-8 h-8 flex items-center justify-center text-indigo-300 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -213,14 +205,14 @@ export default function TeacherSidebar({
           ) : (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 overflow-hidden">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 border border-indigo-400/40 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 text-white font-bold text-xs flex items-center justify-center shrink-0">
                   {userInfo?.first_name ? userInfo.first_name[0] : "T"}
                 </div>
                 <div className="truncate">
-                  <p className="text-xs font-semibold text-white truncate">
+                  <p className="text-xs font-bold text-white truncate">
                     {userInfo?.first_name} {userInfo?.last_name}
                   </p>
-                  <p className="text-[10px] text-indigo-300/80 truncate">
+                  <p className="text-[10px] text-slate-400 truncate">
                     {userInfo?.role === "MAIN_TEACHER" ? "Sinf Rahbari" : "O'qituvchi"}
                   </p>
                 </div>
@@ -229,7 +221,7 @@ export default function TeacherSidebar({
                 type="button"
                 onClick={onLogout}
                 title="Chiqish"
-                className="p-2 text-indigo-300 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
+                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>

@@ -25,7 +25,6 @@ import UnapprovedGradesTab from "@/components/teacher/UnapprovedGradesTab";
 import ParentsTab from "@/components/teacher/ParentsTab";
 import ClubsTab from "@/components/teacher/ClubsTab";
 import ChatModal from "@/components/teacher/modals/ChatModal";
-import TodayLessonsModal from "@/components/teacher/modals/TodayLessonsModal";
 import GradeCommentModal from "@/components/teacher/modals/GradeCommentModal";
 import ParentsListModal from "@/components/teacher/modals/ParentsListModal";
 import { ImportParentsModal } from "@/components/teacher/modals/ImportParentsModal";
@@ -57,6 +56,8 @@ import {
   Sparkles,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  Check,
   PanelLeftClose,
   PanelLeftOpen,
   Award,
@@ -81,6 +82,7 @@ import {
   CalendarDays,
   Save,
   Settings,
+  CalendarOff,
 } from "lucide-react";
 
 import TransferStudentsModal from "@/components/dashboard/TransferStudentsModal";
@@ -349,16 +351,10 @@ function TeacherDashboardContent() {
 
   // Dashboard Interactive Date Picker State
   const [selectedDashboardDate, setSelectedDashboardDate] = useState<string>(() => formatLocalDate(new Date()));
-  const dashboardDateInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenDashboardDatePicker = () => {
-    if (dashboardDateInputRef.current) {
-      if (typeof dashboardDateInputRef.current.showPicker === "function") {
-        dashboardDateInputRef.current.showPicker();
-      } else {
-        dashboardDateInputRef.current.focus();
-      }
-    }
+    setTeacherCalendarTarget("dashboard");
+    setIsTeacherCalendarOpen(true);
   };
 
   // Search & Pagination States for Students and Parents tabs
@@ -731,7 +727,7 @@ function TeacherDashboardContent() {
 
   // Smart Calendar State
   const [isTeacherCalendarOpen, setIsTeacherCalendarOpen] = useState(false);
-  const [teacherCalendarTarget, setTeacherCalendarTarget] = useState<"journal" | "schedule" | "exception">("journal");
+  const [teacherCalendarTarget, setTeacherCalendarTarget] = useState<"journal" | "schedule" | "exception" | "dashboard">("dashboard");
 
   // Journal View States (day-based grid)
   const [journalDate, setJournalDate] = useState(getInitialDate());
@@ -1388,7 +1384,7 @@ function TeacherDashboardContent() {
             if (Array.isArray(schData)) {
               schData.forEach((item: any) => {
                 if (!item.subject_id || item.subject_id === 0) return;
-                const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && cls.subject_id === item.subject_id);
+                const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && cls.subject_id === item.subject_id) || (item.teacher_id && item.teacher_id === userInfo?.id);
 
                 if (isMySubject) {
                   const slotKey = `${item.day_of_week}-${item.lesson_number}`;
@@ -1426,7 +1422,7 @@ function TeacherDashboardContent() {
         fetchOverallTeacherSchedule(scheduleViewDate);
       }
     }
-  }, [teacherTab, selectedClassId, scheduleViewDate, selectedDashboardDate, token, classes, subjects]);
+  }, [teacherTab, scheduleViewDate, selectedDashboardDate, token, classes, subjects]);
 
   const fetchScheduleExceptions = async () => {
     if (!selectedClassId) return;
@@ -2942,13 +2938,11 @@ function TeacherDashboardContent() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [showTodayLessonsModal, setShowTodayLessonsModal] = useState(false);
 
   // ESC key listener to close active modals
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setShowTodayLessonsModal(false);
         setShowAddClubModal(false);
         setShowEditClubModal(false);
         setShowAddScheduleModal(false);
@@ -3100,7 +3094,6 @@ function TeacherDashboardContent() {
     }
     setJournalDate(targetDate);
     setTeacherTab("journal");
-    setShowTodayLessonsModal(false);
     fetchJournalData(targetDate);
   };
 
@@ -3203,334 +3196,247 @@ function TeacherDashboardContent() {
         <TeacherHeader
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
-          title="FARZANDIM"
+          userInfo={userInfo || undefined}
+          selectedDate={selectedDashboardDate}
+          onOpenDatePicker={handleOpenDashboardDatePicker}
+          onDateChange={(newDate) => setSelectedDashboardDate(newDate)}
+          unapprovedCount={unapprovedGrades.length}
+          onOpenUnapproved={() => setTeacherTab("unapproved")}
         />
 
         {/* Content Container */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-36">
-          {/* TAB CONTENT: Dynamic Dashboard */}
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-32">
+          {/* TAB CONTENT: Authentic Harvard Editorial Dashboard */}
           {teacherTab === "dashboard" && (
-            <div className="space-y-6">
-              {/* Top Hero Banner (Hidden on mobile so critical panels are immediately visible) */}
-              <div className="hidden md:flex bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden items-center justify-between gap-6">
-                <div className="space-y-3 z-10 max-w-xl">
-                  <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100/80 px-3 py-1 rounded-full text-indigo-650 text-xs font-semibold">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>O'qituvchi Boshqaruv Paneli</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-[#16193E] tracking-tight">
-                    Xush kelibsiz, <span className="text-indigo-600">{userInfo?.first_name || "O'qituvchi"}</span>!
+            <div className="space-y-6 max-w-7xl mx-auto">
+              {/* 1. Harvard Academic Header & Summary (Visible ONLY on Desktop) */}
+              <div className="hidden md:flex bg-white border border-neutral-200 rounded-none p-5 sm:p-6 shadow-none flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold font-sans text-slate-500 uppercase tracking-widest block">
+                    O'QITUVCHI BOSHQARUV PANELI
+                  </span>
+                  <h1 className="font-serif font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight">
+                    Xush kelibsiz, <span className="text-[#A51C30]">{userInfo?.first_name || "O'qituvchi"}</span>!
                   </h1>
-                  <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed font-medium">
-                    O'quvchilaringiz dars vazifalari hamda o'zlashtirish ko'rsatkichlarining <span className="text-emerald-600 font-bold">{computedCompletionRate}%</span> ini bajarishdi. Natijalar <span className="text-indigo-600 font-bold">juda yaxshi!</span>
+                  <p className="text-xs sm:text-sm text-slate-600 font-normal">
+                    Bugun: <span className="font-bold text-slate-800">{(() => {
+                      const d = parseLocalDate(selectedDashboardDate);
+                      const mNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+                      return `${d.getDate()}-${mNames[d.getMonth()]}, ${d.getFullYear()}`;
+                    })()}</span> • {classes.length} ta sinf biriktirilgan
                   </p>
-                  <div className="flex flex-wrap gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setTeacherTab("journal")}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-md shadow-indigo-500/20 cursor-pointer"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      <span>Jurnalni Ochish</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const isSelectedDateHoliday = (holidays || []).some((h: any) => {
-                          const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
-                          return hDate === scheduleViewDate;
-                        });
-                        if (!isSelectedDateHoliday) {
-                          setShowTodayLessonsModal(true);
-                        }
-                      }}
-                      className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
-                    >
-                      <Clock className="w-4 h-4 text-indigo-600" />
-                      <span>
-                        Darslar (
-                        {(holidays || []).some((h: any) => (h.holiday_date ? h.holiday_date.split("T")[0] : "") === scheduleViewDate)
-                          ? 0
-                          : todayLessons.length}
-                        )
-                      </span>
-                    </button>
-                  </div>
                 </div>
 
-                {/* Hero Graphic Card */}
-                <div className="relative shrink-0 w-48 h-36 sm:w-64 sm:h-44 flex items-center justify-center bg-gradient-to-tr from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl border border-indigo-100/50">
-                  <div className="w-20 h-20 rounded-3xl bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-500/30 transform -rotate-6">
-                    <GraduationCap className="w-10 h-10" />
-                  </div>
-                  <div className="absolute top-3 right-4 w-9 h-9 rounded-2xl bg-amber-400 text-white flex items-center justify-center shadow-lg transform rotate-12">
-                    <Award className="w-5 h-5" />
-                  </div>
-                  <div className="absolute bottom-4 left-4 w-9 h-9 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg transform -rotate-12">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleOpenDashboardDatePicker}
+                    className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-800 border border-neutral-200 text-xs font-bold font-sans uppercase tracking-wider transition flex items-center gap-2 cursor-pointer rounded-none"
+                    title="Sana tanlash"
+                  >
+                    <Calendar className="w-4 h-4 text-[#A51C30]" />
+                    <span>Sana: {(() => {
+                      try {
+                        const d = parseLocalDate(selectedDashboardDate);
+                        const mNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+                        return `${d.getDate()}-${mNames[d.getMonth()]}, ${d.getFullYear()}`;
+                      } catch {
+                        return selectedDashboardDate;
+                      }
+                    })()}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeacherTab("journal")}
+                    className="px-4 py-2 bg-[#1E2B42] hover:bg-[#141E2E] text-white text-xs font-bold font-sans uppercase tracking-wider transition flex items-center gap-2 cursor-pointer rounded-none"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Jurnalga O'tish</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Dashboard Main Grid (1. Classes & Subjects at top, 2. Today's Lessons & 3. Pending Approvals on side) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* 1. Boshqarayotgan Sinflarim va Fanlarim (Top section in left col) */}
-                <div className="lg:col-span-8 space-y-6">
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                      <div>
-                        <h3 className="text-sm font-extrabold text-[#16193E]">Boshqarayotgan Sinflarim va Fanlarim</h3>
-                        <p className="text-[11px] text-zinc-400 font-medium">Boshqarish uchun sinf ustiga bosing</p>
-                      </div>
-                      <span className="text-xs font-mono font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl">
-                        Jami: {classes.length} ta sinf
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {classes.length > 0 ? (
-                        classes.map((cls, i) => {
-                          const badges = ["A1", "B1", "C2", "A2", "B2"];
-                          const badgeColor = i % 3 === 0 ? "bg-amber-100 text-amber-800" : i % 3 === 1 ? "bg-rose-100 text-rose-800" : "bg-purple-100 text-purple-800";
-                          return (
-                            <div
-                              key={cls.id}
-                              onClick={() => {
-                                setSelectedClassId(cls.id);
-                                if (cls.subject_id) {
-                                  setSelectedSubjectId(cls.subject_id);
-                                }
-                                setJournalDate(selectedDashboardDate);
-                                setTeacherTab("journal");
-                                fetchJournalData(selectedDashboardDate);
-                              }}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-zinc-50/70 hover:bg-indigo-50/50 border border-zinc-200/60 transition cursor-pointer gap-3"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <span className={`w-10 h-10 rounded-xl ${badgeColor} font-extrabold text-xs flex items-center justify-center shrink-0`}>
-                                  {badges[i % badges.length]}
-                                </span>
-                                <div>
-                                  <h4 className="text-xs font-extrabold text-[#16193E] flex items-center gap-1.5">
-                                    {cls.name}
-                                    {cls.is_main_teacher && (
-                                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                        <Award className="w-3 h-3 text-amber-600" />
-                                        <span>Sinf Rahbari</span>
-                                      </span>
-                                    )}
-                                  </h4>
-                                  <p className="text-[11px] text-zinc-500 font-medium">
-                                    {cls.subject_name || "Asosiy Fan"} — O'quvchilar: {allStudents.filter(s => s.class_id === cls.id).length || 25} ta
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center space-x-4 text-xs font-semibold text-zinc-500">
-                                <span className="flex items-center space-x-1 text-emerald-600 font-bold">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                  <span>Faol Jurnal</span>
-                                </span>
-                                <ChevronRight className="w-4 h-4 text-zinc-400" />
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-center py-8 text-xs text-zinc-400 font-medium border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
-                          Sinflar biriktirilmagan
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {/* 2. Bugungi Darslar (Today's Lessons) - Compact High-Density Serif Cards */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                  <span className="text-[11px] sm:text-xs font-bold font-sans text-slate-700 uppercase tracking-widest">
+                    BUGUNGI DARSLAR ({todayLessons.length} TA)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setTeacherTab("schedule")}
+                    className="text-xs font-bold font-sans text-[#A51C30] hover:underline cursor-pointer tracking-wide uppercase"
+                  >
+                    Haftalik to'liq reja →
+                  </button>
                 </div>
 
-                {/* Right Column: Today's Date Badge + Today's Lessons Card + Pending Approvals */}
-                <div className="lg:col-span-4 space-y-6">
-                  {/* 1. Interactive Dashboard Date Picker Card */}
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-5 shadow-xs space-y-3 relative">
-                    <div className="flex items-center justify-between">
-                      <div
-                        onClick={handleOpenDashboardDatePicker}
-                        className="flex items-center space-x-3 cursor-pointer group select-none flex-1 min-w-0"
-                      >
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0 group-hover:bg-indigo-100 group-hover:border-indigo-200 transition">
-                          <Calendar className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[10px] font-extrabold text-zinc-400 uppercase font-mono block">Sana Tanlash</span>
-                          <h4 className="text-sm font-extrabold text-[#16193E] group-hover:text-indigo-600 transition whitespace-nowrap">
-                            {(() => {
-                              const d = parseLocalDate(selectedDashboardDate);
-                              const mNames = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
-                              return `${d.getDate()}-${mNames[d.getMonth()]}, ${d.getFullYear()}`;
-                            })()}
-                          </h4>
-                        </div>
-                        <input
-                          ref={dashboardDateInputRef}
-                          type="date"
-                          value={selectedDashboardDate}
-                          onChange={(e) => setSelectedDashboardDate(e.target.value)}
-                          className="sr-only"
-                          title="Sana tanlash"
-                        />
-                      </div>
+                {(() => {
+                  const activeHolidayForView = (holidays || []).find((h: any) => {
+                    const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
+                    return hDate === selectedDashboardDate;
+                  });
 
-                      {selectedDashboardDate === formatLocalDate(new Date()) && (
-                        <span className="text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full shrink-0 ml-2">
-                          Bugun
+                  const isSunday = (() => {
+                    try {
+                      const d = parseLocalDate(selectedDashboardDate);
+                      return d.getDay() === 0;
+                    } catch {
+                      return false;
+                    }
+                  })();
+
+                  if (activeHolidayForView || isSunday) {
+                    return (
+                      <div className="w-full bg-white border border-neutral-200 rounded-none p-8 sm:p-12 text-center space-y-3 shadow-none">
+                        <CalendarOff className="w-8 h-8 text-[#A51C30] mx-auto" />
+                        <span className="inline-block text-[11px] font-bold font-sans text-slate-500 uppercase tracking-widest">
+                          Dam Olish Kuni
                         </span>
-                      )}
-                    </div>
-
-                    {selectedDashboardDate !== formatLocalDate(new Date()) && (
-                      <div className="pt-2 border-t border-zinc-100">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDashboardDate(formatLocalDate(new Date()))}
-                          className="w-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Bugunga qaytish</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 2. Darslar Card & Button */}
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-indigo-600" />
-                        <h3 className="text-sm font-bold text-[#16193E]">Darslar</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const isSelectedDateHoliday = (holidays || []).some((h: any) => {
-                            const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
-                            return hDate === scheduleViewDate;
-                          });
-                          if (!isSelectedDateHoliday) {
-                            setShowTodayLessonsModal(true);
-                          }
-                        }}
-                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1 cursor-pointer bg-indigo-50 px-2.5 py-1 rounded-xl"
-                      >
-                        <span>
-                          Darslar (
-                          {(holidays || []).some((h: any) => (h.holiday_date ? h.holiday_date.split("T")[0] : "") === scheduleViewDate)
-                            ? 0
-                            : todayLessons.length}
-                          )
-                        </span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {(() => {
-                        const activeHolidayForView = (holidays || []).find((h: any) => {
-                          const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
-                          return hDate === scheduleViewDate;
-                        });
-
-                        if (activeHolidayForView) {
-                          return (
-                            <div className="p-6 bg-purple-50/90 border border-purple-200 rounded-2xl text-center space-y-2">
-                              <Calendar className="w-8 h-8 text-purple-600 mx-auto mb-1" />
-                              <h4 className="text-xs font-extrabold text-purple-900">Dam Olish Kuni ({activeHolidayForView.name})</h4>
-                              <p className="text-[11px] text-purple-700 font-medium leading-relaxed">
-                                Admin tomonidan ushbu sana dam olish kuni deb belgilangan. Darslar va baholash o'tkazilmaydi.
-                              </p>
-                            </div>
-                          );
-                        }
-
-                        if (todayLessons.length > 0) {
-                          return todayLessons.slice(0, 5).map((lesson, idx) => {
-                            const borderAccents = ["bg-orange-500", "bg-indigo-600", "bg-emerald-500", "bg-purple-500"];
-                            const accentColor = borderAccents[idx % borderAccents.length];
-
-                            return (
-                              <div
-                                key={idx}
-                                onClick={() => handleSelectLessonAndGoToJournal(lesson)}
-                                className="bg-white border border-zinc-200/80 rounded-2xl p-3.5 shadow-2xs relative overflow-hidden flex items-center justify-between transition hover:border-indigo-400 hover:shadow-xs cursor-pointer group"
-                                title="Jurnalni ochish va baholash"
-                              >
-                                <span className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${accentColor}`} />
-                                <div className="pl-2 space-y-0.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <h4 className="text-xs font-extrabold text-[#16193E] tracking-tight group-hover:text-indigo-600 transition">{lesson.subject_name}</h4>
-                                    <span className="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded-md">
-                                      {lesson.lesson_number}-soat
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-zinc-500 font-semibold">
-                                    {lesson.class_name} • {lesson.time}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition">
-                                  <span>Jurnal</span>
-                                  <ChevronRight className="w-4 h-4 text-indigo-600 transition shrink-0" />
-                                </div>
-                              </div>
-                            );
-                          });
-                        }
-
-                        return (
-                          <div className="text-center py-6 text-xs text-zinc-400 font-medium bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
-                            Ushbu sanada darslar mavjud emas
+                        <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900">
+                          {activeHolidayForView ? activeHolidayForView.name || "Maktab Ta'tili" : "Yakshanba — Dam Olish Kuni"}
+                        </h3>
+                        <p className="text-sm text-slate-600 font-normal leading-relaxed max-w-md mx-auto">
+                          {activeHolidayForView
+                            ? "Admin tomonidan ushbu sana dam olish kuni deb belgilangan."
+                            : "Bugun dam olish kuni. Darslar va baholash o'tkazilmaydi."}
+                        </p>
+                        {selectedDashboardDate !== formatLocalDate(new Date()) && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDashboardDate(formatLocalDate(new Date()))}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E2B42] text-white text-xs font-bold font-sans uppercase tracking-wider rounded-none cursor-pointer"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Bugungi kunga qaytish</span>
+                            </button>
                           </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
+                        )}
+                      </div>
+                    );
+                  }
 
-                  {/* 3. Tasdiqlash Kutilmoqda */}
-                  <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#16193E]">Tasdiqlash Kutilmoqda</h3>
-                      <button
-                        type="button"
-                        onClick={() => setTeacherTab("unapproved")}
-                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
-                      >
-                        Barchasi ({unapprovedGrades.length})
-                      </button>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {unapprovedGrades.length > 0 ? (
-                        unapprovedGrades.slice(0, 3).map((item, idx) => (
+                  if (todayLessons.length > 0) {
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {todayLessons.map((lesson, idx) => (
                           <div
-                            key={item.id || idx}
-                            onClick={() => setTeacherTab("unapproved")}
-                            className="p-3 rounded-2xl bg-zinc-50 hover:bg-rose-50/40 border border-zinc-200/60 transition flex items-center justify-between cursor-pointer"
+                            key={idx}
+                            onClick={() => handleSelectLessonAndGoToJournal(lesson)}
+                            className="bg-white border border-neutral-200 hover:border-neutral-400 p-3.5 sm:p-4 cursor-pointer group rounded-none shadow-none transition-colors flex flex-col justify-between"
                           >
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                <Lock className="w-4 h-4 text-amber-700" />
-                              </div>
-                              <div className="truncate">
-                                <h4 className="text-xs font-bold text-zinc-800 truncate">{item.subject_name || "Baho"}</h4>
-                                <p className="text-[10px] text-zinc-500 truncate">{item.student_name || "O'quvchi"}</p>
-                              </div>
+                            {/* Side-by-side Top Meta */}
+                            <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-bold font-sans uppercase tracking-wider text-slate-500 border-b border-neutral-100 pb-2">
+                              <span className="flex items-center gap-1.5 truncate">
+                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>{lesson.lesson_number}-SOAT DARSI</span>
+                              </span>
+                              <span className="text-slate-600 font-semibold shrink-0">{lesson.class_name} SINFI</span>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
+
+                            {/* Subject Headline (Serif regular) with Naked Chevron */}
+                            <div className="flex items-center justify-between gap-2 pt-2.5">
+                              <h3 className="font-serif font-normal text-base sm:text-lg text-[#A51C30] group-hover:underline tracking-tight truncate">
+                                {lesson.subject_name}
+                              </h3>
+                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#A51C30] group-hover:translate-x-0.5 transition-all shrink-0" />
+                            </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-4 rounded-2xl bg-zinc-50 text-center text-xs text-zinc-400 font-medium flex items-center justify-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          <span>Barcha baholar tasdiqlangan</span>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  const hasAnySchedule = Object.keys(overallSchedule).length > 0 || classSchedule.length > 0;
+                  if (!hasAnySchedule && !overallScheduleLoading) {
+                    return (
+                      <div className="w-full bg-white border border-neutral-200 rounded-none p-8 sm:p-12 text-center space-y-3 shadow-none">
+                        <Clock className="w-8 h-8 text-[#A51C30] mx-auto" />
+                        <span className="inline-block text-[11px] font-bold font-sans text-slate-500 uppercase tracking-widest">
+                          Jadval mavjud emas
+                        </span>
+                        <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900">Dars jadvali kiritilmagan</h3>
+                        <p className="text-sm text-slate-600 font-normal max-w-md mx-auto leading-relaxed">
+                          Darslar ro'yxatini ko'rish uchun sinflar dars jadvalini shakllantiring.
+                        </p>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setTeacherTab("schedule")}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E2B42] text-white text-xs font-bold font-sans uppercase tracking-wider rounded-none cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Jadvalga o'tish</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="w-full bg-white border border-neutral-200 rounded-none p-8 sm:p-12 text-center space-y-2 shadow-none">
+                      <CheckCircle2 className="w-8 h-8 text-slate-600 mx-auto" />
+                      <span className="inline-block text-[11px] font-bold font-sans text-slate-500 uppercase tracking-widest">
+                        Darslar Rejasi
+                      </span>
+                      <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900">Bugun darslar belgilanmagan</h3>
+                      <p className="text-sm text-slate-600 font-normal max-w-md mx-auto leading-relaxed">Ushbu kunda sizning dars jadvalingizda darslar mavjud emas.</p>
+                      {selectedDashboardDate !== formatLocalDate(new Date()) && (
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDashboardDate(formatLocalDate(new Date()))}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E2B42] text-white text-xs font-bold font-sans uppercase tracking-wider rounded-none cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Bugungi kunga qaytish</span>
+                          </button>
                         </div>
                       )}
                     </div>
-                  </div>
+                  );
+                })()}
+              </div>
+
+              {/* 3. Boshqarayotgan Sinflarim (2 Columns on Mobile, Star Icon) */}
+              <div className="space-y-3 pt-2">
+                <div className="border-b border-neutral-200 pb-2">
+                  <span className="text-[11px] sm:text-xs font-bold font-sans text-slate-700 uppercase tracking-widest">
+                    BOSHQARAYOTGAN SINFLARIM ({classes.length} TA)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {classes.map((cls) => (
+                    <div
+                      key={cls.id}
+                      onClick={() => {
+                        setSelectedClassId(cls.id);
+                        if (cls.subject_id) setSelectedSubjectId(cls.subject_id);
+                        setJournalDate(selectedDashboardDate);
+                        setTeacherTab("journal");
+                        fetchJournalData(selectedDashboardDate);
+                      }}
+                      className="bg-white border border-neutral-200 hover:border-neutral-400 p-3.5 sm:p-4 cursor-pointer group rounded-none shadow-none transition-colors flex flex-col justify-between"
+                    >
+                      <div className="flex items-center justify-between gap-1 text-[10px] sm:text-[11px] font-bold font-sans uppercase tracking-wider text-slate-500 border-b border-neutral-100 pb-2">
+                        <span>MAKTAB SINFI</span>
+                        {cls.is_main_teacher && (
+                          <span className="text-[#A51C30] text-sm leading-none font-bold" title="Sinf Rahbari">
+                            ★
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2.5">
+                        <h3 className="font-serif font-normal text-base sm:text-lg text-[#A51C30] group-hover:underline tracking-tight truncate">
+                          {cls.name} SINFI
+                        </h3>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#A51C30] group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -3574,6 +3480,18 @@ function TeacherDashboardContent() {
               findGradeForDayAndType={findGradeForDayAndType}
               highlightStudentId={highlightStudentId}
               clearHighlightStudentId={() => setHighlightStudentId(null)}
+              onSelectClass={(clsId) => {
+                setSelectedClassId(clsId ? Number(clsId) : "");
+                setSelectedSubjectId("");
+                setSelectedGradeIds(new Set());
+              }}
+              onSelectSubject={(subId, lessonNum) => {
+                setSelectedSubjectId(subId ? Number(subId) : "");
+                setSelectedLessonNumber(lessonNum ? Number(lessonNum) : "");
+              }}
+              journalLessonsToday={journalLessonsToday}
+              onSave={selectedGradeIds.size > 0 ? handleBulkApprove : handleApproveAllToday}
+              saveLoading={approveLoading}
             />
           )}
 
@@ -4044,384 +3962,6 @@ function TeacherDashboardContent() {
         </div>
       )}
 
-      {/* Sticky Bottom Tabbar (Hidden on Dashboard, Lesson Plans, Books, Social Passport, Announcements, Clubs, Feedback, Settings) */}
-      {teacherTab !== "dashboard" && teacherTab !== "lesson-plans" && teacherTab !== "books" && teacherTab !== "social-passport" && teacherTab !== "announcements" && teacherTab !== "clubs" && teacherTab !== "feedback" && teacherTab !== "settings" && (
-        <div
-          style={{
-            left: typeof window !== "undefined" && window.innerWidth >= 768
-              ? `calc(50% + ${sidebarCollapsed ? '40px' : '128px'})`
-              : "50%"
-          }}
-          className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 md:left-[calc(50%+40px)] z-40 max-w-[95vw] w-max transition-all duration-300"
-        >
-        <div className="bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/25 shadow-[0_20px_60px_rgba(22,25,62,0.22),0_8px_25px_rgba(79,70,229,0.15)] ring-4 ring-indigo-50/90 rounded-full px-3.5 sm:px-7 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-6 transition-all duration-300">
-          
-          {/* Left Part: Class & Subject Selectors */}
-          <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
-            {/* Sinf Selection with Upward Popover */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowClassDropdown(!showClassDropdown);
-                  setShowSubjectDropdown(false);
-                }}
-                className="flex items-center space-x-1.5 sm:space-x-2 hover:bg-zinc-50 px-2 sm:px-3 py-1.5 rounded-2xl transition cursor-pointer"
-                title="Sinf tanlash"
-              >
-                <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-650 shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <div className="hidden sm:flex flex-col text-left pr-4">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">SINF</span>
-                  <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
-                    {selectedClassId ? classes.find(c => c.id === selectedClassId)?.name : "Tanlang"}
-                    <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                    </svg>
-                  </span>
-                </div>
-              </button>
-
-              {/* Upward Class Popover Menu */}
-              {showClassDropdown && (
-                <div className="absolute bottom-full mb-3 left-0 w-56 sm:w-64 bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-2 z-50 animate-fadeIn space-y-1 max-h-60 overflow-y-auto">
-                  <div className="text-[9px] font-extrabold text-zinc-400 uppercase px-3 py-1 font-mono tracking-wider">Sinfni tanlang</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedClassId("");
-                      setSelectedSubjectId("");
-                      setSelectedGradeIds(new Set());
-                      setShowClassDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                      selectedClassId === "" ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
-                    }`}
-                  >
-                    <span>🌐 Umumiy (Mening dars jadvalim)</span>
-                  </button>
-                  {classes.map((cls: any) => {
-                    const isMyMainClass = Boolean(cls.is_main_teacher || cls.main_teacher_id === userInfo?.id);
-                    const isSelected = selectedClassId === cls.id;
-                    return (
-                      <button
-                        key={cls.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedClassId(cls.id);
-                          setSelectedSubjectId("");
-                          setSelectedGradeIds(new Set());
-                          setShowClassDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                          isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
-                        }`}
-                      >
-                        <span>{cls.name}</span>
-                        {isMyMainClass && <span className={`text-[10px] ${isSelected ? "text-indigo-200" : "text-indigo-600"} font-extrabold`}>⭐ Sinf Rahbari</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Divider & Fan Selection (Only shown when NOT on schedule tab) */}
-            {teacherTab !== "schedule" && (
-              <>
-                {/* Divider */}
-                <div className="h-6 sm:h-8 w-px bg-zinc-200"></div>
-
-                {/* Fan Selection Container with Upward Popover */}
-                {selectedClassId ? (
-                  (() => {
-                    const currentCls = classes.find(c => c.id === selectedClassId);
-                    const canSelectSubject = userInfo?.role === "ADMIN" || currentCls?.is_main_teacher || classTeachers.some(ct => ct.teacher_id === userInfo?.id && ct.is_main_teacher);
-
-                    return (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (canSelectSubject) {
-                              setShowSubjectDropdown(!showSubjectDropdown);
-                              setShowClassDropdown(false);
-                            }
-                          }}
-                          className={`flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 rounded-2xl transition ${canSelectSubject ? "hover:bg-zinc-50 cursor-pointer" : "bg-zinc-50/50"}`}
-                          title="Fan tanlash"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-650 shrink-0">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
-                          </div>
-                          <div className="hidden sm:flex flex-col text-left pr-4">
-                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">FAN</span>
-                            <span className="text-xs font-bold text-zinc-800 flex items-center gap-1 select-none whitespace-nowrap">
-                              {selectedSubjectId ? (
-                                teacherTab === "journal" && selectedLessonNumber
-                                  ? `${selectedLessonNumber}-soat: ${subjects.find(s => s.id === selectedSubjectId)?.name || ""}`
-                                  : (subjects.find(s => s.id === selectedSubjectId)?.name || currentCls?.subject_name || "Noma'lum")
-                              ) : "Tanlang"}
-                              {canSelectSubject && (
-                                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                                </svg>
-                              )}
-                            </span>
-                          </div>
-                        </button>
-
-                        {/* Upward Subject Popover Menu */}
-                        {showSubjectDropdown && canSelectSubject && (
-                          <div className="absolute bottom-full mb-3 left-0 w-64 sm:w-72 bg-white/95 backdrop-blur-2xl border-2 border-indigo-500/20 shadow-2xl rounded-2xl p-2 z-50 animate-fadeIn space-y-1 max-h-60 overflow-y-auto">
-                            <div className="text-[9px] font-extrabold text-zinc-400 uppercase px-3 py-1 font-mono tracking-wider">
-                              {teacherTab === "journal" ? "Darsni tanlang" : "Fanni tanlang"}
-                            </div>
-                            {teacherTab === "journal" ? (
-                              journalLessonsToday.length > 0 ? (
-                                journalLessonsToday.map((lesson) => {
-                                  const isSelected = selectedSubjectId === lesson.subject_id && selectedLessonNumber === lesson.lesson_number;
-                                  return (
-                                    <button
-                                      key={`sched_${lesson.subject_id}_${lesson.lesson_number}`}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedSubjectId(lesson.subject_id);
-                                        setSelectedLessonNumber(lesson.lesson_number);
-                                        setShowSubjectDropdown(false);
-                                      }}
-                                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                                        isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
-                                      }`}
-                                    >
-                                      <span>{lesson.lesson_number}-soat: {lesson.subject_name}</span>
-                                    </button>
-                                  );
-                                })
-                              ) : (
-                                <div className="px-3 py-2 text-xs text-zinc-400 font-medium">Ushbu sanada darslar yo'q</div>
-                              )
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedSubjectId("");
-                                    setShowSubjectDropdown(false);
-                                  }}
-                                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                                    selectedSubjectId === "" ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
-                                  }`}
-                                >
-                                  <span>Barcha fanlar</span>
-                                </button>
-                                {subjects.map((sub) => {
-                                  const isSelected = selectedSubjectId === sub.id;
-                                  return (
-                                    <button
-                                      key={`sub_pop_${sub.id}`}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedSubjectId(sub.id);
-                                        setShowSubjectDropdown(false);
-                                      }}
-                                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                                        isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-zinc-800"
-                                      }`}
-                                    >
-                                      <span>{sub.name}</span>
-                                    </button>
-                                  );
-                                })}
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <div className="flex items-center space-x-2 opacity-50">
-                    <div className="w-8 h-8 rounded-full bg-zinc-105 border border-zinc-200 flex items-center justify-center text-zinc-400 shrink-0">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                    </div>
-                    <div className="hidden sm:flex flex-col text-left">
-                      <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider">FAN</span>
-                      <span className="text-xs font-bold text-zinc-400 whitespace-nowrap">Sinfni tanlang</span>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Middle Part: Date Navigation */}
-          {selectedClassId && teacherTab === "journal" && (
-            <div className="flex items-center space-x-2 shrink-0">
-              {/* Datepicker */}
-              <div 
-                onClick={() => {
-                  setTeacherCalendarTarget("journal");
-                  setIsTeacherCalendarOpen(true);
-                }}
-                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition cursor-pointer"
-                title="Sana tanlash (Smart Calendar)"
-              >
-                <svg className="w-4 h-4 text-[#5B50EC]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="hidden sm:inline text-xs font-bold font-mono text-zinc-700 select-none">
-                  {(() => {
-                    const parts = journalDate.split("-");
-                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    return journalDate;
-                  })()}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Schedule Date picker */}
-          {selectedClassId && teacherTab === "schedule" && (
-            <div className="flex items-center space-x-2 shrink-0">
-              <div 
-                onClick={() => {
-                  setTeacherCalendarTarget("schedule");
-                  setIsTeacherCalendarOpen(true);
-                }}
-                className="flex items-center gap-1.5 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200/80 rounded-full px-2.5 sm:px-3.5 py-1.5 transition cursor-pointer font-bold"
-                title="Jadval sanasini tanlash (Smart Calendar)"
-              >
-                <svg className="w-4 h-4 text-[#5B50EC]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="hidden sm:inline text-xs font-bold font-mono text-zinc-700 select-none">
-                  {(() => {
-                    const parts = scheduleViewDate.split("-");
-                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    return scheduleViewDate;
-                  })()}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Right Part: Save Action Button */}
-          <div className="flex items-center space-x-2 shrink-0">
-            {selectedClassId && (teacherTab === "journal" || teacherTab === "unapproved") ? (
-              <>
-                {teacherTab === "journal" && (
-                  selectedGradeIds.size > 0 ? (
-                    <button
-                      type="button"
-                      onClick={handleBulkApprove}
-                      disabled={approveLoading}
-                      title={`Saqlash (${selectedGradeIds.size} ta)`}
-                      className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
-                    >
-                      {approveLoading ? (
-                        <span className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <svg className="w-4 h-4 text-white sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                      <span className="hidden sm:inline">Saqlash ({selectedGradeIds.size} ta)</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleApproveAllToday}
-                      disabled={approveLoading}
-                      title="Saqlash"
-                      className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
-                    >
-                      {approveLoading ? (
-                        <span className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <svg className="w-4 h-4 sm:mr-1.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V8l-4-4H8z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 20v-8" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 4h6v4H9z" />
-                        </svg>
-                      )}
-                      <span className="hidden sm:inline">Saqlash</span>
-                    </button>
-                  )
-                )}
-
-                {teacherTab === "unapproved" && selectedGradeIds.size > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleBulkApprove}
-                    disabled={approveLoading}
-                    title={`Tasdiqlash (${selectedGradeIds.size} ta)`}
-                    className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-[0_4px_14px_rgba(91,80,236,0.3)] cursor-pointer disabled:opacity-50"
-                  >
-                    {approveLoading ? (
-                      <span className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></span>
-                    ) : (
-                      <svg className="w-4 h-4 text-white sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                    <span className="hidden sm:inline">Tasdiqlash ({selectedGradeIds.size} ta)</span>
-                  </button>
-                )}
-              </>
-            ) : null}
-
-            {selectedClassId && teacherTab === "schedule" && isMainTeacherOfClass() && (
-                <button
-                type="button"
-                onClick={() => {
-                  const initialFormState: { [key: string]: number } = {};
-                  for (let d = 1; d <= 6; d++) {
-                    for (let l = 1; l <= 8; l++) {
-                      initialFormState[`${d}-${l}`] = 0;
-                    }
-                  }
-                  classSchedule.forEach((item) => {
-                    if (item.subject_id > 0) {
-                      initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
-                    }
-                  });
-                  setScheduleFormState(initialFormState);
-                  setActionError("");
-
-                  if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
-                    setScheduleStartDate(classSchedule[0].start_date);
-                    setScheduleEndDate(classSchedule[0].end_date);
-                  } else {
-                    const todayStr = new Date().toISOString().split("T")[0];
-                    setScheduleStartDate(todayStr);
-                    const nextYear = new Date();
-                    nextYear.setFullYear(nextYear.getFullYear() + 1);
-                    setScheduleEndDate(nextYear.toISOString().split("T")[0]);
-                  }
-
-                  setShowEditScheduleModal(true);
-                }}
-                title="Jadvalni tahrirlash"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#5B50EC] hover:bg-[#4A3FDB] text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transition cursor-pointer shrink-0 hover:scale-105"
-              >
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-      )}
-
       {renderEditWeeklyScheduleModal()}
       {renderAddExceptionModal()}
       {renderPeriodsModal()}
@@ -4647,21 +4187,6 @@ function TeacherDashboardContent() {
         onSubmitComment={handleAddGradeComment}
       />
 
-      <TodayLessonsModal
-        isOpen={showTodayLessonsModal}
-        onClose={() => setShowTodayLessonsModal(false)}
-        todayLessons={
-          (holidays || []).some((h: any) => (h.holiday_date ? h.holiday_date.split("T")[0] : "") === scheduleViewDate)
-            ? []
-            : todayLessons
-        }
-        clubs={clubs}
-        currentDayNumber={currentDayNumber}
-        currentMonthName={currentMonthName}
-        currentYear={currentYear}
-        onSelectLesson={handleSelectLessonAndGoToJournal}
-      />
-
       {/* BATCH STUDENT TRANSFER MODAL */}
       <TransferStudentsModal
         isOpen={showTransferModal}
@@ -4682,11 +4207,14 @@ function TeacherDashboardContent() {
         isOpen={isTeacherCalendarOpen}
         onClose={() => setIsTeacherCalendarOpen(false)}
         mode="single"
+        theme="teacher"
         selectedDate={
           teacherCalendarTarget === "journal"
             ? journalDate
             : teacherCalendarTarget === "exception"
             ? excDate
+            : teacherCalendarTarget === "dashboard"
+            ? selectedDashboardDate
             : scheduleViewDate
         }
         onSelectDate={(dateStr) => {
@@ -4695,6 +4223,8 @@ function TeacherDashboardContent() {
             fetchJournalData(dateStr);
           } else if (teacherCalendarTarget === "exception") {
             setExcDate(dateStr);
+          } else if (teacherCalendarTarget === "dashboard") {
+            setSelectedDashboardDate(dateStr);
           } else {
             setScheduleViewDate(dateStr);
             fetchClassSchedule(dateStr);
@@ -4705,6 +4235,8 @@ function TeacherDashboardContent() {
             ? "Jurnal sanasini tanlash"
             : teacherCalendarTarget === "exception"
             ? "O'zgarish sanasini tanlash"
+            : teacherCalendarTarget === "dashboard"
+            ? "Sanani tanlash"
             : "Jadval sanasini tanlash"
         }
       />
