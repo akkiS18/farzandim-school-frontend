@@ -186,6 +186,13 @@ export default function TenantDashboard() {
     if (activeMenu === "telegram" && token && schoolId) {
       fetchTelegramConfig(token, schoolId);
     }
+    if ((activeMenu === "balance" || activeMenu === "announcements") && token && studentsBalanceList.length === 0) {
+      fetchStudentsBalanceData(token);
+    }
+    if (activeMenu === "balance" && token) {
+      if (chargePlans.length === 0) fetchChargePlansData(token);
+      if (globalTransactionsList.length === 0) fetchGlobalTransactionsData(token);
+    }
   }, [activeMenu, token, schoolId]);
 
   const loadInitialData = async (authToken: string) => {
@@ -196,9 +203,6 @@ export default function TenantDashboard() {
         fetchTeachersData(authToken),
         fetchSubjectsData(authToken),
         fetchGradingSystemsData(authToken),
-        fetchStudentsBalanceData(authToken),
-        fetchChargePlansData(authToken),
-        fetchGlobalTransactionsData(authToken),
       ]);
     } catch (err) {
       console.error("Initial load failed", err);

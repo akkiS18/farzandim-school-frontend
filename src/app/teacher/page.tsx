@@ -679,9 +679,7 @@ function TeacherDashboardContent() {
     }
   };
 
-  // Dashboard Analytics States
-  const [dashboardStudents, setDashboardStudents] = useState<any[]>([]);
-  const [dashboardGrades, setDashboardGrades] = useState<any[]>([]);
+
 
   // Selection states
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
@@ -1185,21 +1183,7 @@ function TeacherDashboardContent() {
       const gsListData = await api.get("/api/schools/grading-systems").catch(() => []);
       setGradingSystemsList(Array.isArray(gsListData) ? gsListData : []);
 
-      // Load all students for dashboard analytics
-      try {
-        const studData = await api.get("/api/schools/users?role=STUDENT");
-        if (Array.isArray(studData)) setDashboardStudents(studData);
-      } catch (e) {
-        console.error("Dashboard students load failed", e);
-      }
 
-      // Load grades for dashboard analytics
-      try {
-        const gradesData = await api.get("/api/schools/grades");
-        if (Array.isArray(gradesData)) setDashboardGrades(gradesData);
-      } catch (e) {
-        console.error("Dashboard grades load failed", e);
-      }
 
       // Load holidays
       await fetchHolidays();
@@ -3097,72 +3081,7 @@ function TeacherDashboardContent() {
     fetchJournalData(targetDate);
   };
 
-  // Helper to convert grade value into a numeric percentage score (0 to 100)
-  const parseGradeValueToScore = (val: string): number | null => {
-    if (!val) return null;
-    const trimmed = val.trim();
-    if (trimmed === "5" || trimmed.toLowerCase() === "a'lo" || trimmed === "+") return 100;
-    if (trimmed === "4" || trimmed.toLowerCase() === "yaxshi" || trimmed === "k") return 80;
-    if (trimmed === "3" || trimmed.toLowerCase() === "qoniqarli") return 60;
-    if (trimmed === "2" || trimmed.toLowerCase() === "yomon" || trimmed === "-") return 40;
-    const num = parseFloat(trimmed);
-    if (!isNaN(num)) {
-      if (num <= 5) return Math.round((num / 5) * 100);
-      return Math.min(100, Math.max(0, Math.round(num)));
-    }
-    return null;
-  };
 
-  const getTopStudentsList = () => {
-    if (dashboardStudents.length === 0) return [];
-
-    const studentScores = dashboardStudents.map((s) => {
-      const sId = s.student_id || s.id;
-      const studentGrades = dashboardGrades.filter((g) => g.student_id === sId || g.student_id === s.id);
-      let validScores: number[] = [];
-      studentGrades.forEach((g) => {
-        const score = parseGradeValueToScore(g.value);
-        if (score !== null) validScores.push(score);
-      });
-
-      let avgScore = 0;
-      if (validScores.length > 0) {
-        avgScore = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
-      } else {
-        avgScore = 85;
-      }
-
-      return {
-        id: sId,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        score: avgScore,
-      };
-    });
-
-    studentScores.sort((a, b) => b.score - a.score);
-    return studentScores.slice(0, 4);
-  };
-
-  const topStudentsList = getTopStudentsList();
-
-  const getComputedCompletionRate = (): number => {
-    if (dashboardGrades.length === 0) {
-      if (classes.length > 0) return Math.min(98, Math.max(70, 84 + (classes.length * 2)));
-      return 0;
-    }
-    let validScores: number[] = [];
-    dashboardGrades.forEach((g) => {
-      const score = parseGradeValueToScore(g.value);
-      if (score !== null) validScores.push(score);
-    });
-
-    if (validScores.length === 0) return 85;
-    const avg = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
-    return Math.min(100, Math.max(0, avg));
-  };
-
-  const computedCompletionRate = getComputedCompletionRate();
 
   if (loading) {
     return (

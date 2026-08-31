@@ -33,6 +33,22 @@ interface AdminStudentReportItem {
   class_name: string;
 }
 
+interface AIGenerationJob {
+  id: string;
+  target_date: string;
+  class_id?: number | null;
+  status: "STARTED" | "IN_PROGRESS" | "FINISHED" | "FAILED" | "CANCELLED";
+  total_students: number;
+  processed_students: number;
+  generated_count: number;
+  error_count: number;
+  current_student_name?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at?: string | null;
+}
+
 interface AIReportsSectionProps {
   token: string;
   API_URL: string;
@@ -98,6 +114,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+
+  // Active background job states
+  const [activeJob, setActiveJob] = useState<AIGenerationJob | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const storyScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -375,10 +395,103 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     fetchStudents();
   }, [isGenerateModalOpen, genClassId, token, API_URL]);
 
+  // Check and Poll Background AI Generation Jobs
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  const startPolling = (jobId: string) => {
+    stopPolling();
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/jobs/${jobId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-School-ID": localStorage.getItem("school_id") || "",
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.job) {
+            setActiveJob(data.job);
+            if (data.job.status === "FINISHED") {
+              stopPolling();
+              setToastMessage(`Generatsiya muvaffaqiyatli yakunlandi! Jami: ${data.job.generated_count} ta hisobot yaratildi.`);
+              setTimeout(() => setToastMessage(null), 6000);
+              fetchGroupedWeeks();
+              if (selectedWeek) fetchReportsByWeek();
+            } else if (data.job.status === "FAILED") {
+              stopPolling();
+              setToastMessage(`Xatolik yuz berdi: ${data.job.error_message || "Generatsiya to'xtatildi"}`);
+              setTimeout(() => setToastMessage(null), 6000);
+            } else if (data.job.status === "CANCELLED") {
+              stopPolling();
+              setToastMessage("Generatsiya jarayoni bekor qilindi");
+              setTimeout(() => setToastMessage(null), 4000);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 1500);
+  };
+
+  const fetchActiveJob = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/active-job`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.has_active_job && data.job) {
+          setActiveJob(data.job);
+          if (data.job.status === "STARTED" || data.job.status === "IN_PROGRESS") {
+            startPolling(data.job.id);
+          }
+        } else {
+          setActiveJob(null);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to check active AI job:", err);
+    }
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/jobs/${jobId}/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+      });
+      if (res.ok) {
+        setToastMessage("Jarayon to'xtatildi");
+        setTimeout(() => setToastMessage(null), 4000);
+        fetchActiveJob();
+      }
+    } catch (err) {
+      console.error("Failed to cancel job:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveJob();
+    return () => stopPolling();
+  }, [token, API_URL]);
+
   // Handle Admin Batch Generate
   const handleBatchGenerate = async () => {
     setGenerating(true);
-    setGenStatusMessage("Gemini AI hisobotlari generatsiya qilinmoqda...");
+    setGenStatusMessage("Generatsiya jarayoni boshlanmoqda...");
     try {
       const classIdParam = genClassId && genClassId !== "ALL" ? Number(genClassId) : null;
       const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/generate`, {
@@ -403,28 +516,24 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         throw new Error(`Server xatoligi (${res.status}): ${text || "Bo'sh javob olinmadi"}`);
       }
 
-      if (res.ok) {
-        const msg = data.message || "Generatsiya muvaffaqiyatli yakunlandi!";
-        setGenStatusMessage(msg);
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(null), 5000);
-        setTimeout(() => {
-          resetGenerateModal();
-          fetchGroupedWeeks();
-          if (selectedWeek) fetchReportsByWeek();
-        }, 1000);
+      if (res.ok && data.job_id) {
+        setToastMessage("AI hisobot yaratish fonda boshlandi!");
+        setTimeout(() => setToastMessage(null), 4000);
+        startPolling(data.job_id);
+        fetchActiveJob();
+        resetGenerateModal();
       } else {
         const errMsg = `Xatolik: ${data.error || "Generatsiya qilishda muammo yuz berdi"}`;
         setGenStatusMessage(errMsg);
         setToastMessage(errMsg);
         setTimeout(() => setToastMessage(null), 5000);
-        setGenerating(false);
       }
     } catch (err: any) {
       const errMsg = `Xatolik: ${err.message || "Ulanishda xato"}`;
       setGenStatusMessage(errMsg);
       setToastMessage(errMsg);
       setTimeout(() => setToastMessage(null), 5000);
+    } finally {
       setGenerating(false);
     }
   };
@@ -619,6 +728,95 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           </button>
         </div>
       </div>
+
+      {/* Active Background Generation Job Floating Progress Banner */}
+      {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS" || activeJob.status === "FINISHED") && (
+        <div className="bg-gradient-to-r from-[#1D1E26] via-[#242A38] to-[#1D1E26] text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-indigo-500/30 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+                activeJob.status === "FINISHED"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                  : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 animate-pulse"
+              }`}>
+                {activeJob.status === "FINISHED" ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <Bot className="w-5 h-5 animate-spin" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-white">
+                    {activeJob.status === "STARTED" && "AI Generatsiya Boshlandi..."}
+                    {activeJob.status === "IN_PROGRESS" && "Fonda AI Hisobotlar Yaratilmoqda..."}
+                    {activeJob.status === "FINISHED" && "AI Hisobotlar Generatsiyasi Yakunlandi!"}
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    activeJob.status === "STARTED"
+                      ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
+                      : activeJob.status === "IN_PROGRESS"
+                      ? "bg-indigo-400/20 text-indigo-300 border border-indigo-400/30 animate-pulse"
+                      : "bg-emerald-400/20 text-emerald-300 border border-emerald-400/30"
+                  }`}>
+                    {activeJob.status === "STARTED" && "Boshlandi"}
+                    {activeJob.status === "IN_PROGRESS" && "Jarayonda"}
+                    {activeJob.status === "FINISHED" && "Tugatildi"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 font-medium mt-0.5">
+                  {activeJob.status === "FINISHED"
+                    ? `Jami ${activeJob.generated_count} ta o'quvchi uchun haftalik hisobot tayyorlandi${activeJob.error_count > 0 ? ` (${activeJob.error_count} ta xatolik)` : ""}.`
+                    : activeJob.current_student_name
+                    ? `Hozir tahlil qilinmoqda: ${activeJob.current_student_name}`
+                    : "O'quvchilar ro'yxati tayyorlanmoqda..."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              {activeJob.status === "IN_PROGRESS" && (
+                <button
+                  type="button"
+                  onClick={() => handleCancelJob(activeJob.id)}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition cursor-pointer"
+                >
+                  Jarayonni to'xtatish
+                </button>
+              )}
+              {activeJob.status === "FINISHED" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveJob(null)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition cursor-pointer"
+                >
+                  Yopish
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-300">
+              <span>Jarayon: {activeJob.processed_students} / {activeJob.total_students} ta o'quvchi</span>
+              <span className="text-[#D4F562]">
+                {activeJob.total_students > 0
+                  ? Math.min(100, Math.round((activeJob.processed_students / activeJob.total_students) * 100))
+                  : 0}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-800/90 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700/80">
+              <div
+                className="bg-gradient-to-r from-[#D4F562] to-emerald-400 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+                style={{
+                  width: `${
+                    activeJob.total_students > 0
+                      ? Math.min(100, Math.round((activeJob.processed_students / activeJob.total_students) * 100))
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main View: Grouped Weeks Folders */}
       {viewMode === "grouped" && (
@@ -1031,7 +1229,70 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 </div>
               </div>
 
-              {genStatusMessage && (
+              {/* Live Progress Section Inside Modal */}
+              {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS") && (
+                <div className="p-4 rounded-2xl bg-indigo-950 text-white border border-indigo-500/40 space-y-3 shadow-lg animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-black text-indigo-200">
+                      <Sparkles className="w-4 h-4 text-[#D4F562] animate-spin" />
+                      <span>
+                        {activeJob.status === "STARTED" ? "Jarayon Boshlandi..." : "Fonda Generatsiya Jarayoni..."}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] font-black uppercase">
+                      {activeJob.status === "STARTED" ? "Boshlandi" : "Jarayonda"}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-mono font-bold text-indigo-200">
+                      <span>Bajarildi: {activeJob.processed_students} / {activeJob.total_students} ta</span>
+                      <span className="text-[#D4F562] font-black">
+                        {activeJob.total_students > 0
+                          ? Math.min(100, Math.round((activeJob.processed_students / activeJob.total_students) * 100))
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-indigo-900 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-[#D4F562] to-emerald-400 h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${
+                            activeJob.total_students > 0
+                              ? Math.min(100, Math.round((activeJob.processed_students / activeJob.total_students) * 100))
+                              : 0
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {activeJob.current_student_name && (
+                    <p className="text-[11px] text-indigo-300 italic truncate">
+                      Hozir tahlil qilinmoqda: <span className="text-white font-bold">{activeJob.current_student_name}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {activeJob && activeJob.status === "FINISHED" && (
+                <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-950 border border-emerald-200 flex items-center justify-between animate-fadeIn">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <div>
+                      <h5 className="text-xs font-extrabold text-emerald-900">Generatsiya Muvaffaqiyatli Yakunlandi!</h5>
+                      <p className="text-[11px] text-emerald-700">
+                        {activeJob.generated_count} ta o'quvchi uchun hisobot yaratildi.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                    Tugatildi
+                  </span>
+                </div>
+              )}
+
+              {genStatusMessage && !activeJob && (
                 <div className="p-3.5 rounded-2xl bg-indigo-50 text-indigo-900 text-xs font-bold border border-indigo-200 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span>{genStatusMessage}</span>
@@ -1040,23 +1301,37 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
             </div>
 
             {/* Modal Actions Footer */}
-            <div className="px-6 py-4 bg-zinc-50/80 border-t border-zinc-100 flex items-center justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={resetGenerateModal}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-200/80 transition cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="button"
-                disabled={generating}
-                onClick={handleBatchGenerate}
-                className="px-5 py-2.5 rounded-xl bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
-              >
-                <Sparkles className="w-4 h-4 text-[#1D1E26]" />
-                <span>{generating ? "Generatsiya qilinmoqda..." : "Generatsiya qilish"}</span>
-              </button>
+            <div className="px-6 py-4 bg-zinc-50/80 border-t border-zinc-100 flex items-center justify-between gap-3 shrink-0">
+              <div className="text-[11px] text-zinc-500 font-medium">
+                {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS") && (
+                  <span className="text-indigo-600 font-bold">Oynani yopishingiz mumkin, jarayon fonda davom etadi.</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={resetGenerateModal}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-200/80 transition cursor-pointer"
+                >
+                  {activeJob && activeJob.status === "FINISHED" ? "Yopish" : "Bekor qilish"}
+                </button>
+                <button
+                  type="button"
+                  disabled={generating || (activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS"))}
+                  onClick={handleBatchGenerate}
+                  className="px-5 py-2.5 rounded-xl bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-[#1D1E26]" />
+                  <span>
+                    {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS")
+                      ? "Fonda bajarilmoqda..."
+                      : generating
+                      ? "Boshlanmoqda..."
+                      : "Generatsiya qilish"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
