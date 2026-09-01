@@ -209,6 +209,7 @@ function TeacherDashboardContent() {
   };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Default expanded (shows labels/tabs)
+  const [tabResetKeys, setTabResetKeys] = useState<Record<string, number>>({});
 
   // Profile & Settings states
   const [profileFirstName, setProfileFirstName] = useState("");
@@ -721,6 +722,8 @@ function TeacherDashboardContent() {
   const [gradeInputs, setGradeInputs] = useState<{ [studentId: number]: string }>({});
   const [selectedGradeIds, setSelectedGradeIds] = useState<Set<number>>(new Set());
   const [approveLoading, setApproveLoading] = useState(false);
+  const [qaClassOpen, setQaClassOpen] = useState(false);
+  const [qaSubjectOpen, setQaSubjectOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
 
   // Smart Calendar State
@@ -1256,12 +1259,12 @@ function TeacherDashboardContent() {
     }
   }, [selectedClassId, token, teacherTab]);
 
-  // Unapproved grades tab data load: reload when class, tab, or classTeachers lists change
+  // Unapproved grades tab data load: reload when tab changes
   useEffect(() => {
-    if (selectedClassId && token && teacherTab === 'unapproved') {
+    if (token && teacherTab === 'unapproved') {
       fetchUnapprovedGrades();
     }
-  }, [selectedClassId, token, teacherTab, classTeachers, userInfo]);
+  }, [token, teacherTab, userInfo]);
 
   // Clear selections when tab switches
   useEffect(() => {
@@ -1357,18 +1360,19 @@ function TeacherDashboardContent() {
               api.get(`/api/schools/classes/${cls.id}/teachers`).catch(() => []),
             ]);
 
+            const teacherIdStr = String(userInfo?.id);
             const myTeacherSubjects = new Set(
               Array.isArray(tchData)
-                ? tchData.filter((t: any) => t.teacher_id === userInfo?.id).map((t: any) => t.subject_id)
+                ? tchData.filter((t: any) => String(t.teacher_id) === teacherIdStr).map((t: any) => String(t.subject_id))
                 : []
             );
 
-            const isMyClass = cls.main_teacher_id === userInfo?.id || cls.is_main_teacher || userInfo?.role === "ADMIN";
+            const isMyClass = String(cls.main_teacher_id) === teacherIdStr || cls.is_main_teacher || userInfo?.role === "ADMIN";
 
             if (Array.isArray(schData)) {
               schData.forEach((item: any) => {
                 if (!item.subject_id || item.subject_id === 0) return;
-                const isMySubject = myTeacherSubjects.has(item.subject_id) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && cls.subject_id === item.subject_id) || (item.teacher_id && item.teacher_id === userInfo?.id);
+                const isMySubject = myTeacherSubjects.has(String(item.subject_id)) || (isMyClass && myTeacherSubjects.size === 0) || userInfo?.role === "ADMIN" || (cls.subject_id && String(cls.subject_id) === String(item.subject_id)) || (item.teacher_id && String(item.teacher_id) === teacherIdStr);
 
                 if (isMySubject) {
                   const slotKey = `${item.day_of_week}-${item.lesson_number}`;
@@ -1406,7 +1410,7 @@ function TeacherDashboardContent() {
         fetchOverallTeacherSchedule(scheduleViewDate);
       }
     }
-  }, [teacherTab, scheduleViewDate, selectedDashboardDate, token, classes, subjects]);
+  }, [teacherTab, scheduleViewDate, selectedDashboardDate, token, classes, subjects, selectedClassId]);
 
   const fetchScheduleExceptions = async () => {
     if (!selectedClassId) return;
@@ -1878,37 +1882,34 @@ function TeacherDashboardContent() {
     }
   };
 
-  // Fetch unapproved (marked) grades for the selected class
+  // Fetch unapproved (marked) grades globally (for all classes the teacher has access to)
   const fetchUnapprovedGrades = async () => {
-    if (!selectedClassId) return;
     setUnapprovedLoading(true);
     try {
-      // Determine academic study start date from schedule periods (default: 2026-09-01)
-      const academicStartDate = schedulePeriods.length > 0
-        ? schedulePeriods.reduce((min: string, p: any) => (p.start_date < min ? p.start_date : min), schedulePeriods[0].start_date)
-        : "2026-09-01";
-
-      const data = await api.get(`/api/schools/grades?class_id=${selectedClassId}&status=marked&start_date=${academicStartDate}`);
+      // 1. Fetch all marked grades
+      const data = await api.get(`/api/schools/grades?status=marked`);
       const rawList = Array.isArray(data) ? data : [];
 
-      // Filter out invalid/summer dates before study start date and invalid lesson numbers
-      const gradesList = rawList.filter((g: any) => {
-        if (!g.lesson_number || g.lesson_number <= 0) return false;
-        if (g.grade_date) {
-          const gDateStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
-          if (gDateStr && gDateStr < academicStartDate) return false;
-        }
-        return true;
+      // 2. Filter out invalid lesson numbers
+      const validGrades = rawList.filter((g: any) => g.lesson_number && g.lesson_number > 0);
+
+      // 3. Admin sees all valid marked grades
+      if (userInfo && userInfo.role === "ADMIN") {
+        setUnapprovedGrades(validGrades);
+        return;
+      }
+
+      // 4. Teacher sees grades they gave themselves OR grades in classes where they are MAIN_TEACHER
+      const metaData = await api.get("/api/schools/lesson-plans/meta").catch(() => ({ classes: [] }));
+      const myClasses = Array.isArray(metaData.classes) ? metaData.classes : [];
+      const mainTeacherClassIds = myClasses.filter((c: any) => c.is_main_teacher).map((c: any) => c.id);
+
+      const filteredGrades = validGrades.filter((g: any) => {
+        const isMyGrade = g.teacher_id === userInfo?.id;
+        const isMyMainClass = mainTeacherClassIds.includes(g.class_id);
+        return isMyGrade || isMyMainClass;
       });
 
-      // Filter by role/subject assignment:
-      // If SUBJECT_TEACHER (and not advisor/admin), only show their assigned subjects in this class
-      let filteredGrades = gradesList;
-      if (userInfo && userInfo.role !== "ADMIN" && !isMainTeacherOfClass()) {
-        filteredGrades = gradesList.filter((g: any) => 
-          classTeachers.some((ct: any) => ct.teacher_id === userInfo.id && ct.subject_id === g.subject_id)
-        );
-      }
       setUnapprovedGrades(filteredGrades);
     } catch (e) {
       console.error(e);
@@ -2426,13 +2427,13 @@ function TeacherDashboardContent() {
         }}
         className="fixed inset-0 z-50 flex justify-center items-start bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
       >
-        <div className="w-full max-w-5xl bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-zinc-900 animate-fadeIn space-y-5">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+        <div className="w-full max-w-5xl bg-white border border-neutral-200 rounded-none p-6 sm:p-8 shadow-2xl my-8 relative text-slate-900 animate-fadeIn space-y-5">
+          <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
             <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">
+              <h3 className="text-xl font-serif font-bold text-slate-900">
                 {editingScheduleOriginalStartDate ? "Haftalik dars jadvalini tahrirlash" : "Yangi Davr Dars Jadvalini Qo'shish"}
               </h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {editingScheduleOriginalStartDate 
                   ? "Mavjud davr dars jadvalini o'zgartirish. Har bir kun va dars soati uchun fanni tanlang." 
                   : "Yangi chorak yoki vaqt oralig'i uchun dars jadvali yaratish. Sana mavjud davrlar bilan ustma-ust tushmasligi kerak."}
@@ -2445,7 +2446,7 @@ function TeacherDashboardContent() {
                 setScheduleFormState({});
                 setActionError("");
               }}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
               title="Yopish"
             >
               <X className="w-4 h-4" />
@@ -2453,7 +2454,7 @@ function TeacherDashboardContent() {
           </div>
 
           {actionError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-2xl font-bold">{actionError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-none font-bold">{actionError}</div>
           )}
 
           <form onSubmit={handleSaveSchedule} className="space-y-6">
@@ -2468,30 +2469,30 @@ function TeacherDashboardContent() {
               theme="indigo"
             />
 
-            <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white shadow-xs">
-              <table className="min-w-full divide-y divide-zinc-200/70 text-center table-fixed">
-                <thead className="bg-[#fafafa] text-[10px] sm:text-xs font-extrabold text-[#16193E] uppercase tracking-wider">
+            <div className="overflow-x-auto rounded-none border border-neutral-200 bg-white">
+              <table className="min-w-full divide-y divide-neutral-200 text-center table-fixed">
+                <thead className="bg-slate-100 text-[10px] sm:text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                   <tr>
-                    <th className="px-2 py-3 w-16 bg-[#fafafa]">Soat</th>
-                    <th className="px-2 py-3">Dushanba</th>
-                    <th className="px-2 py-3">Seshanba</th>
-                    <th className="px-2 py-3">Chorshanba</th>
-                    <th className="px-2 py-3">Payshanba</th>
-                    <th className="px-2 py-3">Juma</th>
+                    <th className="px-2 py-3 w-16 bg-slate-100 border-r border-neutral-200">Soat</th>
+                    <th className="px-2 py-3 border-r border-neutral-200">Dushanba</th>
+                    <th className="px-2 py-3 border-r border-neutral-200">Seshanba</th>
+                    <th className="px-2 py-3 border-r border-neutral-200">Chorshanba</th>
+                    <th className="px-2 py-3 border-r border-neutral-200">Payshanba</th>
+                    <th className="px-2 py-3 border-r border-neutral-200">Juma</th>
                     <th className="px-2 py-3">Shanba</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
+                <tbody className="divide-y divide-neutral-200 text-xs text-slate-700">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
-                    <tr key={period} className="hover:bg-indigo-50/20 transition">
-                      <td className="px-2 py-2 font-mono font-bold text-zinc-400 bg-[#fafafa]">
+                    <tr key={period} className="hover:bg-slate-50 transition">
+                      <td className="px-2 py-2 font-mono font-bold text-slate-400 bg-slate-50 border-r border-neutral-200">
                         {period}-dars
                       </td>
                       {[1, 2, 3, 4, 5, 6].map((day) => {
                         const slotKey = `${day}-${period}`;
                         const selectedVal = scheduleFormState[slotKey] || 0;
                         return (
-                          <td key={day} className="px-1.5 py-2 border-l border-zinc-100">
+                          <td key={day} className="px-1.5 py-2 border-r border-neutral-200 last:border-r-0">
                             <select
                               value={selectedVal}
                               onChange={(e) => {
@@ -2500,7 +2501,7 @@ function TeacherDashboardContent() {
                                   [slotKey]: Number(e.target.value),
                                 }));
                               }}
-                              className="w-full bg-white border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 rounded-xl px-2 py-1.5 text-xs outline-none cursor-pointer font-bold transition"
+                              className="w-full bg-white border border-neutral-200 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] text-slate-800 rounded-none px-2 py-1.5 text-xs outline-none cursor-pointer font-bold transition"
                             >
                               <option value="0">Bo'sh</option>
                               {subjects.map((sub) => (
@@ -2516,7 +2517,7 @@ function TeacherDashboardContent() {
               </table>
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-100">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-200">
               <button
                 type="button"
                 onClick={() => {
@@ -2524,14 +2525,14 @@ function TeacherDashboardContent() {
                   setScheduleFormState({});
                   setActionError("");
                 }}
-                className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-none transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="text-xs bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold py-2.5 px-6 rounded-xl transition cursor-pointer shadow-md shadow-indigo-500/20 disabled:opacity-50"
+                className="text-xs bg-[#1E2B42] hover:bg-slate-700 text-white font-bold py-2.5 px-6 rounded-none transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
               </button>
@@ -2552,13 +2553,13 @@ function TeacherDashboardContent() {
             setActionError("");
           }
         }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto text-zinc-900"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto text-slate-900"
       >
-        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-fadeIn space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div className="w-full max-w-lg bg-white border border-neutral-200 rounded-none p-6 sm:p-8 shadow-2xl relative animate-fadeIn space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
             <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Kunlik Dars Jadvali O'zgarishi Kiritish</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">Tanlangan kun va dars soati uchun bir martalik o'zgarish yoki darsni bekor qilish.</p>
+              <h3 className="text-xl font-serif font-bold text-slate-900">Kunlik Dars Jadvali O'zgarishi</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Tanlangan kun va dars soati uchun bir martalik o'zgarish yoki darsni bekor qilish.</p>
             </div>
             <button
               type="button"
@@ -2566,7 +2567,7 @@ function TeacherDashboardContent() {
                 setShowAddExceptionModal(false);
                 setActionError("");
               }}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
               title="Yopish"
             >
               <X className="w-4 h-4" />
@@ -2574,12 +2575,12 @@ function TeacherDashboardContent() {
           </div>
 
           {actionError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-2xl font-bold">{actionError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-none font-bold">{actionError}</div>
           )}
 
           <form onSubmit={handleAddExceptionSubmit} className="space-y-4">
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Sinf *</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-mono">Sinf *</label>
               <select
                 required
                 value={selectedClassId || ""}
@@ -2587,7 +2588,7 @@ function TeacherDashboardContent() {
                   const clsId = e.target.value === "" ? "" : Number(e.target.value);
                   setSelectedClassId(clsId);
                 }}
-                className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2.5 text-xs outline-none transition cursor-pointer"
+                className="w-full bg-white border border-neutral-200 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] text-slate-800 font-bold rounded-none px-3.5 py-2.5 text-xs outline-none transition cursor-pointer"
               >
                 <option value="">Sinfni tanlang</option>
                 {classes.map((cls: any) => (
@@ -2597,14 +2598,14 @@ function TeacherDashboardContent() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Kun (Sana) *</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-mono">Kun (Sana) *</label>
               <button
                 type="button"
                 onClick={() => {
                   setTeacherCalendarTarget("exception");
                   setIsTeacherCalendarOpen(true);
                 }}
-                className="w-full bg-zinc-50 border border-zinc-200 hover:border-indigo-300 focus:ring-2 focus:ring-indigo-500 text-zinc-800 font-bold rounded-xl px-3.5 py-2.5 text-xs outline-none transition flex items-center justify-between cursor-pointer"
+                className="w-full bg-white border border-neutral-200 hover:bg-slate-50 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] text-slate-800 font-bold rounded-none px-3.5 py-2.5 text-xs outline-none transition flex items-center justify-between cursor-pointer"
               >
                 <span className="font-mono text-xs">
                   {excDate ? (() => {
@@ -2612,16 +2613,16 @@ function TeacherDashboardContent() {
                     return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : excDate;
                   })() : "Sana tanlang"}
                 </span>
-                <Calendar className="w-4 h-4 text-[#5B50EC]" />
+                <Calendar className="w-4 h-4 text-[#A51C30]" />
               </button>
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Dars soati</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-mono">Dars soati</label>
               <select
                 value={excLesson}
                 onChange={(e) => setExcLesson(Number(e.target.value))}
-                className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none transition cursor-pointer font-bold"
+                className="w-full bg-white border border-neutral-200 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none transition cursor-pointer font-bold"
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
                   <option key={period} value={period}>{period}-dars</option>
@@ -2630,39 +2631,39 @@ function TeacherDashboardContent() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">O'zgarish turi</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-mono">O'zgarish turi</label>
               <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2 text-xs font-bold text-zinc-700 cursor-pointer">
+                <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
                   <input
                     type="radio"
                     name="excType"
                     checked={excType === "replace"}
                     onChange={() => setExcType("replace")}
-                    className="text-indigo-600 focus:ring-0"
+                    className="text-[#1E2B42] focus:ring-[#1E2B42]"
                   />
                   <span>O'zgartirish / Qo'shimcha fan</span>
                 </label>
-                <label className="flex items-center space-x-2 text-xs font-bold text-zinc-700 cursor-pointer">
+                <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
                   <input
                     type="radio"
                     name="excType"
                     checked={excType === "cancel"}
                     onChange={() => setExcType("cancel")}
-                    className="text-indigo-600 focus:ring-0"
+                    className="text-[#1E2B42] focus:ring-[#1E2B42]"
                   />
-                  <span>Darsni bekor qilish (Cancel)</span>
+                  <span>Darsni bekor qilish</span>
                 </label>
               </div>
             </div>
 
             {excType === "replace" && (
               <div>
-                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">Fan</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-mono">Fan</label>
                 <select
                   required={excType === "replace"}
                   value={excSubjectId}
                   onChange={(e) => setExcSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="w-full bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-500 text-zinc-800 rounded-xl px-3.5 py-2.5 text-xs outline-none transition cursor-pointer font-bold"
+                  className="w-full bg-white border border-neutral-200 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none transition cursor-pointer font-bold"
                 >
                   <option value="">Fanni tanlang</option>
                   {subjects.map((sub) => (
@@ -2672,21 +2673,21 @@ function TeacherDashboardContent() {
               </div>
             )}
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-zinc-100">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-200">
               <button
                 type="button"
                 onClick={() => {
                   setShowAddExceptionModal(false);
                   setActionError("");
                 }}
-                className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-none transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="text-xs bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold py-2.5 px-6 rounded-xl transition cursor-pointer shadow-md shadow-indigo-500/20 disabled:opacity-50"
+                className="text-xs bg-[#A51C30] hover:bg-[#8B1828] text-white font-bold py-2.5 px-6 rounded-none transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "Kiritilmoqda..." : "Kiritish"}
               </button>
@@ -2706,18 +2707,18 @@ function TeacherDashboardContent() {
             setShowPeriodsModal(false);
           }
         }}
-        className="fixed inset-0 z-50 flex justify-center items-start bg-black/60 backdrop-blur-md p-4 overflow-y-auto text-zinc-900"
+        className="fixed inset-0 z-50 flex justify-center items-start bg-black/60 backdrop-blur-md p-4 overflow-y-auto text-slate-900"
       >
-        <div className="w-full max-w-lg bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative animate-fadeIn space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div className="w-full max-w-lg bg-white border border-neutral-200 rounded-none p-6 sm:p-8 shadow-2xl my-8 relative animate-fadeIn space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
             <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">Mavjud Dars Jadvallari</h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">Ushbu sinf uchun kiritilgan barcha haftalik dars jadvali davrlari.</p>
+              <h3 className="text-xl font-serif font-bold text-slate-900">Mavjud Dars Jadvallari</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Ushbu sinf uchun kiritilgan barcha haftalik dars jadvali davrlari.</p>
             </div>
             <button
               type="button"
               onClick={() => setShowPeriodsModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
               title="Yopish"
             >
               <X className="w-4 h-4" />
@@ -2726,19 +2727,19 @@ function TeacherDashboardContent() {
 
           {schedulePeriodsLoading ? (
             <div className="text-center py-8">
-              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           ) : schedulePeriods.length === 0 ? (
-            <p className="text-zinc-400 text-xs font-mono py-6 text-center">Ushbu sinf uchun hech qanday haftalik dars jadvali topilmadi.</p>
+            <p className="text-slate-400 text-xs font-mono py-6 text-center">Ushbu sinf uchun hech qanday haftalik dars jadvali topilmadi.</p>
           ) : (
             <div className="space-y-3">
               {schedulePeriods.map((period, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3.5 bg-zinc-50 border border-zinc-200/70 rounded-2xl hover:bg-indigo-50/20 transition">
+                <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-50 border border-neutral-200 hover:bg-slate-100 transition">
                   <div className="space-y-1">
-                    <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wide">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                       Jadval #{schedulePeriods.length - idx}
                     </span>
-                    <p className="text-xs text-zinc-800 font-bold mt-1">
+                    <p className="text-xs text-slate-900 font-bold mt-1">
                       <span className="font-mono">{period.start_date}</span> dan <span className="font-mono">{period.end_date}</span> gacha
                     </p>
                   </div>
@@ -2750,7 +2751,7 @@ function TeacherDashboardContent() {
                       setShowPeriodsModal(false);
                       showToast("success", `Dars jadvali ${period.start_date} davriga o'tkazildi!`);
                     }}
-                    className="text-xs bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold py-2 px-3.5 rounded-xl transition cursor-pointer shadow-xs"
+                    className="text-xs bg-[#1E2B42] hover:bg-slate-700 text-white font-bold py-2 px-3.5 rounded-none transition cursor-pointer"
                   >
                     Tanlash (Ko'rish)
                   </button>
@@ -2759,11 +2760,11 @@ function TeacherDashboardContent() {
             </div>
           )}
 
-          <div className="flex items-center justify-end pt-4 border-t border-zinc-100 mt-4">
+          <div className="flex items-center justify-end pt-4 border-t border-neutral-200 mt-4">
             <button
               type="button"
               onClick={() => setShowPeriodsModal(false)}
-              className="text-xs bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold py-2 px-4 rounded-xl transition cursor-pointer"
+              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-none transition cursor-pointer"
             >
               Yopish
             </button>
@@ -2782,134 +2783,124 @@ function TeacherDashboardContent() {
             setShowStudentModal(false);
           }
         }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
       >
-        <div className="bg-white border border-zinc-200/80 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-zinc-900 animate-fadeIn relative overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div className="bg-white border border-neutral-200 max-w-sm w-full shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="px-6 py-4 border-b border-neutral-200 bg-slate-50 flex items-center justify-between shrink-0">
             <div>
-              <h3 className="text-base font-extrabold text-[#16193E]">
+              <h3 className="text-lg font-bold font-serif text-[#1E2B42]">
                 {studentModalMode === "create" ? "Yangi o'quvchi qo'shish" : "O'quvchi ma'lumotlarini tahrirlash"}
               </h3>
-              <p className="text-xs text-zinc-500 font-medium mt-0.5">
+              <p className="text-xs text-slate-500 font-sans mt-0.5">
                 Barcha kerakli maydonlarni to'ldiring
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowStudentModal(false)}
-              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+              className="p-2 bg-white hover:bg-slate-100 border border-neutral-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
               title="Yopish"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <form onSubmit={handleStudentFormSubmit} className="space-y-3.5 overflow-y-auto">
+          <form onSubmit={handleStudentFormSubmit} className="p-6 space-y-4 overflow-y-auto bg-white">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Familiya *</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Familiya *</label>
               <input
                 type="text"
                 required
                 value={studentForm.last_name}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, last_name: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 placeholder="Familiyani kiriting"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Ism *</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Ism *</label>
               <input
                 type="text"
                 required
                 value={studentForm.first_name}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, first_name: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 placeholder="Ismni kiriting"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Otasining ismi (sharif)</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Otasining ismi (sharif)</label>
               <input
                 type="text"
                 value={studentForm.middle_name}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, middle_name: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 placeholder="Otasining ismini kiriting"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Telefon raqam (Ixtiyoriy)</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Telefon raqam (Ixtiyoriy)</label>
               <input
                 type="text"
                 value={studentForm.phone}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 placeholder="+998901234567"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Manzil</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Manzil</label>
               <input
                 type="text"
                 value={studentForm.address}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 placeholder="Masalan: Toshkent sh., Chilonzor"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Tug'ilgan sana</label>
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Tug'ilgan sana</label>
                 <input
                   type="date"
                   value={studentForm.birthdate}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, birthdate: e.target.value }))}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Maktabga kirish sanasi</label>
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Maktabga kirish sanasi</label>
                 <input
                   type="date"
                   value={studentForm.enrollment_date}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, enrollment_date: e.target.value }))}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Guvohnoma (INA)</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Guvohnoma (INA)</label>
               <input
                 type="text"
+                autoComplete="off"
                 value={studentForm.ina}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, ina: e.target.value }))}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                 placeholder="I-TV No 123456"
               />
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
-                {studentModalMode === "create" ? "Parol *" : "Yangi Parol (Ixtiyoriy)"}
-              </label>
-              <PasswordInput
-                required={studentModalMode === "create"}
-                value={studentForm.password}
-                onChange={(e) => setStudentForm(prev => ({ ...prev, password: e.target.value }))}
-                placeholder={studentModalMode === "create" ? "Tizimga kirish paroli (Kamida 6 ta belgi)" : "O'zgartirmaslik uchun bo'sh qoldiring"}
-              />
-            </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-2">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100">
               <button
                 type="button"
                 onClick={() => setShowStudentModal(false)}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-4 py-2 border border-neutral-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold font-sans cursor-pointer transition"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+                className="px-5 py-2 bg-[#A51C30] hover:bg-[#8a1526] text-white text-xs font-bold font-sans cursor-pointer transition"
               >
                 Saqlash
               </button>
@@ -3103,15 +3094,59 @@ function TeacherDashboardContent() {
         userInfo={userInfo}
         unapprovedCount={unapprovedGrades.length}
         onTabClick={(tabId) => {
-          if (tabId === "feedback") fetchFeedbackFeed(token);
-          if (tabId === "announcements") fetchAllStudents(token);
-          if (tabId === "clubs") fetchClubs(token);
+          setTabResetKeys((prev) => ({
+            ...prev,
+            [tabId]: (prev[tabId] || 0) + 1,
+          }));
+
+          if (tabId === "students") {
+            setStudentsSearch("");
+            setStudentsPage(1);
+            setShowStudentModal(false);
+            setShowImportStudentsModal(false);
+            setShowTransferModal(false);
+            setSelectedStudentForParents(null);
+          } else if (tabId === "parents") {
+            setParentsSearch("");
+            setParentsPage(1);
+            setShowParentsModal(false);
+            setShowAddParentModal(false);
+            setShowImportParentsModal(false);
+            setSelectedStudentForParents(null);
+          } else if (tabId === "unapproved") {
+            setUnapprovedPage(1);
+            setSelectedGradeIds(new Set());
+          } else if (tabId === "feedback") {
+            setFeedbackSearch("");
+            setSelectedChatComment(null);
+            setChatModalOpen(false);
+            fetchFeedbackFeed(token);
+          } else if (tabId === "announcements") {
+            fetchAllStudents(token);
+          } else if (tabId === "clubs") {
+            setSelectedClubForStudents(null);
+            setSelectedClubForGrading(null);
+            setShowClubStudentsModal(false);
+            setShowClubGradingModal(false);
+            setShowAddClubModal(false);
+            setShowEditClubModal(false);
+            setShowAddScheduleModal(false);
+            fetchClubs(token);
+          } else if (tabId === "schedule") {
+            setShowEditScheduleModal(false);
+            setShowAddExceptionModal(false);
+            setShowPeriodsModal(false);
+          } else if (tabId === "journal") {
+            fetchJournalData(journalDate);
+          } else if (tabId === "dashboard") {
+            setSelectedDashboardDate(new Date().toISOString().split("T")[0]);
+          }
         }}
         onLogout={() => setShowLogoutModal(true)}
       />
 
-      {/* Main Workspace (Scrollable) */}
-      <div className="flex-1 h-screen flex flex-col min-w-0 overflow-y-auto">
+      {/* Main Workspace */}
+      <div className="flex-1 h-screen flex flex-col min-w-0 overflow-hidden">
         <TeacherHeader
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
@@ -3121,10 +3156,320 @@ function TeacherDashboardContent() {
           onDateChange={(newDate) => setSelectedDashboardDate(newDate)}
           unapprovedCount={unapprovedGrades.length}
           onOpenUnapproved={() => setTeacherTab("unapproved")}
+          showDatePicker={teacherTab === "dashboard"}
         />
 
-        {/* Content Container */}
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-32">
+        {/* ── JOURNAL QUICK ACCESS BAR (outside scroll → never scrolls horizontally) ── */}
+        {teacherTab === "journal" && (() => {
+          const qaCls = classes.find((c) => c.id === selectedClassId);
+          const qaSubj = selectedSubjectId ? subjects.find((s) => s.id === selectedSubjectId) : null;
+          const qaClsName = qaCls?.name || "";
+          const qaSubjName = qaSubj?.name || "Fan";
+          const qaShortDate = (() => {
+            try {
+              const d = new Date(journalDate + "T00:00:00");
+              const m = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+              return `${d.getDate()}-${m[d.getMonth()]}`;
+            } catch { return journalDate; }
+          })();
+          const qaLongDate = (() => {
+            try {
+              const d = new Date(journalDate + "T00:00:00");
+              const mNames = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
+              const days = ["Yak","Dush","Sesh","Chor","Pay","Jum","Shan"];
+              return `${d.getDate()}-${mNames[d.getMonth()]}, ${days[d.getDay()]}`;
+            } catch { return journalDate; }
+          })();
+          return (
+            <div className="bg-white border-b border-neutral-200 px-3 py-2.5 sm:px-4 sm:py-3 z-30 flex items-center justify-between gap-1.5 sm:gap-2.5 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+                {/* Class Dropdown */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setQaClassOpen(!qaClassOpen)}
+                    className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer h-10 sm:h-11"
+                  >
+                    <span className="hidden sm:inline text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Sinf:</span>
+                    <span className="font-bold text-slate-900">{qaClsName || "Sinf"}</span>
+                    <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  {qaClassOpen && (
+                    <div className="absolute top-full mt-1 left-0 w-56 bg-white border border-neutral-200 shadow-md rounded-none p-1 z-50 max-h-60 overflow-y-auto">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase px-2.5 py-1 tracking-wider">Sinfni tanlang</div>
+                      {classes.map((cls) => (
+                        <button key={cls.id} type="button"
+                          onClick={() => { setSelectedClassId(cls.id); setSelectedSubjectId(""); setSelectedGradeIds(new Set()); setQaClassOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer flex items-center justify-between ${selectedClassId === cls.id ? "bg-[#1E2B42] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                        >
+                          <span>{cls.name}</span>
+                          {cls.is_main_teacher && <span className="text-[9px] bg-amber-100 text-amber-900 px-1 font-bold">★</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Subject Dropdown */}
+                {selectedClassId && (
+                  <div className="relative shrink-0 min-w-0 max-w-[130px] sm:max-w-none">
+                    <button
+                      type="button"
+                      onClick={() => setQaSubjectOpen(!qaSubjectOpen)}
+                      className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer truncate h-10 sm:h-11"
+                    >
+                      <span className="hidden sm:inline text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Fan:</span>
+                      <span className="font-bold text-slate-900 truncate max-w-[80px] sm:max-w-none">
+                        {selectedSubjectId ? (selectedLessonNumber ? `${selectedLessonNumber}-soat: ${qaSubjName}` : qaSubjName) : "Fan"}
+                      </span>
+                      <svg className="w-4 h-4 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    {qaSubjectOpen && (
+                      <div className="absolute top-full mt-1 left-0 w-64 bg-white border border-neutral-200 shadow-md rounded-none p-1 z-50 max-h-60 overflow-y-auto">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase px-2.5 py-1 tracking-wider">Darsni tanlang</div>
+                        {journalLessonsToday.length > 0 ? journalLessonsToday.map((lesson) => {
+                          const isSel = selectedSubjectId === lesson.subject_id && selectedLessonNumber === lesson.lesson_number;
+                          return (
+                            <button key={`${lesson.subject_id}_${lesson.lesson_number}`} type="button"
+                              onClick={() => { setSelectedSubjectId(lesson.subject_id); setSelectedLessonNumber(lesson.lesson_number); setQaSubjectOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer ${isSel ? "bg-[#A51C30] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                            >
+                              {lesson.lesson_number}-soat: {lesson.subject_name}
+                            </button>
+                          );
+                        }) : subjects.map((sub) => {
+                          const isSel = selectedSubjectId === sub.id;
+                          return (
+                            <button key={sub.id} type="button"
+                              onClick={() => { setSelectedSubjectId(sub.id); setSelectedLessonNumber(""); setQaSubjectOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer ${isSel ? "bg-[#A51C30] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                            >
+                              {sub.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Date Button */}
+                <button type="button"
+                  onClick={() => { setTeacherCalendarTarget("journal"); setIsTeacherCalendarOpen(true); }}
+                  className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer shrink-0 h-10 sm:h-11"
+                >
+                  <svg className="w-4 h-4 text-[#A51C30]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span className="sm:hidden">{qaShortDate}</span>
+                  <span className="hidden sm:inline">{qaLongDate}</span>
+                </button>
+              </div>
+
+              {/* Save Button */}
+              {selectedClassId && selectedSubjectId && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="hidden md:flex items-center gap-1">
+                    <select value={selectedGradeCategory} onChange={(e) => setSelectedGradeCategory(e.target.value)}
+                      className="bg-slate-50 border border-neutral-200 px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer h-10"
+                    >
+                      <option value="DAILY">Kundalik</option>
+                      <option value="QUARTERLY_EXAM">Choraklik</option>
+                      <option value="SEMESTER_EXAM">Imtihon</option>
+                    </select>
+                  </div>
+                  <button type="button"
+                    onClick={selectedGradeIds.size > 0 ? handleBulkApprove : handleApproveAllToday}
+                    disabled={approveLoading}
+                    className="px-3.5 py-2 sm:px-4 bg-[#A51C30] hover:bg-[#8B1828] text-white text-xs sm:text-sm font-bold uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 h-10 sm:h-11"
+                  >
+                    {approveLoading
+                      ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                      : <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    }
+                    <span className="hidden sm:inline">{selectedGradeIds.size > 0 ? `Saqlash (${selectedGradeIds.size})` : "Saqlash"}</span>
+                    {selectedGradeIds.size > 0 && <span className="sm:hidden text-xs font-bold">{selectedGradeIds.size}</span>}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── FAN/MAVZU CARD (outside scroll → never scrolls horizontally) ── */}
+        {teacherTab === "journal" && selectedClassId && selectedSubjectId && (() => {
+          const fmCls = classes.find((c) => c.id === selectedClassId);
+          const fmSubj = subjects.find((s) => s.id === selectedSubjectId);
+          const fmClsName = fmCls?.name || "";
+          const fmSubjName = fmSubj?.name || "";
+          return (
+            <div className="bg-white border-b border-neutral-200 px-3.5 py-2.5 sm:px-4 sm:py-3 text-slate-900 space-y-1 shrink-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-serif font-bold text-slate-900 text-sm sm:text-lg tracking-tight">
+                  {fmClsName} • <span className="text-[#A51C30]">{fmSubjName}</span>{" "}
+                  {selectedLessonNumber ? `(${selectedLessonNumber}-soat)` : ""}
+                </h3>
+                <div className="flex items-center gap-2 text-[10px] font-bold font-sans text-slate-500 uppercase tracking-wider">
+                  <span>{students.length} TA O'QUVCHI</span>
+                  <span>•</span>
+                  <span>{selectedGradeCategory === "DAILY" ? "KUNDALIK BAHOLASH" : selectedGradeCategory}</span>
+                </div>
+              </div>
+              <div className="text-xs text-slate-600">
+                <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Mavzu: </span>
+                {currentJournalTopicLoading ? (
+                  <span className="text-slate-400 font-normal">Yuklanmoqda...</span>
+                ) : currentJournalTopic ? (
+                  <span className="text-slate-900 font-semibold">{currentJournalTopic}</span>
+                ) : (
+                  <span className="text-slate-400 italic">Mavzu belgilanmagan</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── SCHEDULE QUICK ACCESS BAR (outside scroll → never scrolls horizontally) ── */}
+        {teacherTab === "schedule" && (() => {
+          const qaCls = classes.find((c) => c.id === selectedClassId);
+          const qaClsName = qaCls?.name || "";
+          
+          return (
+            <div className="bg-white border-b border-neutral-200 px-3 py-2.5 sm:px-4 sm:py-3 z-30 flex items-center justify-between gap-1.5 sm:gap-2.5 shrink-0 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+                {/* Class Dropdown */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setQaClassOpen(!qaClassOpen)}
+                    className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer h-10 sm:h-11"
+                  >
+                    <span className="hidden sm:inline text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Sinf:</span>
+                    <span className="font-bold text-slate-900">{qaClsName || "Umumiy Jadval"}</span>
+                    <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  {qaClassOpen && (
+                    <div className="absolute top-full mt-1 left-0 w-56 bg-white border border-neutral-200 shadow-md rounded-none p-1 z-50 max-h-60 overflow-y-auto">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase px-2.5 py-1 tracking-wider">Sinfni tanlang</div>
+                      <button type="button"
+                        onClick={() => { setSelectedClassId(""); setQaClassOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer flex items-center justify-between ${!selectedClassId ? "bg-[#1E2B42] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                      >
+                        <span>Umumiy Jadval</span>
+                      </button>
+                      {classes.map((cls) => (
+                        <button key={cls.id} type="button"
+                          onClick={() => { setSelectedClassId(cls.id); setQaClassOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer flex items-center justify-between ${selectedClassId === cls.id ? "bg-[#1E2B42] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                        >
+                          <span>{cls.name}</span>
+                          {cls.is_main_teacher && <span className="text-[9px] bg-amber-100 text-amber-900 px-1 font-bold">★</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quarters (Periods) Dropdown */}
+                {selectedClassId && schedulePeriods.length > 0 && (
+                  <div className="shrink-0 min-w-0 max-w-[130px] sm:max-w-[200px]">
+                    <select
+                      value={scheduleViewDate}
+                      onChange={(e) => { setScheduleViewDate(e.target.value); fetchClassSchedule(e.target.value); }}
+                      className="w-full h-10 sm:h-11 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-2 sm:px-3 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer truncate outline-none focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42]"
+                    >
+                      {schedulePeriods.map((period: any, pIdx: number) => {
+                         const shortStart = (() => {
+                            try {
+                              const d = new Date(period.start_date + "T00:00:00");
+                              const m = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
+                              return `${d.getDate()}-${m[d.getMonth()]}`;
+                            } catch { return period.start_date; }
+                         })();
+                         const shortEnd = (() => {
+                            try {
+                              const d = new Date(period.end_date + "T00:00:00");
+                              const m = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
+                              return `${d.getDate()}-${m[d.getMonth()]}`;
+                            } catch { return period.end_date; }
+                         })();
+                         return (
+                           <option key={pIdx} value={period.start_date}>
+                             {pIdx + 1}-chorak ({shortStart} - {shortEnd})
+                           </option>
+                         );
+                      })}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {selectedClassId && (classes.find(c => c.id === selectedClassId)?.is_main_teacher || userInfo?.role === "ADMIN") && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentPeriod = schedulePeriods.find(p => p.start_date === scheduleViewDate);
+                        const activeStart =
+                          currentPeriod?.start_date ||
+                          (classSchedule.length > 0 && classSchedule[0].start_date) ||
+                          "2026-09-02";
+                        const activeEnd =
+                          currentPeriod?.end_date ||
+                          (classSchedule.length > 0 && classSchedule[0].end_date) ||
+                          "2027-05-31";
+                        setEditingScheduleOriginalStartDate(activeStart);
+                        setScheduleStartDate(activeStart);
+                        setScheduleEndDate(activeEnd);
+                        setShowEditScheduleModal(true);
+                      }}
+                      className="bg-[#1E2B42] hover:bg-slate-700 text-white font-bold text-xs px-3 sm:px-3.5 rounded-none transition cursor-pointer flex items-center justify-center gap-1.5 h-10 sm:h-11"
+                      title="Sinf haftalik dars jadvalini tahrirlash"
+                    >
+                      <Pencil className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden sm:inline">Tahrirlash</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const initialFormState: { [key: string]: number } = {};
+                        for (let d = 1; d <= 6; d++) {
+                          for (let l = 1; l <= 8; l++) {
+                            initialFormState[`${d}-${l}`] = 0;
+                          }
+                        }
+                        setScheduleFormState(initialFormState);
+                        setActionError("");
+                        setEditingScheduleOriginalStartDate("");
+                        setShowEditScheduleModal(true);
+                      }}
+                      className="bg-[#1E2B42] hover:bg-slate-700 text-white font-bold text-xs px-3 sm:px-3.5 rounded-none transition cursor-pointer flex items-center justify-center gap-1.5 h-10 sm:h-11"
+                      title="Yangi chorak yoki vaqt oralig'i qo'shish"
+                    >
+                      <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden sm:inline">Yangi Davr</span>
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => exceptionsSectionRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold text-xs px-3 sm:px-3.5 rounded-none transition cursor-pointer flex items-center justify-center gap-1.5 h-10 sm:h-11"
+                  title="O'zgarishlar jadvaliga o'tish"
+                >
+                  <span className="hidden sm:inline">O'zgarishlar ({scheduleExceptions.length})</span>
+                  <span className="sm:hidden font-mono font-bold text-xs">{scheduleExceptions.length}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Scrollable Content Workspace */}
+        <div className="flex-1 overflow-auto min-w-0">
+          <main className={`flex-1 ${teacherTab === "journal" ? "p-0 sm:p-6 lg:p-8" : "p-3.5 sm:p-6 lg:p-8"} pb-32`}>
           {/* TAB CONTENT: Authentic Harvard Editorial Dashboard */}
           {teacherTab === "dashboard" && (
             <div className="space-y-6 max-w-7xl mx-auto">
@@ -3364,6 +3709,7 @@ function TeacherDashboardContent() {
           {/* TAB CONTENT: Grading Journal — Daily Grid */}
           {teacherTab === "journal" && (
             <JournalTab
+              key={`journal-${tabResetKeys["journal"] || 0}`}
               selectedClassId={selectedClassId}
               classes={classes}
               subjects={subjects}
@@ -3417,6 +3763,7 @@ function TeacherDashboardContent() {
           {/* TAB CONTENT: Class Schedule */}
           {teacherTab === "schedule" && (
             <ScheduleTab
+              key={`schedule-${tabResetKeys["schedule"] || 0}`}
               selectedClassId={selectedClassId}
               classes={classes}
               isMainTeacherOfClass={isMainTeacherOfClass}
@@ -3517,6 +3864,7 @@ function TeacherDashboardContent() {
           {/* TAB CONTENT: Student Management */}
           {teacherTab === "students" && (
             <StudentsTab
+              key={`students-${tabResetKeys["students"] || 0}`}
               selectedClassId={selectedClassId}
               studentsTabList={studentsTabList}
               studentsTabLoading={studentsTabLoading}
@@ -3586,6 +3934,7 @@ function TeacherDashboardContent() {
           {/* TAB CONTENT: Unapproved Grades List */}
           {teacherTab === "unapproved" && (
             <UnapprovedGradesTab
+              key={`unapproved-${tabResetKeys["unapproved"] || 0}`}
               selectedClassId={selectedClassId}
               selectedSubjectId={selectedSubjectId}
               unapprovedGrades={unapprovedGrades}
@@ -3698,6 +4047,7 @@ function TeacherDashboardContent() {
           {/* TAB CONTENT: Feedback / Comments Feed */}
           {teacherTab === "feedback" && (
               <FeedbackTab
+                key={`feedback-${tabResetKeys["feedback"] || 0}`}
                 feedbackFeed={feedbackFeed}
                 feedbackLoading={feedbackLoading}
                 onOpenChat={(rep) => {
@@ -3713,6 +4063,7 @@ function TeacherDashboardContent() {
             {/* TAB CONTENT: Announcements */}
             {teacherTab === "announcements" && (
               <AnnouncementsSection
+                key={`announcements-${tabResetKeys["announcements"] || 0}`}
                 token={token}
                 classes={classes}
                 students={allStudents}
@@ -3724,6 +4075,7 @@ function TeacherDashboardContent() {
             {/* TAB CONTENT: Parents List */}
             {teacherTab === "parents" && (
               <ParentsTab
+                key={`parents-${tabResetKeys["parents"] || 0}`}
                 selectedClassId={selectedClassId}
                 classParents={classParents}
                 classParentsLoading={classParentsLoading}
@@ -3756,6 +4108,7 @@ function TeacherDashboardContent() {
             {/* TAB CONTENT: Extracurricular Clubs */}
             {teacherTab === "clubs" && (
               <ClubsTab
+                key={`clubs-${tabResetKeys["clubs"] || 0}`}
                 clubs={clubs}
                 clubsLoading={clubsLoading}
                 openClubMenuId={openClubMenuId}
@@ -3816,6 +4169,7 @@ function TeacherDashboardContent() {
             {/* TAB CONTENT: Lesson Plans (Dars Ish Rejalari) */}
             {teacherTab === "lesson-plans" && (
               <LessonPlansSection
+                key={`lp-${tabResetKeys["lesson-plans"] || 0}`}
                 token={token}
                 API_URL={API_URL}
                 classes={classes}
@@ -3825,11 +4179,12 @@ function TeacherDashboardContent() {
             )}
 
             {/* TAB CONTENT: Library & Reading Assignments */}
-            {teacherTab === "books" && <LibrarySection />}
+            {teacherTab === "books" && <LibrarySection key={`books-${tabResetKeys["books"] || 0}`} />}
 
             {/* TAB CONTENT: Ijtimoiy Pasport Import */}
             {teacherTab === "social-passport" && (
               <SocialPassportImportSection
+                key={`sp-${tabResetKeys["social-passport"] || 0}`}
                 token={token}
                 API_URL={API_URL}
                 userInfo={userInfo}
@@ -3843,6 +4198,7 @@ function TeacherDashboardContent() {
             {/* TAB CONTENT: Sozlamalar (Settings) */}
             {teacherTab === "settings" && (
               <TeacherSettingsTab
+                key={`settings-${tabResetKeys["settings"] || 0}`}
                 token={token}
                 API_URL={API_URL}
                 userInfo={userInfo}
@@ -3852,11 +4208,12 @@ function TeacherDashboardContent() {
               />
             )}
         </main>
+        </div>
       </div>
 
       {toast && (
         <div
-          className={`fixed bottom-5 right-5 z-50 flex items-center space-x-2.5 px-4 py-3 rounded-xl border shadow-lg transition-all transform translate-y-0 animate-bounce duration-300 max-w-sm ${
+          className={`fixed bottom-5 right-5 z-50 flex items-center space-x-2.5 px-4 py-3 border shadow-md transition-all animate-in fade-in slide-in-from-bottom-2 max-w-sm ${
             toast.type === "success"
               ? "bg-emerald-50 text-emerald-800 border-emerald-200"
               : "bg-red-50 text-red-800 border-red-200"
@@ -4198,3 +4555,6 @@ export default function TeacherDashboard() {
     </Suspense>
   );
 }
+
+
+

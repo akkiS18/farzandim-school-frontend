@@ -48,7 +48,7 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
       }}
       className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn text-zinc-900">
+      <div className="bg-white rounded-none max-w-md w-full shadow-md overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn text-zinc-900">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div>
             <h3 className="text-base font-extrabold text-[#16193E]">To'garakni tahrirlash</h3>
@@ -59,7 +59,7 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-none bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
             title="Yopish"
           >
             <X className="w-4 h-4" />
@@ -67,7 +67,7 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
         </div>
 
         {actionError && (
-          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-2xl">
+          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-none">
             {actionError}
           </div>
         )}
@@ -82,7 +82,7 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
               required
               value={editClubName}
               onChange={(e) => setEditClubName(e.target.value)}
-              className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+              className="w-full text-xs border border-zinc-200 rounded-none px-3.5 py-2.5 focus:ring-2 focus:ring-[#1E2B42] bg-zinc-50/50 font-bold text-zinc-800 outline-none"
               placeholder="Masalan: IT scratch to'garagi"
             />
           </div>
@@ -95,7 +95,7 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
               required
               value={editClubSubjectId}
               onChange={(e) => setEditClubSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-              className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
+              className="w-full text-xs border border-zinc-200 rounded-none px-3.5 py-2.5 focus:ring-2 focus:ring-[#1E2B42] bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
             >
               <option value="">Fanni tanlang</option>
               {subjects.map((sub) => (
@@ -124,9 +124,9 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
                         setEditClubAllowedLevels([...editClubAllowedLevels, lvl].sort((a, b) => a - b));
                       }
                     }}
-                    className={`py-1.5 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
+                    className={`py-1.5 px-2 rounded-none text-xs font-extrabold transition cursor-pointer border ${
                       isSelected
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                        ? "bg-[#1E2B42] text-white border-[#1E2B42] shadow-xs"
                         : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
                     }`}
                   >
@@ -141,14 +141,14 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
+              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-none text-xs font-bold cursor-pointer"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
               disabled={actionLoading}
-              className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+              className="px-5 py-2 bg-[#1E2B42] hover:bg-slate-800 text-white rounded-none text-xs font-bold cursor-pointer shadow-xs"
             >
               {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
             </button>
@@ -158,3 +158,4 @@ export const EditClubModal: React.FC<EditClubModalProps> = ({
     </div>
   );
 };
+

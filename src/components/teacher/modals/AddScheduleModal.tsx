@@ -35,20 +35,20 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 text-slate-900"
     >
-      <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col border border-zinc-200/80 animate-fadeIn text-zinc-900">
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+      <div className="bg-white rounded-none max-w-sm w-full shadow-md overflow-hidden flex flex-col border border-neutral-200 animate-fadeIn text-slate-900">
+        <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-[#16193E]">Jadval qo'shish</h3>
-            <p className="text-xs text-zinc-500 font-medium mt-0.5">
+            <h3 className="text-xl font-serif font-bold text-slate-900">Jadval qo'shish</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
               {selectedClubForSchedule.name} to'garagi uchun
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
             title="Yopish"
           >
             <X className="w-4 h-4" />
@@ -57,13 +57,13 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
 
         <form onSubmit={onSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 font-mono">
               Hafta kuni *
             </label>
             <select
               value={newScheduleDay}
               onChange={(e) => setNewScheduleDay(Number(e.target.value))}
-              className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
+              className="w-full text-xs border border-neutral-200 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] bg-white font-bold text-slate-800 outline-none cursor-pointer"
             >
               <option value={1}>Dushanba</option>
               <option value={2}>Seshanba</option>
@@ -77,7 +77,7 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 font-mono">
                 Boshlanish vaqti *
               </label>
               <input
@@ -85,11 +85,11 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
                 required
                 value={newScheduleStartTime}
                 onChange={(e) => setNewScheduleStartTime(e.target.value)}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-200 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] bg-white font-mono font-bold text-slate-800 outline-none"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 font-mono">
                 Tugash vaqti *
               </label>
               <input
@@ -97,22 +97,22 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
                 required
                 value={newScheduleEndTime}
                 onChange={(e) => setNewScheduleEndTime(e.target.value)}
-                className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                className="w-full text-xs border border-neutral-200 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42] bg-white font-mono font-bold text-slate-800 outline-none"
               />
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2 pt-2">
+          <div className="flex justify-end space-x-2 pt-2 border-t border-neutral-200 mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-none text-xs font-bold cursor-pointer transition mt-2"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+              className="px-5 py-2 bg-[#1E2B42] hover:bg-slate-700 text-white rounded-none text-xs font-bold cursor-pointer transition mt-2"
             >
               Saqlash
             </button>
@@ -122,3 +122,4 @@ export const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     </div>
   );
 };
+

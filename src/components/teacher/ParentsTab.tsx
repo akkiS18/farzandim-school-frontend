@@ -31,7 +31,7 @@ interface ParentsTabProps {
   onUnlinkParentFromStudent: (studentId: any, parentId: any) => void;
 }
 
-export const ParentsTab: React.FC<ParentsTabProps> = ({
+const ParentsTab: React.FC<ParentsTabProps> = ({
   selectedClassId,
   classParents,
   classParentsLoading,
@@ -48,15 +48,16 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
   const filteredParents = classParents.filter((pt) => {
     const q = parentsSearch.toLowerCase().trim();
     if (!q) return true;
-    const name = `${pt.first_name || ""} ${pt.last_name || ""} ${pt.middle_name || ""}`.toLowerCase();
-    const phone = (pt.phone || "").toLowerCase();
-    const child = (pt.student_name || "").toLowerCase();
-    const cls = (pt.class_name || "").toLowerCase();
-    return name.includes(q) || phone.includes(q) || child.includes(q) || cls.includes(q);
+
+    return (
+      (pt.first_name || "").toLowerCase().includes(q) ||
+      (pt.last_name || "").toLowerCase().includes(q) ||
+      (pt.student_name || "").toLowerCase().includes(q)
+    );
   });
 
-  const totalParentsPages = Math.ceil(filteredParents.length / parentsPageSize) || 1;
-  const currentPage = Math.min(parentsPage, totalParentsPages);
+  const totalPages = Math.ceil(filteredParents.length / parentsPageSize) || 1;
+  const currentPage = Math.min(parentsPage, totalPages);
   const paginatedParents = filteredParents.slice(
     (currentPage - 1) * parentsPageSize,
     currentPage * parentsPageSize
@@ -64,21 +65,21 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
 
   return (
     <div className="space-y-4 animate-fadeIn pb-36">
-      <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
+      <div className="bg-white border border-neutral-200 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">
-            {selectedClassId ? "Sinf Ota-onalari (Vasiylar)" : "Barcha Ota-onalar (Vasiylar)"}
+          <h3 className="text-lg font-bold font-serif text-[#1E2B42]">
+            {selectedClassId ? "Sinf Vasiylari (Ota-onalar)" : "Barcha Vasiylar (Ota-onalar)"}
           </h3>
-          <p className="text-xs text-zinc-500 font-medium mt-0.5">
+          <p className="text-xs text-slate-500 font-sans mt-0.5">
             {selectedClassId
-              ? "Sinfdagi barcha o'quvchilarning ota-onalari (vasiylari) va ularni boshqarish"
-              : "Maktabdagi barcha o'quvchilarning ota-onalari (vasiylari) ro'yxati"}
+              ? "Tanlangan sinfdagi barcha o'quvchilarning ota-onalari ro'yxati"
+              : "Maktabdagi barcha o'quvchilarning ota-onalari ro'yxati"}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-2xl px-3 py-2">
-            <Search className="w-4 h-4 text-zinc-400" />
+          <div className="flex items-center gap-2 bg-slate-50 border border-neutral-200 px-3 py-2">
+            <Search className="w-4 h-4 text-slate-400" />
             <input
               type="text"
               value={parentsSearch}
@@ -87,7 +88,7 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
                 setParentsPage(1);
               }}
               placeholder="Ota-ona qidirish..."
-              className="bg-transparent border-none text-xs font-bold text-zinc-800 outline-none w-32 sm:w-44 transition-all"
+              className="bg-transparent border-none text-xs font-bold font-sans text-slate-800 outline-none w-32 sm:w-44 transition-all"
             />
           </div>
 
@@ -95,7 +96,7 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
             type="button"
             title="Excel orqali yuklash"
             onClick={onOpenImportParentsModal}
-            className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
+            className="p-2 bg-white hover:bg-slate-50 border border-neutral-300 text-slate-700 transition cursor-pointer flex items-center justify-center"
           >
             <FileSpreadsheet className="w-4 h-4" />
           </button>
@@ -103,7 +104,7 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
             type="button"
             title="Ota-ona qo'shish"
             onClick={onOpenAddParentModal}
-            className="p-2.5 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-2xl transition cursor-pointer flex items-center justify-center shadow-xs"
+            className="p-2 bg-[#A51C30] hover:bg-[#8a1526] text-white transition cursor-pointer flex items-center justify-center"
           >
             <UserPlus className="w-4 h-4" />
           </button>
@@ -111,68 +112,119 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
       </div>
 
       {classParentsLoading ? (
-        <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+        <div className="py-16 flex flex-col items-center justify-center bg-slate-50 border border-neutral-200">
+          <div className="w-6 h-6 border-2 border-[#1E2B42] border-t-transparent rounded-full animate-spin mb-3"></div>
+          <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Yuklanmoqda...</p>
         </div>
       ) : filteredParents.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
-          <p className="text-sm font-bold text-zinc-800 mb-1">Ota-onalar mavjud emas</p>
-          <p className="text-xs text-zinc-400 font-mono">
+        <div className="py-16 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-neutral-300">
+          <p className="text-sm font-bold text-slate-700 font-serif mb-1">
             {parentsSearch
-              ? "Qidiruv bo'yicha hech qanday ota-ona topilmadi."
+              ? "Hech kim topilmadi"
               : selectedClassId
-              ? "Ushbu sinfda hozircha bog'langan ota-onalar ro'yxatga olinmagan."
-              : "Maktabda hozircha bog'langan ota-onalar ro'yxatga olinmagan."}
+              ? "Ushbu sinfda ota-onalar yo'q"
+              : "Maktabda ota-onalar ro'yxatga olinmagan"}
+          </p>
+          <p className="text-xs text-slate-500 font-sans">
+            Yangi vasiy qo'shish yoki qidiruvni o'zgartirish orqali ro'yxatni shakllantiring.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200/70 rounded-3xl shadow-xs overflow-hidden text-zinc-900">
-          <div className="overflow-x-auto">
+        <div className="bg-white border border-neutral-200 overflow-hidden">
+          {/* MOBILE CARD VIEW FOR PARENTS (Hidden on SM and up) */}
+          <div className="block sm:hidden divide-y divide-neutral-200">
+            {paginatedParents.map((pt, idx) => {
+              const globalIndex = (currentPage - 1) * parentsPageSize + idx + 1;
+              const pId = pt.id || pt.user_id;
+
+              return (
+                <div key={`${pId}-${idx}`} className="p-4 flex flex-col gap-3 bg-white">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-slate-400 font-mono mb-1">#{globalIndex}</div>
+                      <div className="text-sm font-bold text-[#1E2B42] font-serif">
+                        {pt.first_name} {pt.last_name}
+                      </div>
+                      {pt.middle_name && (
+                        <div className="text-xs text-slate-500 font-sans">{pt.middle_name}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      title="Farzanddan ajratish"
+                      onClick={() => onUnlinkParentFromStudent(pt.student_id, pId)}
+                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-200 text-[#A51C30] transition cursor-pointer"
+                    >
+                      <UserMinus className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-neutral-100 pt-3">
+                    <div>
+                      <div className="text-slate-400 font-bold uppercase tracking-wider mb-0.5">Telefon</div>
+                      <div className="text-slate-800 font-sans font-medium">{pt.phone || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 font-bold uppercase tracking-wider mb-0.5">Pasport</div>
+                      <div className="text-slate-800 font-sans font-bold">{pt.passport || "—"}</div>
+                    </div>
+                    <div className="col-span-2 mt-1">
+                      <div className="text-slate-400 font-bold uppercase tracking-wider mb-0.5">O'quvchi (Farzand)</div>
+                      <div className="text-slate-800 font-sans">
+                        {pt.student_name || "Noma'lum"}{" "}
+                        {pt.class_name && <span className="text-slate-500 ml-1">({pt.class_name})</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP TABLE VIEW (Hidden on Mobile) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
-              <thead className="sticky top-0 z-20 bg-zinc-50 text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider border-b border-zinc-200/70 font-mono">
+              <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-neutral-200 font-sans">
                 <tr>
-                  <th className="px-4 py-3.5 text-center font-mono w-12 sticky left-0 z-30 bg-zinc-50">T/R</th>
-                  <th className="px-6 py-3.5 sticky left-12 z-30 bg-zinc-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
-                    Ism Familiya
-                  </th>
-                  <th className="px-6 py-3.5">Telefon</th>
-                  <th className="px-6 py-3.5">Pasport</th>
-                  <th className="px-6 py-3.5">O'quvchi (Farzand)</th>
-                  <th className="px-6 py-3.5 text-right">Amallar</th>
+                  <th className="px-4 py-3 text-center w-12">T/R</th>
+                  <th className="px-6 py-3">Ism Familiya</th>
+                  <th className="px-6 py-3">Telefon</th>
+                  <th className="px-6 py-3">Pasport</th>
+                  <th className="px-6 py-3">O'quvchi (Farzand)</th>
+                  <th className="px-6 py-3 text-right">Amallar</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700 bg-white">
+              <tbody className="divide-y divide-neutral-100 font-sans text-slate-700 bg-white">
                 {paginatedParents.map((pt, idx) => {
                   const globalIndex = (currentPage - 1) * parentsPageSize + idx + 1;
                   const pId = pt.id || pt.user_id;
                   return (
-                    <tr key={`${pId}-${idx}`} className="group hover:bg-zinc-50/80 transition">
-                      <td className="px-4 py-3.5 text-center font-mono text-zinc-400 sticky left-0 z-10 bg-white group-hover:bg-zinc-50/80 transition">
+                    <tr key={`${pId}-${idx}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-center text-slate-400">
                         {globalIndex}
                       </td>
-                      <td className="px-6 py-3.5 font-bold text-[#16193E] sticky left-12 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-zinc-50/80 transition">
+                      <td className="px-6 py-3 font-bold text-slate-800">
                         {pt.first_name} {pt.last_name}{" "}
-                        {pt.middle_name && <span className="text-zinc-400 font-normal">({pt.middle_name})</span>}
+                        {pt.middle_name && <span className="text-slate-400 font-normal">({pt.middle_name})</span>}
                       </td>
-                      <td className="px-6 py-3.5 font-mono text-zinc-500">{pt.phone || "—"}</td>
-                      <td className="px-6 py-3.5 font-mono text-indigo-700 font-bold">
-                        {pt.passport || "Kiritilmagan"}
+                      <td className="px-6 py-3 text-slate-600">{pt.phone || "—"}</td>
+                      <td className="px-6 py-3 font-bold text-slate-800">
+                        {pt.passport || "—"}
                       </td>
-                      <td className="px-6 py-3.5">
-                        <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-[#E0F2FE] text-[#0284C7] inline-block">
+                      <td className="px-6 py-3">
+                        <span className="text-slate-700 font-bold">
                           {pt.student_name || "Noma'lum"}{" "}
                           {pt.class_name && (
-                            <span className="font-mono text-zinc-500 text-[10px]">({pt.class_name})</span>
+                            <span className="font-normal text-slate-500">({pt.class_name})</span>
                           )}
                         </span>
                       </td>
-                      <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                      <td className="px-6 py-3 text-right whitespace-nowrap">
                         <button
                           type="button"
                           title="Farzanddan ajratish"
                           onClick={() => onUnlinkParentFromStudent(pt.student_id, pId)}
-                          className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                          className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-[#A51C30] transition cursor-pointer inline-flex items-center justify-center"
                         >
                           <UserMinus className="w-4 h-4" />
                         </button>
@@ -185,12 +237,14 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
           </div>
 
           {/* Pagination Bar */}
-          <div className="bg-zinc-50 border-t border-zinc-200/70 px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-600 font-medium">
+          <div className="bg-slate-50 border-t border-neutral-200 px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-sans">
             <div className="flex items-center gap-3">
               <span>
-                Jami <b>{filteredParents.length}</b> ta ota-onadan{" "}
-                <b>{(currentPage - 1) * parentsPageSize + 1}</b>-
-                <b>{Math.min(currentPage * parentsPageSize, filteredParents.length)}</b> ko'rsatilmoqda
+                Jami <strong className="text-slate-800">{filteredParents.length}</strong> ta ota-onadan{" "}
+                <strong className="text-slate-800">
+                  {filteredParents.length > 0 ? (currentPage - 1) * parentsPageSize + 1 : 0}
+                </strong>-
+                <strong className="text-slate-800">{Math.min(currentPage * parentsPageSize, filteredParents.length)}</strong> ko'rsatilmoqda
               </span>
 
               <select
@@ -199,58 +253,35 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
                   setParentsPageSize(Number(e.target.value));
                   setParentsPage(1);
                 }}
-                className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs font-bold text-zinc-700 outline-none cursor-pointer"
+                className="bg-white border border-neutral-300 rounded-none px-2 py-1 outline-none focus:border-[#1E2B42]"
               >
-                <option value={15}>15 tadan</option>
-                <option value={25}>25 tadan</option>
-                <option value={50}>50 tadan</option>
-                <option value={100}>100 tadan</option>
+                <option value={15}>15 ta</option>
+                <option value={25}>25 ta</option>
+                <option value={50}>50 ta</option>
+                <option value={100}>100 ta</option>
               </select>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                disabled={currentPage <= 1}
-                onClick={() => setParentsPage((p) => Math.max(p - 1, 1))}
-                className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
+                onClick={() => setParentsPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 bg-white border border-neutral-300 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Oldingi</span>
               </button>
 
-              <div className="flex items-center gap-1 px-1">
-                {Array.from({ length: totalParentsPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalParentsPages || Math.abs(p - currentPage) <= 1)
-                  .map((p, idx, arr) => {
-                    const prev = arr[idx - 1];
-                    const showEllipsis = prev && p - prev > 1;
-                    return (
-                      <React.Fragment key={p}>
-                        {showEllipsis && <span className="px-1 text-zinc-400 font-mono">...</span>}
-                        <button
-                          type="button"
-                          onClick={() => setParentsPage(p)}
-                          className={`w-8 h-8 rounded-xl font-extrabold text-xs transition cursor-pointer ${
-                            currentPage === p
-                              ? "bg-[#5B50EC] text-white shadow-xs"
-                              : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      </React.Fragment>
-                    );
-                  })}
-              </div>
+              <span className="px-3 font-bold text-slate-800">
+                {currentPage} / {totalPages}
+              </span>
 
               <button
                 type="button"
-                disabled={currentPage >= totalParentsPages}
-                onClick={() => setParentsPage((p) => Math.min(p + 1, totalParentsPages))}
-                className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold cursor-pointer flex items-center gap-1"
+                onClick={() => setParentsPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="p-1.5 bg-white border border-neutral-300 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               >
-                <span className="hidden sm:inline">Keyingi</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -260,5 +291,4 @@ export const ParentsTab: React.FC<ParentsTabProps> = ({
     </div>
   );
 };
-
 export default ParentsTab;

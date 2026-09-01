@@ -197,6 +197,26 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
   const [studentSearch, setStudentSearch] = useState("");
   const [classSearch, setClassSearch] = useState("");
 
+  const [page, setPage] = useState(1);
+  const observerTarget = React.useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 20;
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 1.0 }
+    );
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+    return () => observer.disconnect();
+  }, [activeTab]);
+
+
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
 
@@ -356,6 +376,8 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       return matchesCat && matchesSearch;
     });
   }, [books, selectedCategoryId, categories, searchQuery]);
+
+  const displayedBooks = useMemo(() => filteredBooks.slice(0, page * PAGE_SIZE), [filteredBooks, page]);
 
   // Filtered Classes for search
   const filteredClasses = useMemo(() => {
@@ -630,19 +652,16 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 border border-slate-800">
+      <div className="bg-white border border-zinc-200/70 rounded-none p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative animate-fadeIn">
         <div className="relative z-10 space-y-2 max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 border border-indigo-400/30 rounded-full text-indigo-300 text-xs font-bold uppercase tracking-wider">
-            <BookMarked className="w-3.5 h-3.5" />
-            <span>Maktab E-Kutubxona & Mutolaa Tizimi</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Maktab Kutubxonasi</h1>
-          <p className="text-xs sm:text-sm text-slate-300 font-medium">
+          
+          <h1 className="font-serif font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight flex items-center gap-2"><BookMarked className="w-6 h-6 text-slate-900 shrink-0" />Maktab Kutubxonasi</h1>
+          <p className="text-xs text-slate-400 font-medium mt-1">
             Elektron va jismoniy kitoblar katalogi, guruhlar hamda o'quvchilarga muddatli mutolaa topshiriqlarini biriktirib baholash paneli.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 relative z-10 w-full md:w-auto">
           <button
             onClick={() => {
               setImportFile(null);
@@ -651,32 +670,25 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               setImportCategoryId("");
               setShowImportModal(true);
             }}
-            className="px-4 py-2.5 bg-emerald-600/90 hover:bg-emerald-600 border border-emerald-500/30 text-white font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-2 shadow-lg shadow-emerald-600/25 backdrop-blur-md"
-            title="Kitoblarni Excel shablon orqali ommaviy yuklash"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-            <span>Excel Import</span>
+            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-none border border-slate-200 transition cursor-pointer flex items-center justify-center shadow-xs shrink-0" title="Excel Import">
+              <FileSpreadsheet className="w-5 h-5 text-[#1E2B42]" />
           </button>
           <button
             onClick={() => setShowAddCategoryModal(true)}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-2 backdrop-blur-md"
-          >
-            <FolderPlus className="w-4 h-4 text-indigo-300" />
-            <span>Guruh Qo'shish</span>
+            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs rounded-none transition cursor-pointer flex items-center justify-center shadow-xs shrink-0" title="Guruh Qo\'shish">
+              <FolderPlus className="w-5 h-5 text-[#1E2B42]" />
           </button>
           <button
             onClick={() => setShowAddBookModal(true)}
-            className="px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl transition cursor-pointer flex items-center gap-2 shadow-lg shadow-indigo-500/25"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Kitob Qo'shish</span>
+            className="w-10 h-10 bg-[#1E2B42] text-white font-bold text-xs rounded-none transition cursor-pointer flex items-center justify-center shadow-xs hover:opacity-90 shrink-0" title="Kitob Qo\'shish">
+              <Plus className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {/* Action Alerts */}
       {actionSuccess && (
-        <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-none">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccess}</span>
@@ -689,9 +701,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveTab("catalog")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-extrabold transition cursor-pointer ${
+          className={`flex items-center gap-2 px-5 py-3 rounded-none text-xs font-extrabold transition cursor-pointer ${
             activeTab === "catalog"
-              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+              ? "bg-[#1E2B42] text-white shadow-md shadow-xs"
               : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -701,9 +713,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
         <button
           onClick={() => setActiveTab("assignments")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-extrabold transition cursor-pointer ${
+          className={`flex items-center gap-2 px-5 py-3 rounded-none text-xs font-extrabold transition cursor-pointer ${
             activeTab === "assignments"
-              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+              ? "bg-[#1E2B42] text-white shadow-md shadow-xs"
               : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -716,7 +728,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       {activeTab === "catalog" && (
         <div className="space-y-6">
           {/* Category Filter Pills & Search */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200/80 rounded-none p-4 sm:p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -724,8 +736,8 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   type="text"
                   placeholder="Kitob nomi, muallifi yoki joylashuv bo'yicha qidiruv..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 font-medium placeholder:text-slate-400 outline-none focus:bg-white focus:border-indigo-500 transition"
+                  onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1E2B42] transition"
                 />
               </div>
 
@@ -738,10 +750,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
             {/* Category Pills */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               <button
-                onClick={() => setSelectedCategoryId("all")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                onClick={() => { setSelectedCategoryId("all"); setPage(1); }}
+                className={`px-3.5 py-1.5 rounded-none text-xs font-bold transition shrink-0 cursor-pointer ${
                   selectedCategoryId === "all"
-                    ? "bg-slate-900 text-white"
+                    ? "bg-white text-slate-900 border-b border-zinc-200/80"
                     : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                 }`}
               >
@@ -750,10 +762,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               {uniqueCategories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setSelectedCategoryId(cat.id)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                  onClick={() => { setSelectedCategoryId(cat.id); setPage(1); }}
+                  className={`px-3.5 py-1.5 rounded-none text-xs font-bold transition shrink-0 cursor-pointer ${
                     selectedCategoryId === cat.id
-                      ? "bg-indigo-600 text-white shadow-xs"
+                      ? "bg-[#1E2B42] text-white shadow-xs"
                       : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                   }`}
                 >
@@ -765,12 +777,12 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
           {/* Book Cards Grid */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-indigo-600 gap-3">
+            <div className="flex flex-col items-center justify-center py-16 text-[#1E2B42] gap-3">
               <Loader2 className="w-8 h-8 animate-spin" />
               <p className="text-xs font-bold">Kutubxona kitoblari yuklanmoqda...</p>
             </div>
           ) : filteredBooks.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 space-y-3">
+            <div className="bg-white border border-slate-200 rounded-none p-12 text-center text-slate-400 space-y-3">
               <BookOpen className="w-12 h-12 mx-auto opacity-40 text-slate-500" />
               <p className="text-sm font-bold text-slate-700">Hozircha hech qanday kitob topilmadi</p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
@@ -778,17 +790,17 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {filteredBooks.map((bk) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {displayedBooks.map((bk) => (
                 <div
                   key={bk.id}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-lg transition flex flex-col justify-between group"
+                  className="bg-white border border-slate-200/80 rounded-none p-5 shadow-xs hover:shadow-lg transition flex flex-col justify-between group"
                 >
                   <div className="space-y-3">
                     {/* Category Badge Header */}
                     {bk.category_name && (
                       <div className="flex items-center justify-between gap-2">
-                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200/80 rounded-none text-[10px] font-extrabold uppercase tracking-wider">
                           {bk.category_name}
                         </span>
                       </div>
@@ -796,19 +808,19 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
                     {/* Book Cover or Placeholder */}
                     {bk.cover_url ? (
-                      <div className="h-40 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+                      <div className="h-40 rounded-none overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
                         <img src={bk.cover_url} alt={bk.title} className="h-full object-cover group-hover:scale-105 transition duration-300" />
                       </div>
                     ) : (
-                      <div className="h-36 rounded-2xl bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100/60 border border-indigo-100 flex flex-col items-center justify-center p-4 text-center">
-                        <BookOpen className="w-8 h-8 text-indigo-400 mb-1" />
+                      <div className="h-36 rounded-none bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100/60 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
+                        <BookOpen className="w-8 h-8 text-[#1E2B42] mb-1" />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kutubxona Kitobi</span>
                       </div>
                     )}
 
                     {/* Title & Author */}
                     <div>
-                      <h3 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition leading-snug">
+                      <h3 className="text-sm font-black text-slate-900 group-hover:text-[#1E2B42] transition leading-snug">
                         {bk.title}
                       </h3>
                       {bk.author && (
@@ -820,8 +832,8 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
                     {/* Physical Location or Description */}
                     {bk.location_in_school && (
-                      <div className="flex items-center gap-1.5 p-2 bg-amber-50/70 border border-amber-200/60 rounded-xl text-[11px] font-bold text-amber-900">
-                        <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <div className="flex items-center gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-none text-[11px] font-bold text-slate-700">
+                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <span>Kutubxonada: {bk.location_in_school}</span>
                       </div>
                     )}
@@ -840,7 +852,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                         href={bk.download_link}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                        className="flex-1 px-3 py-2 bg-[#1E2B42] hover:opacity-90 text-white rounded-none text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs border border-[#1E2B42]"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>Yuklab Olish</span>
@@ -864,7 +876,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                           setBookCoverUrl(bk.cover_url || "");
                           setShowEditBookModal(true);
                         }}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
+                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-none transition cursor-pointer"
                         title="Kitobni tahrirlash"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -880,7 +892,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                             }
                           }
                         }}
-                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-none transition cursor-pointer"
                         title="Kitobni o'chirish"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -897,7 +909,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       {/* TAB 2: READING ASSIGNMENTS & GRADING */}
       {activeTab === "assignments" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between bg-white border border-slate-200 rounded-3xl p-5 shadow-xs">
+          <div className="flex items-center justify-between bg-white border border-slate-200 rounded-none p-5 shadow-xs">
             <div>
               <h3 className="text-sm font-bold text-slate-900">Mutolaa Topshiriqlari Ro'yxati</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -907,7 +919,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
             <button
               onClick={() => setShowCreateAssignmentModal(true)}
-              className="px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-2xl transition cursor-pointer flex items-center gap-2 shadow-md shadow-indigo-500/20"
+              className="px-4.5 py-2.5 bg-[#1E2B42] hover:opacity-90 text-white text-xs font-bold rounded-none transition cursor-pointer flex items-center gap-2 shadow-md shadow-xs"
             >
               <Plus className="w-4 h-4" />
               <span>Yangi Topshiriq Yaratish</span>
@@ -916,8 +928,8 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
           {/* Assignments List Cards */}
           {assignments.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 space-y-3">
-              <Award className="w-12 h-12 mx-auto opacity-40 text-indigo-500" />
+            <div className="bg-white border border-slate-200 rounded-none p-12 text-center text-slate-400 space-y-3">
+              <Award className="w-12 h-12 mx-auto opacity-40 text-slate-500" />
               <p className="text-sm font-bold text-slate-700">Hali hech qanday mutolaa topshirig'i biriktirilmagan</p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 "Yangi Topshiriq Yaratish" tugmasini bosib, kutubxonadan bir nechta kitob tanlang va o'quvchilarga belgilangan muddat davomida o'qish uchun biriktiring.
@@ -928,7 +940,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               {assignments.map((asg) => (
                 <div
                   key={asg.id}
-                  className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
+                  className="bg-white border border-slate-200/90 rounded-none p-6 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
@@ -940,7 +952,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                           </p>
                         )}
                       </div>
-                      <span className="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-extrabold rounded-xl flex items-center gap-1.5">
+                      <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 text-xs font-extrabold rounded-none flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5" />
                         <span>{asg.start_date} ➔ {asg.end_date}</span>
                       </span>
@@ -962,9 +974,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                           {asg.books.map((bk) => (
                             <span
                               key={bk.id}
-                              className="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-extrabold text-slate-800 flex items-center gap-1"
+                              className="px-2.5 py-1 bg-slate-100 border border-slate-200/80 rounded-none text-xs font-extrabold text-slate-800 flex items-center gap-1"
                             >
-                              <BookOpen className="w-3 h-3 text-indigo-600" />
+                              <BookOpen className="w-3 h-3 text-[#1E2B42]" />
                               <span>{bk.title}</span>
                             </span>
                           ))}
@@ -977,9 +989,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
                     <button
                       onClick={() => handleOpenAssignmentDetails(asg.id)}
-                      className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-2"
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs rounded-none transition cursor-pointer flex items-center gap-2"
                     >
-                      <Award className="w-4 h-4 text-indigo-600" />
+                      <Award className="w-4 h-4 text-[#1E2B42]" />
                       <span>O'quvchilar Matrisi & Baholash</span>
                     </button>
 
@@ -999,7 +1011,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                           { title: "Topshiriqni o'chirish", type: "danger", confirmText: "Ha, o'chirish" }
                         );
                       }}
-                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                      className="p-2 text-rose-600 hover:bg-rose-50 rounded-none transition cursor-pointer"
                       title="Topshiriqni o'chirish"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1020,10 +1032,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-5 my-auto">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-5 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-none bg-slate-100 border border-slate-200 text-[#1E2B42] flex items-center justify-center">
                   <FolderPlus className="w-5 h-5" />
                 </div>
                 <h3 className="text-base font-bold text-slate-900">Yangi Kitob Guruhi</h3>
@@ -1047,7 +1059,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Masalan: IT va Texnologiya, Biologiya, Badiiy..."
                   value={catName}
                   onChange={(e) => setCatName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1060,7 +1072,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Guruh haqida qisqacha ma'lumot..."
                   value={catDesc}
                   onChange={(e) => setCatDesc(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1068,13 +1080,13 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <button
                   type="button"
                   onClick={() => setShowAddCategoryModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-500/20"
+                  className="px-5 py-2 bg-[#1E2B42] text-white rounded-none text-xs font-bold hover:opacity-90 transition cursor-pointer shadow-md shadow-xs"
                 >
                   Saqlash
                 </button>
@@ -1092,15 +1104,15 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] my-auto">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] my-auto">
+            <div className="px-6 py-4 bg-white text-slate-900 border-b border-zinc-200/80 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <BookOpen className="w-5 h-5 text-indigo-400" />
+                <BookOpen className="w-5 h-5 text-[#1E2B42]" />
                 <h3 className="text-base font-bold">Kutubxonaga Yangi Kitob Qo'shish</h3>
               </div>
               <button
                 onClick={() => setShowAddBookModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-none hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1117,7 +1129,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Masalan: Clean Code, O'tkan Kunlar..."
                   value={bookTitle}
                   onChange={(e) => setBookTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-bold focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1131,7 +1143,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     placeholder="Masalan: Abdulla Qodiriy"
                     value={bookAuthor}
                     onChange={(e) => setBookAuthor(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                   />
                 </div>
 
@@ -1142,7 +1154,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   <select
                     value={bookCategory}
                     onChange={(e) => setBookCategory(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                   >
                     <option value="">-- Guruhni tanlang --</option>
                     {categories.map((c) => (
@@ -1155,7 +1167,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1">
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Elektron Kitob Havolasi (Google Drive / Telegram / Internet URL)</span>
                 </label>
@@ -1164,7 +1176,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="https://drive.google.com/file/d/..."
                   value={bookDownloadLink}
                   onChange={(e) => setBookDownloadLink(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs text-slate-800 font-mono focus:bg-white focus:border-emerald-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-mono focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
                   Server tezligini oshirish uchun fayl tashqi havolada saqlanadi. Agar kiritilmasa, jismoniy kitob hisoblanadi.
@@ -1172,8 +1184,8 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
                   <span>Maktab Kutubxonasidagi Joylashuv (Jismoniy kitoblar uchun)</span>
                 </label>
                 <input
@@ -1181,7 +1193,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Masalan: 2-qavat, 14-javon, 3-tokcha"
                   value={bookLocation}
                   onChange={(e) => setBookLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-amber-50/50 border border-amber-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-amber-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-slate-500 outline-none transition"
                 />
               </div>
 
@@ -1194,7 +1206,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="https://..."
                   value={bookCoverUrl}
                   onChange={(e) => setBookCoverUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-mono focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1207,7 +1219,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Kitob mazmuni haqida..."
                   value={bookDescription}
                   onChange={(e) => setBookDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1215,13 +1227,13 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <button
                   type="button"
                   onClick={() => setShowAddBookModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-500/20"
+                  className="px-5 py-2 bg-[#1E2B42] text-white rounded-none text-xs font-bold hover:opacity-90 transition cursor-pointer shadow-md shadow-xs"
                 >
                   Kitobni Saqlash
                 </button>
@@ -1242,10 +1254,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 bg-[#1D1E26] text-white flex items-center justify-between">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 text-slate-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-[#D4F562]" />
+                <Edit3 className="w-5 h-5 text-[#1E2B42]" />
                 <h3 className="text-base font-bold">Kitob Ma'lumotlarini Tahrirlash</h3>
               </div>
               <button
@@ -1253,7 +1265,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   setShowEditBookModal(false);
                   setEditingBook(null);
                 }}
-                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-none hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1261,7 +1273,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
             <form onSubmit={handleEditBook} className="p-6 overflow-y-auto space-y-4">
               {actionError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2">
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-none flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   <span>{actionError}</span>
                 </div>
@@ -1276,7 +1288,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   required
                   value={bookTitle}
                   onChange={(e) => setBookTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-bold focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1289,7 +1301,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     type="text"
                     value={bookAuthor}
                     onChange={(e) => setBookAuthor(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                   />
                 </div>
 
@@ -1300,7 +1312,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   <select
                     value={bookCategory}
                     onChange={(e) => setBookCategory(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-semibold focus:bg-white focus:border-[#1E2B42] outline-none transition cursor-pointer"
                   >
                     <option value="">Kategoriyasiz</option>
                     {categories.map((cat) => (
@@ -1313,7 +1325,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1">
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Elektron Kitob Havolasi (Google Drive / Telegram / Internet URL)</span>
                 </label>
@@ -1322,13 +1334,13 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="https://drive.google.com/file/d/..."
                   value={bookDownloadLink}
                   onChange={(e) => setBookDownloadLink(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs text-slate-800 font-mono focus:bg-white focus:border-emerald-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-mono focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
                   <span>Maktab Kutubxonasidagi Joylashuv (Jismoniy kitoblar uchun)</span>
                 </label>
                 <input
@@ -1336,7 +1348,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Masalan: 2-qavat, 14-javon, 3-tokcha"
                   value={bookLocation}
                   onChange={(e) => setBookLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-amber-50/50 border border-amber-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-amber-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-slate-500 outline-none transition"
                 />
               </div>
 
@@ -1349,7 +1361,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="https://..."
                   value={bookCoverUrl}
                   onChange={(e) => setBookCoverUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-mono focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1361,7 +1373,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   rows={2}
                   value={bookDescription}
                   onChange={(e) => setBookDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1372,13 +1384,13 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     setShowEditBookModal(false);
                     setEditingBook(null);
                   }}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-500/20"
+                  className="px-5 py-2 bg-[#1E2B42] text-white rounded-none text-xs font-bold hover:opacity-90 transition cursor-pointer shadow-md shadow-xs"
                 >
                   O'zgarishlarni Saqlash
                 </button>
@@ -1398,15 +1410,15 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] my-auto">
-            <div className="px-6 py-4 bg-indigo-950 text-white flex items-center justify-between shrink-0">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] my-auto">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 text-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <Award className="w-5 h-5 text-indigo-400" />
+                <Award className="w-5 h-5 text-[#1E2B42]" />
                 <h3 className="text-base font-bold">Yangi Mutolaa Topshirig'i Yaratish</h3>
               </div>
               <button
                 onClick={() => setShowCreateAssignmentModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-none hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1414,7 +1426,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
             <form onSubmit={handleCreateAssignment} className="p-6 overflow-y-auto space-y-5">
               {actionError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2">
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-none flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   <span>{actionError}</span>
                 </div>
@@ -1430,7 +1442,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Masalan: Yozgi Mutolaa 2026, 10-A Badiiy Kitoblar..."
                   value={assignTitle}
                   onChange={(e) => setAssignTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-bold focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1451,26 +1463,26 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
 
               {/* SEARCHABLE MULTI-SELECT DROPDOWN FOR BOOKS */}
               <div className="space-y-1.5 relative">
-                <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                    <BookOpen className="w-3.5 h-3.5 text-[#1E2B42]" />
                     <span>Kutubxonadan Kitoblarni Tanlang (Searchable Multi-Select) *</span>
                   </span>
-                  <span className="text-[11px] text-indigo-600 font-bold">
+                  <span className="text-[11px] text-[#1E2B42] font-bold">
                     {selectedBookIds.length} ta kitob tanlandi
                   </span>
                 </label>
 
                 {/* Selected Books Badge Tags */}
                 {selectedBookIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl max-h-28 overflow-y-auto">
+                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-none max-h-28 overflow-y-auto">
                     {selectedBookIds.map((bId) => {
                       const b = books.find((item) => item.id === bId);
                       if (!b) return null;
                       return (
                         <span
                           key={b.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-indigo-300 rounded-xl text-xs font-extrabold text-indigo-950 shadow-2xs group"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-300 rounded-none text-xs font-extrabold text-slate-900 shadow-2xs group"
                         >
                           <span>{b.title}</span>
                           <button
@@ -1491,10 +1503,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <div className="relative">
                   <div
                     onClick={() => setIsBookDropdownOpen(!isBookDropdownOpen)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium flex items-center justify-between cursor-pointer transition select-none"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-none text-xs text-slate-800 font-medium flex items-center justify-between cursor-pointer transition select-none"
                   >
                     <div className="flex items-center gap-2 text-slate-500 overflow-hidden">
-                      <Search className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <Search className="w-4 h-4 text-slate-500 shrink-0" />
                       <span className="truncate text-slate-700 font-semibold">
                         {selectedBookIds.length === 0
                           ? "Kitoblarni qidirish va tanlash uchun bosing..."
@@ -1503,14 +1515,14 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     </div>
                     <ChevronDown
                       className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-                        isBookDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                        isBookDropdownOpen ? "rotate-180 text-[#1E2B42]" : ""
                       }`}
                     />
                   </div>
 
                   {/* Expanded Dropdown Panel */}
                   {isBookDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2 animate-in fade-in duration-150">
+                    <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white border border-slate-200 rounded-none shadow-2xl p-3 space-y-2 animate-in fade-in duration-150">
                       {/* Search Bar & Select All actions */}
                       <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
                         <div className="relative flex-1">
@@ -1521,21 +1533,21 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                             value={bookDropdownSearch}
                             onChange={(e) => setBookDropdownSearch(e.target.value)}
                             placeholder="Kitob nomi yoki muallifini qidirish..."
-                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#1E2B42]"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => setSelectedBookIds(books.map((b) => b.id))}
-                            className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-none text-[11px] font-bold transition cursor-pointer"
                           >
                             Hammasi
                           </button>
                           <button
                             type="button"
                             onClick={() => setSelectedBookIds([])}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-none text-[11px] font-bold transition cursor-pointer"
                           >
                             Bekor qilish
                           </button>
@@ -1569,9 +1581,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                       prev.includes(bk.id) ? prev.filter((i) => i !== bk.id) : [...prev, bk.id]
                                     );
                                   }}
-                                  className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition select-none ${
+                                  className={`flex items-center justify-between p-2 rounded-none cursor-pointer transition select-none ${
                                     isSelected
-                                      ? "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold"
+                                      ? "bg-slate-100 border border-slate-200 text-slate-900 font-bold"
                                       : "hover:bg-slate-50 text-slate-700"
                                   }`}
                                 >
@@ -1579,7 +1591,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                     <div
                                       className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
                                         isSelected
-                                          ? "bg-indigo-600 border-indigo-600 text-white"
+                                          ? "bg-[#1E2B42] border-[#1E2B42] text-white"
                                           : "border-slate-300 bg-white"
                                       }`}
                                     >
@@ -1607,40 +1619,40 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </div>
 
               {/* DYNAMIC MULTI-TARGET SELECTION CARDS */}
-              <div className="border border-indigo-200/80 rounded-3xl p-5 bg-indigo-50/40 space-y-4">
+              <div className="border border-slate-200 rounded-none p-5 bg-slate-50 space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
-                    <Users className="w-4 h-4 text-indigo-600" />
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+                    <Users className="w-4 h-4 text-[#1E2B42]" />
                     <span>Topshiriq Biriktiriladigan O'quvchilar Saralashi</span>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-full text-[11px] font-black shadow-xs">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1E2B42] text-white rounded-full text-[11px] font-black shadow-xs">
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>Jami Biriktiriladigan: {resolvedStudentSet.size} ta o'quvchi</span>
                   </span>
                 </div>
 
                 {/* 1. Target Presets (Searchable Multi-Select Dropdown) */}
-                <div className="space-y-1.5 border-b border-indigo-100 pb-3 relative">
+                <div className="space-y-1.5 border-b border-slate-200 pb-3 relative">
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
                     <span className="flex items-center gap-1">
-                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                      <Layers className="w-3.5 h-3.5 text-[#1E2B42]" />
                       <span>Saqlangan O'quvchilar To'plamlari (Presets):</span>
                     </span>
-                    <span className="text-[11px] text-indigo-600 font-bold">
+                    <span className="text-[11px] text-[#1E2B42] font-bold">
                       {selectedPresetIds.length} ta to'plam tanlandi
                     </span>
                   </label>
 
                   {/* Selected Presets Badges */}
                   {selectedPresetIds.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 p-2 bg-indigo-50/70 border border-indigo-200 rounded-2xl max-h-24 overflow-y-auto">
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-none max-h-24 overflow-y-auto">
                       {selectedPresetIds.map((pId) => {
                         const p = presets.find((item) => item.id === pId);
                         if (!p) return null;
                         return (
                           <span
                             key={p.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-indigo-300 rounded-xl text-xs font-extrabold text-indigo-950 shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-300 rounded-none text-xs font-extrabold text-slate-900 shadow-2xs"
                           >
                             <span>📁 {p.name}</span>
                             <button
@@ -1662,10 +1674,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     <div className="relative flex-1">
                       <div
                         onClick={() => setIsPresetDropdownOpen(!isPresetDropdownOpen)}
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 hover:border-indigo-300 rounded-xl text-xs text-slate-800 font-medium flex items-center justify-between cursor-pointer transition select-none shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 hover:border-slate-300 rounded-none text-xs text-slate-800 font-medium flex items-center justify-between cursor-pointer transition select-none shadow-2xs"
                       >
                         <div className="flex items-center gap-2 text-slate-500 overflow-hidden">
-                          <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <Layers className="w-4 h-4 text-slate-500 shrink-0" />
                           <span className="truncate text-slate-700 font-semibold">
                             {selectedPresetIds.length === 0
                               ? "To'plamlarni qidirish va tanlash uchun bosing..."
@@ -1674,14 +1686,14 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                         </div>
                         <ChevronDown
                           className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-                            isPresetDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                            isPresetDropdownOpen ? "rotate-180 text-[#1E2B42]" : ""
                           }`}
                         />
                       </div>
 
                       {/* Expanded Dropdown Panel */}
                       {isPresetDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2 animate-in fade-in duration-150">
+                        <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white border border-slate-200 rounded-none shadow-2xl p-3 space-y-2 animate-in fade-in duration-150">
                           {/* Search Bar & Select All actions */}
                           <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
                             <div className="relative flex-1">
@@ -1692,21 +1704,21 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                 value={presetSearch}
                                 onChange={(e) => setPresetSearch(e.target.value)}
                                 placeholder="To'plam nomini qidirish..."
-                                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#1E2B42]"
                               />
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => setSelectedPresetIds(presets.map((p) => p.id))}
-                                className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-none text-[11px] font-bold transition cursor-pointer"
                               >
                                 Hammasi
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setSelectedPresetIds([])}
-                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-none text-[11px] font-bold transition cursor-pointer"
                               >
                                 Bekor qilish
                               </button>
@@ -1739,9 +1751,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                           prev.includes(p.id) ? prev.filter((i) => i !== p.id) : [...prev, p.id]
                                         );
                                       }}
-                                      className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition select-none ${
+                                      className={`flex items-center justify-between p-2 rounded-none cursor-pointer transition select-none ${
                                         isSelected
-                                          ? "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold"
+                                          ? "bg-slate-100 border border-slate-200 text-slate-900 font-bold"
                                           : "hover:bg-slate-50 text-slate-700"
                                       }`}
                                     >
@@ -1749,7 +1761,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                         <div
                                           className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
                                             isSelected
-                                              ? "bg-indigo-600 border-indigo-600 text-white"
+                                              ? "bg-[#1E2B42] border-[#1E2B42] text-white"
                                               : "border-slate-300 bg-white"
                                           }`}
                                         >
@@ -1772,7 +1784,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                       type="button"
                       onClick={handleSavePreset}
                       disabled={savingPreset || resolvedStudentSet.size === 0}
-                      className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition shrink-0 cursor-pointer flex items-center justify-center disabled:opacity-40"
+                      className="p-2.5 bg-[#1E2B42] hover:opacity-90 text-white rounded-none shadow-xs transition shrink-0 cursor-pointer flex items-center justify-center disabled:opacity-40"
                       title="Hozirgi saralangan o'quvchilarni to'plam (preset) sifatida saqlash"
                     >
                       <BookmarkPlus className="w-4.5 h-4.5" />
@@ -1797,9 +1809,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                               prev.includes(lvl) ? prev.filter((l) => l !== lvl) : [...prev, lvl]
                             );
                           }}
-                          className={`px-3 py-1 rounded-xl text-xs font-bold transition border ${
+                          className={`px-3 py-1 rounded-none text-xs font-bold transition border ${
                             isSel
-                              ? "bg-slate-900 text-white border-slate-900"
+                              ? "bg-white text-slate-900 border-b border-zinc-200/80 border-slate-900"
                               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                           }`}
                         >
@@ -1821,10 +1833,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                       placeholder="Sinf qidirish..."
                       value={classSearch}
                       onChange={(e) => setClassSearch(e.target.value)}
-                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-800 outline-none focus:border-indigo-500"
+                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-none text-[11px] text-slate-800 outline-none focus:border-[#1E2B42]"
                     />
                   </div>
-                  <div className="max-h-28 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-white flex flex-wrap gap-2">
+                  <div className="max-h-28 overflow-y-auto border border-slate-200 rounded-none p-2 bg-white flex flex-wrap gap-2">
                     {filteredClasses.map((cls) => {
                       const isSel = selectedClassIds.includes(cls.id);
                       return (
@@ -1836,9 +1848,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                               prev.includes(cls.id) ? prev.filter((i) => i !== cls.id) : [...prev, cls.id]
                             );
                           }}
-                          className={`px-2.5 py-1 rounded-xl text-xs font-extrabold border transition ${
+                          className={`px-2.5 py-1 rounded-none text-xs font-extrabold border transition ${
                             isSel
-                              ? "bg-indigo-600 text-white border-indigo-600"
+                              ? "bg-[#1E2B42] text-white border-[#1E2B42]"
                               : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                           }`}
                         >
@@ -1860,10 +1872,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                       placeholder="O'quvchi ismi bo'yicha qidiruv..."
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
-                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-800 outline-none focus:border-indigo-500"
+                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-none text-[11px] text-slate-800 outline-none focus:border-[#1E2B42]"
                     />
                   </div>
-                  <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-white divide-y divide-slate-100">
+                  <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-none p-2 bg-white divide-y divide-slate-100">
                     {filteredStudents.length === 0 ? (
                       <p className="text-[11px] text-slate-400 p-2 text-center">O'quvchilar topilmadi</p>
                     ) : (
@@ -1877,12 +1889,12 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                 prev.includes(st.id) ? prev.filter((i) => i !== st.id) : [...prev, st.id]
                               );
                             }}
-                            className={`flex items-center justify-between p-1.5 rounded-lg cursor-pointer text-xs ${
-                              isSel ? "bg-indigo-50 text-indigo-950 font-bold" : "hover:bg-slate-50 text-slate-700"
+                            className={`flex items-center justify-between p-1.5 rounded-none cursor-pointer text-xs ${
+                              isSel ? "bg-slate-100 text-slate-900 font-bold" : "hover:bg-slate-50 text-slate-700"
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <input type="checkbox" checked={isSel} readOnly className="w-3.5 h-3.5 rounded text-indigo-600" />
+                              <input type="checkbox" checked={isSel} readOnly className="w-3.5 h-3.5 rounded text-[#1E2B42]" />
                               <span>{st.first_name} {st.last_name}</span>
                             </div>
                             <span className="text-[10px] text-slate-400 font-semibold">{st.class_name}</span>
@@ -1903,7 +1915,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Topshiriq yuzasidan izoh..."
                   value={assignDescription}
                   onChange={(e) => setAssignDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -1911,14 +1923,14 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <button
                   type="button"
                   onClick={() => setShowCreateAssignmentModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={selectedBookIds.length === 0 || resolvedStudentSet.size === 0}
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-500/20 disabled:opacity-50"
+                  className="px-5 py-2 bg-[#1E2B42] text-white rounded-none text-xs font-bold hover:opacity-90 transition cursor-pointer shadow-md shadow-xs disabled:opacity-50"
                 >
                   Topshiriqni Saqlash & Yuborish ({resolvedStudentSet.size} ta o'quvchi)
                 </button>
@@ -1936,8 +1948,8 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] my-auto">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] my-auto">
+            <div className="px-6 py-4 bg-white text-slate-900 border-b border-zinc-200/80 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-base font-bold">{selectedAssignmentDetails.title}</h3>
                 <p className="text-xs text-slate-400">
@@ -1946,7 +1958,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </div>
               <button
                 onClick={() => setSelectedAssignmentDetails(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-none hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1963,7 +1975,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               </div>
 
               {/* Progress Table */}
-              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <div className="overflow-x-auto border border-slate-200 rounded-none">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
                     <tr>
@@ -1995,11 +2007,11 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                                 setGradingFeedback(stProgress.teacher_feedback || "");
                                 setShowGradeModal(true);
                               }}
-                              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1 mx-auto ${
+                              className={`px-3 py-1.5 rounded-none font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1 mx-auto ${
                                 stProgress.grade_value
                                   ? "bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-xs"
                                   : stProgress.status === "completed"
-                                  ? "bg-indigo-100 text-indigo-900 border border-indigo-300"
+                                  ? "bg-slate-200 text-slate-800 border border-slate-300"
                                   : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                               }`}
                             >
@@ -2038,7 +2050,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-4 my-auto">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden p-6 space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">O'quvchini Baholash</h3>
@@ -2063,7 +2075,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="5"
                   value={gradingScore}
                   onChange={(e) => setGradingScore(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-sm font-black text-slate-900 focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -2076,7 +2088,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                   placeholder="Kitob tahlili haqida izoh..."
                   value={gradingFeedback}
                   onChange={(e) => setGradingFeedback(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 outline-none transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium focus:bg-white focus:border-[#1E2B42] outline-none transition"
                 />
               </div>
 
@@ -2084,14 +2096,14 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <button
                   type="button"
                   onClick={() => setShowGradeModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={submittingGrade}
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-1.5"
+                  className="px-5 py-2 bg-[#1E2B42] text-white rounded-none text-xs font-bold hover:opacity-90 transition cursor-pointer shadow-md shadow-xs flex items-center gap-1.5"
                 >
                   {submittingGrade && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Bahoni Saqlash</span>
@@ -2113,12 +2125,12 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
               setImportResult(null);
             }
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60  p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-2xl bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-2xl my-8 relative text-slate-900 animate-fadeIn space-y-6">
+          <div className="w-full max-w-2xl bg-white border border-slate-200/80 rounded-none p-6 sm:p-8 shadow-2xl my-8 relative text-slate-900 animate-fadeIn space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-none bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
                   <FileSpreadsheet className="w-5 h-5" />
                 </div>
                 <div>
@@ -2143,7 +2155,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
             </div>
 
             {/* Template download & rules info banner */}
-            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 space-y-3">
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-none p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <span className="text-xs font-black text-emerald-950 block">Excel Shablon formati:</span>
@@ -2155,7 +2167,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <button
                   type="button"
                   onClick={handleDownloadBookTemplate}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm shadow-emerald-600/20"
+                  className="px-3.5 py-2 bg-[#1E2B42] hover:opacity-90 text-white font-bold text-xs rounded-none transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs border border-[#1E2B42]"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Shablonni yuklab olish</span>
@@ -2164,7 +2176,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
             </div>
 
             {importError && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl font-bold flex items-center gap-2">
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-none font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{importError}</span>
               </div>
@@ -2173,7 +2185,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
             {/* Import result summary */}
             {importResult && (
               <div className="space-y-3">
-                <div className={`p-4 rounded-2xl border text-xs font-bold ${
+                <div className={`p-4 rounded-none border text-xs font-bold ${
                   importResult.failed_count === 0
                     ? "bg-emerald-50 border-emerald-200 text-emerald-900"
                     : "bg-amber-50 border-amber-200 text-amber-900"
@@ -2185,10 +2197,10 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 </div>
 
                 {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto rounded-2xl border border-rose-200 bg-rose-50/50 p-3 space-y-1.5 text-xs">
+                  <div className="max-h-48 overflow-y-auto rounded-none border border-rose-200 bg-rose-50/50 p-3 space-y-1.5 text-xs">
                     <span className="font-extrabold text-rose-900 block mb-1">Xatoliklar ro'yxati:</span>
                     {importResult.errors.map((err, eIdx) => (
-                      <div key={eIdx} className="text-rose-700 flex items-start gap-2 bg-white/80 p-2 rounded-xl border border-rose-100">
+                      <div key={eIdx} className="text-rose-700 flex items-start gap-2 bg-white/80 p-2 rounded-none border border-rose-100">
                         <span className="font-mono font-black text-rose-800 shrink-0">Qator {err.row}:</span>
                         <span>{err.error}</span>
                       </div>
@@ -2207,7 +2219,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <select
                   value={importCategoryId}
                   onChange={(e) => setImportCategoryId(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-none text-xs font-bold text-slate-900 focus:bg-white focus:border-[#1E2B42] outline-none transition cursor-pointer"
                 >
                   <option value="">Guruh biriktirilmasin (Guruhsiz)</option>
                   {categories.map((c) => (
@@ -2221,7 +2233,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                 <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
                   Excel (.xlsx) Faylini tanlang *
                 </label>
-                <div className="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-6 text-center bg-slate-50/50 transition cursor-pointer relative group">
+                <div className="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-none p-6 text-center bg-slate-50/50 transition cursor-pointer relative group">
                   <input
                     type="file"
                     accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -2236,7 +2248,7 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
+                    <div className="w-12 h-12 rounded-none bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
                       <UploadCloud className="w-6 h-6" />
                     </div>
                     {importFile ? (
@@ -2263,14 +2275,14 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
                     setImportError("");
                     setImportResult(null);
                   }}
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={importLoading || !importFile}
-                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shadow-md shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-none text-xs font-bold hover:bg-emerald-700 transition cursor-pointer shadow-md shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {importLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{importLoading ? "Yuklanmoqda..." : "Kitoblarni Import Qilish"}</span>
@@ -2284,9 +2296,9 @@ export default function LibrarySection({ token, API_URL }: LibrarySectionProps) 
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div
-          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border font-bold text-xs flex items-center gap-2 animate-fadeIn ${
+          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-none shadow-xl border font-bold text-xs flex items-center gap-2 animate-fadeIn ${
             toastMessage.type === "success"
-              ? "bg-slate-900 text-white border-slate-700"
+              ? "bg-white text-slate-900 border-b border-zinc-200/80 border-slate-700"
               : "bg-rose-600 text-white border-rose-700"
           }`}
         >

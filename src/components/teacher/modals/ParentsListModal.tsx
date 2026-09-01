@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { X } from "lucide-react";
+import PasswordInput from "@/components/common/PasswordInput";
 
 interface LinkedParent {
   id?: number;
@@ -35,8 +36,8 @@ interface ParentsListModalProps {
   setParentPassport: (v: string) => void;
   parentPassword: string;
   setParentPassword: (v: string) => void;
-  actionLoading: boolean;
   onLinkParentSubmit: (e: React.FormEvent) => void;
+  actionLoading: boolean;
 }
 
 export default function ParentsListModal({
@@ -58,77 +59,85 @@ export default function ParentsListModal({
   setParentPassport,
   parentPassword,
   setParentPassword,
-  actionLoading,
   onLinkParentSubmit,
+  actionLoading,
 }: ParentsListModalProps) {
-  if (!isOpen || !selectedStudent) return null;
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   return (
-    <div
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
+        if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
     >
-      <div className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-2xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[85vh] animate-fadeIn">
+      <div className="bg-white border border-neutral-200 shadow-sm w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-neutral-200 bg-slate-50 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-base font-extrabold text-[#16193E]">Vasiylar Boshqaruvi</h3>
-            <p className="text-xs text-zinc-500 font-medium mt-0.5">
+            <h3 className="text-lg font-bold font-serif text-[#1E2B42]">Vasiylar Boshqaruvi</h3>
+            <p className="text-xs text-slate-500 font-sans mt-0.5">
               O'quvchi:{" "}
-              <strong className="text-zinc-800">
-                {selectedStudent.first_name} {selectedStudent.last_name}
+              <strong className="text-slate-800">
+                {selectedStudent?.first_name} {selectedStudent?.last_name}
               </strong>
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+            className="p-2 bg-white hover:bg-slate-100 border border-neutral-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
             title="Yopish"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* Linked Parents list */}
+        <div className="p-6 space-y-6 overflow-y-auto">
+          {/* Linked Parents List */}
           <div>
-            <h4 className="text-xs font-bold text-zinc-700 mb-3 flex items-center">
+            <h4 className="text-sm font-bold font-serif text-slate-800 mb-3 flex items-center">
               <span>Bog'langan Ota-onalar</span>
-              <span className="ml-2 px-2 py-0.5 text-[10px] bg-indigo-50 text-indigo-700 rounded-full font-mono font-bold">
+              <span className="ml-2 px-2 py-0.5 text-[10px] bg-slate-100 text-slate-600 rounded-none font-sans font-bold">
                 {linkedParents.length}
               </span>
             </h4>
 
             {linkedParentsLoading ? (
-              <div className="text-center py-8 border border-dashed border-zinc-200 rounded-2xl">
-                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-1"></div>
-                <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
+              <div className="text-center py-8 border border-dashed border-neutral-300 bg-slate-50">
+                <div className="w-6 h-6 border-2 border-[#1E2B42] border-t-transparent rounded-none animate-spin mx-auto mb-1"></div>
+                <p className="text-xs text-slate-500 font-sans">Yuklanmoqda...</p>
               </div>
             ) : linkedParents.length === 0 ? (
-              <div className="text-center py-8 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
-                <p className="text-xs text-zinc-400 font-mono">
+              <div className="text-center py-8 border border-dashed border-neutral-300 bg-slate-50">
+                <p className="text-xs text-slate-500 font-sans">
                   Ushbu o'quvchiga hali ota-ona bog'lanmagan.
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {linkedParents.map((parent) => (
                   <div
                     key={parent.id || parent.user_id}
-                    className="flex items-center justify-between p-3.5 border border-zinc-200/70 rounded-2xl bg-zinc-50/50 hover:bg-zinc-50 transition"
+                    className="flex items-center justify-between p-3.5 border border-neutral-200 bg-slate-50 hover:bg-white transition"
                   >
                     <div>
                       <div className="flex items-center space-x-2">
-                        <p className="text-xs font-extrabold text-zinc-800">
+                        <p className="text-xs font-bold text-slate-800">
                           {parent.first_name} {parent.last_name} {parent.middle_name || ""}
                         </p>
                         {parent.relation_type && (
-                          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-none bg-slate-200 text-slate-700 font-sans">
                             {parent.relation_type === "ota"
                               ? "Otasi"
                               : parent.relation_type === "ona"
@@ -137,24 +146,24 @@ export default function ParentsListModal({
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-zinc-500 font-mono mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] text-slate-500 font-sans mt-1 flex flex-wrap items-center gap-2">
                         <span>
                           Tel:{" "}
-                          <b className="text-zinc-700">
-                            {parent.phone || "— (Otasi/Onasi raqamiga biriktirilgan)"}
+                          <b className="text-slate-700">
+                            {parent.phone || "? (Otasi/Onasi raqamiga biriktirilgan)"}
                           </b>
                         </span>
                         <span>|</span>
                         <span>
                           Pasport:{" "}
-                          <b className="text-indigo-700 font-bold">
+                          <b className="text-slate-700 font-bold">
                             {parent.passport || "Kiritilmagan"}
                           </b>
                         </span>
                         {parent.email && <span>| Email: {parent.email}</span>}
                       </p>
                       {parent.parent_code && (
-                        <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-mono inline-block mt-1 font-bold">
+                        <p className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-none font-sans inline-block mt-1 font-bold">
                           Taklif kodi: {parent.parent_code}
                         </p>
                       )}
@@ -162,7 +171,7 @@ export default function ParentsListModal({
                     <button
                       type="button"
                       onClick={() => onUnlinkParent(parent.id || parent.user_id)}
-                      className="text-xs bg-red-50 border border-red-200 text-red-650 hover:bg-red-100 font-bold py-1.5 px-3 rounded-xl transition cursor-pointer"
+                      className="text-xs bg-red-50 border border-red-200 text-[#A51C30] hover:bg-red-100 font-bold py-1.5 px-3 transition cursor-pointer"
                     >
                       Ajratish
                     </button>
@@ -172,17 +181,17 @@ export default function ParentsListModal({
             )}
           </div>
 
-          <hr className="border-zinc-100" />
+          <hr className="border-neutral-200" />
 
           {/* Manual Link/Add parent Form */}
           <form onSubmit={onLinkParentSubmit} className="space-y-4">
-            <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider">
+            <h4 className="text-sm font-bold font-serif text-slate-800 uppercase tracking-wider">
               Yangi Ota-onani Bog'lash (Qo'shish)
             </h4>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                   Ism *
                 </label>
                 <input
@@ -190,12 +199,12 @@ export default function ParentsListModal({
                   required
                   value={parentFirstName}
                   onChange={(e) => setParentFirstName(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                   placeholder="Masalan: Asror"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                   Familiya *
                 </label>
                 <input
@@ -203,7 +212,7 @@ export default function ParentsListModal({
                   required
                   value={parentLastName}
                   onChange={(e) => setParentLastName(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                   placeholder="Masalan: Karimov"
                 />
               </div>
@@ -211,27 +220,28 @@ export default function ParentsListModal({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                   Otasining ismi (Sharifi)
                 </label>
                 <input
                   type="text"
                   value={parentMiddleName}
                   onChange={(e) => setParentMiddleName(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                   placeholder="Masalan: Baxtiyorovich"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                   Telefon *
                 </label>
                 <input
                   type="text"
                   required
+                  autoComplete="new-password" name="off"
                   value={parentPhone}
                   onChange={(e) => setParentPhone(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                   placeholder="Masalan: +998901234567"
                 />
               </div>
@@ -239,47 +249,49 @@ export default function ParentsListModal({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                   Pasport
                 </label>
                 <input
                   type="text"
+                  autoComplete="new-password" name="off"
                   value={parentPassport}
                   onChange={(e) => setParentPassport(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
+                  className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
                   placeholder="Masalan: AA1234567"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">
+                <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                   Parol *
                 </label>
-                <input
-                  type="password"
+                {/* Yandex / Chrome autofill trap: absorbs the "username" autofill so it doesn't leak to Passport */}
+                <input type="text" name="fakeusernameremembered" autoComplete="username" className="absolute w-0 h-0 opacity-0 -z-10" tabIndex={-1} aria-hidden="true" />
+                <PasswordInput
+                  autoComplete="new-password"
                   required
                   value={parentPassword}
                   onChange={(e) => setParentPassword(e.target.value)}
-                  className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-mono font-bold text-zinc-800 outline-none"
                   placeholder="Kamida 6 ta belgi"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-2 pt-2">
+            <div className="flex justify-end space-x-3 pt-4 border-t border-neutral-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
+                className="px-4 py-2 border border-neutral-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold font-sans cursor-pointer transition"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                className="px-5 py-2 bg-[#A51C30] hover:bg-[#8a1526] text-white text-xs font-bold font-sans disabled:opacity-50 flex items-center space-x-2 cursor-pointer transition"
               >
                 {actionLoading && (
-                  <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin shrink-0"></span>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-none animate-spin shrink-0"></span>
                 )}
                 <span>Ota-onani bog'lash</span>
               </button>
@@ -290,3 +302,4 @@ export default function ParentsListModal({
     </div>
   );
 }
+

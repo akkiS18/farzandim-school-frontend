@@ -41,11 +41,11 @@ export default function ChatModal({
       }}
       className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
     >
-      <div className="bg-white border border-zinc-200/80 rounded-3xl p-5 sm:p-6 w-full max-w-[480px] shadow-2xl flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn space-y-3">
+      <div className="bg-white border border-zinc-200/80 rounded-none p-5 sm:p-6 w-full max-w-[480px] shadow-md flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn space-y-3">
         <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
           <div>
             <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
-              <span>💬 Muhokama (Chat)</span>
+              <span>Muhokama (Chat)</span>
             </h3>
             <p className="text-xs text-zinc-500 font-medium mt-0.5">
               Ota-ona: <b className="text-zinc-800">{selectedChatComment.author_name}</b>
@@ -54,7 +54,7 @@ export default function ChatModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-none bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
             title="Yopish"
           >
             <X className="w-4 h-4" />
@@ -62,7 +62,7 @@ export default function ChatModal({
         </div>
 
         {/* Chat messages */}
-        <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-200/70 rounded-2xl p-3 bg-zinc-50 flex flex-col gap-2.5 flex-1">
+        <div className="max-h-[300px] min-h-[150px] overflow-y-auto border border-zinc-200/70 rounded-none p-3 bg-zinc-50 flex flex-col gap-2.5 flex-1">
           {chatLoading && chatMessages.length === 0 ? (
             <div className="text-center py-6 text-xs text-zinc-400">Yuklanmoqda...</div>
           ) : chatMessages.length === 0 ? (
@@ -94,9 +94,9 @@ export default function ChatModal({
                   )}
                   <div
                     style={{
-                      backgroundColor: isMyMessage ? "#5B50EC" : "#E5E7EB",
+                      backgroundColor: isMyMessage ? "#1E2B42" : "#E5E7EB",
                       color: isMyMessage ? "white" : "#374151",
-                      borderRadius: "14px",
+                      borderRadius: "0px",
                       padding: "8px 12px",
                       fontSize: "12px",
                       fontWeight: 500,
@@ -141,13 +141,13 @@ export default function ChatModal({
               }
             }}
             rows={2}
-            className="flex-1 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 outline-none resize-none focus:ring-2 focus:ring-indigo-500 font-medium transition leading-relaxed"
+            className="flex-1 p-2.5 bg-zinc-50 border border-zinc-200 rounded-none text-xs text-zinc-800 outline-none resize-none focus:ring-2 focus:ring-[#1E2B42] font-medium transition leading-relaxed"
             placeholder="Javobingizni yozing... (Enter: Yuborish, Shift+Enter: Yangi qator)"
           />
           <button
             type="submit"
             disabled={replySubmitLoading}
-            className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-bold text-xs py-2 px-4 rounded-xl transition cursor-pointer h-10 flex items-center justify-center shrink-0 shadow-xs"
+            className="bg-[#1E2B42] hover:bg-slate-800 text-white font-bold text-xs py-2 px-4 rounded-none transition cursor-pointer h-10 flex items-center justify-center shrink-0 shadow-xs"
           >
             {replySubmitLoading ? "..." : "Yuborish"}
           </button>
@@ -156,3 +156,7 @@ export default function ChatModal({
     </div>
   );
 }
+
+
+
+

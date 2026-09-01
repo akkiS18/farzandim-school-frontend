@@ -671,7 +671,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] max-w-lg w-full px-4">
-          <div className="bg-[#1D1E26] text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-400/80 font-black text-sm flex items-center justify-between gap-3 animate-bounce">
+          <div className="bg-[#1D1E26] text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-400/80 font-black text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-5 duration-300">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               <span>{toastMessage}</span>
@@ -1318,7 +1318,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 </button>
                 <button
                   type="button"
-                  disabled={generating || (activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS"))}
+                  disabled={Boolean(generating || (activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS")))}
                   onClick={handleBatchGenerate}
                   className="px-5 py-2.5 rounded-xl bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
                 >
@@ -1890,3 +1890,5 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     </div>
   );
 }
+
+

@@ -127,15 +127,15 @@ const TableRow = memo(function TableRow({
     { key: "address", placeholder: "-", width: "w-44" },
     { key: "fatherFullName", placeholder: "-", width: "w-40", extraStyle: "font-semibold" },
     { key: "fatherDocumentNo", placeholder: "-", width: "w-28", extraStyle: "font-mono" },
-    { key: "fatherPhone", placeholder: "-", width: "w-32", extraStyle: "font-mono text-indigo-700" },
+    { key: "fatherPhone", placeholder: "-", width: "w-32", extraStyle: "font-mono text-slate-700" },
     { key: "motherFullName", placeholder: "-", width: "w-40", extraStyle: "font-semibold" },
     { key: "motherDocumentNo", placeholder: "-", width: "w-28", extraStyle: "font-mono" },
-    { key: "motherPhone", placeholder: "-", width: "w-32", extraStyle: "font-mono text-indigo-700" },
-    { key: "enrollmentDate", placeholder: "YYYY-MM-DD", width: "w-32", extraStyle: "font-mono font-bold text-indigo-700" },
+    { key: "motherPhone", placeholder: "-", width: "w-32", extraStyle: "font-mono text-slate-700" },
+    { key: "enrollmentDate", placeholder: "YYYY-MM-DD", width: "w-32", extraStyle: "font-mono font-bold text-slate-700" },
   ];
 
   return (
-    <tr className={`transition ${isActiveRow ? "bg-indigo-50/40" : "hover:bg-indigo-50/20"}`}>
+    <tr className={`transition ${isActiveRow ? "bg-slate-50/40" : "hover:bg-slate-50/20"}`}>
       <td className="px-3 py-2 text-center text-zinc-400 font-mono text-[11px] font-bold">{idx + 1}</td>
 
       {fields.map((f) => {
@@ -201,11 +201,11 @@ const TableRow = memo(function TableRow({
                   ? `Ushbu pasportlik ota-ona (${conflictParentInfo.first_name} ${conflictParentInfo.last_name}) bazada bor, lekin ismi/telefonida tafovut bor! Ikki marta bosing.`
                   : undefined
               }
-              className={`w-full text-xs rounded-xl px-2.5 py-1.5 transition flex items-center justify-between min-h-[32px] truncate ${
+              className={`w-full text-xs rounded-none px-2.5 py-1.5 transition flex items-center justify-between min-h-[32px] truncate ${
                 hasExistingMatch || hasParentConflict
                   ? "bg-rose-600 text-white font-extrabold shadow-sm border border-rose-700 hover:bg-rose-700 animate-pulse"
                   : isSelected
-                  ? "bg-indigo-600 text-white font-extrabold ring-2 ring-indigo-500 shadow-sm"
+                  ? "bg-[#1E2B42] text-white font-extrabold ring-2 ring-indigo-500 shadow-sm"
                   : val
                   ? "bg-zinc-50 border border-zinc-200/80 text-zinc-800 font-medium hover:border-indigo-300 hover:bg-white"
                   : "bg-zinc-50/50 border border-dashed border-zinc-200 text-zinc-400 italic"
@@ -213,7 +213,7 @@ const TableRow = memo(function TableRow({
             >
               <span className="truncate">{val || "-"}</span>
               {(hasExistingMatch || hasParentConflict) && (
-                <span className="ml-1 text-[9px] bg-rose-950 text-white px-1.5 py-0.5 rounded-md font-mono shrink-0">
+                <span className="ml-1 text-[9px] bg-rose-950 text-white px-1.5 py-0.5 rounded-none font-mono shrink-0">
                   {hasParentConflict ? "ZIDDIYAT" : "DUBLIKAT"}
                 </span>
               )}
@@ -229,7 +229,7 @@ const TableRow = memo(function TableRow({
             e.stopPropagation();
             onDeleteRow(row.id);
           }}
-          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-none transition cursor-pointer"
           title="O'chirish"
         >
           <Trash2 className="w-4 h-4" />
@@ -951,12 +951,12 @@ export default function SocialPassportImportSection({
   const activeValue = (activeRowData && activeCell) ? (activeRowData[activeCell.field] || "") : "";
 
   return (
-    <div className="space-y-6 font-sans text-[#16193E]">
+    <div className="space-y-6 font-sans text-slate-800 pb-24">
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold flex items-center space-x-2 animate-bounce ${
-          toast.type === "success" ? "bg-emerald-500 text-white border-emerald-600" :
-          toast.type === "error" ? "bg-rose-500 text-white border-rose-600" : "bg-indigo-600 text-white border-indigo-700"
+        <div className={`fixed top-5 right-5 z-50 px-4 py-3 border text-xs font-bold flex items-center space-x-2 animate-in fade-in slide-in-from-top-5 duration-300 ${
+          toast.type === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+          toast.type === "error" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-slate-50 text-slate-700 border-neutral-200"
         }`}>
           {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           <span>{toast.message}</span>
@@ -964,16 +964,12 @@ export default function SocialPassportImportSection({
       )}
 
       {/* Header Description Banner */}
-      <div className="bg-white border border-zinc-200/80 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-indigo-700 text-xs font-bold">
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Ijtimoiy Pasport Importi (Smart)</span>
-          </div>
-          <h2 className="text-xl font-black text-[#16193E] tracking-tight">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-[#1E2B42] font-serif">
             Excel Ijtimoiy Pasport orqali O'quvchilarni Yuklash
           </h2>
-          <p className="text-xs text-zinc-500 font-medium max-w-2xl">
+          <p className="text-xs text-slate-500 font-sans mt-0.5 max-w-2xl">
             Excel faylini yuklang. Tizim avtomatik ravishda Krill alifbosidagi ma'lumotlarni Lotinchaga o'tkazadi. Jadvaldagi istalgan katakni bossangiz, yuqoridagi **Excel Tahrirlash Paneli (fx)** da lahzada ko'rinadi va bemalol tahrirlashingiz mumkin.
           </p>
         </div>
@@ -986,8 +982,8 @@ export default function SocialPassportImportSection({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-3xl p-12 text-center transition cursor-pointer flex flex-col items-center justify-center space-y-4 bg-white ${
-            isDragging ? "border-indigo-600 bg-indigo-50/50 scale-[1.01]" : "border-zinc-300 hover:border-indigo-400 hover:bg-zinc-50/50"
+          className={`border border-dashed p-12 text-center transition cursor-pointer flex flex-col items-center justify-center space-y-4 bg-white ${
+            isDragging ? "border-[#1E2B42] bg-slate-50" : "border-neutral-300 hover:border-[#1E2B42] hover:bg-slate-50"
           }`}
         >
           <input
@@ -997,16 +993,16 @@ export default function SocialPassportImportSection({
             accept=".xlsx, .xls"
             className="hidden"
           />
-          <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
-            {loading ? <RefreshCw className="w-8 h-8 animate-spin" /> : <Upload className="w-8 h-8" />}
+          <div className="w-12 h-12 bg-slate-100 text-[#1E2B42] flex items-center justify-center">
+            {loading ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
           </div>
           <div>
-            <h3 className="text-base font-bold text-[#16193E]">Excel faylini shu yerga tashlang yoki bosing</h3>
-            <p className="text-xs text-zinc-400 font-medium mt-1">.xlsx, .xls formatdagi Ijtimoiy pasport va sinf ro'yxatlari</p>
+            <h3 className="text-sm font-bold text-[#1E2B42] font-serif">Excel faylini shu yerga tashlang yoki bosing</h3>
+            <p className="text-xs text-slate-500 font-sans mt-1">.xlsx, .xls formatdagi Ijtimoiy pasport va sinf ro'yxatlari</p>
           </div>
           <button
             type="button"
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center space-x-2 cursor-pointer"
+            className="px-5 py-2.5 bg-[#A51C30] hover:bg-[#8a1526] text-white text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>Faylni Tanlash</span>
@@ -1014,21 +1010,21 @@ export default function SocialPassportImportSection({
         </div>
       ) : (
         /* 11-COLUMN INTERACTIVE EDITABLE DATA GRID WITH ULTRA-FAST EXCEL EDIT BAR */
-        <div className="bg-white border border-zinc-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="bg-white border-y sm:border sm:border-neutral-200 p-0 sm:p-4 -mx-4 sm:mx-0 space-y-4">
           {/* Top Actions & Summary Bar */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-zinc-100 pb-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-neutral-200 pb-4">
             <div className="flex items-center space-x-3">
-              <span className="bg-indigo-50 text-indigo-700 font-extrabold text-xs px-3.5 py-1.5 rounded-xl border border-indigo-100">
+              <span className="bg-slate-100 text-[#1E2B42] font-bold text-xs px-3.5 py-1.5 border border-neutral-200">
                 Topilgan O'quvchilar: {parsedRows.length} ta
               </span>
-              {fileName && <span className="text-xs font-semibold text-zinc-400 font-mono">📁 {fileName}</span>}
+              {fileName && <span className="text-xs font-bold text-slate-500 font-mono">"{fileName}"</span>}
             </div>
 
             <div className="flex items-center space-x-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Boshqa fayl</span>
@@ -1037,20 +1033,10 @@ export default function SocialPassportImportSection({
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-[#A51C30] border border-red-200 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Tozalash</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleBatchSaveToDatabase}
-                disabled={saving}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-500/20 flex items-center space-x-2 cursor-pointer disabled:opacity-50"
-              >
-                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Bazaga saqlash ({parsedRows.length})</span>
               </button>
 
               <input
@@ -1064,22 +1050,17 @@ export default function SocialPassportImportSection({
           </div>
 
           {/* EXCEL-STYLE STICKY TOP FORMULA / EDIT BAR */}
-          <div className="sticky top-2 z-30 bg-gradient-to-r from-indigo-50/95 via-purple-50/95 to-indigo-50/95 backdrop-blur-md border-2 border-indigo-300 rounded-2xl p-3 shadow-lg space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="font-mono text-xs font-black text-white bg-indigo-600 px-3 py-1 rounded-xl shadow-xs">
-                  fx
-                </span>
-                <span className="text-xs font-extrabold text-indigo-950 font-mono">
-                  {activeCell ? `${activeCell.rowIdx + 1}-Qator • ${activeCell.label}` : "Katakni tanlang"}
-                </span>
-              </div>
-              <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider hidden sm:inline font-mono">
-                ⚡ LAHZALIK TEZ TAHRIRLASH PANELI
+          <div className="sticky top-0 z-30 bg-slate-50 border border-neutral-200 p-2 sm:p-3 shadow-md space-y-2 mx-4 sm:mx-0">
+            <div className="flex items-center space-x-2 px-1">
+              <span className="font-mono text-xs font-bold text-white bg-[#1E2B42] px-2 py-0.5">
+                fx
+              </span>
+              <span className="text-xs font-bold text-slate-700 font-mono">
+                {activeCell ? `${activeCell.rowIdx + 1}-Qator • ${activeCell.label}` : "Katakni tanlang"}
               </span>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center">
               <input
                 ref={topInputRef}
                 type="text"
@@ -1091,13 +1072,13 @@ export default function SocialPassportImportSection({
                 }}
                 disabled={!activeCell}
                 placeholder="Jadvaldan xohlagan katakni tanlang va bu yerda keng inputda tahrirlang..."
-                className="w-full text-sm font-bold text-zinc-900 bg-white border-2 border-indigo-400 focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm transition"
+                className="w-full text-sm font-bold text-zinc-900 bg-white border-2 border-indigo-400 focus:border-[#1E2B42] rounded-none px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm transition"
               />
             </div>
           </div>
 
           {/* 11-Column Table Container */}
-          <div className="overflow-x-auto rounded-2xl border border-zinc-200/80 shadow-2xs">
+          <div className="overflow-x-auto rounded-none border border-zinc-200/80 shadow-2xs">
             <table className="w-full text-left border-collapse min-w-[1400px]">
               <thead className="bg-zinc-50 text-[10px] font-black text-zinc-400 uppercase tracking-wider border-b border-zinc-200/80 font-mono">
                 <tr>
@@ -1160,7 +1141,7 @@ export default function SocialPassportImportSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 bg-rose-600 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1178,7 +1159,7 @@ export default function SocialPassportImportSection({
 
             {/* Content */}
             <div className="p-6 space-y-4">
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl space-y-1">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-none space-y-1">
                 <p className="text-xs text-rose-900 font-extrabold">
                   Ushbu I-NA hujjatli o'quvchi bazada allaqachon mavjud!
                 </p>
@@ -1187,7 +1168,7 @@ export default function SocialPassportImportSection({
                 </p>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 text-xs text-slate-800">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-none p-4 space-y-3 text-xs text-slate-800">
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">O'quvchi F.I.Sh:</span>
                   <span className="font-extrabold text-slate-900">
@@ -1197,14 +1178,14 @@ export default function SocialPassportImportSection({
 
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">Metrika / Pasport (I-NA):</span>
-                  <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200">
+                  <span className="font-mono font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-none border border-indigo-200">
                     {transferModal.student.ina}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">Hozirgi Sinf:</span>
-                  <span className="font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                  <span className="font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-none border border-amber-200">
                     {transferModal.student.class_name} sinfi
                   </span>
                 </div>
@@ -1215,7 +1196,7 @@ export default function SocialPassportImportSection({
                   <select
                     value={selectedTargetClass}
                     onChange={(e) => setSelectedTargetClass(e.target.value)}
-                    className="px-3 py-1.5 bg-white border border-slate-300 focus:border-indigo-500 rounded-xl text-xs font-extrabold text-indigo-900 outline-none shadow-2xs cursor-pointer"
+                    className="px-3 py-1.5 bg-white border border-slate-300 focus:border-indigo-500 rounded-none text-xs font-extrabold text-indigo-900 outline-none shadow-2xs cursor-pointer"
                   >
                     {schoolClasses.length === 0 ? (
                       <option value={transferModal.targetClass}>{transferModal.targetClass} sinfi</option>
@@ -1235,7 +1216,7 @@ export default function SocialPassportImportSection({
                 <button
                   type="button"
                   onClick={() => setTransferModal(null)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
@@ -1243,7 +1224,7 @@ export default function SocialPassportImportSection({
                   type="button"
                   onClick={handleTransferStudent}
                   disabled={transferring}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold transition cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-[#1E2B42] hover:bg-slate-700 text-white rounded-none text-xs font-extrabold transition cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-2 disabled:opacity-50"
                 >
                   <ArrowRightLeft className="w-4 h-4" />
                   <span>{transferring ? "O'tkazilmoqda..." : "Sinfga o'tkazish"}</span>
@@ -1262,11 +1243,11 @@ export default function SocialPassportImportSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
         >
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col">
+          <div className="bg-white rounded-none border border-slate-100 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col">
             {/* Header */}
             <div className="px-6 py-5 bg-rose-700 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white">
+                <div className="w-10 h-10 rounded-none bg-white/20 border border-white/30 flex items-center justify-center text-white">
                   <UserX className="w-5 h-5" />
                 </div>
                 <div>
@@ -1291,7 +1272,7 @@ export default function SocialPassportImportSection({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* DB Existing Parent */}
-                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2.5">
+                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-none space-y-2.5">
                   <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
                     <Database className="w-4 h-4 text-amber-700" />
                     <span>Bazadagi Mavjud Ma'lumot (Eski)</span>
@@ -1313,7 +1294,7 @@ export default function SocialPassportImportSection({
                           <li key={ch.student_id} className="flex items-center gap-1.5 font-medium">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                             <span>{ch.full_name}</span>
-                            <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded-md">
+                            <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded-none">
                               {ch.class_name}
                             </span>
                           </li>
@@ -1324,9 +1305,9 @@ export default function SocialPassportImportSection({
                 </div>
 
                 {/* Excel Uploaded Parent */}
-                <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-2.5">
+                <div className="p-4 bg-slate-50/70 border border-indigo-200 rounded-none space-y-2.5">
                   <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
-                    <FileSpreadsheet className="w-4 h-4 text-indigo-700" />
+                    <FileSpreadsheet className="w-4 h-4 text-slate-700" />
                     <span>Excel'da Kiritilgan Yangi Ma'lumot</span>
                   </div>
                   <div className="text-xs space-y-1">
@@ -1344,20 +1325,20 @@ export default function SocialPassportImportSection({
                 <button
                   type="button"
                   onClick={() => handleKeepExistingParent(parentConflictModal)}
-                  className="w-full p-3.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-2xl shadow-sm transition flex items-center justify-between cursor-pointer"
+                  className="w-full p-3.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-none shadow-sm transition flex items-center justify-between cursor-pointer"
                 >
                   <span>1. Bazadagi eski ism/familiyani qoldirish</span>
-                  <span className="text-[10px] bg-amber-800 text-amber-100 px-2 py-1 rounded-md font-mono">Excel moslashtiriladi</span>
+                  <span className="text-[10px] bg-amber-800 text-amber-100 px-2 py-1 rounded-none font-mono">Excel moslashtiriladi</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleUpdateDBParentFromExcel(parentConflictModal)}
                   disabled={resolvingConflict}
-                  className="w-full p-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl shadow-sm transition flex items-center justify-between cursor-pointer disabled:opacity-50"
+                  className="w-full p-3.5 bg-[#1E2B42] hover:bg-slate-700 text-white font-bold text-xs rounded-none shadow-sm transition flex items-center justify-between cursor-pointer disabled:opacity-50"
                 >
                   <span>2. Yangi kiritilgan ism/familiya bilan bazani yangilash</span>
-                  <span className="text-[10px] bg-indigo-800 text-indigo-100 px-2 py-1 rounded-md font-mono">
+                  <span className="text-[10px] bg-indigo-800 text-slate-100 px-2 py-1 rounded-none font-mono">
                     {resolvingConflict ? "Saqlanmoqda..." : "Baza yangilanadi"}
                   </span>
                 </button>
@@ -1369,7 +1350,7 @@ export default function SocialPassportImportSection({
               <button
                 type="button"
                 onClick={() => setParentConflictModal(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-none transition cursor-pointer"
               >
                 Bekor qilish
               </button>
@@ -1377,6 +1358,24 @@ export default function SocialPassportImportSection({
           </div>
         </div>
       )}
+      {/* STICKY SAVE BUTTON */}
+      {parsedRows.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            type="button"
+            onClick={handleBatchSaveToDatabase}
+            disabled={saving}
+            className="px-5 py-3 bg-[#1E2B42] hover:bg-slate-800 text-white shadow-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer disabled:opacity-50 border border-slate-600"
+            title="Bazaga saqlash"
+          >
+            {saving ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+            <span className="text-sm">Saqlash ({parsedRows.length})</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
+
+

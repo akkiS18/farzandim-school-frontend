@@ -41,9 +41,9 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
 }) => {
   return (
     <div className="space-y-4 animate-fadeIn">
-      <div className="bg-white border border-zinc-200/70 rounded-3xl p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
+      <div className="bg-white border border-zinc-200/70 rounded-none p-4 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-zinc-900">
         <div>
-          <h3 className="text-sm sm:text-base font-extrabold text-[#16193E]">To'garaklar (Fan To'garaklari)</h3>
+          <h3 className="text-sm sm:text-base font-bold font-serif text-[#1E2B42]">To'garaklar (Fan To'garaklari)</h3>
           <p className="text-xs text-zinc-500 font-medium mt-0.5">
             Foydalanuvchilarga o'z fanlaringizdan to'garaklar tashkil qilish va jadvallarni boshqarish
           </p>
@@ -52,7 +52,7 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
           <button
             type="button"
             onClick={onOpenAddClubModal}
-            className="bg-[#5B50EC] hover:bg-[#4A3FDB] text-white font-extrabold text-xs py-2.5 px-4 rounded-2xl transition cursor-pointer flex items-center space-x-1.5 shadow-xs shrink-0"
+            className="bg-[#1E2B42] hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 rounded-none transition cursor-pointer flex items-center space-x-1.5 shadow-sm shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Yangi To'garak</span>
@@ -61,12 +61,12 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
       </div>
 
       {clubsLoading ? (
-        <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-3xl shadow-xs">
+        <div className="text-center py-16 bg-white border border-zinc-200/70 rounded-none shadow-sm">
           <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
           <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
         </div>
       ) : clubs.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-3xl">
+        <div className="text-center py-16 bg-white border border-dashed border-zinc-200/80 rounded-none">
           <p className="text-sm font-bold text-zinc-800 mb-1">To'garaklar mavjud emas</p>
           <p className="text-xs text-zinc-400 font-mono">
             Siz yaratgan to'garaklar hali yo'q. "Yangi To'garak" tugmasi orqali yaratishingiz mumkin.
@@ -77,14 +77,14 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
           {clubs.map((club) => (
             <div
               key={club.id}
-              className="bg-white border border-zinc-200/70 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 text-zinc-900 relative hover:shadow-md transition"
+              className="bg-white border border-zinc-200/70 rounded-none p-5 sm:p-6 shadow-sm space-y-4 text-zinc-900 relative hover:shadow-md transition"
             >
               <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3.5">
                 <div className="space-y-1 min-w-0 flex-1 pr-2">
-                  <span className="text-[10px] font-extrabold text-[#0284C7] bg-[#E0F2FE] px-3 py-1 rounded-xl font-mono inline-block">
+                  <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-none font-mono inline-block">
                     {club.subject_name}
                   </span>
-                  <h4 className="text-base font-extrabold text-[#16193E] truncate">{club.name}</h4>
+                  <h4 className="text-base font-serif font-bold text-[#1E2B42] truncate">{club.name}</h4>
                   <p className="text-xs text-zinc-500 font-medium">
                     Ruxsat etilgan sinflar:{" "}
                     <b className="text-zinc-800">
@@ -99,7 +99,7 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenEditClubModal(club)}
-                      className="p-2 sm:p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-800 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                      className="p-2 sm:p-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-none transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
                       title="To'garakni tahrirlash"
                     >
                       <Pencil className="w-4 h-4" />
@@ -107,7 +107,7 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onDeleteClub(club.id)}
-                      className="p-2 sm:p-2.5 bg-red-50 hover:bg-red-100 border border-red-200/80 text-red-600 rounded-2xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
+                      className="p-2 sm:p-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-none transition cursor-pointer flex items-center justify-center shadow-2xs hover:scale-105"
                       title="To'garakni o'chirish"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -118,9 +118,9 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setOpenClubMenuId(openClubMenuId === club.id ? null : club.id)}
-                    className={`p-2 sm:p-2.5 rounded-2xl border transition cursor-pointer flex items-center justify-center shadow-2xs ${
+                    className={`p-2 sm:p-2.5 rounded-none border transition cursor-pointer flex items-center justify-center shadow-2xs ${
                       openClubMenuId === club.id
-                        ? "bg-indigo-600 border-indigo-600 text-white shadow-md scale-105"
+                        ? "bg-[#1E2B42] border-indigo-600 text-white shadow-md scale-105"
                         : "bg-zinc-100/90 hover:bg-zinc-200/80 border-zinc-200/80 text-zinc-700 hover:text-zinc-900"
                     }`}
                     title="Boshqa amallar"
@@ -130,14 +130,14 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
 
                   {/* Dropdown Menu Popup */}
                   {openClubMenuId === club.id && (
-                    <div className="absolute right-0 top-full mt-2 w-56 sm:w-64 bg-white/95 backdrop-blur-md border border-zinc-200/90 rounded-2xl shadow-xl p-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 space-y-0.5 font-sans">
+                    <div className="absolute right-0 top-full mt-2 w-56 sm:w-64 bg-white/95 backdrop-blur-md border border-zinc-200/90 rounded-none shadow-xl p-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 space-y-0.5 font-sans">
                       {/* Mobile-only Edit Option */}
                       <button
                         type="button"
                         onClick={() => onOpenEditClubModal(club)}
-                        className="sm:hidden w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-xl transition cursor-pointer"
+                        className="sm:hidden w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 rounded-none transition cursor-pointer"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-none bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                           <Pencil className="w-3.5 h-3.5" />
                         </div>
                         <span>To'garakni tahrirlash</span>
@@ -147,9 +147,9 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenClubStudentsModal(club)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition cursor-pointer"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 rounded-none transition cursor-pointer"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-none bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                           <Users className="w-3.5 h-3.5" />
                         </div>
                         <span>To'garak a'zolari</span>
@@ -159,9 +159,9 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenAddScheduleModal(club)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition cursor-pointer"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 rounded-none transition cursor-pointer"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-none bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                           <Calendar className="w-3.5 h-3.5" />
                         </div>
                         <span>Dars jadvali</span>
@@ -171,9 +171,9 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenClubGradingModal(club)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-purple-50 hover:text-purple-700 rounded-xl transition cursor-pointer"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-purple-50 hover:text-purple-700 rounded-none transition cursor-pointer"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-none bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                           <Award className="w-3.5 h-3.5" />
                         </div>
                         <span>To'garak jurnali & baholash</span>
@@ -184,9 +184,9 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                         <button
                           type="button"
                           onClick={() => onDeleteClub(club.id)}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-none transition cursor-pointer"
                         >
-                          <div className="w-7 h-7 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 rounded-none bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
                             <Trash2 className="w-3.5 h-3.5" />
                           </div>
                           <span>To'garakni o'chirish</span>
@@ -199,12 +199,12 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
 
               {/* Schedule list for the club */}
               <div className="space-y-2.5">
-                <h5 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                <h5 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#1E2B42]" />
                   <span>To'garak Jadvali</span>
                 </h5>
                 {!club.schedules || club.schedules.length === 0 ? (
-                  <p className="text-xs text-zinc-400 font-medium italic bg-zinc-50/50 p-3 rounded-2xl border border-zinc-150">
+                  <p className="text-xs text-zinc-400 font-medium italic bg-zinc-50/50 p-3 rounded-none border border-zinc-150">
                     Hali dars jadvali belgilanmagan
                   </p>
                 ) : (
@@ -223,10 +223,10 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                       return (
                         <div
                           key={sch.id}
-                          className="flex items-center justify-between bg-zinc-50/80 border border-zinc-200/70 p-3 rounded-2xl text-xs"
+                          className="flex items-center justify-between bg-zinc-50/80 border border-zinc-200/70 p-3 rounded-none text-xs"
                         >
                           <div>
-                            <span className="font-extrabold text-[#16193E] block">{days[sch.day_of_week]}</span>
+                            <span className="font-bold text-[#1E2B42] block">{days[sch.day_of_week]}</span>
                             <span className="text-[11px] text-zinc-500 font-mono font-medium">
                               {sch.start_time} - {sch.end_time}
                             </span>
@@ -234,7 +234,7 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
                           <button
                             type="button"
                             onClick={() => onDeleteSchedule(sch.id)}
-                            className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-xl transition cursor-pointer shrink-0"
+                            className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-none transition cursor-pointer shrink-0"
                             title="O'chirish"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -254,3 +254,4 @@ export const ClubsTab: React.FC<ClubsTabProps> = ({
 };
 
 export default ClubsTab;
+

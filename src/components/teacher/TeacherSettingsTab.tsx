@@ -87,42 +87,40 @@ export default function TeacherSettingsTab({
   };
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto animate-fadeIn pb-36 text-zinc-900">
-      <div className="bg-white border border-zinc-200/70 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-        <div className="border-b border-zinc-100 pb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold text-[#16193E] flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-600" />
-              <span>Sozlamalar va Profil</span>
-            </h2>
-            <p className="text-xs text-zinc-500 font-medium mt-1">
-              Shaxsiy ma'lumotlaringizni tahrirlang va tizim sozlamalarini boshqaring.
-            </p>
-          </div>
+    <div className="space-y-4 max-w-3xl mx-auto animate-fadeIn pb-36 text-slate-900">
+      {/* Header Banner */}
+      <div className="bg-white border border-slate-200/70 rounded-none p-4 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm sm:text-base font-bold font-serif text-[#1E2B42]">Sozlamalar va Profil</h3>
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
+            Shaxsiy ma'lumotlaringizni tahrirlang va tizim sozlamalarini boshqaring.
+          </p>
         </div>
+      </div>
 
+      <div className="bg-white border border-slate-200/70 rounded-none p-6 sm:p-8 shadow-sm space-y-8">
         {/* Profile info form */}
         <div className="space-y-4">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
             Profil ma'lumotlari
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1">Ismingiz</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Ismingiz</label>
               <input
                 type="text"
                 value={profileFirstName}
                 onChange={(e) => setProfileFirstName(e.target.value)}
-                className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-none px-3.5 py-2.5 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-[#1E2B42] focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1">Familiyangiz</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Familiyangiz</label>
               <input
                 type="text"
                 value={profileLastName}
                 onChange={(e) => setProfileLastName(e.target.value)}
-                className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-none px-3.5 py-2.5 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-[#1E2B42] focus:outline-none"
               />
             </div>
           </div>
@@ -131,7 +129,7 @@ export default function TeacherSettingsTab({
             type="button"
             onClick={handleUpdateProfile}
             disabled={profileLoading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer shadow-xs flex items-center gap-1.5"
+            className="bg-[#1E2B42] hover:opacity-90 text-white font-bold text-xs py-2.5 px-5 rounded-none transition cursor-pointer shadow-sm flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
             <span>{profileLoading ? "Saqlanmoqda..." : "Profilni saqlash"}</span>
@@ -139,13 +137,13 @@ export default function TeacherSettingsTab({
         </div>
 
         {/* Password Change form */}
-        <div className="border-t border-zinc-100 pt-6 space-y-4">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 font-mono">
+        <div className="border-t border-slate-100 pt-6 space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
             Parolni o'zgartirish
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1">Eski parol</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Eski parol</label>
               <PasswordInput
                 placeholder="••••••••"
                 value={profileOldPassword}
@@ -153,7 +151,7 @@ export default function TeacherSettingsTab({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1">Yangi parol</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Yangi parol</label>
               <PasswordInput
                 placeholder="••••••••"
                 value={profileNewPassword}
@@ -161,7 +159,7 @@ export default function TeacherSettingsTab({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 Yangi parolni tasdiqlash
               </label>
               <PasswordInput
@@ -176,7 +174,7 @@ export default function TeacherSettingsTab({
             type="button"
             onClick={handleChangePassword}
             disabled={profileLoading}
-            className="bg-zinc-800 hover:bg-zinc-900 text-white font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer shadow-xs flex items-center gap-1.5"
+            className="bg-[#1E2B42] hover:opacity-90 text-white font-bold text-xs py-2.5 px-5 rounded-none transition cursor-pointer shadow-sm flex items-center gap-1.5"
           >
             <Lock className="w-4 h-4" />
             <span>Parolni yangilash</span>
@@ -184,18 +182,18 @@ export default function TeacherSettingsTab({
         </div>
 
         {/* System Logout Button Section */}
-        <div className="border-t border-zinc-100 pt-6 space-y-3">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-red-600 font-mono">
+        <div className="border-t border-slate-100 pt-6 space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
             Tizimdan Chiqish
           </h3>
-          <p className="text-xs text-zinc-500 font-medium">
+          <p className="text-xs text-slate-500 font-medium">
             Platformadagi sessiyangizni yakunlash va akkauntdan chiqish uchun pastdagi tugmani
             bosing.
           </p>
           <button
             type="button"
             onClick={onLogoutClick}
-            className="bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xs py-2.5 px-5 rounded-xl transition cursor-pointer border border-red-200 flex items-center gap-2"
+            className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs py-2.5 px-5 rounded-none transition cursor-pointer border border-rose-200 flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />
             <span>Akkauntdan Chiqish</span>
@@ -205,3 +203,4 @@ export default function TeacherSettingsTab({
     </div>
   );
 }
+

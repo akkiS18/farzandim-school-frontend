@@ -46,7 +46,7 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
       }}
       className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-zinc-200/80 animate-fadeIn">
+      <div className="bg-white rounded-none max-w-md w-full shadow-md overflow-hidden flex flex-col max-h-[90vh] border border-zinc-200/80 animate-fadeIn">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div>
             <h3 className="text-base font-extrabold text-[#16193E]">Yangi To'garak Yaratish</h3>
@@ -55,7 +55,7 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-none bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
             title="Yopish"
           >
             <X className="w-4 h-4" />
@@ -64,12 +64,12 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
 
         <form onSubmit={onSubmit} className="p-6 overflow-y-auto space-y-4">
           {clubsError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl">
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-none">
               {clubsError}
             </div>
           )}
           {clubsSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-none">
               {clubsSuccess}
             </div>
           )}
@@ -83,7 +83,7 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
               required
               value={newClubName}
               onChange={(e) => setNewClubName(e.target.value)}
-              className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none"
+              className="w-full text-xs border border-zinc-200 rounded-none px-3.5 py-2.5 focus:ring-2 focus:ring-[#1E2B42] bg-zinc-50/50 font-bold text-zinc-800 outline-none"
               placeholder="Masalan: Yosh Fiziklar"
             />
           </div>
@@ -96,7 +96,7 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
               required
               value={newClubSubjectId}
               onChange={(e) => setNewClubSubjectId(Number(e.target.value))}
-              className="w-full text-xs border border-zinc-200 rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-indigo-500 bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
+              className="w-full text-xs border border-zinc-200 rounded-none px-3.5 py-2.5 focus:ring-2 focus:ring-[#1E2B42] bg-zinc-50/50 font-bold text-zinc-800 outline-none cursor-pointer"
             >
               <option value="">-- Fanni tanlang --</option>
               {subjects.map((sub) => (
@@ -111,7 +111,7 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
             <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 font-mono">
               Ruxsat etilgan sinflar (Level)*
             </label>
-            <div className="grid grid-cols-4 gap-2 border border-zinc-200/70 p-3 rounded-2xl bg-zinc-50/30">
+            <div className="grid grid-cols-4 gap-2 border border-zinc-200/70 p-3 rounded-none bg-zinc-50/30">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => {
                 const isChecked = newClubAllowedLevels.includes(lvl);
                 return (
@@ -126,7 +126,7 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
                           setNewClubAllowedLevels(newClubAllowedLevels.filter((x) => x !== lvl));
                         }
                       }}
-                      className="w-3.5 h-3.5 text-indigo-600 border-zinc-300 rounded focus:ring-0 cursor-pointer"
+                      className="w-3.5 h-3.5 text-[#1E2B42] border-zinc-300 rounded focus:ring-0 cursor-pointer"
                     />
                     <span>{lvl}-sinf</span>
                   </label>
@@ -139,13 +139,13 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold cursor-pointer"
+              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-none text-xs font-bold cursor-pointer"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#5B50EC] hover:bg-[#4A3FDB] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+              className="px-5 py-2 bg-[#1E2B42] hover:bg-slate-800 text-white rounded-none text-xs font-bold cursor-pointer shadow-xs"
             >
               Tashkil qilish
             </button>
@@ -155,3 +155,4 @@ export const AddClubModal: React.FC<AddClubModalProps> = ({
     </div>
   );
 };
+

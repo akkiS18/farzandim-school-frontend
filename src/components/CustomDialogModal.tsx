@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, CheckCircle, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, X, LogOut, Info } from "lucide-react";
 
 export interface CustomDialogProps {
   isOpen: boolean;
   type?: "alert" | "confirm" | "danger";
+  theme?: "teacher" | "admin" | "parent";
   title: string;
   message: string;
   confirmText?: string;
@@ -17,6 +18,7 @@ export interface CustomDialogProps {
 export default function CustomDialogModal({
   isOpen,
   type = "confirm",
+  theme = "teacher",
   title,
   message,
   confirmText,
@@ -27,7 +29,81 @@ export default function CustomDialogModal({
   if (!isOpen) return null;
 
   const isDanger = type === "danger";
+  const isTeacherTheme = theme === "teacher";
 
+  if (isTeacherTheme) {
+    return (
+      <div
+        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
+        onClick={onCancel || onConfirm}
+      >
+        <div
+          className="w-full max-w-md bg-white border border-neutral-200 rounded-none p-6 shadow-none flex flex-col gap-5 animate-in zoom-in-95 duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-4">
+            <div
+              className={`w-10 h-10 rounded-none flex items-center justify-center shrink-0 border ${
+                isDanger
+                  ? "bg-[#A51C30]/10 text-[#A51C30] border-[#A51C30]/25"
+                  : "bg-[#1E2B42]/10 text-[#1E2B42] border-[#1E2B42]/25"
+              }`}
+            >
+              {isDanger ? <AlertTriangle className="w-5 h-5" /> : <Info className="w-5 h-5" />}
+            </div>
+
+            <div className="flex-1 min-w-0 pr-2">
+              <h3 className="font-serif text-lg font-bold text-slate-900 tracking-tight leading-snug">
+                {title}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed mt-1">
+                {message}
+              </p>
+            </div>
+
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="p-1 text-slate-400 hover:text-slate-800 bg-transparent border-0 shadow-none cursor-pointer transition"
+                aria-label="Yopish"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-200">
+            {type !== "alert" && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-neutral-200 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer rounded-none"
+              >
+                {cancelText}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onConfirm}
+              className={`px-5 py-2 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer rounded-none border ${
+                isDanger
+                  ? "bg-[#A51C30] hover:bg-[#8B1828] text-white border-[#A51C30]"
+                  : "bg-[#1E2B42] hover:bg-[#141E2E] text-white border-[#1E2B42]"
+              }`}
+            >
+              {confirmText || (type === "alert" ? "Tushunarli" : "Ha, tasdiqlayman")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback Modern Rounded Theme (Admin / Parent default)
   return (
     <div
       style={{

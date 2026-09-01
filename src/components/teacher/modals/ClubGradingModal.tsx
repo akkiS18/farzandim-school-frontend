@@ -45,19 +45,19 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
   const attendanceBadge = (att: string) => {
     if (att === "PRESENT")
       return (
-        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-lg">
+        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-none">
           Keldi
         </span>
       );
     if (att === "ABSENT")
       return (
-        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-lg">
+        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-none">
           Kelmadi
         </span>
       );
     if (att === "EXCUSED")
       return (
-        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg">
+        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-none">
           Sababli
         </span>
       );
@@ -74,7 +74,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-none border border-zinc-200/80 shadow-md w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-4 bg-[#16193E] text-white flex items-center justify-between shrink-0">
           <div>
@@ -89,7 +89,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-zinc-300 hover:text-white transition cursor-pointer"
+            className="w-8 h-8 rounded-none bg-white/10 hover:bg-white/20 flex items-center justify-center text-zinc-300 hover:text-white transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -129,7 +129,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
         {/* Tab: Grading */}
         {clubJournalTab === "grade" && (
           <form onSubmit={onSaveClubGradesBatch} className="p-5 overflow-y-auto space-y-4 flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50/60 border border-purple-200/60 p-4 rounded-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50/60 border border-purple-200/60 p-4 rounded-none">
               <div>
                 <label className="block text-[10px] font-extrabold text-purple-800 uppercase tracking-wider mb-1.5 font-mono">
                   Mashg'ulot Sanasi
@@ -143,21 +143,21 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                     setClubGradingDate(newDate);
                     onDateChange(newDate);
                   }}
-                  className="px-3.5 py-2 bg-white border border-purple-300 rounded-xl text-xs font-extrabold text-purple-950 outline-none focus:ring-2 focus:ring-purple-500"
+                  className="px-3.5 py-2 bg-white border border-purple-300 rounded-none text-xs font-extrabold text-purple-950 outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
-              <span className="text-xs text-purple-700 font-medium max-w-xs bg-purple-50 px-3 py-2 rounded-xl border border-purple-200/60">
+              <span className="text-xs text-purple-700 font-medium max-w-xs bg-purple-50 px-3 py-2 rounded-none border border-purple-200/60">
                 Sana tanlang va o'quvchilarning davomati va baholarini kiriting.
               </span>
             </div>
 
             {clubGradingLoading ? (
               <div className="text-center py-12">
-                <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-none animate-spin mx-auto mb-2"></div>
                 <p className="text-xs text-zinc-400 font-mono">Yuklanmoqda...</p>
               </div>
             ) : clubGradingStudents.length === 0 ? (
-              <div className="p-8 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl text-zinc-500 text-xs font-medium space-y-1">
+              <div className="p-8 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-none text-zinc-500 text-xs font-medium space-y-1">
                 <Users className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
                 <p className="font-bold text-zinc-800">O'quvchilar topilmadi</p>
                 <p>
@@ -166,7 +166,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-zinc-200 rounded-2xl">
+              <div className="overflow-x-auto border border-zinc-200 rounded-none">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-zinc-50 border-b border-zinc-200">
                     <tr>
@@ -186,7 +186,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                           <span className="block text-[10px] text-zinc-400 font-medium">{st.class_name}</span>
                         </td>
                         <td className="p-3 text-center">
-                          <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
+                          <div className="inline-flex items-center gap-1 bg-zinc-100 p-1 rounded-none">
                             {(["PRESENT", "ABSENT", "EXCUSED"] as const).map((att) => (
                               <button
                                 key={att}
@@ -196,7 +196,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                                     prev.map((item, i) => (i === idx ? { ...item, attendance: att } : item))
                                   )
                                 }
-                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                                className={`px-2 py-1 rounded-none text-[10px] font-bold transition cursor-pointer ${
                                   st.attendance === att
                                     ? att === "PRESENT"
                                       ? "bg-emerald-600 text-white"
@@ -222,7 +222,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                                 prev.map((item, i) => (i === idx ? { ...item, score_value: val } : item))
                               );
                             }}
-                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-black text-zinc-900 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-300 text-center"
+                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-none text-xs font-black text-zinc-900 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-300 text-center"
                           />
                         </td>
                         <td className="p-3">
@@ -236,7 +236,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                                 prev.map((item, i) => (i === idx ? { ...item, feedback: val } : item))
                               );
                             }}
-                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-800 outline-none focus:border-purple-500"
+                            className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-none text-xs font-medium text-zinc-800 outline-none focus:border-purple-500"
                           />
                         </td>
                       </tr>
@@ -250,17 +250,17 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
+                className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-none text-xs font-bold hover:bg-zinc-200 transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={savingClubGrades || clubGradingStudents.length === 0}
-                className="px-5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2 bg-purple-600 text-white rounded-none text-xs font-bold hover:bg-purple-700 transition cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 flex items-center gap-2"
               >
                 {savingClubGrades && (
-                  <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-none animate-spin"></span>
                 )}
                 <Save className="w-3.5 h-3.5" />
                 <span>Saqlash</span>
@@ -274,11 +274,11 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
           <div className="p-5 overflow-y-auto flex-1 space-y-3">
             {clubGradeHistoryLoading ? (
               <div className="text-center py-12">
-                <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-none animate-spin mx-auto mb-2"></div>
                 <p className="text-xs text-zinc-400 font-mono">Tarix yuklanmoqda...</p>
               </div>
             ) : clubGradeHistory.length === 0 ? (
-              <div className="p-10 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl">
+              <div className="p-10 text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-none">
                 <History className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
                 <p className="text-sm font-bold text-zinc-700">O'tgan mashg'ulotlar mavjud emas</p>
                 <p className="text-xs text-zinc-400 font-medium mt-1">
@@ -288,7 +288,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
             ) : (
               <div className="space-y-4">
                 {clubGradeHistory.map((session: any, si: number) => (
-                  <div key={si} className="border border-zinc-200 rounded-2xl overflow-hidden">
+                  <div key={si} className="border border-zinc-200 rounded-none overflow-hidden">
                     <div className="bg-purple-50 border-b border-purple-100 px-4 py-3 flex items-center justify-between">
                       <span className="text-xs font-extrabold text-purple-800 flex items-center gap-2">
                         <CalendarDays className="w-3.5 h-3.5" />
@@ -317,7 +317,7 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
                             {attendanceBadge(g.attendance)}
                             {g.score_value && (
                               <span
-                                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border ${
+                                className={`w-7 h-7 rounded-none flex items-center justify-center text-xs font-black border ${
                                   Number(g.score_value) >= 5
                                     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                     : Number(g.score_value) >= 4
@@ -349,3 +349,4 @@ export const ClubGradingModal: React.FC<ClubGradingModalProps> = ({
     </div>
   );
 };
+

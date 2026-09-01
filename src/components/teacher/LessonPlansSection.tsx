@@ -186,8 +186,26 @@ export default function LessonPlansSection({
       setViewStep("step3_subject");
     } else if (viewStep === "step3_subject") {
       setViewStep("step2_quarter");
+      setSelectedSubject(null);
     } else if (viewStep === "step2_quarter") {
       setViewStep("step1_class");
+      setSelectedQuarter(null);
+      setSelectedSubject(null);
+    }
+  };
+
+  // Helper for explicitly jumping steps (used by back buttons in UI)
+  const jumpToStep = (step: typeof viewStep) => {
+    setViewStep(step);
+    if (step === "step1_class") {
+      setSelectedClass(null);
+      setSelectedQuarter(null);
+      setSelectedSubject(null);
+    } else if (step === "step2_quarter") {
+      setSelectedQuarter(null);
+      setSelectedSubject(null);
+    } else if (step === "step3_subject") {
+      setSelectedSubject(null);
     }
   };
 
@@ -408,112 +426,81 @@ export default function LessonPlansSection({
       {/* Toast Notification Popup */}
       {toastMessage && (
         <div
-          className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border text-sm font-semibold transition-all duration-300 animate-slideDown ${
+          className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-none shadow-xl border text-sm font-semibold transition-all duration-300 animate-slideDown ${
             toastMessage.type === "success"
-              ? "bg-emerald-900/95 text-white border-emerald-700/80 shadow-emerald-900/30"
-              : "bg-rose-900/95 text-white border-rose-700/80 shadow-rose-900/30"
+              ? "bg-[#1E2B42] text-white border-neutral-700 shadow-neutral-900/30"
+              : "bg-[#A51C30] text-white border-rose-900 shadow-rose-900/30"
           }`}
         >
           {toastMessage.type === "success" ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-rose-300 shrink-0" />
           )}
           <span>{toastMessage.text}</span>
         </div>
       )}
 
       {/* Main Header & Step Breadcrumbs Banner */}
-      <div className="bg-gradient-to-r from-[#16193E] via-[#2A2B6A] to-[#16193E] rounded-3xl p-5 sm:p-6 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-white/10">
-        <div>
-          <div className="inline-flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full text-[11px] font-mono font-bold tracking-wide uppercase mb-2 border border-white/15">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-            <span>Ish Rejasi (Syllabus)</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight flex flex-wrap items-center gap-2">
-            <span>Ish Rejasi Paneli</span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-200 pb-4 mb-4">
+        <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#1E2B42] flex items-center gap-2 flex-wrap leading-tight">
+          <span>Ish Rejasi Paneli</span>
+          
+          <div className="hidden sm:flex items-center gap-2 flex-wrap">
             {selectedClass && (
               <>
-                <span className="text-indigo-400 font-normal text-sm">➔</span>
-                <span className="bg-indigo-500/30 text-indigo-200 text-xs px-2.5 py-1 rounded-lg border border-indigo-400/30 font-bold">
+                <span className="text-slate-400 font-sans text-sm mx-1">&rarr;</span>
+                <span className="font-sans text-[13px] sm:text-sm font-semibold bg-slate-100 border border-neutral-200 text-slate-700 px-2 py-0.5">
                   {selectedClass.name} sinfi
                 </span>
               </>
             )}
+
             {selectedQuarter && (
               <>
-                <span className="text-indigo-400 font-normal text-sm">➔</span>
-                <span className="bg-emerald-500/30 text-emerald-200 text-xs px-2.5 py-1 rounded-lg border border-emerald-400/30 font-bold">
-                  {selectedQuarter.start_date} — {selectedQuarter.end_date}
+                <span className="text-slate-400 font-sans text-sm mx-1">&rarr;</span>
+                <span className="font-sans text-[13px] sm:text-sm font-semibold bg-slate-100 border border-neutral-200 text-slate-700 px-2 py-0.5">
+                  {selectedQuarter.start_date} - {selectedQuarter.end_date}
                 </span>
               </>
             )}
+
             {selectedSubject && (
               <>
-                <span className="text-indigo-400 font-normal text-sm">➔</span>
-                <span className="bg-purple-500/30 text-purple-200 text-xs px-2.5 py-1 rounded-lg border border-purple-400/30 font-bold">
+                <span className="text-slate-400 font-sans text-sm mx-1">&rarr;</span>
+                <span className="font-sans text-[13px] sm:text-sm font-semibold bg-[#1E2B42] border border-[#1E2B42] text-white px-2 py-0.5">
                   {selectedSubject.name}
                 </span>
               </>
             )}
-          </h2>
-        </div>
-
-        {/* Action / Back Button */}
-        <div className="flex items-center gap-2 shrink-0">
-          {viewStep !== "step1_class" && (
-            <button
-              type="button"
-              onClick={handleGoBackStep}
-              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-white/15"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Orqaga qaytish</span>
-            </button>
-          )}
-
-          {viewStep === "step4_editor" && (
-            <button
-              type="button"
-              onClick={handleSaveBatchPlans}
-              disabled={savingBatch || fixedSlots.length === 0}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#D4F562] to-[#BFEA42] hover:from-[#c7ea50] hover:to-[#b0dc33] text-[#1D1E26] font-black text-xs shadow-lg shadow-[#D4F562]/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {savingBatch ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4 text-[#1D1E26]" />
-              )}
-              <span>{savingBatch ? "Saqlanmoqda..." : "Barcha Mavzularni Saqlash"}</span>
-            </button>
-          )}
-        </div>
+          </div>
+        </h2>
       </div>
 
       {/* ========================================================================= */}
       {/* STEP 1: SINFLAR CARD KO'RINISHIDA                                         */}
       {/* ========================================================================= */}
       {viewStep === "step1_class" && (
-        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+        <div className="bg-white rounded-none border border-neutral-200 p-6 space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-black text-zinc-900">1. Sinfni tanlang</h3>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <h3 className="text-base font-bold text-slate-900 font-serif">1. Sinfni tanlang</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Ish rejasi ko'riladigan yoki kiritiladigan sinf kartochkasini tanlang
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+            <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-none border border-neutral-200">
               Jami {myClasses.length} ta sinf
             </span>
           </div>
 
           {metaLoading ? (
-            <div className="py-16 flex flex-col items-center justify-center text-zinc-400 gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
               <span className="text-xs font-medium">Sinflar yuklanmoqda...</span>
             </div>
           ) : myClasses.length === 0 ? (
-            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-500 text-xs">
+            <div className="p-12 text-center bg-slate-50 border border-dashed border-neutral-300 rounded-none text-slate-500 text-xs">
               Sizga biriktirilgan sinflar topilmadi. Avval admin tomonidan sinf va darslar biriktirilganiga ishonch hosil qiling.
             </div>
           ) : (
@@ -522,29 +509,29 @@ export default function LessonPlansSection({
                 <div
                   key={cls.id}
                   onClick={() => handleSelectClass(cls)}
-                  className="p-6 rounded-2xl border-2 border-zinc-200/90 bg-white hover:border-[#5B50EC] hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group relative overflow-hidden"
+                  className="p-6 rounded-none border border-neutral-200 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all duration-200 cursor-pointer flex flex-col justify-between group relative overflow-hidden"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-[#5B50EC] group-hover:text-white transition-all duration-200">
+                    <div className="w-12 h-12 rounded-none bg-white border border-neutral-200 text-slate-700 flex items-center justify-center group-hover:bg-[#1E2B42] group-hover:text-white group-hover:border-[#1E2B42] transition-all duration-200">
                       <GraduationCap className="w-6 h-6" />
                     </div>
                     {cls.is_main_teacher ? (
-                      <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full font-mono">
-                        👑 Sinf rahbari
+                      <span className="text-[10px] font-bold bg-[#A51C30]/10 text-[#A51C30] border border-[#A51C30]/20 px-2.5 py-1 rounded-none font-sans">
+                        Sinf rahbari
                       </span>
                     ) : (
-                      <span className="text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full font-mono">
-                        📚 Fan o'qituvchisi
+                      <span className="text-[10px] font-bold bg-slate-200 text-slate-700 border border-neutral-300 px-2.5 py-1 rounded-none font-sans">
+                        Fan o'qituvchisi
                       </span>
                     )}
                   </div>
                   <div className="mt-5">
-                    <h4 className="text-xl font-black text-zinc-900 group-hover:text-[#5B50EC] transition">
+                    <h4 className="text-xl font-bold text-slate-900 group-hover:text-[#1E2B42] transition font-serif">
                       {cls.name} sinfi
                     </h4>
-                    <p className="text-xs text-zinc-500 mt-1 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-all">
+                    <p className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-all">
                       <span>Choraklar va fanlarni ko'rish</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#1E2B42]" />
                     </p>
                   </div>
                 </div>
@@ -558,46 +545,46 @@ export default function LessonPlansSection({
       {/* STEP 2: CHORAKLAR CARD KO'RINISHIDA (Strict Schedule Period Check)         */}
       {/* ========================================================================= */}
       {viewStep === "step2_quarter" && selectedClass && (
-        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+        <div className="bg-white rounded-none border border-neutral-200 p-6 space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between">
             <div>
               <button
                 type="button"
-                onClick={() => setViewStep("step1_class")}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-2 cursor-pointer"
+                onClick={() => jumpToStep("step1_class")}
+                className="inline-flex items-center gap-1.5 text-sm sm:text-base font-bold text-[#A51C30] hover:text-red-900 mb-4 cursor-pointer transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" />
                 <span>Sinflarga qaytish</span>
               </button>
-              <h3 className="text-base font-black text-zinc-900">2. Chorakni tanlang</h3>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <h3 className="text-base font-bold text-slate-900 font-serif">2. Chorakni tanlang</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Ushbu sinf dars jadvalida belgilangan chorak / davr kartochkasini tanlang
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+            <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 border border-neutral-200 px-3 py-1.5 rounded-none">
               Tanlangan: {selectedClass.name} sinfi
             </span>
           </div>
 
           {periodsLoading ? (
-            <div className="py-16 flex flex-col items-center justify-center text-zinc-400 gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
               <span className="text-xs font-medium">Choraklar va jadval davrlari yuklanmoqda...</span>
             </div>
           ) : schedulePeriods.length === 0 ? (
             /* Strict Requirement: If no schedule period is defined, show EMPTY STATE! */
-            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl space-y-3">
-              <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
-              <h3 className="text-base font-black text-zinc-800">
+            <div className="p-12 text-center bg-slate-50 border border-dashed border-neutral-300 rounded-none space-y-3">
+              <AlertCircle className="w-12 h-12 text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800">
                 Ushbu sinf uchun dars jadvali va choraklar belgilanmagan
               </h3>
-              <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                 {selectedClass.name} sinfi uchun hali dars jadvali va choraklar kiritilmagan. Avval Dars Jadvali bo'limida ushbu sinf uchun dars jadvalini tuzing.
               </p>
               <button
                 type="button"
-                onClick={() => setViewStep("step1_class")}
-                className="px-5 py-2.5 bg-[#5B50EC] text-white font-bold text-xs rounded-xl hover:bg-indigo-700 transition cursor-pointer"
+                onClick={() => jumpToStep("step1_class")}
+                className="px-5 py-2.5 bg-[#1E2B42] text-white font-bold text-xs rounded-none hover:bg-slate-800 transition cursor-pointer"
               >
                 Boshqa sinf tanlash
               </button>
@@ -608,23 +595,23 @@ export default function LessonPlansSection({
                 <div
                   key={idx}
                   onClick={() => handleSelectQuarter(p)}
-                  className="p-6 rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 hover:border-indigo-600 hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                  className="p-6 rounded-none border border-neutral-200 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black font-mono text-sm shadow-md">
+                    <div className="w-10 h-10 rounded-none bg-white border border-neutral-200 text-slate-700 flex items-center justify-center font-bold font-mono text-sm group-hover:bg-[#1E2B42] group-hover:text-white transition-all">
                       {idx + 1}
                     </div>
-                    <span className="text-[10px] font-mono font-bold bg-white px-2.5 py-1 rounded-full text-indigo-800 border border-indigo-200 shadow-2xs">
+                    <span className="text-[10px] font-sans font-bold bg-white px-2.5 py-1 rounded-none text-slate-600 border border-neutral-200">
                       Dars Jadvali Davri
                     </span>
                   </div>
                   <div className="mt-5">
-                    <h4 className="text-lg font-black text-zinc-900 group-hover:text-indigo-600 transition">
+                    <h4 className="text-lg font-bold text-slate-900 group-hover:text-[#1E2B42] transition font-serif">
                       {idx + 1}-Chorak / Davr
                     </h4>
-                    <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-indigo-900 mt-1 bg-white/80 px-3 py-1.5 rounded-xl border border-indigo-100">
-                      <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{p.start_date} — {p.end_date}</span>
+                    <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-slate-700 mt-2 bg-white px-3 py-1.5 rounded-none border border-neutral-200">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{p.start_date} &mdash; {p.end_date}</span>
                     </div>
                   </div>
                 </div>
@@ -638,41 +625,41 @@ export default function LessonPlansSection({
       {/* STEP 3: FANLAR CARD KO'RINISHIDA                                          */}
       {/* ========================================================================= */}
       {viewStep === "step3_subject" && selectedClass && selectedQuarter && (
-        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
+        <div className="bg-white rounded-none border border-neutral-200 p-6 space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between">
             <div>
               <button
                 type="button"
-                onClick={() => setViewStep("step2_quarter")}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-2 cursor-pointer"
+                onClick={() => jumpToStep("step2_quarter")}
+                className="inline-flex items-center gap-1.5 text-sm sm:text-base font-bold text-[#A51C30] hover:text-red-900 mb-4 cursor-pointer transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" />
                 <span>Choraklarga qaytish</span>
               </button>
-              <h3 className="text-base font-black text-zinc-900">3. Fanni tanlang</h3>
-              <p className="text-xs text-zinc-500 mt-0.5">
+              <h3 className="text-base font-bold text-slate-900 font-serif">3. Fanni tanlang</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
                 {selectedClassIsMain
-                  ? "Siz ushbu sinfning Sinf Rahbarisiz — sinfning barcha fanlari ko'rsatilmoqda"
+                  ? "Siz ushbu sinfning Sinf Rahbarisiz \u2014 sinfning barcha fanlari ko'rsatilmoqda"
                   : "Siz ushbu sinfda o'zingiz dars beradigan fan kartochkasini tanlang"}
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-xl">
+            <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 border border-neutral-200 px-3 py-1.5 rounded-none">
               Jami {classSubjects.length} ta fan
             </span>
           </div>
 
           {subjectsLoading ? (
-            <div className="py-16 flex flex-col items-center justify-center text-zinc-400 gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+            <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
               <span className="text-xs font-medium">Sinf fanlari yuklanmoqda...</span>
             </div>
           ) : classSubjects.length === 0 ? (
-            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-500 text-xs space-y-2">
+            <div className="p-12 text-center bg-slate-50 border border-dashed border-neutral-300 rounded-none text-slate-500 text-xs space-y-2">
               <div>Ushbu sinf uchun biror fan topilmadi. Avval dars jadvali kiritilganini tekshiring.</div>
               <button
                 type="button"
-                onClick={() => setViewStep("step1_class")}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs cursor-pointer"
+                onClick={() => jumpToStep("step1_class")}
+                className="px-4 py-2 bg-[#1E2B42] text-white rounded-none font-bold text-xs cursor-pointer hover:bg-slate-800 transition"
               >
                 Boshqa sinf tanlash
               </button>
@@ -683,23 +670,23 @@ export default function LessonPlansSection({
                 <div
                   key={subj.id}
                   onClick={() => handleSelectSubject(subj)}
-                  className="p-6 rounded-2xl border-2 border-zinc-200/90 bg-white hover:border-purple-600 hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                  className="p-6 rounded-none border border-neutral-200 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all duration-200">
+                    <div className="w-12 h-12 rounded-none bg-white border border-neutral-200 text-slate-700 flex items-center justify-center group-hover:bg-[#1E2B42] group-hover:text-white group-hover:border-[#1E2B42] transition-all duration-200">
                       <BookOpen className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-1 rounded-full font-mono">
+                    <span className="text-[10px] font-bold bg-white text-slate-600 border border-neutral-200 px-2.5 py-1 rounded-none font-sans">
                       {selectedClassIsMain ? "Sinf fani" : "Dars fangingiz"}
                     </span>
                   </div>
                   <div className="mt-5">
-                    <h4 className="text-xl font-black text-zinc-900 group-hover:text-purple-600 transition">
+                    <h4 className="text-xl font-bold text-slate-900 group-hover:text-[#1E2B42] transition font-serif">
                       {subj.name}
                     </h4>
-                    <p className="text-xs text-zinc-500 mt-1 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-all">
+                    <p className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-all">
                       <span>Ish rejasini tahrirlash va ko'rish</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-purple-600" />
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#1E2B42]" />
                     </p>
                   </div>
                 </div>
@@ -713,49 +700,39 @@ export default function LessonPlansSection({
       {/* STEP 4: INTERAKTIV ISH REJA TAHRIRLASH JADVALI (TOPIC-ONLY MANIPULATION)  */}
       {/* ========================================================================= */}
       {viewStep === "step4_editor" && selectedClass && selectedQuarter && selectedSubject && (
-        <div className="bg-white rounded-3xl border border-zinc-200 p-6 shadow-xs space-y-4 animate-fadeIn">
-          {/* Header Bar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-zinc-50 p-4 rounded-2xl border border-zinc-200">
-            <div>
-              <button
-                type="button"
-                onClick={() => setViewStep("step3_subject")}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-1 cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Fanlarga qaytish</span>
-              </button>
-              <h3 className="text-base font-black text-zinc-900">
-                {selectedClass.name} sinfi • {selectedSubject.name} fani
-              </h3>
-              <p className="text-xs text-zinc-500 mt-0.5 font-mono">
-                Davr: {selectedQuarter.start_date} — {selectedQuarter.end_date} (Jami {fixedSlots.length} ta dars kuni)
-              </p>
-            </div>
-          </div>
+        <div className="bg-transparent sm:bg-white rounded-none border-none sm:border sm:border-neutral-200 p-0 sm:p-6 space-y-4 animate-fadeIn">
+          {/* Back Button Only */}
+          <button
+            type="button"
+            onClick={() => jumpToStep("step3_subject")}
+            className="inline-flex items-center gap-1.5 text-sm sm:text-base font-bold text-[#A51C30] hover:text-red-900 mb-2 cursor-pointer transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            <span>Fanlarga qaytish</span>
+          </button>
 
           {editorLoading ? (
-            <div className="py-20 flex flex-col items-center justify-center text-zinc-400 gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
               <span className="text-xs font-medium">Sinf dars jadvali va rejasi hisoblanmoqda...</span>
             </div>
           ) : fixedSlots.length === 0 ? (
-            <div className="p-12 text-center bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-500 text-xs">
+            <div className="p-12 text-center bg-slate-50 border border-dashed border-neutral-300 rounded-none text-slate-500 text-xs">
               Ushbu fan uchun dars kunlari hisoblanmadi. Avval Dars Jadvalida haftalik dars soatlari biriktirilganini tekshiring.
             </div>
           ) : (
             <div className="space-y-4">
               {/* Excel Copy-Paste Box */}
-              <div className="space-y-2 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+              <div className="space-y-2 bg-slate-50 p-4 rounded-none border border-neutral-200">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-extrabold text-indigo-900 font-mono flex items-center gap-2">
-                    <ClipboardPaste className="w-4 h-4 text-indigo-600" />
+                  <label className="text-xs font-bold text-slate-700 font-mono flex items-center gap-2">
+                    <ClipboardPaste className="w-4 h-4 text-slate-500" />
                     <span>Excel'dan mavzular ustunini (Ctrl+V) nusxalab tashlang:</span>
                   </label>
                   <button
                     type="button"
                     onClick={handlePasteTopics}
-                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] rounded-lg cursor-pointer transition shadow-2xs"
+                    className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[11px] rounded-none cursor-pointer transition border border-neutral-300"
                   >
                     Mavzularni Joylashtirish
                   </button>
@@ -765,14 +742,14 @@ export default function LessonPlansSection({
                   value={pasteText}
                   onChange={(e) => setPasteText(e.target.value)}
                   placeholder="Excel'dan mavzular ustunini nusxalab shu yerga yuboring (Ctrl+V)..."
-                  className="w-full p-3 bg-white border border-indigo-200 rounded-xl text-xs font-mono text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-indigo-400 transition leading-relaxed"
+                  className="w-full p-3 bg-white border border-neutral-300 rounded-none text-xs font-mono text-slate-900 placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-[#1E2B42] transition leading-relaxed"
                 />
               </div>
 
               {/* Quick Edit Bar */}
-              <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-zinc-600 font-mono">
-                  <Edit3 className="w-4 h-4 text-indigo-600" />
+              <div className="bg-slate-50 p-3 rounded-none border border-neutral-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="flex items-center gap-2 shrink-0 text-xs font-bold text-slate-600 font-mono">
+                  <Edit3 className="w-4 h-4 text-slate-500" />
                   <span>Tezkor Tahrirlash:</span>
                 </div>
                 <input
@@ -795,29 +772,29 @@ export default function LessonPlansSection({
                     }
                   }}
                   placeholder="Tanlangan qatordagi mavzu nomini shu yerda tezkor tahrirlashingiz mumkin..."
-                  className="flex-1 px-3.5 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                  className="flex-1 px-3.5 py-2 bg-white border border-neutral-300 rounded-none text-xs font-semibold text-slate-900 outline-none focus:ring-1 focus:ring-[#1E2B42] transition"
                 />
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] font-mono font-bold text-zinc-500">
+                  <span className="text-[11px] font-mono font-bold text-slate-500">
                     Jami: {fixedSlots.length} ta dars kuni
                   </span>
                 </div>
               </div>
 
               {/* Syllabus Table (Fixed Schedule Columns + Topic Column) */}
-              <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-xs max-h-[60vh] overflow-y-auto">
-                <table className="w-full text-left text-xs text-zinc-800 border-collapse">
-                  <thead className="bg-[#16193E] text-white sticky top-0 z-10 text-[10px] font-extrabold uppercase font-mono tracking-wider">
+              <div className="border border-neutral-200 rounded-none bg-white overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-800 border-separate border-spacing-0">
+                  <thead className="text-slate-700 sticky top-0 z-20 text-[10px] font-bold uppercase font-sans tracking-wider shadow-sm">
                     <tr>
-                      <th className="px-3 py-3 w-10 text-center">#</th>
-                      <th className="px-3 py-3 w-28">Sana (O'zgarmas)</th>
-                      <th className="px-3 py-3 w-16 text-center">Kun</th>
-                      <th className="px-3 py-3 w-20 text-center">Soat</th>
-                      <th className="px-3 py-3">Dars Mavzusi (Tahrirlanadigan & Birlashtiriladigan)</th>
-                      <th className="px-3 py-3 w-28 text-right">Amallar</th>
+                      <th className="px-3 py-3 w-10 text-center bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">#</th>
+                      <th className="px-3 py-3 w-28 sticky left-0 z-30 bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Sana</th>
+                      <th className="px-3 py-3 w-12 sm:w-16 text-center bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Kun</th>
+                      <th className="px-3 py-3 w-12 sm:w-20 text-center bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Soat</th>
+                      <th className="px-3 py-3 min-w-[200px] sm:min-w-auto bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Dars Mavzusi</th>
+                      <th className="px-3 py-3 w-28 text-right bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Amallar</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100 font-sans">
+                  <tbody className="font-sans">
                     {fixedSlots.map((slot, idx) => {
                       const isActive = activeCellIndex === idx;
                       const isDragOver = dragOverSlotIdx === idx;
@@ -840,35 +817,35 @@ export default function LessonPlansSection({
                           }}
                           className={`transition cursor-pointer ${
                             isDragOver
-                              ? "bg-indigo-100 border-2 border-dashed border-indigo-500"
+                              ? "bg-slate-200 border-2 border-dashed border-slate-500"
                               : isActive
-                              ? "bg-indigo-50/70"
-                              : "hover:bg-zinc-50"
+                              ? "bg-slate-100"
+                              : "bg-white hover:bg-slate-50"
                           }`}
                         >
                           {/* Row # */}
-                          <td className="px-3 py-2 text-center font-mono text-zinc-400 font-bold select-none">
+                          <td className="px-3 py-2 text-center font-mono text-slate-400 font-bold select-none border-b border-neutral-200 border-r border-neutral-100">
                             {idx + 1}
                           </td>
 
                           {/* Fixed Date */}
-                          <td className="px-3 py-2 font-mono font-bold text-zinc-800 whitespace-nowrap">
+                          <td className="px-3 py-2 font-mono font-bold text-slate-800 whitespace-nowrap border-b border-neutral-200 border-r border-neutral-100 sticky left-0 z-10 bg-inherit shadow-[1px_0_0_0_#e5e5e5]">
                             {slot.displayDate}
                           </td>
 
                           {/* Fixed Day of Week */}
-                          <td className="px-3 py-2 text-center whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded-md font-mono font-black text-[10px] bg-zinc-100 text-zinc-700">
+                          <td className="px-3 py-2 text-center whitespace-nowrap border-b border-neutral-200 border-r border-neutral-100">
+                            <span className="px-2 py-0.5 rounded-none font-sans font-bold text-[10px] bg-slate-200 text-slate-700">
                               {slot.dayLetter}
                             </span>
                           </td>
 
                           {/* Fixed Lesson Number */}
-                          <td className="px-3 py-2 text-center font-mono font-extrabold text-indigo-700 whitespace-nowrap">
+                          <td className="px-3 py-2 text-center font-mono font-bold text-slate-700 whitespace-nowrap border-b border-neutral-200 border-r border-neutral-100">
                             <div className="flex items-center justify-center gap-1.5">
-                              <span>{slot.lessonNumber}-dars</span>
+                              <span>{slot.lessonNumber}<span className="hidden sm:inline">-dars</span></span>
                               {slot.isException && (
-                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-bold rounded" title="Dars jadvalidagi o'zgarish (istisno)">
+                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-bold rounded-none" title="Dars jadvalidagi o'zgarish (istisno)">
                                   o'zgarish
                                 </span>
                               )}
@@ -876,7 +853,7 @@ export default function LessonPlansSection({
                           </td>
 
                           {/* Editable & Draggable Topic Cell */}
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 border-b border-neutral-200 border-r border-neutral-100">
                             <div className="flex items-center gap-2">
                               <div
                                 draggable
@@ -884,8 +861,8 @@ export default function LessonPlansSection({
                                   e.stopPropagation();
                                   setDraggedTopicIdx(idx);
                                 }}
-                                title="Mavzuni boshqa sanaga sudrab o'tkazish yoki birlashtirish"
-                                className="p-1 rounded-md text-zinc-300 hover:text-indigo-600 hover:bg-indigo-50 cursor-grab active:cursor-grabbing shrink-0"
+                                title="Silljitish uchun torting"
+                                className="cursor-grab active:cursor-grabbing p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-none transition"
                               >
                                 <GripVertical className="w-4 h-4" />
                               </div>
@@ -921,15 +898,15 @@ export default function LessonPlansSection({
                                 placeholder="Dars mavzusini kiriting..."
                                 className={`w-full py-1 text-xs outline-none transition font-medium ${
                                   isActive
-                                    ? "font-bold text-indigo-900 border-b-2 border-indigo-600 bg-white"
-                                    : "bg-transparent border-b border-transparent focus:border-indigo-400 text-zinc-800"
+                                    ? "font-bold text-[#1E2B42] border-b-2 border-[#1E2B42] bg-transparent"
+                                    : "bg-transparent border-b border-transparent focus:border-slate-400 text-slate-800"
                                 }`}
                               />
                             </div>
                           </td>
 
                           {/* Actions */}
-                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                          <td className="px-3 py-2 text-right whitespace-nowrap border-b border-neutral-200">
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
@@ -937,7 +914,7 @@ export default function LessonPlansSection({
                                   e.stopPropagation();
                                   handleInsertTopicAfter(idx);
                                 }}
-                                className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+                                className="p-1.5 rounded-none text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
                                 title="Yangi mavzu joyi ajratish"
                               >
                                 <PlusCircle className="w-4 h-4" />
@@ -948,7 +925,7 @@ export default function LessonPlansSection({
                                   e.stopPropagation();
                                   handleDeleteTopic(idx);
                                 }}
-                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-100 transition cursor-pointer"
+                                className="p-1.5 rounded-none text-[#A51C30] hover:bg-[#A51C30]/10 transition cursor-pointer"
                                 title="Mavzuni o'chirish"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -970,7 +947,7 @@ export default function LessonPlansSection({
               type="button"
               onClick={handleSaveBatchPlans}
               disabled={savingBatch || fixedSlots.length === 0}
-              className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs shadow-2xl shadow-emerald-700/40 border-2 border-white transition-all flex items-center gap-2.5 cursor-pointer disabled:opacity-50 hover:shadow-emerald-600/50"
+              className="px-6 py-3 rounded-none bg-[#1E2B42] hover:bg-slate-800 active:scale-95 text-white font-bold text-xs shadow-xl border border-neutral-300 transition-all flex items-center gap-2.5 cursor-pointer disabled:opacity-50"
             >
               {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>{savingBatch ? "Saqlanmoqda..." : "Barcha Mavzularni Saqlash"}</span>

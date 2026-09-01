@@ -121,6 +121,22 @@ export default function TransferStudentsModal({
     }
   }, [isOpen, sourceClassId]);
 
+  useEffect(() => {
+    if (sourceClassId) {
+      setSelectedSourceClassId(sourceClassId);
+    }
+  }, [sourceClassId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Handle Mode Switch ("push" vs "pull")
   const handleModeSwitch = (newMode: "push" | "pull") => {
     setTransferMode(newMode);
@@ -276,27 +292,27 @@ export default function TransferStudentsModal({
   const currentClassName = sourceClassName || sourceClassObj?.name || "Hozirgi sinf";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white border border-neutral-200 shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-5 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
-              <ArrowRightLeft className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold tracking-tight">O'quvchilarni Sinfdan Sinfga Ko'chirish</h2>
-              <p className="text-xs text-slate-400">
-                {transferMode === "push"
-                  ? `${currentClassName} sinfidan o'quvchilarni belgilab, boshqa sinfga o'tkazing`
-                  : `Boshqa sinfdan ${currentClassName} sinfiga o'quvchilarni o'tkazib oling`}
-              </p>
-            </div>
+        <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between bg-slate-50 shrink-0">
+          <div>
+            <h2 className="text-lg font-bold font-serif text-[#1E2B42]">O'quvchilarni Sinfdan Sinfga Ko'chirish</h2>
+            <p className="text-xs text-slate-500 font-sans mt-0.5">
+              {transferMode === "push"
+                ? `${currentClassName} sinfidan o'quvchilarni belgilab, boshqa sinfga o'tkazing`
+                : `Boshqa sinfdan ${currentClassName} sinfiga o'quvchilarni o'tkazib oling`}
+            </p>
           </div>
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition cursor-pointer"
+            className="p-2 bg-white hover:bg-slate-100 border border-neutral-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -308,9 +324,9 @@ export default function TransferStudentsModal({
             <button
               type="button"
               onClick={() => handleModeSwitch("push")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition cursor-pointer border-b-2 ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-none text-xs font-bold transition cursor-pointer border-b-2 ${
                 transferMode === "push"
-                  ? "bg-white text-indigo-700 border-indigo-600 shadow-xs"
+                  ? "bg-white text-[#1E2B42] border-slate-400 shadow-none"
                   : "text-slate-500 hover:text-slate-800 border-transparent"
               }`}
             >
@@ -321,9 +337,9 @@ export default function TransferStudentsModal({
             <button
               type="button"
               onClick={() => handleModeSwitch("pull")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition cursor-pointer border-b-2 ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-none text-xs font-bold transition cursor-pointer border-b-2 ${
                 transferMode === "pull"
-                  ? "bg-white text-indigo-700 border-indigo-600 shadow-xs"
+                  ? "bg-white text-[#1E2B42] border-slate-400 shadow-none"
                   : "text-slate-500 hover:text-slate-800 border-transparent"
               }`}
             >
@@ -334,16 +350,16 @@ export default function TransferStudentsModal({
         )}
 
         {/* Form Content */}
-        <form onSubmit={handleTransferSubmit} className="flex flex-col flex-1 overflow-hidden p-6 space-y-5">
+        <form onSubmit={handleTransferSubmit} className="flex flex-col flex-1 overflow-y-auto p-6 space-y-5">
           {error && (
-            <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl">
+            <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-none">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-2xl">
+            <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-none">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{successMsg}</span>
             </div>
@@ -356,8 +372,8 @@ export default function TransferStudentsModal({
               <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider flex items-center justify-between">
                 <span>1. Manba Sinf (O'quvchi olinadigan) *</span>
                 {transferMode === "push" && sourceClassId && (
-                  <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5" /> Sizning sinfingiz
+                  <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-none flex items-center gap-1" title="Sizning sinfingiz">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                   </span>
                 )}
               </label>
@@ -369,10 +385,10 @@ export default function TransferStudentsModal({
                   setSelectedSourceClassId(val);
                   setSelectedUserIds([]);
                 }}
-                className={`w-full border rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none transition ${
+                className={`w-full border rounded-none px-3.5 py-2.5 text-xs font-bold outline-none transition ${
                   transferMode === "push" && Boolean(sourceClassId)
                     ? "bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed"
-                    : "bg-slate-50 text-slate-800 border-slate-200 focus:bg-white focus:border-indigo-500"
+                    : "bg-slate-50 text-slate-800 border-slate-200 focus:bg-white focus:border-slate-400"
                 }`}
               >
                 {!sourceClassId && <option value="all">Barcha sinflar o'quvchilari</option>}
@@ -386,11 +402,11 @@ export default function TransferStudentsModal({
 
             {/* Target Class Selection */}
             <div>
-              <label className="block text-xs font-bold text-indigo-700 mb-1.5 uppercase tracking-wider flex items-center justify-between">
+              <label className="block text-xs font-bold text-[#1E2B42] mb-1.5 uppercase tracking-wider flex items-center justify-between">
                 <span>2. Manzil Sinf (O'tkaziladigan) *</span>
                 {transferMode === "pull" && sourceClassId && (
-                  <span className="text-[10px] bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5" /> Sizning sinfingiz
+                  <span className="text-[10px] bg-slate-100 text-[#1E2B42] font-semibold px-2 py-0.5 rounded-none flex items-center gap-1" title="Sizning sinfingiz">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                   </span>
                 )}
               </label>
@@ -399,10 +415,10 @@ export default function TransferStudentsModal({
                 disabled={transferMode === "pull" && Boolean(sourceClassId)}
                 onChange={(e) => setTargetClassId(Number(e.target.value))}
                 required
-                className={`w-full border rounded-xl px-3.5 py-2.5 text-xs font-extrabold outline-none transition ${
+                className={`w-full border rounded-none px-3.5 py-2.5 text-xs font-extrabold outline-none transition ${
                   transferMode === "pull" && Boolean(sourceClassId)
-                    ? "bg-indigo-100/80 text-indigo-950 border-indigo-300 cursor-not-allowed"
-                    : "bg-indigo-50/70 border-indigo-200 text-indigo-950 focus:bg-white focus:border-indigo-600"
+                    ? "bg-slate-100 text-[#1E2B42] border-slate-400 cursor-not-allowed"
+                    : "bg-slate-100 border-slate-400 text-[#1E2B42] focus:bg-white focus:border-slate-400"
                 }`}
               >
                 {transferMode !== "pull" && <option value="">-- Yangi sinfni tanlang --</option>}
@@ -424,7 +440,7 @@ export default function TransferStudentsModal({
                 placeholder={`${sourceClassObj?.name || 'Manba sinf'} o'quvchilari orasidan qidirish...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 outline-none transition font-medium"
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-slate-400 outline-none transition font-medium"
               />
             </div>
 
@@ -432,11 +448,11 @@ export default function TransferStudentsModal({
               type="button"
               onClick={toggleSelectAll}
               disabled={fetchingStudents || filteredStudents.length === 0}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition shrink-0 cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-none text-xs font-semibold text-slate-700 transition shrink-0 cursor-pointer disabled:opacity-50"
             >
               {isAllSelected ? (
                 <>
-                  <CheckSquare className="w-4 h-4 text-indigo-600" />
+                  <CheckSquare className="w-4 h-4 text-[#1E2B42]" />
                   <span>Barchasini bekor qilish</span>
                 </>
               ) : (
@@ -449,9 +465,9 @@ export default function TransferStudentsModal({
           </div>
 
           {/* Student List Checkboxes */}
-          <div className="flex-1 overflow-y-auto min-h-[220px] max-h-[300px] border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50/50 p-2">
+          <div className="flex-1 overflow-y-auto min-h-[220px] max-h-[300px] border border-slate-200 rounded-none divide-y divide-slate-100 bg-slate-50/50 p-2">
             {fetchingStudents ? (
-              <div className="flex flex-col items-center justify-center py-12 text-indigo-600 gap-2">
+              <div className="flex flex-col items-center justify-center py-12 text-[#1E2B42] gap-2">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 <p className="text-xs font-semibold">
                   {sourceClassObj?.name || "Manba sinf"} o'quvchilari yuklanmoqda...
@@ -470,16 +486,16 @@ export default function TransferStudentsModal({
                   <div
                     key={uid}
                     onClick={() => toggleSelectStudent(uid)}
-                    className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition ${
+                    className={`flex items-center justify-between p-3 rounded-none cursor-pointer transition ${
                       isSelected
-                        ? "bg-indigo-50/80 border border-indigo-200 text-indigo-950 font-semibold"
+                        ? "bg-slate-100 border border-slate-400 text-[#1E2B42] font-semibold"
                         : "hover:bg-white text-slate-700 border border-transparent"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-indigo-600">
+                      <div className="text-[#1E2B42]">
                         {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-indigo-600" />
+                          <CheckSquare className="w-4 h-4 text-[#1E2B42]" />
                         ) : (
                           <Square className="w-4 h-4 text-slate-400" />
                         )}
@@ -498,7 +514,7 @@ export default function TransferStudentsModal({
                     </div>
 
                     {isSelected && (
-                      <span className="text-[10px] bg-indigo-600 text-white font-bold px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] bg-slate-100 text-white font-bold px-2 py-0.5 rounded-full">
                         Tanlangan
                       </span>
                     )}
@@ -512,12 +528,12 @@ export default function TransferStudentsModal({
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between shrink-0">
             <div className="text-xs text-slate-600 font-medium">
               Tanlangan:{" "}
-              <span className="font-bold text-indigo-600">
+              <span className="font-bold text-[#1E2B42]">
                 {selectedUserIds.length} ta o'quvchi
               </span>
               {targetClassObj && (
                 <span className="ml-1 text-slate-500 font-semibold">
-                  ({sourceClassObj?.name || "Manba sinf"}) ➔ <span className="font-extrabold text-indigo-800">{targetClassObj.name}</span> sinfiga
+                  ({sourceClassObj?.name || "Manba sinf"}) ➔ <span className="font-extrabold text-[#1E2B42]">{targetClassObj.name}</span> sinfiga
                 </span>
               )}
             </div>
@@ -526,14 +542,14 @@ export default function TransferStudentsModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                className="px-4 py-2.5 rounded-none border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="submit"
                 disabled={loading || selectedUserIds.length === 0 || !targetClassId}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2.5 rounded-none bg-[#1E2B42] hover:bg-slate-800 text-white text-xs font-bold  transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
