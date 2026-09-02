@@ -1,23 +1,50 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { ClassItem } from "./types";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface SidebarProps {
-  activeMenu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports" | "social-passport";
-  setActiveMenu: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports" | "social-passport") => void;
-  selectedClass: ClassItem | null;
-  setSelectedClass: (cls: ClassItem | null) => void;
   mobileOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
+  selectedClass?: ClassItem | null;
+  setSelectedClass?: (cls: ClassItem | null) => void;
 }
 
 export default function Sidebar({
-  activeMenu,
-  setActiveMenu,
-  selectedClass,
-  setSelectedClass,
   mobileOpen = false,
   setMobileOpen,
+  selectedClass,
+  setSelectedClass,
 }: SidebarProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
+
+  // Group open/close states
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    "O'quv bo'limi": true,
+    "Boshqaruv va Moliya": false,
+    "Aloqa va Hisobotlar": false,
+  });
+
+  const toggleGroup = (groupTitle: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupTitle]: !prev[groupTitle],
+    }));
+  };
+
+  const handleNavigate = (tabId: string) => {
+    router.push(`?tab=${tabId}`);
+    if (tabId !== "classes" && setSelectedClass) {
+      setSelectedClass(null);
+    }
+    if (setMobileOpen) {
+      setMobileOpen(false);
+    }
+  };
+
   // SVG Icon Renderer
   const renderIcon = (id: string) => {
     switch (id) {
@@ -141,32 +168,89 @@ export default function Sidebar({
             <path d="M10 9h4" />
           </svg>
         );
+      case "settings":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        );
+      
+      // Group Icons
+      case "education-group":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+        );
+      case "finance-group":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          </svg>
+        );
+      case "communication-group":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        );
+
       default:
         return null;
     }
   };
 
-  const menuItems = [
-    { id: "overview", label: "Dashboard", badge: null },
-    { id: "classes", label: "Sinflar", badge: null },
-    { id: "schedule-overview", label: "Dars jadvali", badge: null },
-    { id: "teachers", label: "O'qituvchilar", badge: null },
-    { id: "subjects", label: "Fanlar", badge: null },
-    { id: "books", label: "Kitobxonlik", badge: null },
-    { id: "grading-systems", label: "Baholash Tizimi", badge: null },
-    { id: "ai-reports", label: "AI Hisobotlar", badge: "New" },
-    { id: "social-passport", label: "Ijtimoiy pasport", badge: null },
-    { id: "menu", label: "Taomnoma", badge: null },
-    { id: "balance", label: "Balans boshqaruvi", badge: null },
-    { id: "holidays", label: "Dam olish kunlari", badge: null },
-    { id: "announcements", label: "E'lonlar", badge: null },
-    { id: "feedback", label: "Fikr-mulohazalar", badge: null },
-    { id: "telegram", label: "Telegram Bot", badge: null },
-  ] as const;
+  type MenuItem = { type: "single", id: string, label: string, badge: string | null };
+  type MenuGroup = { type: "group", id: string, title: string, items: { id: string, label: string, badge: string | null }[] };
+  type MenuStructure = (MenuItem | MenuGroup)[];
+
+  const menuStructure: MenuStructure = [
+    { type: "single", id: "overview", label: "Dashboard", badge: null },
+    {
+      type: "group",
+      id: "education-group",
+      title: "O'quv bo'limi",
+      items: [
+        { id: "classes", label: "Sinflar", badge: null },
+        { id: "schedule-overview", label: "Dars jadvali", badge: null },
+        { id: "teachers", label: "O'qituvchilar", badge: null },
+        { id: "subjects", label: "Fanlar", badge: null },
+        { id: "books", label: "Kitobxonlik", badge: null },
+      ]
+    },
+    {
+      type: "group",
+      id: "finance-group",
+      title: "Boshqaruv va Moliya",
+      items: [
+        { id: "grading-systems", label: "Baholash Tizimi", badge: null },
+        { id: "balance", label: "Balans boshqaruvi", badge: null },
+        { id: "holidays", label: "Dam olish kunlari", badge: null },
+      ]
+    },
+    {
+      type: "group",
+      id: "communication-group",
+      title: "Aloqa va Hisobotlar",
+      items: [
+        { id: "announcements", label: "E'lonlar", badge: null },
+        { id: "feedback", label: "Fikr-mulohazalar", badge: null },
+        { id: "menu", label: "Taomnoma", badge: null },
+        { id: "telegram", label: "Telegram Bot", badge: null },
+        { id: "ai-reports", label: "AI Hisobotlar", badge: "New" },
+        { id: "social-passport", label: "Ijtimoiy pasport", badge: null },
+      ]
+    },
+    { type: "single", id: "settings", label: "Sozlamalar", badge: null },
+  ];
 
   return (
     <>
-      {/* Mobile Drawer Overlay Backdrop */}
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen && setMobileOpen(false)}
@@ -179,7 +263,6 @@ export default function Sidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        {/* Fixed Farzandim Logo Header */}
         <div className="p-6 pb-4 shrink-0">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center space-x-3">
@@ -194,11 +277,11 @@ export default function Sidebar({
               </span>
             </div>
 
-            {/* Mobile Close Button */}
             {setMobileOpen && (
               <button
                 onClick={() => setMobileOpen(false)}
-                className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
+                className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Menyuni yopish"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M6 18L18 6M6 6l12 12" />
@@ -208,44 +291,94 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Scrollable Navigation Items List */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-2">
+        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-2">
           <nav className="space-y-1.5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-            {menuItems.map((item) => {
-              const isActive = activeMenu === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveMenu(item.id);
-                    if (item.id !== "classes") {
-                      setSelectedClass(null);
-                    }
-                    if (setMobileOpen) {
-                      setMobileOpen(false);
-                    }
-                  }}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-xs font-bold tracking-wide transition duration-200 cursor-pointer ${
-                    isActive
-                      ? "bg-[#D4F562] text-[#1D1E26] shadow-lg shadow-lime-500/10 font-extrabold"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <span>{renderIcon(item.id)}</span>
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                        isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"
+            {menuStructure.map((section, idx) => {
+              if (section.type === "single") {
+                const isActive = activeTab === section.id;
+                return (
+                  <div key={section.id || idx}>
+                    <button
+                      onClick={() => handleNavigate(section.id!)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition duration-200 cursor-pointer min-h-[44px] ${
+                        isActive
+                          ? "bg-[#D4F562] text-[#1D1E26] shadow-lg shadow-lime-500/10 font-bold"
+                          : "text-slate-300 hover:bg-white/5 hover:text-white"
                       }`}
                     >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
+                      <div className="flex items-center space-x-3">
+                        <span className={isActive ? "text-[#1D1E26]" : "text-slate-400"}>{renderIcon(section.id!)}</span>
+                        <span>{section.label}</span>
+                      </div>
+                      {section.badge && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"}`}>
+                          {section.badge}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              }
+
+              if (section.type === "group") {
+                const isExpanded = expandedGroups[section.title];
+                const isGroupActive = section.items.some(item => item.id === activeTab);
+                
+                return (
+                  <div key={section.title} className="space-y-1">
+                    <button
+                      onClick={() => toggleGroup(section.title)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition duration-200 cursor-pointer min-h-[44px] ${
+                        isGroupActive
+                          ? "bg-[#D4F562] text-[#1D1E26] shadow-lg shadow-lime-500/10 font-bold"
+                          : "text-slate-300 hover:bg-white/5 hover:text-white"
+                      }`}
+                      aria-expanded={isExpanded}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className={isGroupActive ? "text-[#1D1E26]" : "text-slate-400"}>{renderIcon(section.id)}</span>
+                        <span>{section.title}</span>
+                      </div>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    
+                    <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0"}`} aria-hidden={!isExpanded}>
+                      {section.items?.map((item) => {
+                        const isActive = activeTab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleNavigate(item.id)}
+                            className={`w-full flex items-center justify-between pl-11 pr-3 py-2.5 rounded-xl text-sm font-medium transition duration-200 cursor-pointer min-h-[44px] ${
+                              isActive
+                                ? "text-[#D4F562] font-bold"
+                                : "text-slate-400 hover:text-white hover:bg-white/5"
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <span className={isActive ? "text-[#D4F562]" : "text-slate-400"}>{renderIcon(item.id)}</span>
+                              <span>{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"}`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
             })}
           </nav>
         </div>

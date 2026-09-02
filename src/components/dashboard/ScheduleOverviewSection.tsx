@@ -171,7 +171,6 @@ export default function ScheduleOverviewSection({
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Dars Jadvali</h1>
           <p className="text-xs text-slate-400 font-medium mt-1">
             Barcha sinflarning haftalik dars jadvallari — level bo&apos;yicha saralangan.{" "}
             <span className="font-bold text-[#1D1E26]">2 marta bosib</span> tahrirlashga o&apos;ting.
@@ -208,7 +207,7 @@ export default function ScheduleOverviewSection({
 
           <button
             onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer shadow-lg shadow-indigo-200"
+            className="flex items-center gap-2 bg-[#D4F562] hover:opacity-90 text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl transition cursor-pointer shadow-md shadow-lime-200/50"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Excel Orqali Yoppasiga Yuklash</span>
@@ -333,7 +332,7 @@ export default function ScheduleOverviewSection({
                                 e.stopPropagation();
                                 setIsImportOpen(true);
                               }}
-                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition cursor-pointer"
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ECFCCA] hover:bg-indigo-100 text-[#1D1E26] rounded-lg text-xs font-bold transition cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Dars jadvalini yaratish</span>

@@ -634,10 +634,6 @@ export default function BalanceSection({
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Balans va To'lovlar boshqaruvi</h1>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">
-            O'quvchilar balansini ko'rish, to'lovlar qabul qilish va avtomat to'lov rejalarini sozlash.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button

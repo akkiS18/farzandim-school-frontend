@@ -367,10 +367,7 @@ export default function BooksSection({ token, API_URL }: BooksSectionProps) {
       {/* Header Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Kitobxonlik Boshqaruvi</h1>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">
-            O'quvchilar va ularning ota-onalari uchun yillik elektron kitoblar bazasi.
-          </p>
+          
         </div>
         <button
           onClick={openAddModal}

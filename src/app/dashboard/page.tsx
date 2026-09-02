@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import SettingsSection from "@/components/dashboard/SettingsSection";
 
 import CustomDialogModal from "@/components/CustomDialogModal";
 import Sidebar from "@/components/dashboard/Sidebar";
@@ -28,7 +30,7 @@ import { ClassItem, UserInfo, TenantUser, SubjectItem, GradingSystem } from "@/c
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
-export default function TenantDashboard() {
+function TenantDashboardContent() {
   const router = useRouter();
 
   // Auth & General States
@@ -38,7 +40,9 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Menu
-  const [activeMenu, setActiveMenu] = useState<"overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram" | "holidays" | "schedule-overview" | "books" | "ai-reports" | "social-passport">("overview");
+  const searchParams = useSearchParams();
+  const activeMenu = searchParams.get("tab") || "overview";
+  const setActiveMenu = (tab: string) => { router.push(`?tab=${tab}`); };
 
   // Classes section: initial tab when redirecting from schedule overview
   const [classesInitialTab, setClassesInitialTab] = useState<"students" | "teachers" | "parents" | "schedule" | undefined>(undefined);
@@ -131,14 +135,7 @@ export default function TenantDashboard() {
   };
 
   // Change Password Modal States
-  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [changePasswordOld, setChangePasswordOld] = useState("");
-  const [changePasswordNew, setChangePasswordNew] = useState("");
-  const [changePasswordConfirm, setChangePasswordConfirm] = useState("");
-  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
-  const [changePasswordError, setChangePasswordError] = useState("");
-  const [changePasswordSuccess, setChangePasswordSuccess] = useState("");
-
+              
   // Initialize
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -279,59 +276,9 @@ export default function TenantDashboard() {
     setGlobalTransactionsLoading(false);
   };
 
-  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!changePasswordOld.trim() || !changePasswordNew.trim() || !changePasswordConfirm.trim()) {
-      setChangePasswordError("Barcha maydonlarni to'ldiring");
-      return;
-    }
-    if (changePasswordNew !== changePasswordConfirm) {
-      setChangePasswordError("Yangi parollar mos kelmadi");
-      return;
-    }
-    setChangePasswordLoading(true);
-    setChangePasswordError("");
-    setChangePasswordSuccess("");
-
-    try {
-      const response = await fetch(`${API_URL}/api/schools/settings/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          old_password: changePasswordOld,
-          new_password: changePasswordNew,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Parolni o'zgartirib bo'lmadi");
-      }
-
-      setChangePasswordSuccess(data.message || "Parol muvaffaqiyatli o'zgartirildi!");
-      setChangePasswordOld("");
-      setChangePasswordNew("");
-      setChangePasswordConfirm("");
-    } catch (err: any) {
-      setChangePasswordError(err.message);
-    } finally {
-      setChangePasswordLoading(false);
-    }
-  };
-
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  const handleLogout = () => {
-    localStorage.removeItem("school_token");
-    localStorage.removeItem("school_refresh_token");
-    localStorage.removeItem("school_id");
-    localStorage.removeItem("school_user");
-    router.push("/login");
-  };
-
+  
+  
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F4F4F7] text-slate-600 flex flex-col items-center justify-center space-y-4 font-sans">
@@ -342,12 +289,10 @@ export default function TenantDashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F4F7] text-[#1D1E26] flex font-sans overflow-hidden p-3 sm:p-4">
-      <div className="flex w-full h-[calc(100vh-2rem)] bg-[#F7F7FA] rounded-[36px] overflow-hidden shadow-2xl border border-slate-200/60">
+    <main className="min-h-screen bg-[#F4F4F7] text-[#1D1E26] flex font-sans overflow-hidden p-0 sm:p-4">
+      <div className="flex w-full h-[100dvh] sm:h-[calc(100vh-2rem)] bg-[#F7F7FA] rounded-none sm:rounded-[36px] overflow-hidden shadow-none sm:shadow-2xl border-none sm:border border-slate-200/60">
         {/* Sidebar Navigation */}
         <Sidebar
-          activeMenu={activeMenu}
-          setActiveMenu={setActiveMenu}
           selectedClass={selectedClass}
           setSelectedClass={setSelectedClass}
           mobileOpen={mobileSidebarOpen}
@@ -360,8 +305,8 @@ export default function TenantDashboard() {
             {/* Top Bar Header */}
             <Header
               userInfo={userInfo}
-              setShowChangePasswordModal={setShowChangePasswordModal}
-              handleLogout={() => setShowLogoutModal(true)}
+              
+              
               mobileOpen={mobileSidebarOpen}
               setMobileOpen={setMobileSidebarOpen}
             />
@@ -372,8 +317,7 @@ export default function TenantDashboard() {
                 API_URL={API_URL}
                 classes={classes}
                 userInfo={userInfo}
-                setActiveMenu={setActiveMenu}
-              />
+                    />
             )}
 
           {activeMenu === "classes" && (
@@ -510,6 +454,10 @@ export default function TenantDashboard() {
             />
           )}
 
+          {activeMenu === "settings" && (
+            <SettingsSection token={token} API_URL={API_URL} />
+          )}
+
           {/* 10. TELEGRAM BOT SETTINGS TAB */}
           {activeMenu === "telegram" && (
             <div className="space-y-6 max-w-2xl mx-auto mt-6 font-sans text-[#1D1E26] select-none">
@@ -595,99 +543,19 @@ export default function TenantDashboard() {
       </div>
 
       {/* Profile Settings / Change Password Modal */}
-      {showChangePasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn text-[#1D1E26] font-sans">
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl relative">
-            <h3 className="text-base font-black text-[#1D1E26] mb-1">Profil parolini o'zgartirish</h3>
-            <p className="text-xs text-slate-400 font-medium mb-6">Xavfsizlik maqsadida eski parolingizni kiritib, yangi parol o'rnating.</p>
-
-            {changePasswordError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-2xl mb-4 font-medium">{changePasswordError}</div>
-            )}
-            
-            {changePasswordSuccess && (
-              <div className="bg-[#ECFCCA] border border-lime-200 text-[#65A30D] text-xs p-3 rounded-2xl mb-4 font-bold">{changePasswordSuccess}</div>
-            )}
-
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Eski Parol</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={changePasswordOld}
-                  onChange={(e) => setChangePasswordOld(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Yangi Parol</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={changePasswordNew}
-                  onChange={(e) => setChangePasswordNew(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Yangi Parolni Tasdiqlang</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={changePasswordConfirm}
-                  onChange={(e) => setChangePasswordConfirm(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowChangePasswordModal(false);
-                    setChangePasswordOld("");
-                    setChangePasswordNew("");
-                    setChangePasswordConfirm("");
-                    setChangePasswordError("");
-                    setChangePasswordSuccess("");
-                  }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
-                >
-                  Yopish
-                </button>
-                <button
-                  type="submit"
-                  disabled={changePasswordLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
-                >
-                  {changePasswordLoading ? "Yangilanmoqda..." : "Parolni Yangilash"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* LOGOUT CONFIRMATION MODAL */}
-      <CustomDialogModal
-        isOpen={showLogoutModal}
-        type="danger"
-        title="Tizimdan chiqish"
-        message="Haqiqatan ham ma'muriyat panelidan chiqmoqchimisiz?"
-        confirmText="Ha, chiqish"
-        cancelText="Bekor qilish"
-        onConfirm={() => {
-          setShowLogoutModal(false);
-          handleLogout();
-        }}
-        onCancel={() => setShowLogoutModal(false)}
-      />
+      
     </main>
+  );
+}
+
+export default function TenantDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F4F4F7] text-slate-600 flex flex-col items-center justify-center space-y-4 font-sans">
+        <div className="w-10 h-10 border-4 border-[#D4F562] border-t-[#1D1E26] rounded-full animate-spin"></div>
+      </div>
+    }>
+      <TenantDashboardContent />
+    </Suspense>
   );
 }

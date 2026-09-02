@@ -686,32 +686,24 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         </div>
       )}
 
-      {/* Top Header Card */}
-      <div className="bg-[#1D1E26] text-white rounded-3xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4F562] text-[#1D1E26] text-[11px] font-black uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-[#1D1E26]" />
-            Gemini AI Tahlilchi
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight">AI Hisobotlar Boshqaruvi</h2>
-          <p className="text-xs text-slate-400">
-            Farzandlar o'zlashtirishi, xulqi va kitobxonligi bo'yicha sun'iy intellekt haftalik feedbacklari
-          </p>
+      {/* Compact Toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#D4F562] text-[#1D1E26] text-[11px] font-black uppercase tracking-wider shrink-0">
+          <Sparkles className="w-3.5 h-3.5" />
+          Gemini AI Tahlilchi
         </div>
-
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => {
               fetchAIInstruction();
               setIsAISettingsOpen(true);
             }}
-            className="px-5 py-3 rounded-2xl bg-slate-800 text-white hover:bg-slate-700 font-extrabold text-xs tracking-wide shadow-lg transition cursor-pointer flex items-center gap-2 border border-slate-700"
+            className="px-4 py-2 rounded-2xl bg-slate-100 text-[#1D1E26] hover:bg-slate-200 font-bold text-xs tracking-wide transition cursor-pointer flex items-center gap-2"
           >
-            <Sliders className="w-4 h-4 text-[#D4F562]" />
+            <Sliders className="w-4 h-4" />
             <span>AI Prompt & Sozlamalar</span>
           </button>
-
           <button
             type="button"
             onClick={() => {
@@ -721,7 +713,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               setGenStatusMessage("");
               setIsGenerateModalOpen(true);
             }}
-            className="px-5 py-3 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-extrabold text-xs tracking-wide shadow-lg shadow-lime-500/10 hover:bg-[#c2e84d] transition cursor-pointer flex items-center gap-2"
+            className="px-4 py-2 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-black text-xs tracking-wide shadow-md hover:opacity-90 transition cursor-pointer flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
             <span>Yangi AI Hisobot Yaratish</span>

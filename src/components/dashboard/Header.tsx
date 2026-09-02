@@ -1,22 +1,45 @@
 import React, { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { UserInfo } from "./types";
 
 interface HeaderProps {
   userInfo: UserInfo | null;
-  setShowChangePasswordModal: (show: boolean) => void;
-  handleLogout: () => void;
   mobileOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
 }
 
 export default function Header({
   userInfo,
-  setShowChangePasswordModal,
-  handleLogout,
   mobileOpen = false,
   setMobileOpen,
 }: HeaderProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
+
+  const getTabTitle = () => {
+    const titles: Record<string, string> = {
+      "overview": "Dashboard",
+      "classes": "Sinflar",
+      "schedule-overview": "Dars jadvali",
+      "teachers": "O'qituvchilar",
+      "subjects": "Fanlar",
+      "books": "Kitobxonlik",
+      "grading-systems": "Baholash Tizimi",
+      "balance": "Balans boshqaruvi",
+      "holidays": "Dam olish kunlari",
+      "announcements": "E'lonlar",
+      "feedback": "Fikr-mulohazalar",
+      "menu": "Taomnoma",
+      "telegram": "Telegram Bot",
+      "ai-reports": "AI Hisobotlar",
+      "social-passport": "Ijtimoiy pasport",
+      "settings": "Sozlamalar"
+    };
+    return titles[activeTab] || "Dashboard";
+  };
+
 
   return (
     <header className="flex items-center justify-between gap-4 mb-6 select-none font-sans">
@@ -34,9 +57,9 @@ export default function Header({
           </button>
         )}
 
-        <div>
+        <div className={activeTab === "overview" ? "hidden md:block" : ""}>
           <h1 className="text-xl sm:text-3xl font-black text-[#1D1E26] tracking-tight flex items-center gap-2">
-            Welcome back {userInfo?.first_name || "Admin"} 👋
+            {activeTab === "overview" ? `Welcome back ${userInfo?.first_name || "Admin"}` : getTabTitle?.()}
           </h1>
         </div>
       </div>
@@ -67,7 +90,7 @@ export default function Header({
               <button
                 onClick={() => {
                   setShowProfileMenu(false);
-                  setShowChangePasswordModal(true);
+                  router.push("?tab=settings");
                 }}
                 className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center space-x-2.5"
               >
@@ -81,7 +104,7 @@ export default function Header({
               <button
                 onClick={() => {
                   setShowProfileMenu(false);
-                  handleLogout();
+                  router.push("?tab=settings");
                 }}
                 className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center space-x-2.5"
               >

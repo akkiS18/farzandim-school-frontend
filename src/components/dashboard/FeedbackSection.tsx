@@ -246,9 +246,7 @@ export default function FeedbackSection({ token, apiUrl }: FeedbackSectionProps)
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#1D1E26] tracking-tight">Fikr-mulohazalar va Izohlar</h2>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Ota-onalar tomonidan baholar hamda taomnomalarga qoldirilgan barcha izohlar lenti va javob berish paneli.
-          </p>
+          
         </div>
         <input
           type="text"

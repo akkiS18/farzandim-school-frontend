@@ -257,7 +257,7 @@ export default function SmartCalendarModal({
               className={`w-7 h-7 flex items-center justify-center ${
                 isTeacherTheme
                   ? "rounded-none bg-slate-50 border border-neutral-200 text-[#A51C30]"
-                  : "rounded-lg bg-emerald-50 text-emerald-600"
+                  : "rounded-lg bg-[#ECFCCA] text-[#65A30D]"
               }`}
             >
               <Calendar size={15} />
@@ -368,8 +368,8 @@ export default function SmartCalendarModal({
             let weekBgClass = "bg-transparent";
 
             if (isSelected) {
-              weekBorderClass = isTeacherTheme ? "border border-[#A51C30]" : "border-2 border-emerald-500";
-              weekBgClass = isTeacherTheme ? "bg-[#A51C30]/5" : "bg-emerald-50";
+              weekBorderClass = isTeacherTheme ? "border border-[#A51C30]" : "border-2 border-[#D4F562]";
+              weekBgClass = isTeacherTheme ? "bg-[#A51C30]/5" : "bg-[#ECFCCA]";
             } else if (isHovered) {
               weekBorderClass = isTeacherTheme ? "border border-slate-300" : "border-2 border-amber-400";
               weekBgClass = isTeacherTheme ? "bg-slate-50" : "bg-amber-50/50";
@@ -398,7 +398,7 @@ export default function SmartCalendarModal({
                   if (activeMode === "single" && daySel) {
                     cellClass = isTeacherTheme
                       ? "bg-[#A51C30] text-white font-bold shadow-xs"
-                      : "bg-emerald-600 text-white font-bold shadow-xs";
+                      : "bg-[#1D1E26] text-white font-bold shadow-xs";
                   } else if (dayItem.isToday) {
                     cellClass = isTeacherTheme
                       ? "border border-[#1E2B42] text-[#1E2B42] font-bold bg-slate-50"
@@ -483,8 +483,8 @@ export default function SmartCalendarModal({
                     } ${
                       viewMonth === mIdx
                         ? isTeacherTheme
-                          ? "bg-[#A51C30] text-white"
-                          : "bg-emerald-600 text-white"
+                            ? "bg-[#A51C30] text-white"
+                            : "bg-[#D4F562] text-[#1D1E26] font-bold"
                         : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100"
                     }`}
                   >
@@ -507,7 +507,7 @@ export default function SmartCalendarModal({
                 : "rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
             }`}
           >
-            <Calendar size={13} className={isTeacherTheme ? "text-[#A51C30]" : "text-emerald-600"} />
+            <Calendar size={13} className={isTeacherTheme ? "text-[#A51C30]" : "text-[#1D1E26]"} />
             <span>{String(viewMonth + 1).padStart(2, "0")} / {viewYear}</span>
           </button>
 
@@ -517,7 +517,7 @@ export default function SmartCalendarModal({
             className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer ${
               isTeacherTheme
                 ? "rounded-none border border-[#1E2B42] bg-[#1E2B42] hover:bg-[#141E2E] text-white"
-                : "rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                : "rounded-xl border border-[#D4F562] bg-[#D4F562] hover:opacity-90 text-[#1D1E26] font-black"
             }`}
           >
             <RotateCcw size={13} />
@@ -589,7 +589,7 @@ export function SmartCalendarTrigger({
           transition: "all 0.15s ease",
         }}
       >
-        <Calendar size={16} color="#00A389" />
+        <Calendar size={16} color="#1D1E26" />
         <span>{label}</span>
       </button>
 

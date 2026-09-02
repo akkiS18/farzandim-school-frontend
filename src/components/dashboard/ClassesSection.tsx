@@ -1230,8 +1230,6 @@ export default function ClassesSection({
         <div className="space-y-6 font-sans text-[#1D1E26]">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">Sinflar Boshqaruvi</h1>
-              <p className="text-xs text-slate-400 font-medium mt-1">Maktabingizdagi faol sinflar va ularning tarkibini boshqaring.</p>
             </div>
             {userInfo?.role === "ADMIN" && (
               <button
@@ -1432,7 +1430,7 @@ export default function ClassesSection({
                   <button
                     type="button"
                     onClick={() => setShowTransferStudentsModal(true)}
-                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                    className="bg-[#ECFCCA] border border-indigo-200 text-[#65A30D] hover:bg-indigo-100 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
                   >
                     <ArrowRightLeft className="w-4 h-4" />
                     <span>Sinfga Ko'chirish</span>
@@ -1517,7 +1515,7 @@ export default function ClassesSection({
                                     setShowParentsModal(true);
                                   }}
                                   title="Vasiylar"
-                                  className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                  className="p-2 bg-[#ECFCCA] hover:bg-indigo-100 text-[#65A30D] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
                                   <Users className="w-4 h-4" />
                                 </button>
@@ -1773,9 +1771,9 @@ export default function ClassesSection({
                           <td className="px-6 py-4 font-bold text-[#1D1E26]">
                             {parent.last_name} {parent.first_name} {parent.middle_name}
                           </td>
-                          <td className="px-6 py-4 font-extrabold text-indigo-600">{parent.student_name}</td>
+                          <td className="px-6 py-4 font-extrabold text-[#1D1E26]">{parent.student_name}</td>
                           <td className="px-6 py-4 font-mono text-slate-500">{parent.phone || "—"}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-indigo-600">{parent.passport || "Kiritilmagan"}</td>
+                          <td className="px-6 py-4 font-mono font-bold text-[#1D1E26]">{parent.passport || "Kiritilmagan"}</td>
                           {userInfo?.role === "ADMIN" && (
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -3543,15 +3541,15 @@ export default function ClassesSection({
             </div>
 
             {/* Template Download Option */}
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-[#ECFCCA] border border-indigo-100 rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-black text-indigo-900">Excel shablonini ko'chirib oling</h4>
-                <p className="text-[11px] text-indigo-600 font-medium mt-0.5">O'quvchilar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
+                <h4 className="text-xs font-black text-[#1D1E26]">Excel shablonini ko'chirib oling</h4>
+                <p className="text-[11px] text-[#1D1E26] font-medium mt-0.5">O'quvchilar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
               </div>
               <button
                 type="button"
                 onClick={() => downloadTemplate("students")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer shadow-xs"
+                className="bg-[#D4F562] hover:bg-[#c2e44f] text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer shadow-xs"
               >
                 📥 Shablonni Yuklash
               </button>

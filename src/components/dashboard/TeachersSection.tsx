@@ -283,10 +283,7 @@ export default function TeachersSection({
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight">O'qituvchilar Ro'yxati</h1>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Maktabning barcha o'qituvchilari va ularning ma'lumotlarini boshqaring.
-          </p>
+          
         </div>
         {userInfo?.role === "ADMIN" && (
           <div className="flex items-center space-x-3">

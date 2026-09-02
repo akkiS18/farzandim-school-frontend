@@ -325,9 +325,7 @@ export default function HolidaysSection({
             <Calendar className="w-6 h-6 text-[#1D1E26]" />
             Dam Olish Kunlari (Bayramlar)
           </h2>
-          <p className="text-xs text-slate-400 font-medium mt-1">
-            Maktab, sinflar yoki levellar uchun dam olish kunlarini belgilash. Ushbu kunlarda dars jadvali to&apos;xtatiladi.
-          </p>
+          
         </div>
 
         {userInfo?.role === "ADMIN" && (

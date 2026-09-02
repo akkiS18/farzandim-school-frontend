@@ -6,13 +6,13 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import api from "@/lib/api";
 import { formatLocalDate, parseLocalDate } from "@/lib/dateUtils";
 import { useRouter, useSearchParams } from "next/navigation";
-import AnnouncementsSection from "@/components/dashboard/AnnouncementsSection";
+import TeacherAnnouncementsSection from "@/components/teacher/TeacherAnnouncementsSection";
 import SmartCalendarModal from "@/components/SmartCalendarModal";
 import CustomDialogModal from "@/components/CustomDialogModal";
 import PasswordInput from "@/components/common/PasswordInput";
-import LibrarySection from "@/components/dashboard/LibrarySection";
+import TeacherLibrarySection from "@/components/teacher/TeacherLibrarySection";
 import DateRangePresets from "@/components/DateRangePresets";
-import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
+import TeacherSocialPassportSection from "@/components/teacher/TeacherSocialPassportSection";
 import LessonPlansSection from "@/components/teacher/LessonPlansSection";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 import TeacherHeader from "@/components/teacher/TeacherHeader";
@@ -4062,7 +4062,7 @@ function TeacherDashboardContent() {
 
             {/* TAB CONTENT: Announcements */}
             {teacherTab === "announcements" && (
-              <AnnouncementsSection
+              <TeacherAnnouncementsSection
                 key={`announcements-${tabResetKeys["announcements"] || 0}`}
                 token={token}
                 classes={classes}
@@ -4179,11 +4179,11 @@ function TeacherDashboardContent() {
             )}
 
             {/* TAB CONTENT: Library & Reading Assignments */}
-            {teacherTab === "books" && <LibrarySection key={`books-${tabResetKeys["books"] || 0}`} />}
+            {teacherTab === "books" && <TeacherLibrarySection key={`books-${tabResetKeys["books"] || 0}`} />}
 
             {/* TAB CONTENT: Ijtimoiy Pasport Import */}
             {teacherTab === "social-passport" && (
-              <SocialPassportImportSection
+              <TeacherSocialPassportSection
                 key={`sp-${tabResetKeys["social-passport"] || 0}`}
                 token={token}
                 API_URL={API_URL}
