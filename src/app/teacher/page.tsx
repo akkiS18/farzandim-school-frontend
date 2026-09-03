@@ -697,6 +697,32 @@ function TeacherDashboardContent() {
   const [classScheduleLoading, setClassScheduleLoading] = useState(false);
   const [overallSchedule, setOverallSchedule] = useState<{ [key: string]: Array<{ class_id: number; class_name: string; subject_id: number; subject_name: string }> }>({});
   const [overallScheduleLoading, setOverallScheduleLoading] = useState(false);
+
+  // Today's Lessons States (Backend-driven)
+  const [todayLessonsData, setTodayLessonsData] = useState<{
+    date: string;
+    day_of_week: number;
+    is_weekend: boolean;
+    is_holiday: boolean;
+    holiday_name?: string | null;
+    total_lessons: number;
+    pending_count: number;
+    completed_count: number;
+    lessons: Array<{
+      lesson_number: number;
+      time: string;
+      class_id: number;
+      class_name: string;
+      subject_id: number;
+      subject_name: string;
+      is_marked: boolean;
+      is_fully_marked: boolean;
+      marked_students_count: number;
+      total_students_count: number;
+    }>;
+  } | null>(null);
+  const [todayLessonsLoading, setTodayLessonsLoading] = useState(false);
+
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
   const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
@@ -1402,15 +1428,32 @@ function TeacherDashboardContent() {
     }
   };
 
-  useEffect(() => {
-    if (token && classes.length > 0) {
-      if (teacherTab === "dashboard") {
-        fetchOverallTeacherSchedule(selectedDashboardDate);
-      } else if (teacherTab === "schedule" && !selectedClassId) {
-        fetchOverallTeacherSchedule(scheduleViewDate);
+  const fetchTeacherTodayLessons = async (targetDate?: string) => {
+    setTodayLessonsLoading(true);
+    const dateQuery = targetDate || selectedDashboardDate || formatLocalDate(new Date());
+    try {
+      const res = await api.get(`/api/schools/teachers/today-lessons?date=${dateQuery}`);
+      if (res && typeof res === "object") {
+        setTodayLessonsData(res);
       }
+    } catch (e) {
+      console.error("Error fetching teacher today lessons:", e);
+    } finally {
+      setTodayLessonsLoading(false);
     }
-  }, [teacherTab, scheduleViewDate, selectedDashboardDate, token, classes, subjects, selectedClassId]);
+  };
+
+  useEffect(() => {
+    if (token && teacherTab === "dashboard") {
+      fetchTeacherTodayLessons(selectedDashboardDate);
+    }
+  }, [token, teacherTab, selectedDashboardDate]);
+
+  useEffect(() => {
+    if (token && teacherTab === "schedule" && !selectedClassId && classes.length > 0) {
+      fetchOverallTeacherSchedule(scheduleViewDate);
+    }
+  }, [token, teacherTab, selectedClassId, scheduleViewDate, classes.length]);
 
   const fetchScheduleExceptions = async () => {
     if (!selectedClassId) return;
@@ -2993,59 +3036,9 @@ function TeacherDashboardContent() {
   };
 
   const getTodayLessons = () => {
-    const targetDate = selectedDashboardDate ? new Date(selectedDashboardDate + "T00:00:00") : new Date();
-    const dayOfWeek = targetDate.getDay();
-    const currentDay = dayOfWeek === 0 ? 7 : dayOfWeek;
-
-    if (currentDay === 7) return [];
-
-    const list: Array<{
-      subject_id: number;
-      subject_name: string;
-      class_id: number;
-      class_name: string;
-      time: string;
-      lesson_number: number;
-      date?: string;
-    }> = [];
-
-    for (let lessonNum = 1; lessonNum <= 10; lessonNum++) {
-      const slotKey = `${currentDay}-${lessonNum}`;
-      const items = overallSchedule[slotKey];
-      if (items && items.length > 0) {
-        items.forEach((it) => {
-          list.push({
-            subject_id: it.subject_id,
-            subject_name: it.subject_name || subjects.find(s => s.id === it.subject_id)?.name || "Dars",
-            class_id: it.class_id,
-            class_name: it.class_name,
-            time: formatLessonTime(lessonNum),
-            lesson_number: lessonNum,
-            date: selectedDashboardDate,
-          });
-        });
-      }
+    if (todayLessonsData && Array.isArray(todayLessonsData.lessons)) {
+      return todayLessonsData.lessons;
     }
-
-    if (list.length > 0) return list;
-
-    const classSchList = classSchedule.filter((s) => s.day_of_week === currentDay && s.subject_id > 0);
-    if (classSchList.length > 0) {
-      return classSchList.map((item) => {
-        const cls = classes.find((c) => c.id === item.class_id) || classes.find((c) => c.id === selectedClassId);
-        const sub = subjects.find((s) => s.id === item.subject_id);
-        return {
-          subject_id: item.subject_id,
-          subject_name: sub?.name || item.subject_name || "Dars",
-          class_id: item.class_id || (selectedClassId ? Number(selectedClassId) : 0),
-          class_name: cls?.name || `Sinf ${item.class_id}`,
-          time: formatLessonTime(item.lesson_number),
-          lesson_number: item.lesson_number,
-          date: selectedDashboardDate,
-        };
-      });
-    }
-
     return [];
   };
 
@@ -3520,12 +3513,28 @@ function TeacherDashboardContent() {
                 </div>
               </div>
 
-              {/* 2. Bugungi Darslar (Today's Lessons) - Compact High-Density Serif Cards */}
+              {/* 2. Bugungi Darslar (Today's Lessons) - High-Performance Backend-Driven Cards */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
-                  <span className="text-[11px] sm:text-xs font-bold font-sans text-slate-700 uppercase tracking-widest">
-                    BUGUNGI DARSLAR ({todayLessons.length} TA)
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] sm:text-xs font-bold font-sans text-slate-700 uppercase tracking-widest">
+                      BUGUNGI DARSLAR ({todayLessons.length} TA)
+                    </span>
+                    {todayLessonsData && todayLessons.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        {todayLessonsData.pending_count > 0 && (
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold font-sans bg-rose-50 text-rose-700 border border-rose-200 rounded-none uppercase">
+                            {todayLessonsData.pending_count} ta kutilmoqda
+                          </span>
+                        )}
+                        {todayLessonsData.completed_count > 0 && (
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold font-sans bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-none uppercase">
+                            {todayLessonsData.completed_count} ta bajarildi
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setTeacherTab("schedule")}
@@ -3536,12 +3545,14 @@ function TeacherDashboardContent() {
                 </div>
 
                 {(() => {
-                  const activeHolidayForView = (holidays || []).find((h: any) => {
-                    const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
-                    return hDate === selectedDashboardDate;
-                  });
+                  const isHoliday = todayLessonsData?.is_holiday || Boolean(
+                    (holidays || []).find((h: any) => {
+                      const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
+                      return hDate === selectedDashboardDate;
+                    })
+                  );
 
-                  const isSunday = (() => {
+                  const isSunday = todayLessonsData?.is_weekend || (() => {
                     try {
                       const d = parseLocalDate(selectedDashboardDate);
                       return d.getDay() === 0;
@@ -3550,7 +3561,13 @@ function TeacherDashboardContent() {
                     }
                   })();
 
-                  if (activeHolidayForView || isSunday) {
+                  if (isHoliday || isSunday) {
+                    const holidayObj = (holidays || []).find((h: any) => {
+                      const hDate = h.holiday_date ? h.holiday_date.split("T")[0] : "";
+                      return hDate === selectedDashboardDate;
+                    });
+                    const hName = todayLessonsData?.holiday_name || holidayObj?.name || "Maktab Ta'tili";
+
                     return (
                       <div className="w-full bg-white border border-neutral-200 rounded-none p-8 sm:p-12 text-center space-y-3 shadow-none">
                         <CalendarOff className="w-8 h-8 text-[#A51C30] mx-auto" />
@@ -3558,10 +3575,10 @@ function TeacherDashboardContent() {
                           Dam Olish Kuni
                         </span>
                         <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900">
-                          {activeHolidayForView ? activeHolidayForView.name || "Maktab Ta'tili" : "Yakshanba — Dam Olish Kuni"}
+                          {isHoliday ? hName : "Yakshanba — Dam Olish Kuni"}
                         </h3>
                         <p className="text-sm text-slate-600 font-normal leading-relaxed max-w-md mx-auto">
-                          {activeHolidayForView
+                          {isHoliday
                             ? "Admin tomonidan ushbu sana dam olish kuni deb belgilangan."
                             : "Bugun dam olish kuni. Darslar va baholash o'tkazilmaydi."}
                         </p>
@@ -3581,16 +3598,30 @@ function TeacherDashboardContent() {
                     );
                   }
 
+                  if (todayLessonsLoading) {
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="bg-white border border-neutral-200 p-4 h-32 animate-pulse flex flex-col justify-between">
+                            <div className="h-3 bg-neutral-100 w-2/3"></div>
+                            <div className="h-5 bg-neutral-100 w-1/2"></div>
+                            <div className="h-3 bg-neutral-100 w-1/3"></div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
                   if (todayLessons.length > 0) {
                     return (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {todayLessons.map((lesson, idx) => (
+                        {todayLessons.map((lesson: any, idx: number) => (
                           <div
                             key={idx}
                             onClick={() => handleSelectLessonAndGoToJournal(lesson)}
-                            className="bg-white border border-neutral-200 hover:border-neutral-400 p-3.5 sm:p-4 cursor-pointer group rounded-none shadow-none transition-colors flex flex-col justify-between"
+                            className="bg-white border border-neutral-200 hover:border-neutral-400 p-3.5 sm:p-4 cursor-pointer group rounded-none shadow-none transition-all flex flex-col justify-between space-y-3"
                           >
-                            {/* Side-by-side Top Meta */}
+                            {/* Top Meta */}
                             <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-bold font-sans uppercase tracking-wider text-slate-500 border-b border-neutral-100 pb-2">
                               <span className="flex items-center gap-1.5 truncate">
                                 <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -3599,41 +3630,41 @@ function TeacherDashboardContent() {
                               <span className="text-slate-600 font-semibold shrink-0">{lesson.class_name} SINFI</span>
                             </div>
 
-                            {/* Subject Headline (Serif regular) with Naked Chevron */}
-                            <div className="flex items-center justify-between gap-2 pt-2.5">
-                              <h3 className="font-serif font-normal text-base sm:text-lg text-[#A51C30] group-hover:underline tracking-tight truncate">
-                                {lesson.subject_name}
-                              </h3>
-                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#A51C30] group-hover:translate-x-0.5 transition-all shrink-0" />
+                            {/* Subject Headline */}
+                            <div className="space-y-0.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-serif font-normal text-base sm:text-lg text-[#A51C30] group-hover:underline tracking-tight truncate">
+                                  {lesson.subject_name}
+                                </h3>
+                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#A51C30] group-hover:translate-x-0.5 transition-all shrink-0" />
+                              </div>
+                              <p className="text-[11px] font-mono text-slate-400 font-medium">{lesson.time}</p>
+                            </div>
+
+                            {/* Marking Status Badge */}
+                            <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
+                              {lesson.is_fully_marked ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold uppercase font-sans">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span>Bajarildi ({lesson.marked_students_count}/{lesson.total_students_count})</span>
+                                </span>
+                              ) : lesson.is_marked ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold uppercase font-sans">
+                                  <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span>Qisman ({lesson.marked_students_count}/{lesson.total_students_count})</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-800 border border-rose-200 text-[10px] font-bold uppercase font-sans">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                  <span>Kiritilmagan ({lesson.marked_students_count || 0}/{lesson.total_students_count || 0})</span>
+                                </span>
+                              )}
+                              <span className="text-[11px] font-bold font-sans text-slate-400 group-hover:text-slate-700 transition">
+                                Jurnal →
+                              </span>
                             </div>
                           </div>
                         ))}
-                      </div>
-                    );
-                  }
-
-                  const hasAnySchedule = Object.keys(overallSchedule).length > 0 || classSchedule.length > 0;
-                  if (!hasAnySchedule && !overallScheduleLoading) {
-                    return (
-                      <div className="w-full bg-white border border-neutral-200 rounded-none p-8 sm:p-12 text-center space-y-3 shadow-none">
-                        <Clock className="w-8 h-8 text-[#A51C30] mx-auto" />
-                        <span className="inline-block text-[11px] font-bold font-sans text-slate-500 uppercase tracking-widest">
-                          Jadval mavjud emas
-                        </span>
-                        <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900">Dars jadvali kiritilmagan</h3>
-                        <p className="text-sm text-slate-600 font-normal max-w-md mx-auto leading-relaxed">
-                          Darslar ro'yxatini ko'rish uchun sinflar dars jadvalini shakllantiring.
-                        </p>
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setTeacherTab("schedule")}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E2B42] text-white text-xs font-bold font-sans uppercase tracking-wider rounded-none cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Jadvalga o'tish</span>
-                          </button>
-                        </div>
                       </div>
                     );
                   }
