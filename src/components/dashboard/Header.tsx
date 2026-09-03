@@ -22,6 +22,7 @@ export default function Header({
     const titles: Record<string, string> = {
       "overview": "Dashboard",
       "classes": "Sinflar",
+      "clubs": "To'garaklar",
       "schedule-overview": "Dars jadvali",
       "teachers": "O'qituvchilar",
       "subjects": "Fanlar",
@@ -59,7 +60,7 @@ export default function Header({
 
         <div className={activeTab === "overview" ? "hidden md:block" : ""}>
           <h1 className="text-xl sm:text-3xl font-black text-[#1D1E26] tracking-tight flex items-center gap-2">
-            {activeTab === "overview" ? `Welcome back ${userInfo?.first_name || "Admin"}` : getTabTitle?.()}
+            {getTabTitle?.()}
           </h1>
         </div>
       </div>

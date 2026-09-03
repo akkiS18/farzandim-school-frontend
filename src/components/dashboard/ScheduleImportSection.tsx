@@ -89,8 +89,8 @@ const ScheduleTableRow = memo(function ScheduleTableRow({
   const isSubjectValid = !row.subjectName || validSubjectsMap[row.subjectName.trim().toLowerCase()];
 
   return (
-    <tr className={`transition ${isActiveRow ? "bg-indigo-50/40" : "hover:bg-indigo-50/20"}`}>
-      <td className="px-3 py-2 text-center text-zinc-400 font-mono text-[11px] font-bold">{idx + 1}</td>
+    <tr className={`transition ${isActiveRow ? "bg-slate-100" : "hover:bg-slate-50"}`}>
+      <td className="px-3 py-2 text-center text-slate-400 font-mono text-[11px] font-bold">{idx + 1}</td>
 
       {fields.map((f) => {
         const isSelected = isActiveRow && activeCellField === f.key;
@@ -118,12 +118,12 @@ const ScheduleTableRow = memo(function ScheduleTableRow({
             }}
           >
             <div
-              className={`relative flex items-center px-2.5 py-1.5 rounded-lg text-xs transition-all ${
+              className={`relative flex items-center px-2.5 py-1.5 text-xs transition-all ${
                 isSelected
-                  ? "ring-2 ring-indigo-500 bg-white shadow-sm font-medium text-zinc-900"
+                  ? "ring-2 ring-[#1D1E26] bg-white font-medium text-[#1D1E26]"
                   : hasCellError
-                  ? "bg-rose-500 text-white font-bold animate-pulse shadow-sm"
-                  : "bg-zinc-50 hover:bg-white border border-zinc-200/80 text-zinc-800"
+                  ? "bg-red-500 text-white font-bold animate-pulse"
+                  : "bg-white hover:bg-slate-50 border border-slate-200 text-slate-800"
               }`}
             >
               <input
@@ -140,14 +140,14 @@ const ScheduleTableRow = memo(function ScheduleTableRow({
                 className="w-full bg-transparent focus:outline-none text-xs"
               />
               {hasClassError && (
-                <span className="ml-1 px-1 py-0.5 bg-white text-rose-600 rounded text-[9px] font-extrabold uppercase shrink-0">
+                <span className="ml-1 px-1 py-0.5 bg-white text-red-600 text-[9px] font-extrabold uppercase shrink-0 font-mono">
                   SINF TOPILMADI
                 </span>
               )}
               {hasSubjectError && (
                 <span
                   title="Ikki marta bosib fanni tizimga qo'shing va biriktiring"
-                  className="ml-1 px-1.5 py-0.5 bg-white text-rose-600 rounded text-[9px] font-extrabold uppercase shrink-0 cursor-pointer shadow-xs"
+                  className="ml-1 px-1.5 py-0.5 bg-white text-red-600 text-[9px] font-extrabold uppercase shrink-0 cursor-pointer font-mono"
                 >
                   FAN TOPILMADI (2x)
                 </span>
@@ -161,7 +161,7 @@ const ScheduleTableRow = memo(function ScheduleTableRow({
         <button
           type="button"
           onClick={() => onDeleteRow(row.id)}
-          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
           title="Qatorni o'chirish"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -511,17 +511,17 @@ export default function ScheduleImportSection({
   const activeVal = activeRow && activeCell ? activeRow[activeCell.field] : "";
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col w-screen h-screen overflow-hidden animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 bg-white flex flex-col w-screen h-screen overflow-hidden animate-in fade-in duration-150 font-sans text-[#1D1E26]">
       <div className="w-full h-full flex flex-col overflow-hidden bg-white">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/80">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+            <div className="w-10 h-10 bg-[#1D1E26] text-[#D4F562] flex items-center justify-center font-extrabold shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 leading-tight">Dars Jadvalini Yoppasiga Import Qilish</h2>
-              <p className="text-xs text-zinc-500 font-medium">
+              <h2 className="text-base font-extrabold text-[#1D1E26] leading-tight">Dars Jadvalini Yoppasiga Import Qilish</h2>
+              <p className="text-xs text-slate-400 font-medium">
                 Excel fayl orqali bir nechta sinf dars jadvallarini yoppasiga yuklang, tahrirlang va saqlang
               </p>
             </div>
@@ -531,15 +531,15 @@ export default function ScheduleImportSection({
             <button
               type="button"
               onClick={handleDownloadTemplate}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-extrabold text-[#1D1E26] bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              Shablonni yuklab olish
+              <span>Shablonni yuklab olish</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl transition"
+              className="p-2 text-slate-400 hover:text-[#1D1E26] hover:bg-slate-100 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -547,10 +547,10 @@ export default function ScheduleImportSection({
         </div>
 
         {/* Top Formula / Formula Bar (`fx`) */}
-        <div className="px-6 py-2.5 bg-zinc-100/70 border-b border-zinc-200/80 flex items-center gap-3">
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-white rounded-lg border border-zinc-300 shadow-sm text-xs font-mono text-indigo-700 font-bold shrink-0">
+        <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white border border-slate-200 text-xs font-mono text-[#1D1E26] font-extrabold shrink-0">
             <span>fx</span>
-            <span className="text-zinc-400">|</span>
+            <span className="text-slate-300">|</span>
             <span>{activeCell ? `${activeCell.rowIdx + 1}-qator: ${activeCell.label}` : "Katakni tanlang"}</span>
           </div>
 
@@ -570,10 +570,10 @@ export default function ScheduleImportSection({
               }
             }}
             placeholder={activeCell ? "Qiymatni kiriting..." : "Tahrirlash uchun jadvaldagi katak ustiga bosing..."}
-            className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner disabled:bg-zinc-100 disabled:text-zinc-400"
+            className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1D1E26] disabled:bg-slate-100 disabled:text-slate-400"
           />
 
-          <label className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow transition shrink-0">
+          <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562] text-xs font-extrabold cursor-pointer transition shrink-0">
             <Upload className="w-4 h-4" />
             <span>{isUploading ? "Yuklanmoqda..." : "Excel Yuklash"}</span>
             <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" />
@@ -581,15 +581,15 @@ export default function ScheduleImportSection({
         </div>
 
         {/* Content Table Body */}
-        <div className="flex-1 overflow-auto p-4 bg-zinc-50/30">
+        <div className="flex-1 overflow-auto p-4 bg-slate-50/50">
           {toast && (
             <div
-              className={`mb-4 px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-between shadow-md ${
+              className={`mb-4 px-4 py-3 text-xs font-bold flex items-center justify-between ${
                 toast.type === "success"
                   ? "bg-emerald-600 text-white"
                   : toast.type === "error"
-                  ? "bg-rose-600 text-white"
-                  : "bg-indigo-600 text-white"
+                  ? "bg-red-600 text-white"
+                  : "bg-[#1D1E26] text-[#D4F562]"
               }`}
             >
               <span>{toast.message}</span>
@@ -600,25 +600,25 @@ export default function ScheduleImportSection({
           )}
 
           {parsedRows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 border border-indigo-100 shadow-inner">
-                <Calendar className="w-8 h-8" />
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-14 h-14 bg-slate-100 text-[#1D1E26] flex items-center justify-center mb-4 border border-slate-200">
+                <Calendar className="w-7 h-7" />
               </div>
-              <h3 className="text-sm font-bold text-zinc-800">Dars jadvali Excel fayli yuklanmagan</h3>
-              <p className="text-xs text-zinc-500 max-w-md mt-1 mb-6">
+              <h3 className="text-sm font-extrabold text-[#1D1E26]">Dars jadvali Excel fayli yuklanmagan</h3>
+              <p className="text-xs text-slate-400 max-w-md mt-1 mb-6">
                 Yoppasiga dars jadvalini shakllantirish uchun Excel shablonini yuklab oling, to'ldiring va ushbu oynaga yuklang.
               </p>
-              <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-200 cursor-pointer transition">
+              <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562] text-xs font-extrabold cursor-pointer transition">
                 <Upload className="w-4 h-4" />
                 <span>Excel Faylini Tanlash</span>
                 <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
           ) : (
-            <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-sm">
+            <div className="border border-slate-200 overflow-hidden bg-white">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-zinc-100/90 text-zinc-600 text-[11px] uppercase font-bold tracking-wider border-b border-zinc-200">
+                  <tr className="bg-[#1D1E26] text-[#D4F562] text-[10px] uppercase font-mono font-extrabold tracking-wider border-b border-slate-800">
                     <th className="px-3 py-2.5 text-center w-10">#</th>
                     <th className="px-3 py-2.5 w-28">Hafta kuni</th>
                     <th className="px-3 py-2.5 w-24">Dars soati</th>
@@ -629,7 +629,7 @@ export default function ScheduleImportSection({
                     <th className="px-3 py-2.5 text-center w-12">Amal</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100">
+                <tbody className="divide-y divide-slate-100">
                   {parsedRows.map((r, idx) => (
                     <ScheduleTableRow
                       key={r.id}
@@ -652,16 +652,16 @@ export default function ScheduleImportSection({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-zinc-100 bg-zinc-50/80 flex items-center justify-between">
-          <div className="text-xs text-zinc-500 font-medium">
-            Jami jadval qatorlari: <strong className="text-zinc-900">{parsedRows.length}</strong> ta
+        <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between">
+          <div className="text-xs text-slate-500 font-mono">
+            Jami jadval qatorlari: <strong className="text-[#1D1E26] font-extrabold">{parsedRows.length}</strong> ta
           </div>
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-200/60 rounded-xl transition"
+              className="px-4 py-2 text-xs font-extrabold text-[#1D1E26] bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
             >
               Bekor qilish
             </button>
@@ -669,7 +669,7 @@ export default function ScheduleImportSection({
               type="button"
               onClick={handleSaveSchedules}
               disabled={isSaving || parsedRows.length === 0}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-200 transition"
+              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-extrabold text-[#D4F562] bg-[#1D1E26] hover:bg-slate-800 disabled:opacity-50 transition cursor-pointer"
             >
               {isSaving ? (
                 <>
@@ -689,22 +689,22 @@ export default function ScheduleImportSection({
 
       {/* Add Missing Subject Modal */}
       {showAddSubjectModal && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-zinc-100 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg p-6 border border-slate-200 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 font-bold">
+                <div className="w-9 h-9 bg-[#1D1E26] text-[#D4F562] flex items-center justify-center shrink-0 font-extrabold">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-zinc-900">Yangi Fan Qo'shish</h3>
-                  <p className="text-xs text-zinc-500 font-medium">Excel dars jadvalidan kiritilgan fanni tizimga qo'shish va biriktirish</p>
+                  <h3 className="text-base font-extrabold text-[#1D1E26]">Yangi Fan Qo'shish</h3>
+                  <p className="text-xs text-slate-400 font-medium">Excel dars jadvalidan kiritilgan fanni tizimga qo'shish va biriktirish</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddSubjectModal(false)}
-                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 flex items-center justify-center transition"
+                className="w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer font-bold text-xs"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -712,7 +712,7 @@ export default function ScheduleImportSection({
 
             <form onSubmit={handleCreateMissingSubject} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono mb-1.5">
+                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">
                   Fan Nomi
                 </label>
                 <input
@@ -721,13 +721,13 @@ export default function ScheduleImportSection({
                   value={missingSubjectName}
                   onChange={(e) => setMissingSubjectName(e.target.value)}
                   placeholder="Masalan: Robototexnika"
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-[#1D1E26] focus:outline-none focus:ring-2 focus:ring-[#1D1E26]"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[10px] font-extrabold text-zinc-400 uppercase font-mono">
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono">
                     Qaysi Sinf Levellarida O'tiladi? (Target Levels)
                   </label>
                   <button
@@ -739,7 +739,7 @@ export default function ScheduleImportSection({
                         setTargetLevels([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
                       }
                     }}
-                    className="text-[10px] font-bold text-indigo-600 hover:underline"
+                    className="text-[10px] font-bold text-slate-600 hover:text-[#1D1E26] underline cursor-pointer"
                   >
                     {targetLevels.length === 11 ? "Barchasini bekor qilish" : "Barcha sinflar (1-11)"}
                   </button>
@@ -759,10 +759,10 @@ export default function ScheduleImportSection({
                             setTargetLevels([...targetLevels, lvl].sort((a, b) => a - b));
                           }
                         }}
-                        className={`px-2.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center border ${
+                        className={`px-2.5 py-2 text-xs font-bold transition flex items-center justify-center border cursor-pointer ${
                           isChecked
-                            ? "bg-indigo-600 text-white border-indigo-700 shadow-xs"
-                            : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100"
+                            ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                         }`}
                       >
                         {lvl}-sinf
@@ -772,18 +772,18 @@ export default function ScheduleImportSection({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowAddSubjectModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 rounded-xl transition"
+                  className="px-4 py-2 text-xs font-extrabold text-[#1D1E26] bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={isAddingSubject || !missingSubjectName.trim()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-200"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1D1E26] hover:bg-slate-800 disabled:opacity-50 text-[#D4F562] text-xs font-extrabold transition cursor-pointer"
                 >
                   {isAddingSubject ? (
                     <>

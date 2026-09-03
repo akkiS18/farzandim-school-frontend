@@ -35,7 +35,7 @@ interface OverviewSectionProps {
   API_URL: string;
   classes: ClassItem[];
   userInfo: UserInfo | null;
-  setActiveMenu?: (menu: "overview" | "classes" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
+  setActiveMenu?: (menu: "overview" | "classes" | "clubs" | "teachers" | "subjects" | "grading-systems" | "menu" | "balance" | "announcements" | "feedback" | "telegram") => void;
 }
 
 export default function OverviewSection({
@@ -332,7 +332,7 @@ export default function OverviewSection({
   return (
     <div className="space-y-6 font-sans text-[#1D1E26]">
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-2xl shadow-xs">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-none shadow-xs">
           {error}
         </div>
       )}
@@ -340,9 +340,12 @@ export default function OverviewSection({
       {/* TOP ROW: 3 KEY STAT CARDS (FULL WIDTH 3 COLUMNS) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Card 1: Sinflar Soni (Soft Peach Background Icon) */}
-        <div className="bg-white border border-slate-100/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between space-y-4">
+        <div 
+          onClick={() => setActiveMenu && setActiveMenu("classes")}
+          className="bg-white border border-slate-100/80 rounded-none p-5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between space-y-4 cursor-pointer"
+        >
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#FFEADB] text-[#FF7A00] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-none bg-[#FFEADB] text-[#FF7A00] flex items-center justify-center">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
               </svg>
@@ -367,9 +370,12 @@ export default function OverviewSection({
         </div>
 
         {/* Card 2: To'garaklar Soni (Soft Lime Green Background Icon) */}
-        <div className="bg-white border border-slate-100/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between space-y-4">
+        <div 
+          onClick={() => setActiveMenu && setActiveMenu("clubs")}
+          className="bg-white border border-slate-100/80 rounded-none p-5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between space-y-4 cursor-pointer"
+        >
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#ECFCCA] text-[#65A30D] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-none bg-[#ECFCCA] text-[#65A30D] flex items-center justify-center">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                 <line x1="8" y1="21" x2="16" y2="21" />
@@ -394,12 +400,13 @@ export default function OverviewSection({
         </div>
 
         {/* Card 3: Bugungi Taomnoma (Dark Premium Design with Navigation) */}
-        <div className="bg-[#1D1E26] text-white border border-[#1D1E26] rounded-3xl p-5 shadow-xl hover:shadow-2xl transition duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden">
+        <div className="bg-[#1D1E26] text-white border border-[#1D1E26] rounded-none p-5 shadow-xl hover:shadow-2xl transition duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden">
           <div className="flex items-center space-x-3 relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 text-[#D4F562] flex items-center justify-center shrink-0">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            <div className="w-12 h-12 rounded-none bg-white/10 text-[#D4F562] flex items-center justify-center shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                <path d="M7 2v20" />
+                <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
               </svg>
             </div>
             <div className="min-w-0">
@@ -417,7 +424,7 @@ export default function OverviewSection({
             <div className="text-right">
               <button
                 onClick={() => setActiveMenu && setActiveMenu("menu")}
-                className="bg-[#D4F562] text-[#1D1E26] text-[10px] font-black px-3.5 py-1.5 rounded-xl shadow-xs inline-block cursor-pointer hover:opacity-90 transition"
+                className="bg-[#D4F562] text-[#1D1E26] text-[10px] font-black px-3.5 py-1.5 rounded-none shadow-xs inline-block cursor-pointer hover:opacity-90 transition"
               >
                 Batafsil
               </button>
@@ -431,7 +438,7 @@ export default function OverviewSection({
         {/* Left Column (2 Cols): Hours Activity Bar Chart & Daily Schedule */}
         <div className="lg:col-span-2 space-y-6">
           {/* Hours Activity Bar Chart Card */}
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Davomat Dinamikasi</h3>
@@ -444,7 +451,7 @@ export default function OverviewSection({
                 <select
                   value={selectedClassId}
                   onChange={(e) => setSelectedClassId(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-3.5 py-2 rounded-xl outline-none cursor-pointer focus:ring-2 focus:ring-[#D4F562]"
+                  className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-3.5 py-2 rounded-none outline-none cursor-pointer focus:ring-2 focus:ring-[#D4F562]"
                 >
                   <option value="">Barcha sinflar (Haftalik)</option>
                   {classes.map((cls) => (
@@ -481,7 +488,7 @@ export default function OverviewSection({
                     />
                     <Bar
                       dataKey="qatnashuv"
-                      radius={[6, 6, 0, 0]}
+                      radius={[0, 0, 0, 0]}
                       barSize={24}
                       stroke="none"
                       strokeWidth={0}
@@ -514,12 +521,12 @@ export default function OverviewSection({
           </div>
 
           {/* Daily Schedule & Davomat Navigator Widget */}
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Kunlik Darslar & Davomat</h3>
                 <p className="text-xs text-slate-400 font-medium font-mono">
-                  📅 {isToday ? "Bugun" : "Tanlangan sana"}: {formatUzbekDate(selectedDate)}
+                  {isToday ? "Bugun" : "Tanlangan sana"}: {formatUzbekDate(selectedDate)}
                 </p>
               </div>
 
@@ -548,7 +555,7 @@ export default function OverviewSection({
             {/* Dynamic List of Class Attendance Cards for Selected Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {classes.length === 0 ? (
-                <div className="col-span-2 p-6 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="col-span-2 p-6 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-none border border-slate-100">
                   Hozircha sinflar kiritilmagan.
                 </div>
               ) : (
@@ -569,10 +576,10 @@ export default function OverviewSection({
                     <div
                       key={cls.id}
                       onClick={() => setActiveMenu && setActiveMenu("classes")}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-100 transition cursor-pointer"
+                      className="flex items-center justify-between p-3.5 rounded-none bg-slate-50/80 hover:bg-slate-100/80 border border-slate-100 transition cursor-pointer"
                     >
                       <div className="flex items-center space-x-3 min-w-0">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${badgeStyle}`}>
+                        <div className={`w-10 h-10 rounded-none flex items-center justify-center font-bold shrink-0 ${badgeStyle}`}>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
                           </svg>
@@ -600,11 +607,11 @@ export default function OverviewSection({
         {/* Right Column (1 Col): Interactive Calendar & Assignments / E'lonlar Widget */}
         <div className="space-y-6">
           {/* Calendar Widget */}
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => changeDateByDays(-30)}
-                className="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center text-xs font-bold"
+                className="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-none flex items-center justify-center text-xs font-bold"
               >
                 ‹
               </button>
@@ -613,7 +620,7 @@ export default function OverviewSection({
               </h4>
               <button
                 onClick={() => changeDateByDays(30)}
-                className="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center text-xs font-bold"
+                className="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-none flex items-center justify-center text-xs font-bold"
               >
                 ›
               </button>
@@ -639,7 +646,7 @@ export default function OverviewSection({
                       const dateDay = String(day).padStart(2, "0");
                       setSelectedDate(`${year}-${month}-${dateDay}`);
                     }}
-                    className={`py-1.5 rounded-full font-bold transition cursor-pointer ${
+                    className={`py-1.5 rounded-none font-bold transition cursor-pointer ${
                       isSelected
                         ? "bg-[#D4F562] text-[#1D1E26] font-black shadow-xs"
                         : "hover:bg-slate-100 text-slate-700"
@@ -653,12 +660,12 @@ export default function OverviewSection({
           </div>
 
           {/* Assignments / E'lonlar Widget */}
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-[#1D1E26]">So'nggi E'lonlar</h3>
               <button
                 onClick={() => setActiveMenu && setActiveMenu("announcements")}
-                className="w-7 h-7 rounded-full bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-xs shadow-xs hover:opacity-90 transition cursor-pointer"
+                className="w-7 h-7 rounded-none bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-xs shadow-xs hover:opacity-90 transition cursor-pointer"
                 title="E'lonlar bo'limiga o'tish"
               >
                 +
@@ -667,7 +674,7 @@ export default function OverviewSection({
 
             <div className="space-y-3">
               {announcements.length === 0 ? (
-                <div className="p-4 bg-slate-50 text-slate-400 text-xs font-medium text-center rounded-2xl">
+                <div className="p-4 bg-slate-50 text-slate-400 text-xs font-medium text-center rounded-none">
                   Hozircha e'lonlar kiritilmagan
                 </div>
               ) : (
@@ -677,10 +684,10 @@ export default function OverviewSection({
                     <div
                       key={item.id}
                       onClick={() => setActiveMenu && setActiveMenu("announcements")}
-                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 hover:bg-indigo-50/40 border border-slate-100 hover:border-indigo-200 text-xs transition cursor-pointer group"
+                      className="flex items-center justify-between p-3 rounded-none bg-slate-50/80 hover:bg-indigo-50/40 border border-slate-100 hover:border-indigo-200 text-xs transition cursor-pointer group"
                     >
                       <div className="flex items-center space-x-3 min-w-0">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+                        <div className={`w-8 h-8 rounded-none flex items-center justify-center font-bold shrink-0 ${
                           isPoll ? "bg-indigo-100 text-indigo-700" : "bg-[#ECFCCA] text-[#65A30D]"
                         }`}>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -692,7 +699,7 @@ export default function OverviewSection({
                           <p className="text-[10px] text-slate-400 font-mono truncate">{formatUzbekDate(item.created_at)}</p>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 ${
+                      <span className={`px-2.5 py-1 rounded-none text-[10px] font-bold shrink-0 ${
                         isPoll ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       }`}>
                         {isPoll ? "So'rovnoma" : "E'lon"}
@@ -707,7 +714,7 @@ export default function OverviewSection({
       </div>
 
       {/* BOTTOM ROW: DAILY ATTENDANCE DETAILED TABLE WITH PROGRESS RINGS */}
-      <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+      <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-black text-[#1D1E26]">O'quvchilar Davomati & Progress</h3>
@@ -717,22 +724,22 @@ export default function OverviewSection({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/60 text-xs font-bold">
+            <div className="flex items-center bg-slate-100 p-1 rounded-none border border-slate-200/60 text-xs font-bold">
               <button
                 onClick={() => setStatusFilter("all")}
-                className={`px-3 py-1.5 rounded-xl transition ${statusFilter === "all" ? "bg-white text-[#1D1E26] shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                className={`px-3 py-1.5 rounded-none transition ${statusFilter === "all" ? "bg-white text-[#1D1E26] shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
               >
                 Barchasi
               </button>
               <button
                 onClick={() => setStatusFilter("absent")}
-                className={`px-3 py-1.5 rounded-xl transition ${statusFilter === "absent" ? "bg-red-500 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                className={`px-3 py-1.5 rounded-none transition ${statusFilter === "absent" ? "bg-red-500 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
               >
                 Kelmagan ({absentCount})
               </button>
               <button
                 onClick={() => setStatusFilter("partial")}
-                className={`px-3 py-1.5 rounded-xl transition ${statusFilter === "partial" ? "bg-amber-500 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                className={`px-3 py-1.5 rounded-none transition ${statusFilter === "partial" ? "bg-amber-500 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
               >
                 Qisman ({partialCount})
               </button>
@@ -743,13 +750,13 @@ export default function OverviewSection({
               placeholder="F.I.SH bo'yicha..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium px-3.5 py-2 rounded-xl outline-none focus:ring-2 focus:ring-[#D4F562] w-44"
+              className="bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium px-3.5 py-2 rounded-none outline-none focus:ring-2 focus:ring-[#D4F562] w-44"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-100">
+        <div className="overflow-x-auto rounded-none border border-slate-100">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
               <tr>
@@ -785,13 +792,13 @@ export default function OverviewSection({
                         {st.last_name} {st.first_name} {st.middle_name || ""}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="bg-slate-100 text-slate-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg">
+                        <span className="bg-slate-100 text-slate-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-none">
                           {st.class_name}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center font-mono font-bold">
                         {st.absent_count > 0 ? (
-                          <span className="text-red-600 bg-red-50 px-2.5 py-1 rounded-lg border border-red-100">
+                          <span className="text-red-600 bg-red-50 px-2.5 py-1 rounded-none border border-red-100">
                             {st.absent_count} ta dars
                           </span>
                         ) : (
@@ -799,7 +806,7 @@ export default function OverviewSection({
                         )}
                       </td>
                       <td className="px-6 py-4 text-center whitespace-nowrap font-mono font-extrabold">
-                        <span className={`px-2.5 py-1 rounded-xl text-xs font-bold font-mono ${
+                        <span className={`px-2.5 py-1 rounded-none text-xs font-bold font-mono ${
                           percent === 100
                             ? "bg-[#ECFCCA] text-[#65A30D]"
                             : percent === 0
@@ -811,20 +818,20 @@ export default function OverviewSection({
                       </td>
                       <td className="px-6 py-4 text-center whitespace-nowrap">
                         {realStatus === "absent" && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-red-100 text-red-700 border border-red-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none text-[11px] font-extrabold bg-red-100 text-red-700 border border-red-200">
+                            <span className="w-1.5 h-1.5 rounded-none bg-red-500"></span>
                             Umuman kelmagan
                           </span>
                         )}
                         {realStatus === "partial" && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#FFEADB] text-[#FF7A00] border border-[#FFD2B8]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A00]"></span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none text-[11px] font-extrabold bg-[#FFEADB] text-[#FF7A00] border border-[#FFD2B8]">
+                            <span className="w-1.5 h-1.5 rounded-none bg-[#FF7A00]"></span>
                             Ba'zi darslarga qatnashmagan
                           </span>
                         )}
                         {realStatus === "present" && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#ECFCCA] text-[#65A30D] border border-[#D9F99D]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#65A30D]"></span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none text-[11px] font-extrabold bg-[#ECFCCA] text-[#65A30D] border border-[#D9F99D]">
+                            <span className="w-1.5 h-1.5 rounded-none bg-[#65A30D]"></span>
                             To'liq qatnashgan
                           </span>
                         )}
@@ -856,7 +863,7 @@ export default function OverviewSection({
                     setPageSize(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-none outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
                 >
                   <option value={10}>10 ta</option>
                   <option value={25}>25 ta</option>
@@ -865,11 +872,11 @@ export default function OverviewSection({
               </div>
             </div>
 
-            <div className="flex items-center space-x-1.5 bg-slate-100 p-1.5 rounded-2xl flex-wrap justify-center">
+            <div className="flex items-center space-x-1.5 bg-slate-100 p-1.5 rounded-none flex-wrap justify-center">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="w-8 h-8 bg-white hover:bg-slate-200 text-[#1D1E26] rounded-xl flex items-center justify-center font-bold text-sm shadow-xs transition cursor-pointer disabled:opacity-40"
+                className="w-8 h-8 bg-white hover:bg-slate-200 text-[#1D1E26] rounded-none flex items-center justify-center font-bold text-sm shadow-xs transition cursor-pointer disabled:opacity-40"
                 title="Oldingi sahifa"
               >
                 ‹
@@ -888,7 +895,7 @@ export default function OverviewSection({
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-xl font-mono font-bold transition cursor-pointer ${
+                    className={`w-8 h-8 rounded-none font-mono font-bold transition cursor-pointer ${
                       currentPage === pageNum
                         ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
                         : "bg-white text-slate-700 hover:bg-slate-200"
@@ -902,7 +909,7 @@ export default function OverviewSection({
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="w-8 h-8 bg-white hover:bg-slate-200 text-[#1D1E26] rounded-xl flex items-center justify-center font-bold text-sm shadow-xs transition cursor-pointer disabled:opacity-40"
+                className="w-8 h-8 bg-white hover:bg-slate-200 text-[#1D1E26] rounded-none flex items-center justify-center font-bold text-sm shadow-xs transition cursor-pointer disabled:opacity-40"
                 title="Keyingi sahifa"
               >
                 ›

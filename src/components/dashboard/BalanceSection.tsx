@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { History, Pencil, Trash2, Search } from "lucide-react";
+import { History, Pencil, Trash2, Search, Plus, FileSpreadsheet, Download, Check, X, ChevronDown, ChevronUp, Lock, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import DateRangePresets from "../DateRangePresets";
 import TargetPresets from "../TargetPresets";
 import { ImportResult } from "./types";
@@ -71,7 +71,7 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
     <div className="relative" ref={dropdownRef}>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[10px] font-extrabold text-slate-400 uppercase font-mono">
-          {title} {selectedIds.length > 0 && <span className="text-[#65A30D]">({selectedIds.length} ta tanlandi)</span>}
+          {title} {selectedIds.length > 0 && <span className="text-[#1D1E26]">({selectedIds.length} ta tanlandi)</span>}
         </label>
         {selectedIds.length > 0 && (
           <button
@@ -87,21 +87,21 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
       {/* Control Box / Selected Badges Input */}
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full min-h-[42px] bg-slate-50 border rounded-2xl p-2 flex flex-wrap items-center gap-1.5 cursor-pointer transition ${
-          isOpen ? "border-[#D4F562] ring-2 ring-[#D4F562]/30 bg-white" : "border-slate-200 hover:border-slate-300"
+        className={`w-full min-h-[42px] bg-slate-50 border p-2 flex flex-wrap items-center gap-1.5 cursor-pointer transition rounded-none ${
+          isOpen ? "border-[#1D1E26] ring-2 ring-[#1D1E26]/20 bg-white" : "border-slate-200 hover:border-slate-300"
         }`}
       >
         {selectedOptions.length === 0 ? (
           <div className="flex items-center justify-between w-full px-2 text-xs text-slate-400 font-medium">
             <span>{placeholder}</span>
-            <span className="text-slate-400 text-[10px]">▼</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           </div>
         ) : (
           <>
             {selectedOptions.map((opt) => (
               <span
                 key={opt.id}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#D4F562] text-[#1D1E26] font-bold rounded-xl text-xs shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#1D1E26] text-[#D4F562] font-bold rounded-none text-xs shadow-2xs"
               >
                 <span>{opt.label} {opt.sublabel || ""}</span>
                 <button
@@ -110,20 +110,22 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
                     e.stopPropagation();
                     toggleOption(opt.id);
                   }}
-                  className="w-3.5 h-3.5 rounded-full bg-[#1D1E26]/10 hover:bg-[#1D1E26]/20 flex items-center justify-center text-[9px] font-extrabold"
+                  className="w-3.5 h-3.5 rounded-none bg-white/20 hover:bg-white/30 flex items-center justify-center text-[#D4F562] cursor-pointer"
                 >
-                  ✕
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </span>
             ))}
-            <div className="ml-auto pr-1 text-slate-400 text-[10px]">▼</div>
+            <div className="ml-auto pr-1 text-slate-400">
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </div>
           </>
         )}
       </div>
 
       {/* Dropdown Menu Popup */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 space-y-2 max-h-64 flex flex-col">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-none shadow-xl p-3 space-y-2 max-h-64 flex flex-col">
           {/* Search Box */}
           <div className="relative">
             <input
@@ -131,7 +133,7 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
               placeholder="Qidirish..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#D4F562]"
+              className="w-full bg-slate-50 border border-slate-200 rounded-none px-3 py-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#1D1E26]"
               autoFocus
             />
           </div>
@@ -141,16 +143,18 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
             <button
               type="button"
               onClick={handleSelectAll}
-              className="hover:text-[#1D1E26] cursor-pointer"
+              className="hover:text-[#1D1E26] cursor-pointer flex items-center gap-1"
             >
-              ✓ Barchasini tanlash ({options.length})
+              <Check className="w-3.5 h-3.5 text-[#1D1E26]" />
+              <span>Barchasini tanlash ({options.length})</span>
             </button>
             <button
               type="button"
               onClick={handleClearAll}
-              className="hover:text-red-600 cursor-pointer"
+              className="hover:text-red-600 cursor-pointer flex items-center gap-1"
             >
-              ✕ Bekor qilish
+              <X className="w-3.5 h-3.5 text-red-600" />
+              <span>Bekor qilish</span>
             </button>
           </div>
 
@@ -165,21 +169,194 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
                   <div
                     key={opt.id}
                     onClick={() => toggleOption(opt.id)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition ${
-                      isChecked ? "bg-emerald-50 text-emerald-900 font-bold" : "hover:bg-slate-50 text-slate-700"
+                    className={`flex items-center justify-between px-3 py-2 rounded-none text-xs font-semibold cursor-pointer transition ${
+                      isChecked ? "bg-slate-100 text-[#1D1E26] font-bold" : "hover:bg-slate-50 text-slate-700"
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] ${
-                          isChecked ? "bg-[#D4F562] border-[#65A30D] text-[#1D1E26] font-black" : "border-slate-300 bg-white"
+                        className={`w-4 h-4 rounded-none border flex items-center justify-center text-[10px] ${
+                          isChecked ? "bg-[#1D1E26] border-[#1D1E26] text-[#D4F562] font-black" : "border-slate-300 bg-white"
                         }`}
                       >
-                        {isChecked && "✓"}
+                        {isChecked && <Check className="w-3 h-3" />}
                       </div>
                       <span>{opt.label}</span>
-                      {opt.sublabel && <span className="text-slate-400 text-[11px] font-normal">{opt.sublabel}</span>}
                     </div>
+                    {opt.sublabel && <span className="text-[10px] text-slate-400 font-mono">{opt.sublabel}</span>}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {hintText && <p className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-100">{hintText}</p>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface SearchableStudentSelectProps {
+  students: any[];
+  selectedStudentId: number | "";
+  onSelect: (id: number | "") => void;
+}
+
+const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
+  students,
+  selectedStudentId,
+  onSelect,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedStudent = students.find((st) => (st.student_id || st.id) === selectedStudentId);
+
+  const filteredStudents = students.filter((st) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase().trim();
+    const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+    const className = (st.class_name || "").toLowerCase();
+    return fullName.includes(q) || className.includes(q);
+  });
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono">
+          O'quvchini tanlang *
+        </label>
+        {selectedStudent && (
+          <span className="text-[10px] font-mono text-slate-500 font-bold">
+            Joriy balans:{" "}
+            <strong className={selectedStudent.balance < 0 ? "text-red-600" : "text-[#1D1E26]"}>
+              {parseFloat(selectedStudent.balance || 0).toLocaleString()} UZS
+            </strong>
+          </span>
+        )}
+      </div>
+
+      {/* Trigger button */}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full min-h-[42px] px-3.5 py-2.5 bg-slate-50 border rounded-none text-xs flex items-center justify-between cursor-pointer transition select-none ${
+          isOpen
+            ? "border-[#1D1E26] ring-2 ring-[#1D1E26]/20 bg-white"
+            : "border-slate-200 hover:border-slate-300"
+        }`}
+      >
+        {selectedStudent ? (
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-[#1D1E26]">
+                {selectedStudent.first_name} {selectedStudent.last_name}
+              </span>
+              <span className="text-[11px] text-slate-500 font-mono font-medium">
+                ({selectedStudent.class_name || "Sinfsiz"})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect("");
+                setSearch("");
+              }}
+              className="p-1 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              title="Tanlovni bekor qilish"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between w-full text-slate-400 font-medium">
+            <span className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-slate-400" />
+              <span>O'quvchini qidirish va tanlash...</span>
+            </span>
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          </div>
+        )}
+      </div>
+
+      {/* Hidden input for form validation */}
+      <input
+        type="hidden"
+        name="student_id"
+        value={selectedStudentId || ""}
+        required
+      />
+
+      {/* Dropdown popup */}
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-none shadow-2xl p-3 space-y-2 max-h-64 flex flex-col animate-in fade-in duration-100">
+          {/* Search box */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="O'quvchi ismi yoki sinfi bo'yicha qidirish..."
+              className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-none text-xs text-slate-800 font-medium outline-none focus:ring-2 focus:ring-[#1D1E26]"
+            />
+          </div>
+
+          {/* Student list */}
+          <div className="flex-1 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100">
+            {filteredStudents.length === 0 ? (
+              <p className="text-center text-xs text-slate-400 py-4 italic">
+                Qidiruvga mos o'quvchi topilmadi
+              </p>
+            ) : (
+              filteredStudents.map((st) => {
+                const sId = st.student_id || st.id;
+                const isSelected = sId === selectedStudentId;
+                return (
+                  <div
+                    key={st.id}
+                    onClick={() => {
+                      onSelect(sId);
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                    className={`flex items-center justify-between p-2.5 rounded-none text-xs cursor-pointer transition ${
+                      isSelected
+                        ? "bg-[#1D1E26] text-[#D4F562] font-extrabold"
+                        : "hover:bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    <div>
+                      <span className="font-bold">
+                        {st.first_name} {st.last_name}
+                      </span>
+                      <span className={`text-[11px] ml-1.5 font-mono ${isSelected ? "text-[#D4F562]/80" : "text-slate-400"}`}>
+                        ({st.class_name || "Sinfsiz"})
+                      </span>
+                    </div>
+
+                    <span className={`font-mono text-xs font-extrabold ${
+                      isSelected
+                        ? "text-[#D4F562]"
+                        : st.balance < 0
+                        ? "text-red-600"
+                        : "text-slate-600"
+                    }`}>
+                      {parseFloat(st.balance || 0).toLocaleString()} UZS
+                    </span>
                   </div>
                 );
               })
@@ -187,8 +364,6 @@ const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
           </div>
         </div>
       )}
-
-      {hintText && <p className="text-[9px] text-slate-400 font-mono mt-1">{hintText}</p>}
     </div>
   );
 };
@@ -610,44 +785,62 @@ export default function BalanceSection({
     );
   };
 
-  const handleRunChargesManually = async () => {
-    setActionLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/run`, {
-        method: "POST",
-        headers: safeFetchHeaders(),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "To'lovlarni hisoblashda xatolik");
+  const handleRunChargesManually = () => {
+    showConfirm(
+      "Barcha to'lov rejalari bo'yicha oylik to'lovlarni hisoblash va o'quvchilar balansidan yechishni tasdiqlaysizmi?",
+      async () => {
+        setActionLoading(true);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/balance/charge-plans/run`, {
+            method: "POST",
+            headers: safeFetchHeaders(),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "To'lovlarni hisoblashda xatolik");
 
-      showAlert(`To'lov rejasi bo'yicha yechimlar muvaffaqiyatli bajarildi! Jami yechilgan to'lovlar soni: ${data.processed_charge_count}`);
-      fetchStudentsBalanceData();
-      fetchGlobalTransactionsData();
-    } catch (err: any) {
-      showAlert(err.message);
-    } finally {
-      setActionLoading(false);
-    }
+          showAlert(`To'lov rejasi bo'yicha yechimlar muvaffaqiyatli bajarildi! Jami yechilgan to'lovlar soni: ${data.processed_charge_count}`);
+          fetchStudentsBalanceData();
+          fetchGlobalTransactionsData();
+        } catch (err: any) {
+          showAlert(err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      {
+        title: "To'lovlarni hisoblash",
+        type: "confirm",
+        confirmText: "Ha, hisoblash",
+        cancelText: "Bekor qilish",
+      }
+    );
   };
 
   return (
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
+          <span className="text-xs text-slate-500 font-mono">
+            Jami: <strong className="text-[#1D1E26] font-extrabold">{studentsBalanceList.length}</strong> ta o'quvchi
+          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleRunChargesManually}
             disabled={actionLoading}
-            className="bg-[#FFEADB] text-[#FF7A00] hover:bg-[#FFD2B8] font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
           >
-            To'lovlarni hisoblash
+            <RefreshCw className="w-4 h-4 text-slate-700" />
+            <span>To'lovlarni hisoblash</span>
           </button>
           <button
             onClick={() => setShowImportPaymentsModal(true)}
-            className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+            className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer"
           >
-            Excel orqali to'lovlar
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Excel orqali to'lovlar</span>
           </button>
           <button
             onClick={() => {
@@ -656,9 +849,10 @@ export default function BalanceSection({
               setPaymentDescription("");
               setShowAddPaymentModal(true);
             }}
-            className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+            className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer"
           >
-            + Yangi To'lov
+            <Plus className="w-4 h-4" />
+            <span>Yangi To'lov</span>
           </button>
         </div>
       </div>
@@ -704,33 +898,33 @@ export default function BalanceSection({
             {/* Sub-tabs Navigation & Search Panel Bar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               {/* Sub-tabs Navigation */}
-              <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
+              <div className="flex flex-wrap gap-2 text-xs font-extrabold">
                 <button
                   onClick={() => setBalanceActiveSubTab("balances")}
-                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-none transition cursor-pointer flex items-center gap-2 ${
                     balanceActiveSubTab === "balances"
-                      ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                      : "text-slate-500 hover:text-slate-900"
+                      ? "bg-[#1D1E26] text-[#D4F562] font-black"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
                   O'quvchilar Balansi ({filteredStudentsBalanceList.length !== studentsBalanceList.length ? `${filteredStudentsBalanceList.length}/${studentsBalanceList.length}` : studentsBalanceList.length})
                 </button>
                 <button
                   onClick={() => setBalanceActiveSubTab("plans")}
-                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-none transition cursor-pointer flex items-center gap-2 ${
                     balanceActiveSubTab === "plans"
-                      ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                      : "text-slate-500 hover:text-slate-900"
+                      ? "bg-[#1D1E26] text-[#D4F562] font-black"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
                   To'lov Rejalari ({filteredChargePlans.length !== chargePlans.length ? `${filteredChargePlans.length}/${chargePlans.length}` : chargePlans.length})
                 </button>
                 <button
                   onClick={() => setBalanceActiveSubTab("transactions")}
-                  className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-none transition cursor-pointer flex items-center gap-2 ${
                     balanceActiveSubTab === "transactions"
-                      ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                      : "text-slate-500 hover:text-slate-900"
+                      ? "bg-[#1D1E26] text-[#D4F562] font-black"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
                   Barcha Tranzaksiyalar ({filteredGlobalTransactionsList.length !== globalTransactionsList.length ? `${filteredGlobalTransactionsList.length}/${globalTransactionsList.length}` : globalTransactionsList.length})
@@ -755,7 +949,7 @@ export default function BalanceSection({
                       ? "Reja nomi yoki summa bo'yicha..."
                       : "O'quvchi, izoh yoki summa bo'yicha..."
                   }
-                  className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 text-xs font-bold text-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#D4F562] focus:border-transparent transition shadow-2xs placeholder:text-slate-400 placeholder:font-medium"
+                  className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 text-xs font-bold text-slate-800 rounded-none outline-none focus:ring-2 focus:ring-[#1D1E26] transition placeholder:text-slate-400 placeholder:font-medium"
                 />
                 {balanceSearchQuery && (
                   <button
@@ -765,9 +959,9 @@ export default function BalanceSection({
                       setBalancesPage(1);
                       setTransactionsPage(1);
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-4 h-4 flex items-center justify-center cursor-pointer"
                   >
-                    ✕
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -779,22 +973,22 @@ export default function BalanceSection({
               const currentPaginatedStudents = filteredStudentsBalanceList.slice((balancesPage - 1) * balancesPerPage, balancesPage * balancesPerPage);
 
               return (
-                <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-4">
                   {studentsBalanceLoading ? (
                     <div className="text-center py-10">
                       <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                     </div>
                   ) : filteredStudentsBalanceList.length === 0 ? (
-                    <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <div className="text-center py-12 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
                       <p className="text-slate-400 text-xs font-medium">
                         {balanceSearchQuery ? "Qidiruv bo'yicha o'quvchilar topilmadi." : "O'quvchilar topilmadi."}
                       </p>
                     </div>
                   ) : (
                     <>
-                      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <div className="overflow-x-auto rounded-none border border-slate-100">
                         <table className="w-full text-left border-collapse">
-                          <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                          <thead className="bg-[#1D1E26] text-[#D4F562] text-[10px] font-mono uppercase tracking-wider">
                             <tr>
                               <th className="px-6 py-4">O'quvchi F.I.SH</th>
                               <th className="px-6 py-4">Sinf va Lvl</th>
@@ -812,10 +1006,10 @@ export default function BalanceSection({
                                   {st.class_name ? `${st.class_name} (Level ${st.class_level ?? '-'})` : "-"}
                                 </td>
                                 <td className="px-6 py-4 font-mono font-bold">
-                                  <span className={`px-2.5 py-1 rounded-lg text-xs ${
+                                  <span className={`px-2.5 py-1 rounded-none font-mono font-bold text-xs ${
                                     st.balance < 0
-                                      ? "bg-red-50 text-red-600 border border-red-100"
-                                      : "bg-[#ECFCCA] text-[#65A30D]"
+                                      ? "bg-red-50 text-red-600 border border-red-200"
+                                      : "bg-slate-100 text-[#1D1E26]"
                                   }`}>
                                     {parseFloat(st.balance || 0).toLocaleString()} UZS
                                   </span>
@@ -829,7 +1023,7 @@ export default function BalanceSection({
                                       setPaymentDescription("");
                                       setShowAddPaymentModal(true);
                                     }}
-                                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-1.5 px-3 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                                    className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-1.5 px-3 rounded-none transition cursor-pointer"
                                   >
                                     To'lov qo'shish
                                   </button>
@@ -854,7 +1048,7 @@ export default function BalanceSection({
                                 setBalancesPerPage(Number(e.target.value));
                                 setBalancesPage(1);
                               }}
-                              className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                              className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-none outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#1D1E26] transition"
                             >
                               <option value={10}>10 ta</option>
                               <option value={25}>25 ta</option>
@@ -866,7 +1060,7 @@ export default function BalanceSection({
                           <button
                             disabled={balancesPage === 1}
                             onClick={() => setBalancesPage(prev => Math.max(prev - 1, 1))}
-                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                            className="px-3.5 py-1.5 rounded-none border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
                           >
                             &larr; Oldingi
                           </button>
@@ -876,7 +1070,7 @@ export default function BalanceSection({
                           <button
                             disabled={balancesPage === totalPages}
                             onClick={() => setBalancesPage(prev => Math.min(prev + 1, totalPages))}
-                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                            className="px-3.5 py-1.5 rounded-none border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
                           >
                             Keyingi &rarr;
                           </button>
@@ -890,12 +1084,12 @@ export default function BalanceSection({
 
             {/* Sub-tab 2: To'lov Rejalari */}
             {balanceActiveSubTab === "plans" && (
-              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+              <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-black text-[#1D1E26]">To'lov Rejalari (Oylik to'lovlar)</h2>
                   <button
                     onClick={() => setShowAddChargePlanModal(true)}
-                    className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-none shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     + Yangi Reja Qo'shish
                   </button>
@@ -906,7 +1100,7 @@ export default function BalanceSection({
                     <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 ) : filteredChargePlans.length === 0 ? (
-                  <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <div className="text-center py-12 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
                     <p className="text-slate-400 text-xs font-medium">
                       {balanceSearchQuery ? "Qidiruv bo'yicha to'lov rejalari topilmadi." : "To'lov rejalari topilmadi."}
                     </p>
@@ -914,28 +1108,28 @@ export default function BalanceSection({
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredChargePlans.map((plan) => (
-                      <div key={plan.id} className="bg-slate-50/80 border border-slate-100 rounded-3xl p-5 shadow-xs space-y-3">
+                      <div key={plan.id} className="bg-slate-50/80 border border-slate-100 rounded-none p-5 shadow-xs space-y-3">
                         <div className="flex items-center justify-between">
                           <h3 className="font-black text-[#1D1E26] text-sm">{plan.name}</h3>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleOpenHistoryModal(plan)}
                               title="Tarix"
-                              className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
+                              className="p-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-none transition cursor-pointer flex items-center justify-center"
                             >
                               <History className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleOpenEditPlanModal(plan)}
                               title="Tahrirlash"
-                              className="p-2 bg-[#D4F562] hover:opacity-90 text-[#1D1E26] rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
+                              className="p-2 bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 rounded-none transition cursor-pointer flex items-center justify-center"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteChargePlan(plan.id)}
                               title="O'chirish"
-                              className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs"
+                              className="p-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-none transition cursor-pointer flex items-center justify-center"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -951,10 +1145,10 @@ export default function BalanceSection({
 
                         <div className="text-[10px] font-mono text-slate-400 border-t border-slate-200/60 pt-2 flex flex-wrap gap-2">
                           {plan.target_levels?.length > 0 && (
-                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Levellar: {plan.target_levels.join(", ")}</span>
+                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-none">Levellar: {plan.target_levels.join(", ")}</span>
                           )}
                           {plan.target_classes?.length > 0 && (
-                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-lg">Sinflar: {plan.target_classes.join(", ")}</span>
+                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-none">Sinflar: {plan.target_classes.join(", ")}</span>
                           )}
                         </div>
                       </div>
@@ -994,7 +1188,7 @@ export default function BalanceSection({
                 .reduce((sum, t) => sum + getItemAmounts(t).bonusAmt, 0);
 
               return (
-                <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+                <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div>
                       <h2 className="text-base font-black text-[#1D1E26]">Tranzaksiyalar Tarixi & Hisoboti</h2>
@@ -1003,11 +1197,11 @@ export default function BalanceSection({
 
                     {/* Financial KPI Summary Cards */}
                     <div className="flex flex-wrap items-center gap-3">
-                      <div className="bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-2xl">
+                      <div className="bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-none">
                         <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono block">Real Kassa Kirimi</span>
                         <span className="text-sm font-black text-[#1D1E26] font-mono">{totalPaidKirim.toLocaleString()} UZS</span>
                       </div>
-                      <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl">
+                      <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-none">
                         <span className="text-[10px] font-extrabold text-emerald-600 uppercase font-mono block">Berilgan Bonuslar</span>
                         <span className="text-sm font-black text-emerald-700 font-mono">+{totalBonusKirim.toLocaleString()} UZS</span>
                       </div>
@@ -1019,16 +1213,16 @@ export default function BalanceSection({
                       <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                     </div>
                   ) : filteredGlobalTransactionsList.length === 0 ? (
-                    <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <div className="text-center py-12 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
                       <p className="text-slate-400 text-xs font-medium">
                         {balanceSearchQuery ? "Qidiruv bo'yicha tranzaksiyalar topilmadi." : "Tranzaksiyalar topilmadi."}
                       </p>
                     </div>
                   ) : (
                     <>
-                      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <div className="overflow-x-auto rounded-none border border-slate-100">
                         <table className="w-full text-left border-collapse">
-                          <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                          <thead className="bg-[#1D1E26] text-[#D4F562] text-[10px] font-mono uppercase tracking-wider">
                             <tr>
                               <th className="px-6 py-4">Sana</th>
                               <th className="px-6 py-4">O'quvchi F.I.SH</th>
@@ -1047,8 +1241,8 @@ export default function BalanceSection({
                                   <td className="px-6 py-4 font-mono text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
                                   <td className="px-6 py-4 font-bold text-[#1D1E26]">{tx.student_name || `ID: ${tx.student_id}`}</td>
                                   <td className="px-6 py-4">
-                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono ${
-                                      tx.type === "PAYMENT" ? "bg-[#ECFCCA] text-[#65A30D]" : "bg-red-50 text-red-600"
+                                    <span className={`px-2.5 py-1 rounded-none text-[10px] font-black uppercase font-mono ${
+                                      tx.type === "PAYMENT" ? "bg-[#1D1E26] text-[#D4F562]" : "bg-red-50 text-red-600 border border-red-200"
                                     }`}>
                                       {tx.type === "PAYMENT" ? "To'lov (+)" : "Yechim (-)"}
                                     </span>
@@ -1058,7 +1252,7 @@ export default function BalanceSection({
                                   </td>
                                   <td className="px-6 py-4 font-mono font-bold">
                                     {bonusAmt > 0 ? (
-                                      <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">+{bonusAmt.toLocaleString()} UZS</span>
+                                      <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-none border border-emerald-100">+{bonusAmt.toLocaleString()} UZS</span>
                                     ) : (
                                       <span className="text-slate-300">-</span>
                                     )}
@@ -1088,7 +1282,7 @@ export default function BalanceSection({
                                 setTransactionsPerPage(Number(e.target.value));
                                 setTransactionsPage(1);
                               }}
-                              className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                              className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-none outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#1D1E26] transition"
                             >
                               <option value={10}>10 ta</option>
                               <option value={25}>25 ta</option>
@@ -1100,7 +1294,7 @@ export default function BalanceSection({
                           <button
                             disabled={transactionsPage === 1}
                             onClick={() => setTransactionsPage(prev => Math.max(prev - 1, 1))}
-                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                            className="px-3.5 py-1.5 rounded-none border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
                           >
                             &larr; Oldingi
                           </button>
@@ -1110,7 +1304,7 @@ export default function BalanceSection({
                           <button
                             disabled={transactionsPage === totalPages}
                             onClick={() => setTransactionsPage(prev => Math.min(prev + 1, totalPages))}
-                            className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                            className="px-3.5 py-1.5 rounded-none border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
                           >
                             Keyingi &rarr;
                           </button>
@@ -1133,11 +1327,11 @@ export default function BalanceSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26]">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26]">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">
-                  {paymentTransactionType === "PAYMENT" ? "➕ To'lov Qo'shish (Kirim)" : "➖ To'lov Ayirish (Chiqim)"}
+                  {paymentTransactionType === "PAYMENT" ? "To'lov Qo'shish (Kirim)" : "To'lov Ayirish (Chiqim)"}
                 </h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
                   {paymentTransactionType === "PAYMENT" ? "O'quvchi balansiga pul to'ldirish." : "O'quvchi balansidan mablag' ayirish (yechish)."}
@@ -1146,55 +1340,44 @@ export default function BalanceSection({
               <button
                 type="button"
                 onClick={() => setShowAddPaymentModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Kirim / Chiqim Toggle */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl mb-4 text-xs font-black">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-none mb-4 text-xs font-black">
               <button
                 type="button"
                 onClick={() => setPaymentTransactionType("PAYMENT")}
-                className={`py-2 rounded-xl transition ${
+                className={`py-2 rounded-none transition font-extrabold cursor-pointer ${
                   paymentTransactionType === "PAYMENT"
-                    ? "bg-[#D4F562] text-[#1D1E26] shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-[#1D1E26] text-[#D4F562]"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                ➕ Kirim (To'lov)
+                Kirim (To'lov)
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentTransactionType("CHARGE")}
-                className={`py-2 rounded-xl transition ${
+                className={`py-2 rounded-none transition font-extrabold cursor-pointer ${
                   paymentTransactionType === "CHARGE"
-                    ? "bg-red-500 text-white shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
+                    ? "bg-red-600 text-white"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                ➖ Chiqim (Ayirish)
+                Chiqim (Ayirish)
               </button>
             </div>
 
             <form onSubmit={handleAddPaymentQuick} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">O'quvchini tanlang</label>
-                <select
-                  required
-                  value={paymentStudentId}
-                  onChange={(e) => setPaymentStudentId(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition cursor-pointer font-bold"
-                >
-                  <option value="">-- O'quvchini tanlang --</option>
-                  {studentsBalanceList.map((st) => (
-                    <option key={st.id} value={st.student_id || st.id}>
-                      {st.first_name} {st.last_name} ({st.class_name || "Sinfsiz"})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SearchableStudentSelect
+                students={studentsBalanceList}
+                selectedStudentId={paymentStudentId}
+                onSelect={setPaymentStudentId}
+              />
 
               {paymentTransactionType === "PAYMENT" ? (
                 <>
@@ -1206,7 +1389,7 @@ export default function BalanceSection({
                         placeholder="Masalan: 500000"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold"
                       />
                       <span className="text-[10px] text-slate-400 font-medium mt-1 block">Ota-ona to'lagan summa</span>
                     </div>
@@ -1218,14 +1401,14 @@ export default function BalanceSection({
                         placeholder="Masalan: 50000"
                         value={paymentBonusAmount}
                         onChange={(e) => setPaymentBonusAmount(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold text-emerald-600"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold text-emerald-600"
                       />
                       <span className="text-[10px] text-emerald-600 font-medium mt-1 block">Tashkilot bonusi</span>
                     </div>
                   </div>
 
                   {((parseFloat(paymentAmount) || 0) > 0 || (parseFloat(paymentBonusAmount) || 0) > 0) && (
-                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-100 rounded-2xl space-y-1.5 text-xs font-semibold text-emerald-900">
+                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-100 rounded-none space-y-1.5 text-xs font-semibold text-emerald-900">
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="text-slate-500 font-medium">Ota-ona to'lovi (Direktor Kirimi):</span>
                         <span className="font-mono font-bold text-slate-800">{(parseFloat(paymentAmount) || 0).toLocaleString()} UZS</span>
@@ -1252,7 +1435,7 @@ export default function BalanceSection({
                     placeholder="Masalan: 500000"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold text-red-600"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold text-red-600"
                   />
                 </div>
               )}
@@ -1264,7 +1447,7 @@ export default function BalanceSection({
                   placeholder={paymentTransactionType === "PAYMENT" ? "Kassa orqali naqd to'lov" : "Qo'lda kiritilgan yechim"}
                   value={paymentDescription}
                   onChange={(e) => setPaymentDescription(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition"
                 />
               </div>
 
@@ -1272,14 +1455,14 @@ export default function BalanceSection({
                 <button
                   type="button"
                   onClick={() => setShowAddPaymentModal(false)}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className={`text-xs font-black py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer ${
+                  className={`text-xs font-black py-2.5 px-4 rounded-none shadow-xs transition cursor-pointer ${
                     paymentTransactionType === "PAYMENT"
                       ? "bg-[#D4F562] text-[#1D1E26] hover:opacity-90"
                       : "bg-red-600 text-white hover:bg-red-700"
@@ -1301,7 +1484,7 @@ export default function BalanceSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-xl max-h-[90vh] bg-white border border-slate-100 rounded-3xl shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden">
+          <div className="w-full max-w-xl max-h-[90vh] bg-white border border-slate-100 rounded-none shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden">
             {/* Fixed Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
@@ -1311,9 +1494,9 @@ export default function BalanceSection({
               <button
                 type="button"
                 onClick={() => setShowAddChargePlanModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1327,7 +1510,7 @@ export default function BalanceSection({
                   placeholder="Masalan: Oylik ta'lim to'lovi"
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition"
                 />
               </div>
 
@@ -1339,7 +1522,7 @@ export default function BalanceSection({
                   placeholder="Masalan: 1200000"
                   value={planAmount}
                   onChange={(e) => setPlanAmount(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold"
                 />
               </div>
 
@@ -1351,7 +1534,7 @@ export default function BalanceSection({
                 token={token}
                 apiUrl={API_URL}
                 category="charge_plan"
-                theme="slate"
+                theme="admin"
                 startLabel="Boshlanish Sanasi"
                 endLabel="Tugash Sanasi"
               />
@@ -1365,7 +1548,7 @@ export default function BalanceSection({
                   required
                   value={planChargeDay}
                   onChange={(e) => setPlanChargeDay(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono"
                 />
               </div>
 
@@ -1380,7 +1563,7 @@ export default function BalanceSection({
                 token={token}
                 apiUrl={API_URL}
                 label="O'quvchilar To'plami (Mavjud shablonlar)"
-                theme="slate"
+                theme="admin"
               />
 
               {/* Sinf Levellari Selection */}
@@ -1428,14 +1611,14 @@ export default function BalanceSection({
                 <button
                   type="button"
                   onClick={() => setShowAddChargePlanModal(false)}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -1458,7 +1641,7 @@ export default function BalanceSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Excel orqali to'lovlar importi</h3>
@@ -1474,14 +1657,14 @@ export default function BalanceSection({
                   setPaymentImportResult(null);
                   setPaymentFile(null);
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Template Download Link */}
-            <div className="bg-[#ECFCCA]/60 border border-lime-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="bg-[#ECFCCA]/60 border border-lime-200 rounded-none p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-[#65A30D]">Excel Namuna Shablon</h4>
                 <p className="text-[10px] text-slate-500 font-mono mt-0.5">
@@ -1492,29 +1675,29 @@ export default function BalanceSection({
                 href={`${API_URL}/api/schools/balance/import-template/payments`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-black bg-[#D4F562] hover:bg-[#bce438] text-[#1D1E26] px-3.5 py-2 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                className="text-xs font-extrabold bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 px-3.5 py-2 rounded-none transition cursor-pointer inline-flex items-center gap-1.5 shrink-0"
               >
-                <span>📥 Shablonni Yuklab Olish</span>
+                <span>Shablonni Yuklab Olish</span>
               </a>
             </div>
 
             {/* Upload Form */}
             <form onSubmit={handleImportPaymentsSubmit} className="space-y-4">
               {paymentImportError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-none">
                   {paymentImportError}
                 </div>
               )}
 
               {paymentImportResult && (
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-none space-y-2 text-xs">
                   <div className="flex items-center justify-between font-extrabold">
                     <span className="text-[#65A30D]">
-                      ✓ Muvaffaqiyatli: {paymentImportResult.imported_count} ta
+                      Muvaffaqiyatli: {paymentImportResult.imported_count} ta
                     </span>
                     {paymentImportResult.failed_count > 0 && (
                       <span className="text-red-600">
-                        ✕ Xatolik: {paymentImportResult.failed_count} ta
+                        Xatolik: {paymentImportResult.failed_count} ta
                       </span>
                     )}
                   </div>
@@ -1539,7 +1722,7 @@ export default function BalanceSection({
                   required
                   accept=".xlsx, .xls"
                   onChange={(e) => setPaymentFile(e.target.files?.[0] || null)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition cursor-pointer font-medium"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition cursor-pointer font-medium"
                 />
               </div>
 
@@ -1552,14 +1735,14 @@ export default function BalanceSection({
                     setPaymentImportResult(null);
                     setPaymentFile(null);
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                 >
                   Yopish
                 </button>
                 <button
                   type="submit"
                   disabled={paymentImportLoading || !paymentFile}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer disabled:opacity-50"
                 >
                   {paymentImportLoading ? "Yuklanmoqda..." : "Faylni Yuklash va Kirim Qilish"}
                 </button>
@@ -1580,7 +1763,7 @@ export default function BalanceSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-lg max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 flex flex-col">
+          <div className="w-full max-w-lg max-h-[90vh] bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] space-y-5 flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">To'lov Rejasini Tahrirlash</h3>
@@ -1592,9 +1775,9 @@ export default function BalanceSection({
                   setShowEditChargePlanModal(false);
                   setEditingPlanId(null);
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1607,14 +1790,14 @@ export default function BalanceSection({
                   placeholder="Masalan: Yillik Ta'lim Kontrakti 2026-2027"
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-medium"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5 flex items-center justify-between">
                   <span>Oylik To'lov Summasi (UZS)</span>
-                  <span className="text-[9px] text-amber-600 lowercase font-sans">🔒 (o'zgartirib bo'lmaydi)</span>
+                  <span className="text-[9px] text-amber-600 lowercase font-sans">(o'zgartirib bo'lmaydi)</span>
                 </label>
                 <input
                   type="number"
@@ -1622,7 +1805,7 @@ export default function BalanceSection({
                   readOnly
                   placeholder="1200000"
                   value={planAmount}
-                  className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-3.5 py-2.5 text-xs outline-none cursor-not-allowed font-mono font-bold select-none opacity-75"
+                  className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-none px-3.5 py-2.5 text-xs outline-none cursor-not-allowed font-mono font-bold select-none opacity-75"
                 />
               </div>
 
@@ -1630,14 +1813,14 @@ export default function BalanceSection({
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5 flex items-center justify-between">
                     <span>Boshlanish Sanasi</span>
-                    <span className="text-[9px] text-amber-600 lowercase font-sans">🔒</span>
+                    <Lock className="w-3 h-3 text-amber-600" />
                   </label>
                   <input
                     type="date"
                     disabled
                     readOnly
                     value={planStartDate}
-                    className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-3.5 py-2.5 text-xs outline-none cursor-not-allowed font-mono select-none opacity-75"
+                    className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-none px-3.5 py-2.5 text-xs outline-none cursor-not-allowed font-mono select-none opacity-75"
                   />
                 </div>
                 <div>
@@ -1648,7 +1831,7 @@ export default function BalanceSection({
                     min={new Date().toISOString().split("T")[0]}
                     value={planEndDate}
                     onChange={(e) => setPlanEndDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold text-emerald-700"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold text-emerald-700"
                   />
                 </div>
               </div>
@@ -1662,7 +1845,7 @@ export default function BalanceSection({
                   required
                   value={planChargeDay}
                   onChange={(e) => setPlanChargeDay(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono"
                 />
               </div>
 
@@ -1711,14 +1894,14 @@ export default function BalanceSection({
                     setShowEditChargePlanModal(false);
                     setEditingPlanId(null);
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "O'zgarishlarni Saqlash"}
                 </button>
@@ -1738,18 +1921,18 @@ export default function BalanceSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-2xl max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 flex flex-col">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] space-y-5 flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
-                <h3 className="text-base font-black text-[#1D1E26]">📜 Reja O'zgarishlari Tarixi</h3>
+                <h3 className="text-base font-black text-[#1D1E26]">Reja O'zgarishlari Tarixi</h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Ushbu to'lov rejasi bo'yicha kiritilgan barcha tahrirlar auditi.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowChargePlanHistoryModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1759,12 +1942,12 @@ export default function BalanceSection({
                   <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : chargePlanHistoryList.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <div className="text-center py-12 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
                   <p className="text-slate-400 text-xs font-medium">Ushbu reja uchun hali tahrir tarixi mavjud emas (Hali o'zgartirilmagan).</p>
                 </div>
               ) : (
                 chargePlanHistoryList.map((item) => (
-                  <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-none p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -1774,9 +1957,9 @@ export default function BalanceSection({
                       <button
                         type="button"
                         onClick={() => setSelectedHistorySnapshot(selectedHistorySnapshot?.id === item.id ? null : item)}
-                        className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold py-1 px-3 rounded-xl transition cursor-pointer"
+                        className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold py-1 px-3 rounded-none transition cursor-pointer"
                       >
-                        {selectedHistorySnapshot?.id === item.id ? "Yashirish ▲" : "Tahrirdan oldingi holati ▼"}
+                        {selectedHistorySnapshot?.id === item.id ? "Yashirish" : "Tahrirdan oldingi holati"}
                       </button>
                     </div>
 
@@ -1784,9 +1967,9 @@ export default function BalanceSection({
 
                     {/* Snapshot comparison card when expanded */}
                     {selectedHistorySnapshot?.id === item.id && (
-                      <div className="mt-3 p-4 bg-white border border-slate-200 rounded-2xl space-y-3 text-xs">
+                      <div className="mt-3 p-4 bg-white border border-slate-200 rounded-none space-y-3 text-xs">
                         <h4 className="font-black text-xs text-[#1D1E26] border-b border-slate-100 pb-2">
-                          🔍 Tahrirdan Oldingi vs Keyingi Holati Taqqoslami
+                          Tahrirdan Oldingi va Keyingi Holati Taqqoslami
                         </h4>
                         <div className="grid grid-cols-2 gap-4">
                           {/* Old State Card (Double-click to reveal Revert button) */}
@@ -1794,7 +1977,7 @@ export default function BalanceSection({
                             onDoubleClick={() =>
                               setShowRevertButtonRecordId(showRevertButtonRecordId === item.id ? null : item.id)
                             }
-                            className="bg-amber-50/70 border border-amber-200/80 hover:border-amber-400 rounded-xl p-3 space-y-1.5 cursor-pointer transition select-none group"
+                            className="bg-amber-50/70 border border-amber-200/80 hover:border-amber-400 rounded-none p-3 space-y-1.5 cursor-pointer transition select-none group"
                             title="Eski holatga qaytarish tugmasini chiqarish uchun 2 marta bosing (Double Click)"
                           >
                             <div className="flex items-center justify-between">
@@ -1802,7 +1985,7 @@ export default function BalanceSection({
                                 TAHRIRDAN OLDINGI (ESKI)
                               </h5>
                               <span className="text-[9px] text-amber-600/80 font-mono italic group-hover:text-amber-900">
-                                🖱️ (2x Click)
+                                (2x Click)
                               </span>
                             </div>
                             <p className="text-slate-700"><strong>Nomi:</strong> {item.old_state?.name}</p>
@@ -1825,16 +2008,16 @@ export default function BalanceSection({
                                     handleRevertToOldState(item.charge_plan_id, item.old_state);
                                   }}
                                   disabled={actionLoading}
-                                  className="w-full text-xs bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-2 px-3 rounded-xl shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                                  className="w-full text-xs bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-2 px-3 rounded-none shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5"
                                 >
-                                  <span>⏪ Ushbu Eski Holatga Qaytarish (Revert)</span>
+                                  <span>Ushbu Eski Holatga Qaytarish (Revert)</span>
                                 </button>
                               </div>
                             )}
                           </div>
 
                           {/* New State */}
-                          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 space-y-1.5">
+                          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-none p-3 space-y-1.5">
                             <h5 className="font-extrabold text-[11px] text-emerald-900 uppercase font-mono">Tahrirdan Keyingi (Yangi)</h5>
                             <p className="text-slate-700"><strong>Nomi:</strong> {item.new_state?.name}</p>
                             <p className="text-slate-700 font-mono"><strong>Summa:</strong> {item.new_state?.amount?.toLocaleString()} UZS</p>
@@ -1858,7 +2041,7 @@ export default function BalanceSection({
               <button
                 type="button"
                 onClick={() => setShowChargePlanHistoryModal(false)}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer"
               >
                 Yopish
               </button>
@@ -1869,6 +2052,7 @@ export default function BalanceSection({
 
       {/* Custom Dialog Modal */}
       <CustomDialogModal
+        theme="admin"
         isOpen={dialogState.isOpen}
         type={dialogState.type}
         title={dialogState.title}

@@ -671,7 +671,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] max-w-lg w-full px-4">
-          <div className="bg-[#1D1E26] text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-400/80 font-black text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-5 duration-300">
+          <div className="bg-[#1D1E26] text-white px-6 py-4 rounded-none shadow-2xl border border-emerald-400/80 font-black text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-5 duration-300">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               <span>{toastMessage}</span>
@@ -686,20 +686,22 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         </div>
       )}
 
-      {/* Compact Toolbar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#D4F562] text-[#1D1E26] text-[11px] font-black uppercase tracking-wider shrink-0">
-          <Sparkles className="w-3.5 h-3.5" />
-          Gemini AI Tahlilchi
+      {/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <span className="text-xs text-slate-500 font-mono">
+            {viewMode === "grouped" ? `Jami: ${groupedWeeks.length} ta haftalik davr` : `Hisobotlar: ${totalCount} ta`}
+          </span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <button
             type="button"
             onClick={() => {
               fetchAIInstruction();
               setIsAISettingsOpen(true);
             }}
-            className="px-4 py-2 rounded-2xl bg-slate-100 text-[#1D1E26] hover:bg-slate-200 font-bold text-xs tracking-wide transition cursor-pointer flex items-center gap-2"
+            className="px-4 py-2 bg-slate-100 text-[#1D1E26] hover:bg-slate-200 border border-slate-200 font-extrabold text-xs transition cursor-pointer flex items-center gap-2 rounded-none"
           >
             <Sliders className="w-4 h-4" />
             <span>AI Prompt & Sozlamalar</span>
@@ -713,7 +715,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               setGenStatusMessage("");
               setIsGenerateModalOpen(true);
             }}
-            className="px-4 py-2 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-black text-xs tracking-wide shadow-md hover:opacity-90 transition cursor-pointer flex items-center gap-2"
+            className="px-4 py-2 bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs transition cursor-pointer flex items-center gap-2 rounded-none"
           >
             <Sparkles className="w-4 h-4" />
             <span>Yangi AI Hisobot Yaratish</span>
@@ -723,13 +725,13 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
 
       {/* Active Background Generation Job Floating Progress Banner */}
       {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS" || activeJob.status === "FINISHED") && (
-        <div className="bg-gradient-to-r from-[#1D1E26] via-[#242A38] to-[#1D1E26] text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-indigo-500/30 space-y-4">
+        <div className="bg-gradient-to-r from-[#1D1E26] via-[#242A38] to-[#1D1E26] text-white rounded-none p-5 sm:p-6 shadow-xl border border-slate-800 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+              <div className={`w-10 h-10 rounded-none flex items-center justify-center font-bold shrink-0 ${
                 activeJob.status === "FINISHED"
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                  : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 animate-pulse"
+                  : "bg-white/10 text-[#D4F562] border border-white/20 animate-pulse"
               }`}>
                 {activeJob.status === "FINISHED" ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <Bot className="w-5 h-5 animate-spin" />}
               </div>
@@ -740,11 +742,11 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     {activeJob.status === "IN_PROGRESS" && "Fonda AI Hisobotlar Yaratilmoqda..."}
                     {activeJob.status === "FINISHED" && "AI Hisobotlar Generatsiyasi Yakunlandi!"}
                   </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                  <span className={`px-2.5 py-0.5 rounded-none text-[10px] font-black uppercase tracking-wider ${
                     activeJob.status === "STARTED"
                       ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
                       : activeJob.status === "IN_PROGRESS"
-                      ? "bg-indigo-400/20 text-indigo-300 border border-indigo-400/30 animate-pulse"
+                      ? "bg-white/10 text-[#D4F562] border border-white/20 animate-pulse"
                       : "bg-emerald-400/20 text-emerald-300 border border-emerald-400/30"
                   }`}>
                     {activeJob.status === "STARTED" && "Boshlandi"}
@@ -767,7 +769,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   type="button"
                   onClick={() => handleCancelJob(activeJob.id)}
-                  className="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-none bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition cursor-pointer"
                 >
                   Jarayonni to'xtatish
                 </button>
@@ -776,7 +778,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   type="button"
                   onClick={() => setActiveJob(null)}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-none bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition cursor-pointer"
                 >
                   Yopish
                 </button>
@@ -794,9 +796,9 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   : 0}%
               </span>
             </div>
-            <div className="w-full bg-slate-800/90 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700/80">
+            <div className="w-full bg-slate-800/90 rounded-none h-3 overflow-hidden p-0.5 border border-slate-700/80">
               <div
-                className="bg-gradient-to-r from-[#D4F562] to-emerald-400 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+                className="bg-gradient-to-r from-[#D4F562] to-emerald-400 h-full rounded-none transition-all duration-300 ease-out shadow-sm"
                 style={{
                   width: `${
                     activeJob.total_students > 0
@@ -815,7 +817,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-[#1D1E26] uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-600" />
+              <Calendar className="w-4 h-4 text-[#1D1E26]" />
               Haftalik Guruhlangan Hisobotlar
             </h3>
             <span className="text-xs font-bold text-slate-500">
@@ -824,13 +826,13 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           </div>
 
           {groupedLoading ? (
-            <div className="bg-white rounded-3xl p-8 border border-slate-200/80 text-center space-y-3">
+            <div className="bg-white rounded-none p-8 border border-slate-200/80 text-center space-y-3">
               <div className="w-8 h-8 border-3 border-[#D4F562] border-t-[#1D1E26] rounded-full animate-spin mx-auto" />
               <p className="text-xs font-bold text-slate-500">Haftalik hisobotlar ro'yxati yuklanmoqda...</p>
             </div>
           ) : groupedWeeks.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 border border-slate-200/80 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+            <div className="bg-white rounded-none p-10 border border-slate-200/80 text-center space-y-3">
+              <div className="w-12 h-12 rounded-none bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <Calendar className="w-6 h-6" />
               </div>
               <h4 className="text-sm font-bold text-slate-800">Hali hech qanday AI hisobot yaratilmagan.</h4>
@@ -848,10 +850,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     setPage(1);
                     setViewMode("detail");
                   }}
-                  className="bg-white rounded-3xl p-5 border border-slate-200/80 hover:border-indigo-400 hover:shadow-lg transition duration-200 cursor-pointer space-y-3 group"
+                  className="bg-white rounded-none p-5 border border-slate-200/80 hover:border-[#1D1E26] transition duration-150 shadow-xs cursor-pointer space-y-3 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wider group-hover:bg-indigo-600 group-hover:text-white transition">
+                    <span className="px-3 py-1 rounded-none bg-slate-100 text-[#1D1E26] text-[10px] font-mono font-extrabold uppercase tracking-wider border border-slate-200 group-hover:bg-[#1D1E26] group-hover:text-[#D4F562] transition">
                       {week.year}-yil / {week.week_number}-hafta
                     </span>
                     <span className="text-xs font-black text-slate-700 flex items-center gap-1">
@@ -863,7 +865,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     {week.start_date} — {week.end_date}
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-indigo-600 font-bold pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-xs text-[#1D1E26] font-extrabold pt-2 border-t border-slate-100">
                     <span className="flex items-center gap-1">
                       O'quvchilar ro'yxati <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </span>
@@ -871,7 +873,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       type="button"
                       onClick={(e) => handleDeleteWeek(e, week)}
                       title="Haftani o'chirish"
-                      className="p-1.5 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                      className="p-1.5 rounded-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -887,7 +889,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
       {viewMode === "detail" && selectedWeek && (
         <div className="space-y-4">
           {/* Back Navigation Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-none p-4 border border-slate-200/80 shadow-xs">
             <button
               onClick={() => setViewMode("grouped")}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#1D1E26] transition cursor-pointer"
@@ -895,13 +897,13 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               <ArrowLeft className="w-4 h-4" />
               <span>Haftalar ro'yxatiga qaytish</span>
             </button>
-            <div className="text-xs font-extrabold text-indigo-950">
+            <div className="text-xs font-mono font-extrabold text-[#1D1E26]">
               {selectedWeek.year}-yil / {selectedWeek.week_number}-hafta ({selectedWeek.start_date} — {selectedWeek.end_date})
             </div>
           </div>
 
           {/* Filters & Search Header */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center gap-3">
+          <div className="bg-white rounded-none p-4 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center gap-3">
             {/* Search Input */}
             <div className="flex-1 w-full relative">
               <input
@@ -912,7 +914,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                className="w-full pl-9 pr-4 py-2 rounded-none border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#1D1E26] focus:border-[#1D1E26]"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
@@ -924,7 +926,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 setSelectedClassId(e.target.value);
                 setPage(1);
               }}
-              className="w-full sm:w-48 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500 bg-white cursor-pointer"
+              className="w-full sm:w-48 px-3 py-2 rounded-none border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1D1E26] focus:border-[#1D1E26] bg-white cursor-pointer"
             >
               <option value="">Barcha sinflar</option>
               {classes.map((cls) => (
@@ -936,10 +938,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           </div>
 
           {/* Students Table */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-none border border-slate-200/80 overflow-hidden shadow-sm">
             {reportsLoading ? (
               <div className="p-8 text-center space-y-2">
-                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-xs font-bold text-slate-500">O'quvchilar hisobotlari yuklanmoqda...</p>
               </div>
             ) : reports.length === 0 ? (
@@ -949,7 +951,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-extrabold border-b border-slate-100 text-[10px]">
+                  <thead className="bg-[#1D1E26] text-[#D4F562] uppercase tracking-wider font-mono font-extrabold border-b border-slate-100 text-[10px]">
                     <tr>
                       <th className="px-5 py-3">O'quvchi</th>
                       <th className="px-5 py-3">Sinf</th>
@@ -972,11 +974,11 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         >
                           <td className="px-5 py-3.5 font-bold text-slate-900">{rep.student_name}</td>
                           <td className="px-5 py-3.5">
-                            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px]">
+                            <span className="px-2.5 py-0.5 rounded-none bg-slate-100 text-slate-700 font-bold text-[10px]">
                               {rep.class_name}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 font-black text-indigo-950">
+                          <td className="px-5 py-3.5 font-mono font-black text-[#1D1E26]">
                             {avg > 0 ? avg.toFixed(1) : "—"}
                           </td>
                           <td className="px-5 py-3.5">
@@ -996,7 +998,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                                   e.stopPropagation();
                                   setPreviewReport(rep);
                                 }}
-                                className="p-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white transition cursor-pointer"
+                                className="p-2 rounded-none bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] transition cursor-pointer"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
@@ -1004,7 +1006,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                                 type="button"
                                 title="Hisobotni o'chirish"
                                 onClick={(e) => handleDeleteSingleReport(e, rep.id, rep.student_name)}
-                                className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                                className="p-2 rounded-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition cursor-pointer"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1026,7 +1028,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-none border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer flex items-center gap-1"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Avvalgisi</span>
@@ -1034,7 +1036,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-none border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer flex items-center gap-1"
                 >
                   <span>Keyingisi</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1055,13 +1057,13 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white border border-zinc-200/80 shadow-2xl rounded-3xl w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn"
+            className="bg-white border border-zinc-200/80 shadow-2xl rounded-none w-full max-w-xl overflow-hidden transition-all transform scale-100 flex flex-col max-h-[90vh] text-zinc-900 animate-fadeIn"
           >
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-[#16193E] flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-600" />
+                  <Sparkles className="w-5 h-5 text-[#1D1E26]" />
                   <span>AI Hisobot Yaratish</span>
                 </h3>
                 <p className="text-xs text-zinc-500 font-medium mt-0.5">
@@ -1071,7 +1073,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               <button
                 type="button"
                 onClick={resetGenerateModal}
-                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition cursor-pointer shrink-0"
                 title="Yopish"
               >
                 <X className="w-4 h-4" />
@@ -1081,25 +1083,25 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar flex-1">
               {/* Week Selection Component */}
-              <div className="bg-gradient-to-r from-indigo-50/80 via-purple-50/40 to-zinc-50 p-4 rounded-2xl border border-indigo-100 space-y-2.5">
+              <div className="bg-slate-50 p-4 rounded-none border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-extrabold text-indigo-950 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-indigo-600" />
+                  <label className="text-[11px] font-extrabold text-[#1D1E26] uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-[#1D1E26]" />
                     <span>Hisobot Haftasi</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => setIsCalendarOpen(true)}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    className="px-3 py-1.5 rounded-none bg-white border border-slate-200 text-[#1D1E26] hover:bg-slate-100 text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5"
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     <span>Haftani Tanlash</span>
                   </button>
                 </div>
 
-                <div className="p-3 bg-white rounded-xl border border-indigo-200/70 flex items-center justify-between shadow-2xs">
+                <div className="p-3 bg-white rounded-none border border-slate-200 flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs shrink-0">
+                    <div className="w-9 h-9 rounded-none bg-slate-100 text-[#1D1E26] flex items-center justify-center font-black text-xs shrink-0">
                       W
                     </div>
                     <div>
@@ -1107,14 +1109,14 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       <div className="text-[10px] font-bold text-zinc-400">Boshlanish sanasi: {selectedWeekStart}</div>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
+                  <span className="px-2.5 py-1 rounded-none bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
                     Tanlandi
                   </span>
                 </div>
               </div>
 
               {/* Target Presets Component */}
-              <div className="bg-zinc-50/80 p-3.5 rounded-2xl border border-zinc-200/80">
+              <div className="bg-zinc-50/80 p-3.5 rounded-none border border-zinc-200/80">
                 <TargetPresets
                   selectedLevels={[]}
                   selectedClasses={genClassId && genClassId !== "ALL" ? [Number(genClassId)] : []}
@@ -1125,7 +1127,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   token={token}
                   apiUrl={API_URL}
                   label="O'quvchilar To'plamlari (Shablonni Tanlash / Saqlash)"
-                  theme="lime"
+                  theme="admin"
                 />
               </div>
 
@@ -1135,7 +1137,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <select
                   value={genClassId}
                   onChange={(e) => setGenClassId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-800 focus:outline-none focus:border-indigo-500 bg-white cursor-pointer shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-none border border-zinc-200 text-xs font-bold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#1D1E26] focus:border-[#1D1E26] bg-white cursor-pointer shadow-2xs"
                 >
                   <option value="">Sinfni tanlang...</option>
                   <option value="ALL">Barcha sinflar ({studentsList.length} ta o'quvchi)</option>
@@ -1162,7 +1164,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         setSelectedStudentIds(filteredStudents.map((s) => s.id));
                       }
                     }}
-                    className="text-indigo-600 hover:text-indigo-800 text-[11px] cursor-pointer font-bold transition"
+                    className="text-[#1D1E26] hover:underline text-[11px] cursor-pointer font-extrabold transition"
                   >
                     {selectedStudentIds.length === filteredStudents.length ? "Barchasini bekor qilish" : "Barchasini tanlash"}
                   </button>
@@ -1175,7 +1177,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     placeholder="O'quvchi ismi bo'yicha qidirish..."
                     value={genStudentSearch}
                     onChange={(e) => setGenStudentSearch(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-zinc-200 text-xs font-medium focus:outline-none focus:border-indigo-500 bg-white shadow-2xs"
+                    className="w-full pl-9 pr-3.5 py-2 rounded-none border border-zinc-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#1D1E26] focus:border-[#1D1E26] bg-white shadow-2xs"
                   />
                   <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                 </div>
@@ -1186,7 +1188,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     : `Dastlabki ${displayStudents.length} ta o'quvchi ko'rsatildi (Jami: ${studentsList.length} ta). Boshqa o'quvchini topish uchun qidiruvdan foydalaning.`}
                 </div>
 
-                <div className="border border-zinc-200 rounded-2xl p-3 max-h-48 overflow-y-auto space-y-1 bg-zinc-50/60 custom-scrollbar">
+                <div className="border border-zinc-200 rounded-none p-3 max-h-48 overflow-y-auto space-y-1 bg-zinc-50/60 custom-scrollbar">
                   {studentsLoading ? (
                     <p className="text-xs text-zinc-400 text-center py-4 font-medium">O'quvchilar ro'yxati yuklanmoqda...</p>
                   ) : displayStudents.length === 0 ? (
@@ -1197,7 +1199,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       return (
                         <label
                           key={s.id}
-                          className="flex items-center space-x-2.5 text-xs text-zinc-800 font-medium cursor-pointer hover:bg-zinc-100/80 p-2 rounded-xl transition"
+                          className="flex items-center space-x-2.5 text-xs text-zinc-800 font-medium cursor-pointer hover:bg-zinc-100/80 p-2 rounded-none transition"
                         >
                           <input
                             type="checkbox"
@@ -1209,7 +1211,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                                 setSelectedStudentIds((prev) => [...prev, s.id]);
                               }
                             }}
-                            className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4"
+                            className="rounded text-[#1D1E26] focus:ring-[#1D1E26] cursor-pointer w-4 h-4"
                           />
                           <span>
                             {s.first_name} {s.last_name} ({s.class_name || "Sinf"})
@@ -1223,21 +1225,21 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
 
               {/* Live Progress Section Inside Modal */}
               {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS") && (
-                <div className="p-4 rounded-2xl bg-indigo-950 text-white border border-indigo-500/40 space-y-3 shadow-lg animate-fadeIn">
+                <div className="p-4 rounded-none bg-[#1D1E26] text-white border border-slate-800 space-y-3 shadow-lg animate-fadeIn">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-black text-indigo-200">
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-300">
                       <Sparkles className="w-4 h-4 text-[#D4F562] animate-spin" />
                       <span>
                         {activeJob.status === "STARTED" ? "Jarayon Boshlandi..." : "Fonda Generatsiya Jarayoni..."}
                       </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] font-black uppercase">
+                    <span className="px-2 py-0.5 rounded-none bg-white/10 text-slate-300 text-[10px] font-black uppercase">
                       {activeJob.status === "STARTED" ? "Boshlandi" : "Jarayonda"}
                     </span>
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] font-mono font-bold text-indigo-200">
+                    <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-300">
                       <span>Bajarildi: {activeJob.processed_students} / {activeJob.total_students} ta</span>
                       <span className="text-[#D4F562] font-black">
                         {activeJob.total_students > 0
@@ -1245,9 +1247,9 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           : 0}%
                       </span>
                     </div>
-                    <div className="w-full bg-indigo-900 rounded-full h-2.5 overflow-hidden">
+                    <div className="w-full bg-slate-800 rounded-none h-2.5 overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-[#D4F562] to-emerald-400 h-full rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-[#D4F562] to-emerald-400 h-full rounded-none transition-all duration-300"
                         style={{
                           width: `${
                             activeJob.total_students > 0
@@ -1260,7 +1262,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   </div>
 
                   {activeJob.current_student_name && (
-                    <p className="text-[11px] text-indigo-300 italic truncate">
+                    <p className="text-[11px] text-slate-300 italic truncate">
                       Hozir tahlil qilinmoqda: <span className="text-white font-bold">{activeJob.current_student_name}</span>
                     </p>
                   )}
@@ -1268,7 +1270,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               )}
 
               {activeJob && activeJob.status === "FINISHED" && (
-                <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-950 border border-emerald-200 flex items-center justify-between animate-fadeIn">
+                <div className="p-4 rounded-none bg-emerald-50 text-emerald-950 border border-emerald-200 flex items-center justify-between animate-fadeIn">
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                     <div>
@@ -1278,15 +1280,15 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       </p>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                  <span className="px-2.5 py-1 rounded-none bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
                     Tugatildi
                   </span>
                 </div>
               )}
 
               {genStatusMessage && !activeJob && (
-                <div className="p-3.5 rounded-2xl bg-indigo-50 text-indigo-900 text-xs font-bold border border-indigo-200 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                <div className="p-3.5 rounded-none bg-slate-100 text-[#1D1E26] text-xs font-bold border border-slate-200 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#1D1E26] shrink-0" />
                   <span>{genStatusMessage}</span>
                 </div>
               )}
@@ -1296,7 +1298,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
             <div className="px-6 py-4 bg-zinc-50/80 border-t border-zinc-100 flex items-center justify-between gap-3 shrink-0">
               <div className="text-[11px] text-zinc-500 font-medium">
                 {activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS") && (
-                  <span className="text-indigo-600 font-bold">Oynani yopishingiz mumkin, jarayon fonda davom etadi.</span>
+                  <span className="text-slate-500 font-bold">Oynani yopishingiz mumkin, jarayon fonda davom etadi.</span>
                 )}
               </div>
 
@@ -1304,7 +1306,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   type="button"
                   onClick={resetGenerateModal}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-200/80 transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-none text-xs font-bold text-zinc-600 hover:bg-zinc-200/80 transition cursor-pointer"
                 >
                   {activeJob && activeJob.status === "FINISHED" ? "Yopish" : "Bekor qilish"}
                 </button>
@@ -1312,7 +1314,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   type="button"
                   disabled={Boolean(generating || (activeJob && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS")))}
                   onClick={handleBatchGenerate}
-                  className="px-5 py-2.5 rounded-xl bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-none bg-[#D4F562] text-[#1D1E26] text-xs font-black hover:bg-[#c2e84d] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
                 >
                   <Sparkles className="w-4 h-4 text-[#1D1E26]" />
                   <span>
@@ -1376,7 +1378,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md h-[90vh] max-h-[780px] rounded-[36px] overflow-hidden shadow-2xl border border-white/10 flex flex-col select-none"
+              className="relative w-full max-w-md h-[90vh] max-h-[780px] rounded-none overflow-hidden shadow-2xl border border-white/10 flex flex-col select-none"
             >
               {/* Top Story Navigation Progress Bars */}
               <div className="absolute top-4 left-4 right-4 z-30 flex items-center gap-1.5">
@@ -1384,7 +1386,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   <div
                     key={idx}
                     onClick={() => scrollToStory(idx)}
-                    className="h-1 flex-1 rounded-full bg-white/20 overflow-hidden cursor-pointer backdrop-blur-xs transition"
+                    className="h-1 flex-1 rounded-none bg-white/20 overflow-hidden cursor-pointer backdrop-blur-xs transition"
                   >
                     <div
                       className={`h-full bg-white transition-all duration-300 ${
@@ -1398,7 +1400,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               {/* Close Button */}
               <button
                 onClick={() => setPreviewReport(null)}
-                className="absolute top-7 right-5 z-30 p-2 rounded-full bg-black/40 text-white/80 hover:text-white hover:bg-black/60 backdrop-blur-md border border-white/10 transition cursor-pointer"
+                className="absolute top-7 right-5 z-30 p-2 rounded-none bg-black/40 text-white/80 hover:text-white hover:bg-black/60 backdrop-blur-md border border-white/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1413,19 +1415,19 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 {/* ── SLIDE 0: Cover & Key Metrics Card ── */}
                 <div className={`w-full h-full snap-start snap-always shrink-0 p-6 pt-16 flex flex-col justify-between relative overflow-hidden ${cardThemes[0].bg} text-white`}>
                   <div className="space-y-4 z-10">
-                    <span className="inline-block px-3 py-1 rounded-full bg-white/10 text-white/90 text-[10px] font-black uppercase tracking-widest border border-white/15 backdrop-blur-md">
+                    <span className="inline-block px-3 py-1 rounded-none bg-white/10 text-white/90 text-[10px] font-black uppercase tracking-widest border border-white/15 backdrop-blur-md">
                       {cardThemes[0].tag}
                     </span>
 
                     <div className="space-y-1">
-                      <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-xl font-black mb-3 text-white shadow-inner">
+                      <div className="w-14 h-14 rounded-none bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-xl font-black mb-3 text-white shadow-inner">
                         {previewReport.student_name.slice(0, 2).toUpperCase()}
                       </div>
                       <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
                         {previewReport.student_name}
                       </h2>
                       <div className="flex items-center gap-2 pt-1">
-                        <span className="px-3 py-0.5 rounded-full bg-white/15 text-xs font-extrabold border border-white/20">
+                        <span className="px-3 py-0.5 rounded-none bg-white/15 text-xs font-extrabold border border-white/20">
                           {previewReport.class_name}
                         </span>
                         <span className="text-xs text-white/70 font-semibold">
@@ -1436,7 +1438,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
 
                     {/* Key Metrics Horizon Cards */}
                     <div className="grid grid-cols-3 gap-2.5 pt-4">
-                      <div className="bg-white/10 border border-white/15 p-3 rounded-2xl backdrop-blur-md text-center flex flex-col justify-center min-h-[64px]">
+                      <div className="bg-white/10 border border-white/15 p-3 rounded-none backdrop-blur-md text-center flex flex-col justify-center min-h-[64px]">
                         <span className="text-[9px] font-black text-white/60 uppercase tracking-wider block">O'rtacha</span>
                         <span className="text-xs font-black text-white mt-0.5 block">
                           {previewReport.summary_json?.average_grade && previewReport.summary_json.average_grade > 0
@@ -1445,7 +1447,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         </span>
                       </div>
 
-                      <div className="bg-white/10 border border-white/15 p-3 rounded-2xl backdrop-blur-md text-center flex flex-col justify-center min-h-[64px]">
+                      <div className="bg-white/10 border border-white/15 p-3 rounded-none backdrop-blur-md text-center flex flex-col justify-center min-h-[64px]">
                         <span className="text-[9px] font-black text-white/60 uppercase tracking-wider block">Dinamika</span>
                         <span className="text-xs font-black text-emerald-300 mt-0.5 block">
                           {previewReport.summary_json?.grade_trend === "UP" && "O'sdi"}
@@ -1455,7 +1457,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         </span>
                       </div>
 
-                      <div className="bg-white/10 border border-white/15 p-3 rounded-2xl backdrop-blur-md text-center flex flex-col justify-center min-h-[64px]">
+                      <div className="bg-white/10 border border-white/15 p-3 rounded-none backdrop-blur-md text-center flex flex-col justify-center min-h-[64px]">
                         <span className="text-[9px] font-black text-white/60 uppercase tracking-wider block">Kitoblar</span>
                         <span className="text-xs font-black text-amber-300 mt-0.5 block">
                           {previewReport.summary_json?.books_read_count && previewReport.summary_json.books_read_count > 0
@@ -1485,7 +1487,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       className={`w-full h-full snap-start snap-always shrink-0 p-6 pt-16 flex flex-col justify-between relative overflow-hidden ${theme.bg} text-white`}
                     >
                       <div className="space-y-5 z-10 flex-1 overflow-y-auto scrollbar-none pr-1">
-                        <span className="inline-block px-3 py-1 rounded-full bg-white/10 text-white/90 text-[10px] font-black uppercase tracking-widest border border-white/15 backdrop-blur-md">
+                        <span className="inline-block px-3 py-1 rounded-none bg-white/10 text-white/90 text-[10px] font-black uppercase tracking-widest border border-white/15 backdrop-blur-md">
                           {theme.tag}
                         </span>
 
@@ -1499,15 +1501,15 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                               let textLine = line.trim();
                               if (textLine.startsWith("-") || textLine.startsWith("*")) {
                                 return (
-                                  <div key={lIdx} className="bg-white/10 border border-white/15 p-3.5 rounded-2xl backdrop-blur-md my-2">
+                                  <div key={lIdx} className="bg-white/10 border border-white/15 p-3.5 rounded-none backdrop-blur-md my-2">
                                     <span className="text-white font-semibold">{textLine.replace(/^[-*]\s*/, "")}</span>
                                   </div>
                                 );
                               }
-                              return <p key={lIdx} className="bg-white/10 border border-white/15 p-4 rounded-2xl backdrop-blur-md leading-relaxed">{textLine}</p>;
+                              return <p key={lIdx} className="bg-white/10 border border-white/15 p-4 rounded-none backdrop-blur-md leading-relaxed">{textLine}</p>;
                             })
                           ) : (
-                            <p className="bg-white/10 border border-white/15 p-4 rounded-2xl backdrop-blur-md leading-relaxed">{sec.fullContent}</p>
+                            <p className="bg-white/10 border border-white/15 p-4 rounded-none backdrop-blur-md leading-relaxed">{sec.fullContent}</p>
                           )}
                         </div>
                       </div>
@@ -1521,7 +1523,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         {idx < sections.length - 1 ? (
                           <button
                             onClick={() => scrollToStory(idx + 2)}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-slate-900 font-black text-xs hover:bg-slate-100 transition cursor-pointer shadow-lg"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-none bg-white text-slate-900 font-black text-xs hover:bg-slate-100 transition cursor-pointer shadow-lg"
                           >
                             <span>Keyingisi</span>
                             <ArrowRight className="w-3.5 h-3.5 rotate-90" />
@@ -1529,7 +1531,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         ) : (
                           <button
                             onClick={() => setPreviewReport(null)}
-                            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-white text-slate-900 font-black text-xs hover:bg-slate-100 transition cursor-pointer shadow-lg"
+                            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-none bg-white text-slate-900 font-black text-xs hover:bg-slate-100 transition cursor-pointer shadow-lg"
                           >
                             <span>Tugatish</span>
                           </button>
@@ -1563,6 +1565,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
       {/* ── MODAL 4: Custom Dialog Confirm Modal ── */}
       {confirmDialog && (
         <CustomDialogModal
+          theme="admin"
           isOpen={confirmDialog.isOpen}
           type="danger"
           title={confirmDialog.title}
@@ -1582,12 +1585,12 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-[#1D1E26] border border-slate-800 text-white rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto animate-fadeIn"
+            className="bg-[#1D1E26] border border-slate-800 text-white rounded-none w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto animate-fadeIn"
           >
             {/* Header */}
             <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-lime-500/10 text-[#D4F562] border border-lime-500/20">
+                <div className="p-2.5 rounded-none bg-lime-500/10 text-[#D4F562] border border-lime-500/20">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
@@ -1603,7 +1606,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               <button
                 type="button"
                 onClick={() => setIsAISettingsOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1619,7 +1622,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               ) : (
                 <>
                   {/* Dynamic Tags Helper Banner */}
-                  <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-2.5">
+                  <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-none space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between text-xs font-extrabold text-[#D4F562] gap-2">
                       <span className="flex items-center gap-2">
                         <Bot className="w-4 h-4" />
@@ -1646,7 +1649,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           type="button"
                           onClick={() => handleInsertTag(tag)}
                           title={`${tag} tegini prompt matniga qo'shish uchun bosing`}
-                          className="bg-slate-800 hover:bg-[#D4F562] hover:text-[#1D1E26] text-slate-200 text-[11px] font-mono font-bold px-2.5 py-1 rounded-xl border border-slate-700 hover:border-[#D4F562] transition cursor-pointer flex items-center gap-1 shadow-xs active:scale-95 group"
+                          className="bg-slate-800 hover:bg-[#D4F562] hover:text-[#1D1E26] text-slate-200 text-[11px] font-mono font-bold px-2.5 py-1 rounded-none border border-slate-700 hover:border-[#D4F562] transition cursor-pointer flex items-center gap-1 shadow-xs active:scale-95 group"
                         >
                           <span className="text-lime-400 group-hover:text-[#1D1E26] font-bold text-xs">+</span>
                           <span>{tag}</span>
@@ -1671,7 +1674,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       value={systemInstructionText}
                       onChange={(e) => setSystemInstructionText(e.target.value)}
                       placeholder="AI uchun pedagogik yo'riqnomani kiriting..."
-                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-slate-200 outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 transition leading-relaxed resize-none"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-none p-4 text-xs font-mono text-slate-200 outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 transition leading-relaxed resize-none"
                     />
                   </div>
 
@@ -1688,7 +1691,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           max={8000}
                           value={maxTokensVal}
                           onChange={(e) => setMaxTokensVal(Number(e.target.value))}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-mono text-white outline-none focus:border-lime-400 transition"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-none px-4 py-2.5 text-xs font-mono text-white outline-none focus:border-lime-400 transition"
                         />
                       </div>
                       <p className="text-[10px] text-slate-400">Generatsiya uchun maksimal javob uzunligi tokenlarda</p>
@@ -1705,7 +1708,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         max={1.0}
                         value={temperatureVal}
                         onChange={(e) => setTemperatureVal(Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-mono text-white outline-none focus:border-lime-400 transition"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-none px-4 py-2.5 text-xs font-mono text-white outline-none focus:border-lime-400 transition"
                       />
                       <p className="text-[10px] text-slate-400">0.7 - balanslangan va pedagogik izchil feedback uchun</p>
                     </div>
@@ -1721,7 +1724,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       value={changeReasonText}
                       onChange={(e) => setChangeReasonText(e.target.value)}
                       placeholder="Masalan: Yangi o'quv yili uchun prompt qoidalari kuchaytirildi..."
-                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white outline-none focus:border-lime-400 transition"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-none px-4 py-2.5 text-xs text-white outline-none focus:border-lime-400 transition"
                     />
                   </div>
                 </>
@@ -1736,7 +1739,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   fetchAIInstructionHistory();
                   setIsHistoryOpen(true);
                 }}
-                className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs flex items-center gap-2 transition cursor-pointer border border-slate-700"
+                className="px-4 py-2.5 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs flex items-center gap-2 transition cursor-pointer border border-slate-700"
               >
                 <History className="w-4 h-4 text-sky-400" />
                 <span>Prompt Versiyalar Tarixi</span>
@@ -1746,7 +1749,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 <button
                   type="button"
                   onClick={() => setIsAISettingsOpen(false)}
-                  className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold text-xs transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold text-xs transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
@@ -1754,7 +1757,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                   type="button"
                   disabled={aiSettingsSaving}
                   onClick={handleSaveAIInstruction}
-                  className="px-5 py-2.5 rounded-2xl bg-[#D4F562] text-[#1D1E26] font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:bg-[#c2e84d] transition cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-none bg-[#D4F562] text-[#1D1E26] font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/10 hover:bg-[#c2e84d] transition cursor-pointer disabled:opacity-50"
                 >
                   {aiSettingsSaving ? (
                     <div className="w-4 h-4 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin" />
@@ -1779,12 +1782,12 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-[#1D1E26] border border-slate-800 text-white rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto animate-fadeIn"
+            className="bg-[#1D1E26] border border-slate-800 text-white rounded-none w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto animate-fadeIn"
           >
             {/* Header */}
             <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                <div className="p-2.5 rounded-none bg-sky-500/10 text-sky-400 border border-sky-500/20">
                   <History className="w-5 h-5" />
                 </div>
                 <div>
@@ -1800,7 +1803,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               <button
                 type="button"
                 onClick={() => setIsHistoryOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1822,11 +1825,11 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 historyLogs.map((logItem) => (
                   <div
                     key={logItem.id}
-                    className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3 hover:border-slate-700 transition"
+                    className="p-5 bg-slate-900/80 border border-slate-800 rounded-none space-y-3 hover:border-slate-700 transition"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 text-[11px] font-mono font-bold border border-sky-500/20">
+                        <span className="px-2.5 py-0.5 rounded-none bg-sky-500/10 text-sky-400 text-[11px] font-mono font-bold border border-sky-500/20">
                           Version #{logItem.id}
                         </span>
                         <span className="text-xs text-slate-300 font-extrabold">
@@ -1844,7 +1847,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         <button
                           type="button"
                           onClick={() => handleRevertInstruction(logItem.id)}
-                          className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer border border-sky-500/30"
+                          className="px-3 py-1.5 rounded-none bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer border border-sky-500/30"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>Ushbu versiyaga qaytarish</span>
@@ -1858,7 +1861,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       </p>
                     )}
 
-                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
+                    <div className="bg-slate-950 p-3.5 rounded-none border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
                       {logItem.system_instruction}
                     </div>
                   </div>
@@ -1871,7 +1874,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               <button
                 type="button"
                 onClick={() => setIsHistoryOpen(false)}
-                className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+                className="px-5 py-2.5 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
               >
                 Yopish
               </button>

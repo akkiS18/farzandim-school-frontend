@@ -23,7 +23,7 @@ export interface DateRangePresetsProps {
   apiUrl?: string;
   category?: string;
   className?: string;
-  theme?: "slate" | "indigo" | "lime";
+  theme?: "slate" | "indigo" | "lime" | "admin";
   label?: string;
   startLabel?: string;
   endLabel?: string;
@@ -244,26 +244,39 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
       cardBg: "bg-slate-50 border-slate-200/80",
       inputFocus: "focus:ring-2 focus:ring-[#D4F562]",
       saveBtn: "bg-[#1D1E26] hover:bg-slate-800 text-white shadow-xs",
+      iconColor: "text-indigo-600",
     },
     indigo: {
       cardBg: "bg-indigo-50/40 border-indigo-100",
       inputFocus: "focus:ring-2 focus:ring-indigo-500",
       saveBtn: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs",
+      iconColor: "text-indigo-600",
     },
     lime: {
       cardBg: "bg-lime-50/60 border-lime-200",
       inputFocus: "focus:ring-2 focus:ring-lime-500",
       saveBtn: "bg-lime-600 hover:bg-lime-700 text-white shadow-xs",
+      iconColor: "text-lime-700",
+    },
+    admin: {
+      cardBg: "bg-slate-50 border-slate-200",
+      inputFocus: "focus:ring-2 focus:ring-[#1D1E26]",
+      saveBtn: "bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562]",
+      iconColor: "text-[#1D1E26]",
     },
   }[theme];
+
+  const r2xl = theme === "admin" ? "" : "rounded-2xl";
+  const rxl = theme === "admin" ? "" : "rounded-xl";
+  const rlg = theme === "admin" ? "" : "rounded-lg";
 
   return (
     <div className={`space-y-3.5 ${className}`}>
       {/* Top section: Preset Collection Dropdown Selector & Quick Save */}
-      <div className={`p-4 rounded-2xl border transition-all ${themeStyles.cardBg}`}>
+      <div className={`p-4 ${r2xl} border transition-all ${themeStyles.cardBg}`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
           <label className="text-xs font-black text-slate-700 flex items-center gap-1.5 tracking-tight select-none">
-            <Bookmark className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <Bookmark className={`w-3.5 h-3.5 ${themeStyles.iconColor} shrink-0`} />
             <span>{label}</span>
             {loading && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
           </label>
@@ -298,10 +311,10 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
             return (
               <div
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-bold cursor-pointer flex items-center justify-between transition select-none shadow-2xs ${themeStyles.inputFocus}`}
+                className={`w-full bg-white border border-slate-200 text-slate-800 ${rxl} px-3.5 py-2.5 text-xs font-bold cursor-pointer flex items-center justify-between transition select-none shadow-2xs ${themeStyles.inputFocus}`}
               >
                 <div className="flex items-center gap-2 overflow-hidden text-slate-700">
-                  <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <Calendar className={`w-4 h-4 ${theme === "admin" ? "text-[#1D1E26]" : "text-indigo-500"} shrink-0`} />
                   <span className="truncate">
                     {selectedObj
                       ? `${selectedObj.name} (${formatDateUZ(selectedObj.start_date)} — ${formatDateUZ(selectedObj.end_date)})`
@@ -312,7 +325,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-                    isDropdownOpen ? "rotate-180 text-indigo-600" : ""
+                    isDropdownOpen ? (theme === "admin" ? "rotate-180 text-[#1D1E26]" : "rotate-180 text-indigo-600") : ""
                   }`}
                 />
               </div>
@@ -321,7 +334,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
 
           {/* Expanded Dropdown Panel */}
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2.5 space-y-2 animate-in fade-in duration-150">
+            <div className={`absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border border-slate-200 ${r2xl} shadow-2xl p-2.5 space-y-2 animate-in fade-in duration-150`}>
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -330,7 +343,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                   value={dropdownSearch}
                   onChange={(e) => setDropdownSearch(e.target.value)}
                   placeholder="Shablon nomini qidirish..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className={`w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 ${rxl} text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 ${theme === "admin" ? "focus:ring-[#1D1E26]" : "focus:ring-indigo-500"}`}
                 />
               </div>
 
@@ -360,23 +373,27 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                             onEndDateChange(p.end_date);
                             setIsDropdownOpen(false);
                           }}
-                          className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition select-none ${
-                            isSel ? "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold" : "hover:bg-slate-50 text-slate-700"
+                          className={`flex items-center justify-between p-2 ${rxl} cursor-pointer transition select-none ${
+                            isSel
+                              ? theme === "admin"
+                                ? "bg-[#1D1E26] text-[#D4F562] font-bold"
+                                : "bg-indigo-50 border border-indigo-200 text-indigo-950 font-bold"
+                              : "hover:bg-slate-50 text-slate-700"
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="text-xs font-bold truncate">{p.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                              ({formatDateUZ(p.start_date)} - {formatDateUZ(p.end_date)})
+                            <span className="text-xs truncate font-medium">{p.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({formatDateUZ(p.start_date)} — {formatDateUZ(p.end_date)})
                             </span>
                           </div>
 
                           <button
                             type="button"
-                            title="To'plamni o'chirish"
                             onClick={(e) => handleDeletePreset(p.id, p.name, e)}
                             disabled={deletingId === p.id}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer shrink-0"
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                            title="Shablonni o'chirish"
                           >
                             {deletingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
@@ -400,7 +417,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
               value={startDate}
               onChange={(e) => onStartDateChange(e.target.value)}
               required
-              className={`w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none ${themeStyles.inputFocus} font-bold shadow-2xs`}
+              className={`w-full bg-white border border-slate-200 text-slate-800 ${rxl} px-3 py-2 text-xs outline-none ${themeStyles.inputFocus} font-bold shadow-2xs`}
             />
           </div>
 
@@ -412,7 +429,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
               value={endDate}
               onChange={(e) => onEndDateChange(e.target.value)}
               required
-              className={`w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs outline-none ${themeStyles.inputFocus} font-bold shadow-2xs`}
+              className={`w-full bg-white border border-slate-200 text-slate-800 ${rxl} px-3 py-2 text-xs outline-none ${themeStyles.inputFocus} font-bold shadow-2xs`}
             />
           </div>
 
@@ -430,7 +447,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                 setPresetNameInput("");
                 setShowSaveModal(true);
               }}
-              className={`w-10 h-[38px] flex items-center justify-center rounded-xl transition cursor-pointer ${themeStyles.saveBtn}`}
+              className={`w-10 h-[38px] flex items-center justify-center ${rxl} transition cursor-pointer ${themeStyles.saveBtn}`}
               title="To'plam sifatida saqlash"
             >
               <Bookmark className="w-4 h-4" />
@@ -451,11 +468,11 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-5 shadow-2xl space-y-4 text-slate-900 font-sans"
+            className={`w-full max-w-md bg-white border border-slate-200 ${r2xl} p-5 shadow-2xl space-y-4 text-slate-900 font-sans`}
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <FolderPlus className="w-4 h-4 text-indigo-600" />
+                <FolderPlus className={`w-4 h-4 ${theme === "admin" ? "text-[#1D1E26]" : "text-indigo-600"}`} />
                 Yangi To'plam sifatida saqlash
               </h4>
               <button
@@ -465,16 +482,16 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                   e.stopPropagation();
                   setShowSaveModal(false);
                 }}
-                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
+                className={`w-7 h-7 ${theme === "admin" ? "" : "rounded-full"} bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer`}
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs space-y-1">
+              <div className={`bg-slate-50 p-3 ${rxl} border border-slate-200/80 text-xs space-y-1`}>
                 <div className="text-slate-500 font-semibold">Tanlangan sana oralig'i:</div>
-                <div className="font-extrabold text-indigo-600 font-mono text-xs">
+                <div className={`font-extrabold ${theme === "admin" ? "text-[#1D1E26]" : "text-indigo-600"} font-mono text-xs`}>
                   {formatDateUZ(startDate)} — {formatDateUZ(endDate)}
                 </div>
               </div>
@@ -496,7 +513,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                   }}
                   placeholder="Masalan: 1-chorak 2027 yoki 2-yarim yillik"
                   autoFocus
-                  className="w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-extrabold"
+                  className={`w-full bg-white border border-slate-300 text-slate-800 ${rxl} px-3.5 py-2.5 text-xs outline-none ${theme === "admin" ? "focus:ring-2 focus:ring-[#1D1E26]" : "focus:ring-2 focus:ring-indigo-500"} font-extrabold`}
                 />
               </div>
 
@@ -508,7 +525,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                     e.stopPropagation();
                     setShowSaveModal(false);
                   }}
-                  className="px-4 py-2 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                  className={`px-4 py-2 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 ${rxl} transition cursor-pointer`}
                 >
                   Bekor qilish
                 </button>
@@ -516,7 +533,7 @@ export const DateRangePresets: React.FC<DateRangePresetsProps> = ({
                   type="button"
                   onClick={(e) => handleSavePreset(e)}
                   disabled={saving || !presetNameInput.trim()}
-                  className="px-4 py-2 text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                  className={`px-4 py-2 text-xs font-black ${theme === "admin" ? "bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800" : "bg-indigo-600 text-white hover:bg-indigo-700"} ${rxl} transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs`}
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   {saving ? "Saqlanmoqda..." : "Saqlash"}

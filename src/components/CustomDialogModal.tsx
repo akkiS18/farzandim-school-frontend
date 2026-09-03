@@ -30,6 +30,87 @@ export default function CustomDialogModal({
 
   const isDanger = type === "danger";
   const isTeacherTheme = theme === "teacher";
+  const isAdminTheme = theme === "admin";
+
+  if (isAdminTheme) {
+    return (
+      <div
+        className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans select-none"
+        onClick={onCancel || onConfirm}
+      >
+        <div
+          className="w-full max-w-md bg-white border border-slate-200 rounded-none p-6 shadow-2xl flex flex-col gap-5 animate-in zoom-in-95 duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-3.5">
+            <div
+              className={`w-10 h-10 rounded-none flex items-center justify-center shrink-0 border ${
+                isDanger
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : type === "alert"
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                  : "bg-slate-100 text-[#1D1E26] border-slate-200"
+              }`}
+            >
+              {isDanger ? (
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              ) : type === "alert" ? (
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              ) : (
+                <Info className="w-5 h-5 text-[#1D1E26]" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 pr-1">
+              <h3 className="text-base font-extrabold text-[#1D1E26] tracking-tight leading-snug">
+                {title}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed mt-1">
+                {message}
+              </p>
+            </div>
+
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-7 h-7 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition cursor-pointer shrink-0"
+                aria-label="Yopish"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+            {type !== "alert" && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] text-xs font-extrabold transition cursor-pointer rounded-none"
+              >
+                {cancelText}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onConfirm}
+              className={`px-5 py-2 text-xs font-black transition cursor-pointer rounded-none ${
+                isDanger
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800"
+              }`}
+            >
+              {confirmText || (type === "alert" ? "Tushunarli" : "Ha, tasdiqlayman")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isTeacherTheme) {
     return (

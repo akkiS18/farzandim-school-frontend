@@ -34,7 +34,7 @@ export default function HolidaysSection({
   classes,
 }: HolidaysSectionProps) {
   const [holidays, setHolidays] = useState<HolidayItem[]>([]);
-  const { dialogState, showAlert } = useDialog();
+  const { dialogState, showAlert, showConfirm } = useDialog();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -174,25 +174,36 @@ export default function HolidaysSection({
     }
   };
 
-  const handleDeleteHoliday = async (id: number) => {
-    if (!token) return;
-    setDeletingId(id);
-    try {
-      const response = await fetch(`${API_URL}/api/schools/holidays/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        fetchHolidays();
-      } else {
-        const data = await response.json();
-        showAlert(data.error || "O'chirishda xatolik yuz berdi");
+  const handleDeleteHoliday = (id: number) => {
+    showConfirm(
+      "Ushbu dam olish kunini o'chirishni tasdiqlaysizmi?",
+      async () => {
+        if (!token) return;
+        setDeletingId(id);
+        try {
+          const response = await fetch(`${API_URL}/api/schools/holidays/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.ok) {
+            fetchHolidays();
+          } else {
+            const data = await response.json();
+            showAlert(data.error || "O'chirishda xatolik yuz berdi");
+          }
+        } catch {
+          showAlert("Server bilan bog'lanishda xatolik");
+        } finally {
+          setDeletingId(null);
+        }
+      },
+      {
+        title: "Dam olish kunini o'chirish",
+        type: "danger",
+        confirmText: "Ha, o'chirish",
+        cancelText: "Bekor qilish",
       }
-    } catch {
-      showAlert("Server bilan bog'lanishda xatolik");
-    } finally {
-      setDeletingId(null);
-    }
+    );
   };
 
   const handleDownloadTemplate = async () => {
@@ -318,32 +329,29 @@ export default function HolidaysSection({
 
   return (
     <div className="space-[#1D1E26] space-y-6 animate-fadeIn font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white border border-slate-100/80 p-6 rounded-3xl shadow-xs">
+      {/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-[#1D1E26] tracking-tight flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-[#1D1E26]" />
-            Dam Olish Kunlari (Bayramlar)
-          </h2>
-          
+          <span className="text-xs text-slate-500 font-mono">
+            Jami: <strong className="text-[#1D1E26] font-extrabold">{holidays.length}</strong> ta dam olish kuni
+          </span>
         </div>
 
         {userInfo?.role === "ADMIN" && (
           <div className="flex items-center gap-2 shrink-0">
             <button
-              title="Excel orqali yuklash"
               onClick={() => {
                 setShowImportModal(true);
                 setImportFile(null);
                 setImportResult(null);
                 setImportError("");
               }}
-              className="w-9 h-9 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl shadow-xs flex items-center justify-center transition cursor-pointer"
+              className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4" />
+              <span>Excel orqali yuklash</span>
             </button>
             <button
-              title="Bayram kuni qo'shish"
               onClick={() => {
                 setSelectedDates([]);
                 setHolidayName("");
@@ -355,34 +363,35 @@ export default function HolidaysSection({
                 setCalMonth(new Date().getMonth());
                 setShowAddModal(true);
               }}
-              className="w-9 h-9 bg-[#D4F562] text-[#1D1E26] rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer flex items-center justify-center"
+              className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
+              <span>Yangi Dam Olish Kuni</span>
             </button>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-none">
           {error}
         </div>
       )}
 
       {/* List Table */}
-      <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+      <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-4">
         {loading ? (
           <div className="text-center py-12">
             <div className="w-7 h-7 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
           </div>
         ) : holidays.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+          <div className="text-center py-12 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
             <p className="text-slate-400 text-xs font-medium">Hozircha dam olish kunlari belgilanmagan.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+          <div className="overflow-x-auto rounded-none border border-slate-100">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+              <thead className="bg-[#1D1E26] text-[#D4F562] text-[10px] font-mono uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-4">Sana</th>
                   <th className="px-6 py-4">Bayram / Sabab</th>
@@ -402,15 +411,15 @@ export default function HolidaysSection({
                       <td className="px-6 py-4 font-bold text-slate-900">{h.name}</td>
                       <td className="px-6 py-4">
                         {!hasLevels && !hasClasses ? (
-                          <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                          <span className="bg-slate-100 text-[#1D1E26] font-extrabold font-mono text-[11px] px-2.5 py-1 rounded-none">
                             Butun maktab uchun
                           </span>
                         ) : hasLevels ? (
-                          <span className="bg-blue-50 text-blue-700 font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                          <span className="bg-slate-100 text-[#1D1E26] font-extrabold font-mono text-[11px] px-2.5 py-1 rounded-none border border-slate-200">
                             Levellar: {h.target_levels?.join(", ")}-sinflar
                           </span>
                         ) : (
-                          <span className="bg-purple-50 text-purple-700 font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                          <span className="bg-slate-100 text-[#1D1E26] font-extrabold font-mono text-[11px] px-2.5 py-1 rounded-none border border-slate-200">
                             Sinflar: {classes.filter((c) => typeof c.id === "number" && h.target_classes?.includes(c.id)).map((c) => c.name).join(", ")}
                           </span>
                         )}
@@ -421,7 +430,7 @@ export default function HolidaysSection({
                             onClick={() => handleDeleteHoliday(h.id)}
                             disabled={deletingId === h.id}
                             title="O'chirish"
-                            className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
+                            className="p-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-none transition cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -442,7 +451,7 @@ export default function HolidaysSection({
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-lg max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+          <div className="w-full max-w-lg max-h-[90vh] bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Yangi Dam Olish Kuni Belgilash</h3>
@@ -453,7 +462,7 @@ export default function HolidaysSection({
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -461,7 +470,7 @@ export default function HolidaysSection({
 
             <div className="flex-1 overflow-y-auto pt-4 space-y-4">
               {actionError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-none">
                   {actionError}
                 </div>
               )}
@@ -472,23 +481,23 @@ export default function HolidaysSection({
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">
                     Sanalarni tanlang *
                     {selectedDates.length > 0 && (
-                      <span className="ml-2 normal-case text-[#1D1E26] bg-[#D4F562] px-2 py-0.5 rounded-lg">
+                      <span className="ml-2 normal-case text-[#1D1E26] bg-[#D4F562] px-2 py-0.5 rounded-none font-bold">
                         {selectedDates.length} kun belgilandi
                       </span>
                     )}
                   </label>
 
                   <div
-                    className="select-none border border-slate-200 rounded-2xl overflow-hidden bg-white"
+                    className="select-none border border-slate-200 rounded-none overflow-hidden bg-white"
                     onMouseLeave={handleMouseUp}
                     onMouseUp={handleMouseUp}
                   >
                     <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-                      <button type="button" onClick={prevMonth} className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
+                      <button type="button" onClick={prevMonth} className="w-7 h-7 rounded-none hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <span className="text-sm font-black text-[#1D1E26]">{MONTH_NAMES[calMonth]} {calYear}</span>
-                      <button type="button" onClick={nextMonth} className="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
+                      <button type="button" onClick={nextMonth} className="w-7 h-7 rounded-none hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -507,11 +516,11 @@ export default function HolidaysSection({
                             key={dateStr}
                             onMouseDown={() => handleDayMouseDown(dateStr)}
                             onMouseEnter={() => handleDayMouseEnter(dateStr)}
-                            className={`h-8 w-full flex items-center justify-center rounded-xl text-xs font-bold transition cursor-pointer ${
+                            className={`h-8 w-full flex items-center justify-center rounded-none text-xs font-bold transition cursor-pointer ${
                               isSelected
-                                ? "bg-[#1D1E26] text-[#D4F562] ring-2 ring-[#D4F562]/50"
+                                ? "bg-[#1D1E26] text-[#D4F562] font-black"
                                 : isToday
-                                  ? "ring-2 ring-[#D4F562] text-[#1D1E26] bg-[#D4F562]/10"
+                                  ? "border border-[#1D1E26] text-[#1D1E26] font-bold"
                                   : isCurrentMonth
                                     ? "text-slate-700 hover:bg-slate-100"
                                     : "text-slate-300 hover:bg-slate-50"
@@ -525,13 +534,13 @@ export default function HolidaysSection({
 
                     {selectedDates.length > 0 && (
                       <div className="px-3 pb-3">
-                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-none border border-slate-100">
                           {[...selectedDates].sort().map((d) => (
                             <button
                               key={d}
                               type="button"
                               onClick={() => toggleDate(d)}
-                              className="flex items-center gap-1 bg-[#D4F562] text-[#1D1E26] text-[10px] font-extrabold px-2 py-1 rounded-lg hover:bg-red-100 hover:text-red-600 transition cursor-pointer"
+                              className="flex items-center gap-1 bg-[#1D1E26] text-[#D4F562] text-[10px] font-extrabold px-2 py-1 rounded-none hover:bg-red-600 hover:text-white transition cursor-pointer"
                             >
                               {d}
                               <X className="w-2.5 h-2.5" />
@@ -552,7 +561,7 @@ export default function HolidaysSection({
                     placeholder="Mustaqillik kuni"
                     value={holidayName}
                     onChange={(e) => setHolidayName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] font-bold"
                   />
                 </div>
 
@@ -565,7 +574,7 @@ export default function HolidaysSection({
                         key={type}
                         type="button"
                         onClick={() => setTargetType(type)}
-                        className={`p-3 rounded-2xl border text-xs font-bold transition text-center cursor-pointer ${
+                        className={`p-3 rounded-none border text-xs font-bold transition text-center cursor-pointer ${
                           targetType === type
                             ? "bg-[#D4F562] border-lime-300 text-[#1D1E26] shadow-xs"
                             : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -578,7 +587,7 @@ export default function HolidaysSection({
                 </div>
 
                 {targetType === "levels" && (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-none">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Levellarni tanlang</label>
                     <div className="grid grid-cols-4 gap-2">
                       {(availableLevels.length > 0 ? availableLevels : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).map((lvl) => (
@@ -586,7 +595,7 @@ export default function HolidaysSection({
                           key={lvl}
                           type="button"
                           onClick={() => toggleLevel(lvl)}
-                          className={`p-2 rounded-xl text-xs font-extrabold border transition cursor-pointer ${
+                          className={`p-2 rounded-none text-xs font-extrabold border transition cursor-pointer ${
                             selectedLevels.includes(lvl)
                               ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]"
                               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -600,7 +609,7 @@ export default function HolidaysSection({
                 )}
 
                 {targetType === "classes" && (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-none">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-2">Sinflarni tanlang</label>
                     <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
                       {classes.map((cls) => (
@@ -608,7 +617,7 @@ export default function HolidaysSection({
                           key={cls.id}
                           type="button"
                           onClick={() => toggleClass(cls.id)}
-                          className={`p-2 rounded-xl text-xs font-extrabold border transition cursor-pointer truncate ${
+                          className={`p-2 rounded-none text-xs font-extrabold border transition cursor-pointer truncate ${
                             selectedClasses.includes(cls.id)
                               ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]"
                               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -625,14 +634,14 @@ export default function HolidaysSection({
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer disabled:opacity-50"
                   >
                     {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                   </button>
@@ -646,27 +655,25 @@ export default function HolidaysSection({
       {/* Modal: Conflict Confirmation */}
       {conflictData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-rose-100 space-y-4">
+          <div className="bg-white rounded-none p-6 max-w-md w-full shadow-2xl border border-rose-100 space-y-4">
             <div className="flex items-center space-x-3 text-rose-600">
-              <div className="p-3 bg-rose-100 rounded-2xl">
-                <AlertTriangle className="w-6 h-6 text-rose-600" />
-              </div>
+              <div className="w-10 h-10 rounded-none bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0"><AlertTriangle className="w-5 h-5 text-rose-600" /></div>
               <h3 className="text-base font-extrabold text-slate-900">Mavjud Baholar Topildi</h3>
             </div>
             
-            <p className="text-xs text-slate-600 font-medium leading-relaxed bg-rose-50/70 p-4 rounded-2xl border border-rose-100">
+            <p className="text-xs text-slate-600 font-medium leading-relaxed bg-rose-50/70 p-4 rounded-none border border-rose-100">
               {conflictData.error}
             </p>
 
-            <div className="p-3 bg-slate-50 rounded-2xl text-[11px] text-slate-500 font-mono">
-              ⚡ Ushbu dam olish kuni tasdiqlansa, tanlangan sanadagi {conflictData.grade_count} ta baho arxivlanadi va dam olish kuni belgilanadi.
+            <div className="p-3 bg-slate-50 rounded-none text-[11px] text-slate-500 font-mono">
+              Ushbu dam olish kuni tasdiqlansa, tanlangan sanadagi {conflictData.grade_count} ta baho arxivlanadi va dam olish kuni belgilanadi.
             </div>
 
             <div className="flex items-center justify-end space-x-2 pt-2">
               <button
                 type="button"
                 onClick={() => setConflictData(null)}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] text-xs font-extrabold rounded-none transition cursor-pointer"
               >
                 Bekor qilish
               </button>
@@ -674,7 +681,7 @@ export default function HolidaysSection({
                 type="button"
                 disabled={actionLoading}
                 onClick={() => handleSaveHoliday(undefined, true)}
-                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50"
+                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-none transition cursor-pointer shadow-xs disabled:opacity-50"
               >
                 {actionLoading ? "Saqlanmoqda..." : "Baholarni arxivlash va Saqlash"}
               </button>
@@ -696,7 +703,7 @@ export default function HolidaysSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26] flex items-center gap-2">
@@ -715,7 +722,7 @@ export default function HolidaysSection({
                   setImportResult(null);
                   setImportError("");
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -724,14 +731,14 @@ export default function HolidaysSection({
             <button
               type="button"
               onClick={handleDownloadTemplate}
-              className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold py-3 rounded-2xl transition cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[#1D1E26] text-xs font-extrabold py-3 rounded-none transition cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Excel shablonini yuklab olish
             </button>
 
             {importError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl flex items-center gap-2">
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-none flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {importError}
               </div>
@@ -739,7 +746,7 @@ export default function HolidaysSection({
 
             {importResult ? (
               <>
-                <div className={`p-4 rounded-2xl border text-xs font-semibold space-y-2 ${importResult.imported_count > 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+                <div className={`p-4 rounded-none border text-xs font-semibold space-y-2 ${importResult.imported_count > 0 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span>{importResult.imported_count} ta bayram muvaffaqiyatli yuklandi</span>
@@ -764,7 +771,7 @@ export default function HolidaysSection({
                       setImportResult(null);
                       setImportError("");
                     }}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-none shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     Yopish
                   </button>
@@ -777,8 +784,8 @@ export default function HolidaysSection({
                     Excel fayl tanlang (.xlsx)
                   </label>
                   <div
-                    className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition ${
-                      importFile ? "border-[#D4F562] bg-[#D4F562]/5" : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                    className={`relative border-2 border-dashed rounded-none p-6 text-center transition ${
+                      importFile ? "border-[#1D1E26] bg-slate-50" : "border-slate-200 bg-slate-50 hover:border-slate-300"
                     }`}
                   >
                     <input
@@ -800,14 +807,14 @@ export default function HolidaysSection({
                   <button
                     type="button"
                     onClick={() => { setShowImportModal(false); setImportFile(null); setImportError(""); }}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={!importFile || importLoading}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer disabled:opacity-50"
                   >
                     {importLoading ? "Yuklanmoqda..." : "Yuklash"}
                   </button>
@@ -820,6 +827,7 @@ export default function HolidaysSection({
 
       {/* Custom Dialog Modal */}
       <CustomDialogModal
+        theme="admin"
         isOpen={dialogState.isOpen}
         type={dialogState.type}
         title={dialogState.title}

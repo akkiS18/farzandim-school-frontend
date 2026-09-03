@@ -75,25 +75,23 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-black text-[#1D1E26]">Sozlamalar</h2>
-      </div>
+      
 
-      <div className="bg-white rounded-[24px] p-6 sm:p-8 shadow-sm border border-slate-200/60">
+      <div className="bg-white rounded-none p-6 sm:p-8 shadow-xs border border-slate-200 space-y-6">
         <h3 className="text-lg font-bold text-[#1D1E26] mb-2">Profil parolini o'zgartirish</h3>
         <p className="text-sm text-slate-500 mb-8 max-w-prose">
           Xavfsizlik maqsadida eski parolingizni kiritib, yangi parol o'rnating. Parolingiz kamida 6 ta belgidan iborat bo'lishi tavsiya etiladi.
         </p>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-4 rounded-2xl mb-6 font-medium flex items-center space-x-3">
+          <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-none mb-6 font-semibold flex items-center space-x-3">
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <span>{error}</span>
           </div>
         )}
         
         {success && (
-          <div className="bg-[#ECFCCA] border border-lime-200 text-[#65A30D] text-sm p-4 rounded-2xl mb-6 font-bold flex items-center space-x-3">
+          <div className="bg-slate-100 border border-slate-200 text-[#1D1E26] text-xs p-3.5 rounded-none mb-6 font-extrabold flex items-center space-x-3">
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <span>{success}</span>
           </div>
@@ -108,7 +106,7 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
               placeholder="••••••••"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#D4F562] focus:bg-white transition-all min-h-[44px]"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[#1D1E26] focus:bg-white transition"
             />
           </div>
 
@@ -120,7 +118,7 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
               placeholder="••••••••"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#D4F562] focus:bg-white transition-all min-h-[44px]"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[#1D1E26] focus:bg-white transition"
             />
           </div>
 
@@ -132,7 +130,7 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#D4F562] focus:bg-white transition-all min-h-[44px]"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[#1D1E26] focus:bg-white transition"
             />
           </div>
 
@@ -140,7 +138,7 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
             <button
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto min-h-[44px] text-sm bg-[#D4F562] hover:bg-[#c2e44f] text-[#1D1E26] font-bold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-6 rounded-none transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Yangilanmoqda..." : "Parolni Yangilash"}
             </button>
@@ -148,7 +146,7 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
         </form>
       </div>
 
-      <div className="bg-red-50/50 rounded-[24px] p-6 sm:p-8 border border-red-100">
+      <div className="bg-white rounded-none p-6 sm:p-8 shadow-xs border border-red-200 space-y-4">
         <h3 className="text-lg font-bold text-red-700 mb-2">Tizimdan chiqish</h3>
         <p className="text-sm text-red-600/80 mb-6 max-w-prose">
           Qurilmangizdagi sessiyani yakunlash va akkauntdan chiqish. Keyingi safar kirish uchun profilingiz parolini kiritishingiz kerak bo'ladi.
@@ -156,13 +154,14 @@ export default function SettingsSection({ token, API_URL }: SettingsSectionProps
         
         <button
           onClick={() => setShowLogoutModal(true)}
-          className="min-h-[44px] text-sm bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer"
+          className="text-xs bg-red-600 hover:bg-red-700 text-white font-extrabold py-2.5 px-6 rounded-none transition cursor-pointer"
         >
           Tizimdan chiqish
         </button>
       </div>
 
       <CustomDialogModal
+        theme="admin"
         isOpen={showLogoutModal}
         type="danger"
         title="Tizimdan chiqish"

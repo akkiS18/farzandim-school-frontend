@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
+import { Plus, X } from "lucide-react";
 import { GradingSystem } from "./types";
 
 interface GradingSystemsSectionProps {
@@ -157,39 +158,44 @@ export default function GradingSystemsSection({
 
   return (
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          
+          <span className="text-xs text-slate-500 font-mono">
+            Jami: <strong className="text-[#1D1E26] font-extrabold">{gradingSystems.length}</strong> ta tizim
+          </span>
         </div>
+
         <button
           onClick={() => setShowAddGSModal(true)}
-          className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+          className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 flex items-center gap-1.5 transition cursor-pointer"
         >
-          + Yangi Tizim
+          <Plus className="w-4 h-4" />
+          Yangi Tizim
         </button>
       </div>
 
       {activeGS && (
-        <div className="bg-[#ECFCCA]/50 border border-lime-200 rounded-3xl p-6 shadow-xs flex items-center justify-between">
+        <div className="bg-white border border-[#1D1E26] p-5 sm:p-6 flex items-center justify-between">
           <div>
-            <span className="text-[10px] bg-[#ECFCCA] text-[#65A30D] px-3 py-1 rounded-full font-black uppercase font-mono tracking-wider">
+            <span className="text-[10px] bg-[#1D1E26] text-[#D4F562] px-2.5 py-1 font-extrabold uppercase font-mono tracking-wider">
               Faol Baholash Tizimi
             </span>
-            <h2 className="text-xl font-black text-[#1D1E26] mt-3">{activeGS.name}</h2>
+            <h2 className="text-xl font-extrabold text-[#1D1E26] mt-3">{activeGS.name}</h2>
             <p className="text-xs text-slate-500 font-medium mt-1">
               Turi: <strong className="text-[#1D1E26]">{activeGS.type}</strong>
               {activeGS.type === "NUMERIC" && ` (Diapazon: ${activeGS.min_value} - ${activeGS.max_value})`}
               {activeGS.type === "PERCENTAGE" && ` (Diapazon: ${activeGS.min_value}% - ${activeGS.max_value}%)`}
             </p>
           </div>
-          <div className="w-14 h-14 bg-white border border-lime-200 rounded-2xl flex items-center justify-center text-[#65A30D] font-black text-xl font-mono shadow-xs">
+          <div className="w-14 h-14 bg-slate-50 border border-slate-200 flex items-center justify-center text-[#1D1E26] font-black text-xl font-mono">
             {activeGS.type === "NUMERIC" ? activeGS.max_value : activeGS.type === "PERCENTAGE" ? "%" : "A"}
           </div>
         </div>
       )}
 
       {gradingSystems.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+        <div className="text-center py-20 border border-dashed border-slate-200 bg-white">
           <p className="text-slate-400 text-xs font-medium">Baholash tizimlari topilmadi.</p>
         </div>
       ) : (
@@ -197,18 +203,18 @@ export default function GradingSystemsSection({
           {gradingSystems.map((gs) => (
             <div
               key={gs.id}
-              className={`bg-white border rounded-3xl p-6 shadow-xs flex flex-col justify-between h-48 transition duration-200 ${
+              className={`bg-white border p-6 flex flex-col justify-between h-48 transition duration-200 ${
                 gs.is_active
-                  ? "border-lime-300 ring-2 ring-[#D4F562]/30"
-                  : "border-slate-100/80 hover:shadow-md"
+                  ? "border-[#1D1E26]"
+                  : "border-slate-200 hover:border-slate-400"
               }`}
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-black text-[#1D1E26]">{gs.name}</span>
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-black font-mono uppercase tracking-wider ${
+                  <span className="text-base font-extrabold text-[#1D1E26]">{gs.name}</span>
+                  <span className={`px-2.5 py-1 text-[10px] font-extrabold font-mono uppercase tracking-wider ${
                     gs.is_active
-                      ? "bg-[#ECFCCA] text-[#65A30D]"
+                      ? "bg-[#1D1E26] text-[#D4F562]"
                       : "bg-slate-100 text-slate-500"
                   }`}>
                     {gs.is_active ? "Faol" : "Nofaol"}
@@ -232,7 +238,7 @@ export default function GradingSystemsSection({
                   <div className="text-xs text-slate-400 mt-1 flex flex-wrap gap-1 items-center font-medium">
                     <span>Variantlar:</span>
                     {gs.options.map((opt: any, index: number) => (
-                      <span key={index} className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-700 font-mono text-[10px] font-bold">
+                      <span key={index} className="bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 font-mono text-[10px] font-bold">
                         {opt.label} ({opt.numeric_value} ball)
                       </span>
                     ))}
@@ -245,7 +251,7 @@ export default function GradingSystemsSection({
                   <button
                     onClick={() => handleActivateGS(gs.id)}
                     disabled={actionLoading}
-                    className="bg-[#1D1E26] text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
+                    className="bg-[#1D1E26] text-[#D4F562] font-extrabold text-xs py-2 px-4 hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
                   >
                     Faollashtirish
                   </button>
@@ -254,7 +260,7 @@ export default function GradingSystemsSection({
                   <button
                     onClick={() => handleDeleteGS(gs.id)}
                     disabled={actionLoading}
-                    className="bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold text-xs py-2 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
+                    className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-extrabold text-xs py-2 px-4 transition cursor-pointer disabled:opacity-50"
                   >
                     O'chirish
                   </button>
@@ -277,10 +283,10 @@ export default function GradingSystemsSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-200 p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-[#1D1E26]">Yangi Baholash Tizimi Yaratish</h3>
+                <h3 className="text-base font-extrabold text-[#1D1E26]">Yangi Baholash Tizimi Yaratish</h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Tizim turini va qiymatlarini belgilang.</p>
               </div>
               <button
@@ -290,14 +296,14 @@ export default function GradingSystemsSection({
                   setGsNameInput("");
                   setActionError("");
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {actionError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">{actionError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 font-medium">{actionError}</div>
             )}
 
             <form onSubmit={handleCreateGS} className="space-y-4">
@@ -309,7 +315,7 @@ export default function GradingSystemsSection({
                   placeholder="Masalan: 5 ballik baholash"
                   value={gsNameInput}
                   onChange={(e) => setGsNameInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-bold"
                 />
               </div>
 
@@ -318,7 +324,7 @@ export default function GradingSystemsSection({
                 <select
                   value={gsTypeInput}
                   onChange={(e) => setGsTypeInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition cursor-pointer font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition cursor-pointer font-bold"
                 >
                   <option value="NUMERIC">Numeric (Raqamli)</option>
                   <option value="PERCENTAGE">Percentage (Foizli)</option>
@@ -335,7 +341,7 @@ export default function GradingSystemsSection({
                       required
                       value={gsMinInput}
                       onChange={(e) => setGsMinInput(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-bold"
                     />
                   </div>
                   <div>
@@ -345,7 +351,7 @@ export default function GradingSystemsSection({
                       required
                       value={gsMaxInput}
                       onChange={(e) => setGsMaxInput(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-bold"
                     />
                   </div>
                 </div>
@@ -360,7 +366,7 @@ export default function GradingSystemsSection({
                     value={gsOptionsInput}
                     onChange={(e) => setGsOptionsInput(e.target.value)}
                     rows={4}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold"
                   />
                   <span className="text-[10px] text-slate-400 block mt-1 font-medium">Har bir variant JSON formatida "label" va ixtiyoriy "numeric_value" maydonlaridan iborat bo'lishi kerak.</span>
                 </div>
@@ -375,14 +381,14 @@ export default function GradingSystemsSection({
                     setGsOptionsInput("");
                     setActionError("");
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Yaratilmoqda..." : "Yaratish"}
                 </button>
@@ -396,6 +402,7 @@ export default function GradingSystemsSection({
       <CustomDialogModal
         isOpen={dialogState.isOpen}
         type={dialogState.type}
+        theme="admin"
         title={dialogState.title}
         message={dialogState.message}
         confirmText={dialogState.confirmText}

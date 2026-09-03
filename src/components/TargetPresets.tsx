@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bookmark, Trash2, Check, FolderPlus, Loader2, Users } from "lucide-react";
+import { Bookmark, Trash2, Check, FolderPlus, Loader2, Users, X } from "lucide-react";
 import CustomDialogModal from "./CustomDialogModal";
 
 export interface TargetPresetItem {
@@ -25,7 +25,7 @@ export interface TargetPresetsProps {
   apiUrl?: string;
   label?: string;
   className?: string;
-  theme?: "slate" | "indigo" | "lime";
+  theme?: "slate" | "indigo" | "lime" | "admin";
 }
 
 const safeFetchHeaders = (explicitToken?: string) => {
@@ -265,11 +265,21 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
       inputFocus: "focus:ring-2 focus:ring-lime-500",
       saveBtn: "bg-lime-600 hover:bg-lime-700 text-white shadow-xs",
     },
+    admin: {
+      cardBg: "bg-slate-50 border-slate-200",
+      inputFocus: "focus:ring-2 focus:ring-[#1D1E26]",
+      saveBtn: "bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562]",
+    },
   }[theme];
+
+  const r2xl = theme === "admin" ? "rounded-none" : "${r2xl}";
+  const rxl = theme === "admin" ? "rounded-none" : "${rxl}";
+  const rlg = theme === "admin" ? "rounded-none" : "${rlg}";
+  const rfull = theme === "admin" ? "rounded-none" : "${rfull}";
 
   return (
     <div className={`space-y-3 ${className}`}>
-      <div className={`p-3.5 rounded-2xl border transition-all ${themeStyles.cardBg}`}>
+      <div className={`p-3.5 ${r2xl} border transition-all ${themeStyles.cardBg}`}>
         <div className="flex items-center justify-between gap-2.5 mb-2">
           <label className="text-xs font-black text-slate-700 flex items-center gap-1.5 tracking-tight select-none">
             <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
@@ -279,7 +289,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
 
           {feedbackMsg && (
             <div
-              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center justify-between gap-2 animate-fadeIn ${
+              className={`text-[11px] font-bold px-2.5 py-1 ${rlg} flex items-center justify-between gap-2 animate-fadeIn ${
                 feedbackMsg.type === "success" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-red-100 text-red-800 border border-red-200"
               }`}
             >
@@ -293,7 +303,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
                 }}
                 className="text-slate-400 hover:text-slate-700 font-black cursor-pointer text-xs"
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -305,7 +315,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
             <select
               value={selectedPresetId}
               onChange={(e) => handleSelectPreset(e.target.value)}
-              className={`w-full bg-white border border-slate-200 text-slate-800 rounded-xl pl-3.5 pr-9 py-2 text-xs outline-none ${themeStyles.inputFocus} font-extrabold cursor-pointer transition shadow-2xs`}
+              className={`w-full bg-white border border-slate-200 text-slate-800 ${rxl} pl-3.5 pr-9 py-2 text-xs outline-none ${themeStyles.inputFocus} font-extrabold cursor-pointer transition shadow-2xs`}
             >
               <option value="">
                 {presets.length === 0
@@ -347,7 +357,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
               setPresetNameInput("");
               setShowSaveModal(true);
             }}
-            className={`w-10 h-[38px] flex items-center justify-center rounded-xl transition cursor-pointer shrink-0 ${themeStyles.saveBtn}`}
+            className={`w-10 h-[38px] flex items-center justify-center ${rxl} transition cursor-pointer shrink-0 ${themeStyles.saveBtn}`}
             title="Ushbu o'quvchilar to'plamini saqlash"
           >
             <Bookmark className="w-4 h-4" />
@@ -370,9 +380,9 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
                     onClassesChange(p.target_classes || []);
                     onStudentsChange(p.target_students || []);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer border select-none ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${rlg} text-[11px] font-bold transition cursor-pointer border select-none ${
                     isSelected
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                      ? (theme === "admin" ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]" : "bg-indigo-600 text-white border-indigo-600 shadow-xs")
                       : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
                   }`}
                 >
@@ -407,7 +417,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-5 shadow-2xl space-y-4 text-slate-900 font-sans"
+            className="w-full max-w-md bg-white border border-slate-200 ${r2xl} p-5 shadow-2xl space-y-4 text-slate-900 font-sans"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
@@ -421,14 +431,14 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
                   e.stopPropagation();
                   setShowSaveModal(false);
                 }}
-                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer"
+                className={`w-7 h-7 ${rfull} bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer`}
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs space-y-1">
+              <div className="bg-slate-50 p-3 ${rxl} border border-slate-200/80 text-xs space-y-1">
                 <div className="text-slate-500 font-semibold">Tanlangan targetlar statistikasi:</div>
                 <div className="font-extrabold text-indigo-600 space-y-0.5">
                   {selectedLevels.length > 0 || selectedClasses.length > 0 || selectedStudents.length > 0 ? (
@@ -460,7 +470,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
                   }}
                   placeholder="Masalan: Boshlang'ich sinflar (1-4) yoki Bitiruvchilar"
                   autoFocus
-                  className="w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-extrabold"
+                  className="w-full bg-white border border-slate-300 text-slate-800 ${rxl} px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-extrabold"
                 />
               </div>
 
@@ -472,7 +482,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
                     e.stopPropagation();
                     setShowSaveModal(false);
                   }}
-                  className="px-4 py-2 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 ${rxl} transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
@@ -480,7 +490,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
                   type="button"
                   onClick={(e) => handleSavePreset(e)}
                   disabled={saving || !presetNameInput.trim()}
-                  className="px-4 py-2 text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                  className={`px-4 py-2 text-xs font-black ${theme === "admin" ? "bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800" : "bg-indigo-600 text-white hover:bg-indigo-700"} ${rxl} transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs`}
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   {saving ? "Saqlanmoqda..." : "Saqlash"}
@@ -493,6 +503,7 @@ export const TargetPresets: React.FC<TargetPresetsProps> = ({
       )}
 
       <CustomDialogModal
+        theme={theme === "admin" ? "admin" : undefined}
         isOpen={!!confirmDialog?.isOpen}
         type="danger"
         title="To'plamni o'chirish"

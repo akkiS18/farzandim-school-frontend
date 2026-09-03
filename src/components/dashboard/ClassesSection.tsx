@@ -46,7 +46,7 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
           setSearch("");
           setIsOpen(!isOpen);
         }}
-        className={`w-full py-1.5 px-2 rounded-xl text-xs font-bold border transition cursor-pointer flex items-center justify-between gap-1 shadow-2xs ${
+        className={`w-full py-1.5 px-2  text-xs font-bold border transition cursor-pointer flex items-center justify-between gap-1 shadow-2xs ${
           value > 0
             ? "bg-[#ECFCCA] border-lime-300 text-[#1D1E26]"
             : "bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-100/80"
@@ -57,13 +57,13 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-2 min-w-[150px] max-h-56 flex flex-col space-y-1.5 animate-fadeIn">
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200  shadow-xl p-2 min-w-[150px] max-h-56 flex flex-col space-y-1.5 animate-fadeIn">
           <input
             type="text"
             placeholder="Qidirish..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#D4F562] font-semibold"
+            className="w-full bg-slate-50 border border-slate-200  px-2.5 py-1 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-[#D4F562] font-semibold"
             autoFocus
           />
           <div className="flex-1 overflow-y-auto space-y-0.5 max-h-40 pr-0.5 custom-scrollbar">
@@ -73,7 +73,7 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
                 onChange(0);
                 setIsOpen(false);
               }}
-              className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition ${
+              className={`w-full text-left px-2.5 py-1  text-xs font-semibold cursor-pointer transition ${
                 value === 0 ? "bg-slate-100 font-extrabold text-slate-900" : "hover:bg-slate-50 text-slate-500"
               }`}
             >
@@ -90,7 +90,7 @@ const SearchableSingleSelect: React.FC<SearchableSingleSelectProps> = ({
                     onChange(opt.id);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition truncate ${
+                  className={`w-full text-left px-2.5 py-1  text-xs font-semibold cursor-pointer transition truncate ${
                     value === opt.id
                       ? "bg-[#D4F562] font-black text-[#1D1E26]"
                       : "hover:bg-slate-50 text-slate-700"
@@ -1227,43 +1227,48 @@ export default function ClassesSection({
     <>
       {!selectedClass ? (
         // 1A. Class list grid
-        <div className="space-y-6 font-sans text-[#1D1E26]">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="space-y-4 font-sans text-[#1D1E26]">
+          {/* ── Unified Header ── */}
+          <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Left: Title + Search */}
+            <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
+              
+              {/* Search */}
+              <div className="relative flex-1 max-w-sm">
+                <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Sinf nomini qidirish..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-[#1D1E26] pl-9 pr-4 py-2 text-xs outline-none transition font-medium rounded-none"
+                />
+              </div>
             </div>
-            {userInfo?.role === "ADMIN" && (
-              <button
-                onClick={() => setShowAddClassModal(true)}
-                className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl hover:opacity-90 transition duration-200 shadow-md cursor-pointer whitespace-nowrap"
-              >
-                + Yangi Sinf
-              </button>
-            )}
-          </div>
 
-          {/* Search & Statistics bar */}
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-white border border-slate-100/80 p-4 rounded-3xl shadow-xs">
-            <div className="relative max-w-sm w-full">
-              <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                </svg>
+            {/* Right: Stats + Button */}
+            <div className="flex items-center gap-4 shrink-0">
+              <span className="text-xs text-slate-500 font-mono hidden sm:block">
+                Jami: <strong className="text-[#1D1E26] font-extrabold">{classes.length}</strong> sinf
               </span>
-              <input
-                type="text"
-                placeholder="Sinf nomini qidirish..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-[#D4F562] pl-9 pr-4 py-2 rounded-xl text-xs outline-none transition font-medium"
-              />
-            </div>
-            <div className="flex items-center space-x-6 text-xs text-slate-500 px-2 font-mono">
-              <span>Jami sinflar: <strong className="text-[#1D1E26] font-extrabold">{classes.length}</strong></span>
+              {userInfo?.role === "ADMIN" && (
+                <button
+                  onClick={() => setShowAddClassModal(true)}
+                  className="bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562] font-extrabold text-xs py-2.5 px-4 flex items-center gap-2 cursor-pointer shrink-0 transition rounded-none"
+                >
+                  <Plus className="w-4 h-4" />
+                  Yangi Sinf
+                </button>
+              )}
             </div>
           </div>
 
           {filteredClasses.length === 0 ? (
-            <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-white">
+            <div className="text-center py-20 border border-dashed border-slate-200 bg-white">
               <p className="text-slate-400 text-xs font-medium">
                 {searchQuery ? "Mos keluvchi sinflar topilmadi" : "Hozircha hech qanday sinf mavjud emas. Yuqoridan yangi sinf qo'shing."}
               </p>
@@ -1275,10 +1280,10 @@ export default function ClassesSection({
                 <div key={level} className="space-y-4">
                   {/* Level Group Heading */}
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#D4F562] text-[#1D1E26] flex items-center justify-center text-xs font-black shadow-xs shrink-0">
+                    <div className="w-8 h-8 bg-[#1D1E26] text-[#D4F562] flex items-center justify-center text-xs font-extrabold shrink-0">
                       {level || "?"}
                     </div>
-                    <h2 className="text-sm font-black text-[#1D1E26]">
+                    <h2 className="text-sm font-extrabold text-[#1D1E26]">
                       {level ? `${level}-sinf darajasi` : "Daraja belgilanmagan"}
                     </h2>
                     <div className="flex-1 h-px bg-slate-200/80" />
@@ -1286,7 +1291,7 @@ export default function ClassesSection({
                   </div>
 
                   {/* Cards Grid for this Level */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {classList.map((cls) => (
                       <div
                         key={cls.id}
@@ -1294,26 +1299,23 @@ export default function ClassesSection({
                           setSelectedClass(cls);
                           setClassDetailsTab("students");
                         }}
-                        className="bg-white border border-slate-100/80 hover:border-[#D4F562] rounded-3xl p-5 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between h-40 group"
+                        className="bg-white border border-slate-100/80 hover:border-[#1D1E26] p-5 cursor-pointer shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between h-36 group rounded-none"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-base font-black text-[#1D1E26] group-hover:text-[#65A30D] transition">
+                          <span className="text-sm font-extrabold text-[#1D1E26] group-hover:text-slate-700 transition">
                             {cls.name} sinfi
                           </span>
-                          <div className="flex items-center space-x-2">
-                            <span className="bg-[#ECFCCA] text-[#65A30D] text-[10px] font-mono font-bold tracking-wider px-2.5 py-1 rounded-xl">
-                              Lvl {cls.level ?? 0}
-                            </span>
-                            <span className="bg-slate-100 text-slate-600 text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-1 rounded-xl">
-                              ID: {cls.id}
+                          <div className="flex items-center gap-1.5">
+                            <span className="bg-slate-100 text-[#1D1E26] text-[10px] font-mono font-extrabold tracking-wider px-2 py-1">
+                              {cls.level ?? 0}-daraja
                             </span>
                           </div>
                         </div>
 
-                        <div className="text-xs text-slate-400 space-y-1">
-                          <p className="flex items-center font-medium">
-                            <svg className="w-3.5 h-3.5 text-slate-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+                        <div className="mt-auto">
+                          <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M9 5l7 7-7 7" />
                             </svg>
                             Boshqarish uchun ustiga bosing
                           </p>
@@ -1330,22 +1332,22 @@ export default function ClassesSection({
         // 1B. Contextual Class detail view
         <div className="space-y-6 select-none font-sans">
           {/* Class Details Header */}
-          <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white border border-slate-100/80 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSelectedClass(null)}
-                className="bg-slate-100 hover:bg-slate-200 text-[#1D1E26] p-2.5 rounded-2xl transition cursor-pointer font-extrabold shadow-xs"
-                title="Ortga qarata"
+                className="bg-slate-100 hover:bg-slate-200 text-[#1D1E26] p-2 transition cursor-pointer font-extrabold"
+                title="Ortga qayta"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-black text-[#1D1E26] tracking-tight flex items-center gap-2">
+                <h1 className="text-lg font-extrabold text-[#1D1E26] tracking-tight flex items-center gap-2">
                   {selectedClass.name} sinfi{" "}
-                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-[#ECFCCA] text-[#65A30D] align-middle font-mono">
-                    Level {selectedClass.level ?? 0}
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 bg-slate-100 text-[#1D1E26] align-middle font-mono">
+                    {selectedClass.level ?? 0}-daraja
                   </span>
                 </h1>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
@@ -1355,20 +1357,20 @@ export default function ClassesSection({
             </div>
 
             {userInfo?.role === "ADMIN" && (
-              <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     setEditClassName(selectedClass.name);
                     setEditClassLevel(selectedClass.level ?? 1);
                     setShowEditClassModal(true);
                   }}
-                  className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+                  className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 transition cursor-pointer"
                 >
                   Nomini o'zgartirish
                 </button>
                 <button
                   onClick={() => setShowDeleteClassModal(true)}
-                  className="bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+                  className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-extrabold text-xs py-2.5 px-4 transition cursor-pointer"
                 >
                   Sinfni o'chirish
                 </button>
@@ -1377,43 +1379,43 @@ export default function ClassesSection({
           </div>
 
           {/* Inside Tab Switcher */}
-          <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
+          <div className="flex items-center gap-0 border-b border-slate-200 text-xs font-extrabold bg-white">
             <button
               onClick={() => setClassDetailsTab("students")}
-              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+              className={`px-4 py-2.5 border-b-2 transition cursor-pointer ${
                 classDetailsTab === "students"
-                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "border-[#1D1E26] text-[#1D1E26]"
+                  : "border-transparent text-slate-500 hover:text-[#1D1E26] hover:bg-slate-50"
               }`}
             >
-              Sinf O'quvchilari ({classStudents.length})
+              O'quvchilar ({classStudents.length})
             </button>
             <button
               onClick={() => setClassDetailsTab("teachers")}
-              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+              className={`px-4 py-2.5 border-b-2 transition cursor-pointer ${
                 classDetailsTab === "teachers"
-                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "border-[#1D1E26] text-[#1D1E26]"
+                  : "border-transparent text-slate-500 hover:text-[#1D1E26] hover:bg-slate-50"
               }`}
             >
-              Biriktirilgan O'qituvchilar ({classTeachers.length})
+              O'qituvchilar ({classTeachers.length})
             </button>
             <button
               onClick={() => setClassDetailsTab("parents")}
-              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+              className={`px-4 py-2.5 border-b-2 transition cursor-pointer ${
                 classDetailsTab === "parents"
-                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "border-[#1D1E26] text-[#1D1E26]"
+                  : "border-transparent text-slate-500 hover:text-[#1D1E26] hover:bg-slate-50"
               }`}
             >
               Ota-onalar ({classParents.length})
             </button>
             <button
               onClick={() => setClassDetailsTab("schedule")}
-              className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+              className={`px-4 py-2.5 border-b-2 transition cursor-pointer ${
                 classDetailsTab === "schedule"
-                  ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "border-[#1D1E26] text-[#1D1E26]"
+                  : "border-transparent text-slate-500 hover:text-[#1D1E26] hover:bg-slate-50"
               }`}
             >
               Dars Jadvali
@@ -1422,7 +1424,7 @@ export default function ClassesSection({
 
           {/* Tab Content: Students */}
           {classDetailsTab === "students" && (
-            <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+            <div className="bg-white border border-slate-100/80 p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-[#1D1E26]">O'quvchilar ro'yxati</h3>
                 
@@ -1430,16 +1432,16 @@ export default function ClassesSection({
                   <button
                     type="button"
                     onClick={() => setShowTransferStudentsModal(true)}
-                    className="bg-[#ECFCCA] border border-indigo-200 text-[#65A30D] hover:bg-indigo-100 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                    className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold text-xs py-2.5 px-4 transition cursor-pointer flex items-center gap-1.5"
                   >
-                    <ArrowRightLeft className="w-4 h-4" />
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
                     <span>Sinfga Ko'chirish</span>
                   </button>
 
                   {userInfo?.role === "ADMIN" && (
                     <button
                       onClick={() => setShowImportStudentsModal(true)}
-                      className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+                      className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 transition cursor-pointer"
                     >
                       Excel orqali yuklash
                     </button>
@@ -1448,9 +1450,10 @@ export default function ClassesSection({
                   {isMainTeacherOfClass() && (
                     <button
                       onClick={() => setShowAddStudentModal(true)}
-                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                      className="bg-[#1D1E26] text-[#D4F562] font-extrabold text-xs py-2.5 px-4 transition cursor-pointer flex items-center gap-1.5"
                     >
-                      + O'quvchi qo'shish
+                      <Plus className="w-4 h-4" />
+                      O'quvchi qo'shish
                     </button>
                   )}
                 </div>
@@ -1461,12 +1464,12 @@ export default function ClassesSection({
                   <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : classStudents.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <div className="text-center py-12 border border-dashed border-slate-200  bg-slate-50/50">
                   <p className="text-slate-400 text-xs font-medium">Ushbu sinfda o'quvchilar mavjud emas.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100 relative">
+                <div className="space-y-3">
+                  <div className="overflow-x-auto border border-slate-100 relative">
                     <table className="w-full text-left border-collapse min-w-[950px]">
                       <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                         <tr>
@@ -1493,8 +1496,8 @@ export default function ClassesSection({
                                 {student.last_name} {student.first_name} {student.middle_name}
                               </td>
                               <td className="px-6 py-4 text-slate-600 font-mono font-bold whitespace-nowrap">
-                                <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-[11px]">
-                                  📅 {formatUzbekDate(student.enrollment_date || student.created_at)}
+                                <span className="bg-slate-100 text-slate-700 px-2.5 py-1 text-[11px]">
+                                  {formatUzbekDate(student.enrollment_date || student.created_at)}
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-slate-500">{student.address || "Kiritilmagan"}</td>
@@ -1515,7 +1518,7 @@ export default function ClassesSection({
                                     setShowParentsModal(true);
                                   }}
                                   title="Vasiylar"
-                                  className="p-2 bg-[#ECFCCA] hover:bg-indigo-100 text-[#65A30D] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] transition cursor-pointer inline-flex items-center justify-center"
                                 >
                                   <Users className="w-4 h-4" />
                                 </button>
@@ -1534,7 +1537,7 @@ export default function ClassesSection({
                                         setShowEditStudentModal(true);
                                       }}
                                       title="Tahrirlash"
-                                      className="p-2 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] transition cursor-pointer inline-flex items-center justify-center"
                                     >
                                       <Pencil className="w-4 h-4" />
                                     </button>
@@ -1544,7 +1547,7 @@ export default function ClassesSection({
                                         setShowDeleteStudentModal(true);
                                       }}
                                       title="O'chirish"
-                                      className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                      className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition cursor-pointer inline-flex items-center justify-center"
                                     >
                                       <Trash2 className="w-4 h-4" />
                                     </button>
@@ -1572,7 +1575,7 @@ export default function ClassesSection({
                             setClassStudentsPerPage(Number(e.target.value));
                             setClassStudentsPage(1);
                           }}
-                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 rounded-xl outline-none cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#D4F562] transition"
+                          className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-2 py-1 outline-none cursor-pointer hover:border-slate-300 transition"
                         >
                           <option value={10}>10 ta</option>
                           <option value={25}>25 ta</option>
@@ -1585,7 +1588,7 @@ export default function ClassesSection({
                         type="button"
                         disabled={classStudentsPage === 1}
                         onClick={() => setClassStudentsPage((prev) => Math.max(prev - 1, 1))}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                        className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
                       >
                         ← Oldingi
                       </button>
@@ -1593,7 +1596,7 @@ export default function ClassesSection({
                         type="button"
                         disabled={classStudentsPage >= Math.ceil(classStudents.length / classStudentsPerPage)}
                         onClick={() => setClassStudentsPage((prev) => Math.min(prev + 1, Math.ceil(classStudents.length / classStudentsPerPage)))}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
+                        className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent font-bold cursor-pointer transition text-xs"
                       >
                         Keyingi →
                       </button>
@@ -1606,22 +1609,23 @@ export default function ClassesSection({
 
           {/* Tab Content: Teachers */}
           {classDetailsTab === "teachers" && (
-            <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+            <div className="bg-white border border-slate-100/80 p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-[#1D1E26]">Sinf fan o&apos;qituvchilari</h3>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={handleOpenClassTeacherHistory}
-                    className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+                    className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold text-xs py-2.5 px-4 transition cursor-pointer"
                   >
-                    📜 Tarix
+                    Tarix
                   </button>
                   {userInfo?.role === "ADMIN" && (
                     <button
                       onClick={() => setShowAssignTeacherModal(true)}
-                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                      className="bg-[#1D1E26] text-[#D4F562] font-extrabold text-xs py-2.5 px-4 transition cursor-pointer flex items-center gap-1.5 hover:bg-slate-800"
                     >
-                      + O&apos;qituvchi biriktirish
+                      <Plus className="w-4 h-4" />
+                      O&apos;qituvchi biriktirish
                     </button>
                   )}
                 </div>
@@ -1632,11 +1636,11 @@ export default function ClassesSection({
                   <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : classTeachers.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <div className="text-center py-12 border border-dashed border-slate-200  bg-slate-50/50">
                   <p className="text-slate-400 text-xs font-medium">Ushbu sinfga hali o'qituvchilar biriktirilmagan.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                <div className="overflow-x-auto  border border-slate-100">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                       <tr>
@@ -1656,14 +1660,14 @@ export default function ClassesSection({
                             {ct.last_name} {ct.first_name} {ct.middle_name}
                           </td>
                           <td className="px-6 py-4">
-                            <span className="bg-[#E0F2FE] text-[#0284C7] font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg">
+                            <span className="bg-slate-100 text-[#1D1E26] font-mono text-[11px] font-extrabold px-2.5 py-1">
                               {ct.subject_name}
                             </span>
                           </td>
                           <td className="px-6 py-4 font-mono text-slate-500">{ct.phone}</td>
                           <td className="px-6 py-4">
                             {ct.is_main_teacher ? (
-                              <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                              <span className="bg-[#1D1E26] text-[#D4F562] font-extrabold text-[11px] px-2.5 py-1">
                                 Sinf Rahbari
                               </span>
                             ) : (
@@ -1683,7 +1687,7 @@ export default function ClassesSection({
                                     setShowEditClassTeacherModal(true);
                                   }}
                                   title="Tahrirlash"
-                                  className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] transition cursor-pointer inline-flex items-center justify-center"
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
@@ -1693,7 +1697,7 @@ export default function ClassesSection({
                                     setShowUnassignTeacherModal(true);
                                   }}
                                   title="Ajratish"
-                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                  className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition cursor-pointer inline-flex items-center justify-center"
                                 >
                                   <UserMinus className="w-4 h-4" />
                                 </button>
@@ -1711,14 +1715,14 @@ export default function ClassesSection({
 
           {/* Tab Content: Parents */}
           {classDetailsTab === "parents" && (
-            <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-5">
+            <div className="bg-white border border-slate-100/80 p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-[#1D1E26]">Sinf ota-onalari</h3>
                 <div className="flex items-center space-x-3">
                   {userInfo?.role === "ADMIN" && (
                     <button
                       onClick={() => setShowImportParentsModal(true)}
-                      className="bg-[#1D1E26] text-white hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer"
+                      className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 transition cursor-pointer"
                     >
                       Excel orqali yuklash
                     </button>
@@ -1735,9 +1739,10 @@ export default function ClassesSection({
                         setParentPassword("password123");
                         setShowAddParentModal(true);
                       }}
-                      className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                      className="bg-[#1D1E26] text-[#D4F562] font-extrabold text-xs py-2.5 px-4 transition cursor-pointer flex items-center gap-1.5 hover:bg-slate-800"
                     >
-                      + Ota-ona qo'shish
+                      <Plus className="w-4 h-4" />
+                      Ota-ona qo'shish
                     </button>
                   )}
                 </div>
@@ -1748,11 +1753,11 @@ export default function ClassesSection({
                   <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
               ) : classParents.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <div className="text-center py-12 border border-dashed border-slate-200  bg-slate-50/50">
                   <p className="text-slate-400 text-xs font-medium">Ushbu sinf o'quvchilariga vasiylar biriktirilmagan.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                <div className="overflow-x-auto  border border-slate-100">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                       <tr>
@@ -1789,7 +1794,7 @@ export default function ClassesSection({
                                     setShowEditParentModal(true);
                                   }}
                                   title="Tahrirlash"
-                                  className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                  className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-600  transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
@@ -1800,7 +1805,7 @@ export default function ClassesSection({
                                     setShowUnlinkParentModal(true);
                                   }}
                                   title="Ajratish"
-                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                  className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600  transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                                 >
                                   <UserMinus className="w-4 h-4" />
                                 </button>
@@ -1820,7 +1825,7 @@ export default function ClassesSection({
           {/* Tab Content: Schedule */}
           {classDetailsTab === "schedule" && (
             <div className="space-y-6">
-              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+              <div className="bg-white border border-slate-100/80  p-6 shadow-xs space-y-6">
                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-slate-100 pb-4">
                   <div>
                     <h3 className="text-base font-black text-[#1D1E26]">Haftalik dars jadvali</h3>
@@ -1830,7 +1835,7 @@ export default function ClassesSection({
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Compact Quarter Dropdown */}
                     {schedulePresets.length > 0 && (
-                      <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                      <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200  px-3 py-2">
                         <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono">Chorak:</span>
                         <select
                           value={selectedPresetId}
@@ -1875,7 +1880,7 @@ export default function ClassesSection({
                             setShowEditScheduleModal(true);
                           }}
                           title="Yangi dars jadvali qo'shish"
-                          className="w-9 h-9 bg-[#D4F562] text-[#1D1E26] hover:opacity-90 rounded-xl shadow-2xs transition cursor-pointer flex items-center justify-center font-black shrink-0"
+                          className="w-9 h-9 bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 transition cursor-pointer flex items-center justify-center font-extrabold shrink-0"
                         >
                           <Plus className="w-5 h-5 stroke-[2.5]" />
                         </button>
@@ -1903,7 +1908,7 @@ export default function ClassesSection({
                             setShowEditScheduleModal(true);
                           }}
                           title="Jadvalni tahrirlash"
-                          className="w-9 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80 rounded-xl shadow-2xs transition cursor-pointer flex items-center justify-center shrink-0"
+                          className="w-9 h-9 bg-slate-100 hover:bg-slate-200 text-[#1D1E26] border border-slate-200 transition cursor-pointer flex items-center justify-center shrink-0"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -1917,11 +1922,11 @@ export default function ClassesSection({
                     <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 ) : classSchedule.length === 0 ? (
-                  <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                  <div className="text-center py-16 border border-dashed border-slate-200  bg-slate-50/50">
                     <p className="text-slate-400 text-xs font-medium">Ushbu sinfda dars jadvali hali belgilanmagan.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <div className="overflow-x-auto  border border-slate-100">
                     <table className="w-full text-center border-collapse table-fixed">
                       <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                         <tr>
@@ -1967,7 +1972,7 @@ export default function ClassesSection({
               </div>
 
               {/* Day Exception Section */}
-              <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="bg-white border border-slate-100/80  p-6 shadow-xs space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                   <div>
                     <h3 className="text-base font-extrabold text-[#1D1E26]">Kunlik dars o'zgarishlari</h3>
@@ -1984,7 +1989,7 @@ export default function ClassesSection({
                           fetchScheduleExceptions();
                         }, 50);
                       }}
-                      className="bg-slate-50 border border-slate-200 text-[#1D1E26] text-xs font-bold rounded-xl px-3.5 py-2 outline-none transition font-mono cursor-pointer"
+                      className="bg-slate-50 border border-slate-200 text-[#1D1E26] text-xs font-bold  px-3.5 py-2 outline-none transition font-mono cursor-pointer"
                     />
                     {userInfo?.role === "ADMIN" && (
                       <button
@@ -1992,7 +1997,7 @@ export default function ClassesSection({
                           setExcDate(scheduleViewDate);
                           setShowAddExceptionModal(true);
                         }}
-                        className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer whitespace-nowrap"
+                        className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2 px-4 transition cursor-pointer whitespace-nowrap"
                       >
                         + O'zgarish kiritish
                       </button>
@@ -2007,7 +2012,7 @@ export default function ClassesSection({
                 ) : scheduleExceptions.length === 0 ? (
                   <p className="text-center text-slate-400 text-xs py-6 font-medium">Ushbu sana bo'yicha hech qanday dars o'zgarishi kiritilmagan.</p>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border border-slate-100">
+                  <div className="overflow-hidden  border border-slate-100">
                     <table className="min-w-full divide-y divide-slate-100 text-left">
                       <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider font-mono">
                         <tr>
@@ -2032,11 +2037,11 @@ export default function ClassesSection({
                               <td className="px-5 py-3.5 text-[#1D1E26] font-bold">{exc.lesson_number}-dars</td>
                               <td className="px-5 py-3.5">
                                 {isCancel ? (
-                                  <span className="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono">
+                                  <span className="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1  text-[10px] font-black uppercase font-mono">
                                     Bekor qilingan
                                   </span>
                                 ) : (
-                                  <span className="bg-[#ECFCCA] text-[#65A30D] border border-lime-200 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase font-mono">
+                                  <span className="bg-slate-100 text-[#1D1E26] border border-slate-200 px-2.5 py-1 text-[10px] font-mono font-bold uppercase">
                                     O'zgartirilgan
                                   </span>
                                 )}
@@ -2048,7 +2053,7 @@ export default function ClassesSection({
                                 <td className="px-5 py-3.5 text-right">
                                   <button
                                     onClick={() => handleDeleteException(exc.id)}
-                                    className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition shadow-xs cursor-pointer"
+                                    className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3  transition shadow-xs cursor-pointer"
                                   >
                                     O'chirish
                                   </button>
@@ -2083,7 +2088,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Yangi Sinf Qo'shish</h3>
@@ -2106,7 +2111,7 @@ export default function ClassesSection({
             </div>
 
             {actionError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">
                 {actionError}
               </div>
             )}
@@ -2120,7 +2125,7 @@ export default function ClassesSection({
                   placeholder="Masalan: 9-A"
                   value={newClassName}
                   onChange={(e) => setNewClassName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
@@ -2129,7 +2134,7 @@ export default function ClassesSection({
                 <select
                   value={newClassLevel}
                   onChange={(e) => setNewClassLevel(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   {Array.from({ length: 14 }, (_, i) => (
                     <option key={i} value={i}>Level {i}</option>
@@ -2146,14 +2151,14 @@ export default function ClassesSection({
                     setNewClassLevel(1);
                     setActionError("");
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -2176,7 +2181,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Sinfni Tahrirlash</h3>
@@ -2197,7 +2202,7 @@ export default function ClassesSection({
             </div>
 
             {actionError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">
                 {actionError}
               </div>
             )}
@@ -2211,7 +2216,7 @@ export default function ClassesSection({
                   placeholder="Masalan: 10-C"
                   value={editClassName}
                   onChange={(e) => setEditClassName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
@@ -2220,7 +2225,7 @@ export default function ClassesSection({
                 <select
                   value={editClassLevel}
                   onChange={(e) => setEditClassLevel(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   {Array.from({ length: 14 }, (_, i) => (
                     <option key={i} value={i}>Level {i}</option>
@@ -2237,14 +2242,14 @@ export default function ClassesSection({
                     setEditClassLevel(1);
                     setActionError("");
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Yangilanmoqda..." : "Saqlash"}
                 </button>
@@ -2262,7 +2267,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-black text-red-600">Sinfni o'chirish</h3>
               <button
@@ -2283,14 +2288,14 @@ export default function ClassesSection({
               <button
                 type="button"
                 onClick={() => setShowDeleteClassModal(false)}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleDeleteClass}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5  shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
               </button>
@@ -2318,7 +2323,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Yangi O'quvchi Qo'shish</h3>
@@ -2350,7 +2355,7 @@ export default function ClassesSection({
 
             <div className="flex-1 overflow-y-auto pt-4 space-y-4">
               {actionError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">
                   {actionError}
                 </div>
               )}
@@ -2365,7 +2370,7 @@ export default function ClassesSection({
                       placeholder="Ali"
                       value={studentFirstName}
                       onChange={(e) => setStudentFirstName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                     />
                   </div>
                   <div>
@@ -2376,7 +2381,7 @@ export default function ClassesSection({
                       placeholder="Valiyev"
                       value={studentLastName}
                       onChange={(e) => setStudentLastName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                     />
                   </div>
                 </div>
@@ -2388,7 +2393,7 @@ export default function ClassesSection({
                     placeholder="Karimovich"
                     value={studentMiddleName}
                     onChange={(e) => setStudentMiddleName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
 
@@ -2399,7 +2404,7 @@ export default function ClassesSection({
                     placeholder="Masalan: Toshkent sh., Chilonzor"
                     value={studentAddress}
                     onChange={(e) => setStudentAddress(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
 
@@ -2410,7 +2415,7 @@ export default function ClassesSection({
                       type="date"
                       value={studentBirthDate}
                       onChange={(e) => setStudentBirthDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
                     />
                   </div>
                   <div>
@@ -2419,7 +2424,7 @@ export default function ClassesSection({
                       type="date"
                       value={studentEnrollmentDate}
                       onChange={(e) => setStudentEnrollmentDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -2431,7 +2436,7 @@ export default function ClassesSection({
                     placeholder="I-TV No 123456"
                     value={studentINA}
                     onChange={(e) => setStudentINA(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                   />
                 </div>
 
@@ -2451,14 +2456,14 @@ export default function ClassesSection({
                       setStudentPassword("password123");
                       setActionError("");
                     }}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {actionLoading ? "Qo'shilmoqda..." : "Qo'shish"}
                   </button>
@@ -2480,7 +2485,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">O'quvchi ma'lumotlarini tahrirlash</h3>
@@ -2500,7 +2505,7 @@ export default function ClassesSection({
 
             <div className="flex-1 overflow-y-auto pt-4 space-y-4">
               {actionError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">
                   {actionError}
                 </div>
               )}
@@ -2514,7 +2519,7 @@ export default function ClassesSection({
                       required
                       value={editStudentFirstName}
                       onChange={(e) => setEditStudentFirstName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                     />
                   </div>
                   <div>
@@ -2524,7 +2529,7 @@ export default function ClassesSection({
                       required
                       value={editStudentLastName}
                       onChange={(e) => setEditStudentLastName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                     />
                   </div>
                 </div>
@@ -2535,7 +2540,7 @@ export default function ClassesSection({
                     type="text"
                     value={editStudentMiddleName}
                     onChange={(e) => setEditStudentMiddleName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
 
@@ -2545,7 +2550,7 @@ export default function ClassesSection({
                     type="text"
                     value={editStudentAddress}
                     onChange={(e) => setEditStudentAddress(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
 
@@ -2556,7 +2561,7 @@ export default function ClassesSection({
                       type="date"
                       value={editStudentBirthDate}
                       onChange={(e) => setEditStudentBirthDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono"
                     />
                   </div>
                   <div>
@@ -2565,7 +2570,7 @@ export default function ClassesSection({
                       type="date"
                       value={editStudentEnrollmentDate}
                       onChange={(e) => setEditStudentEnrollmentDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -2576,13 +2581,13 @@ export default function ClassesSection({
                     type="text"
                     value={editStudentINA}
                     onChange={(e) => setEditStudentINA(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tizimga kiritilgan sana</label>
-                  <div className="w-full bg-slate-100/80 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold flex items-center gap-2">
+                  <div className="w-full bg-slate-100/80 border border-slate-200 text-slate-700  px-3.5 py-2.5 text-xs font-mono font-bold flex items-center gap-2">
                     <span>📅</span>
                     <span>{formatUzbekDate(editingStudent?.created_at)}</span>
                   </div>
@@ -2595,14 +2600,14 @@ export default function ClassesSection({
                       setShowEditStudentModal(false);
                       setEditingStudent(null);
                     }}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {actionLoading ? "Yangilanmoqda..." : "Saqlash"}
                   </button>
@@ -2624,7 +2629,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-black text-red-600">O'quvchini o'chirish</h3>
               <button
@@ -2649,14 +2654,14 @@ export default function ClassesSection({
                   setShowDeleteStudentModal(false);
                   setDeletingStudentId(null);
                 }}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleDeleteStudent}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5  shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
               </button>
@@ -2677,7 +2682,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-xl max-h-[90vh] bg-white border border-slate-100 rounded-3xl shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden">
+          <div className="w-full max-w-xl max-h-[90vh] bg-white border border-slate-100  shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
@@ -2710,11 +2715,11 @@ export default function ClassesSection({
                     <div className="w-5 h-5 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 ) : linkedParents.length === 0 ? (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                  <div className="p-4 bg-slate-50 border border-slate-200  text-center">
                     <p className="text-slate-400 text-xs font-medium">Ushbu o'quvchiga hali vasiy biriktirilmagan.</p>
                   </div>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/50 text-xs">
+                  <div className="overflow-hidden  border border-slate-100 bg-slate-50/50 text-xs">
                     <div className="divide-y divide-slate-100">
                       {linkedParents.map((parent) => (
                         <div key={parent.id} className="p-3.5 flex items-center justify-between hover:bg-slate-100/50 transition">
@@ -2730,7 +2735,7 @@ export default function ClassesSection({
                             <button
                               onClick={() => handleUnlinkParent(parent.id)}
                               title="Ajratish"
-                              className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                              className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600  transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
                             >
                               <UserMinus className="w-4 h-4" />
                             </button>
@@ -2756,7 +2761,7 @@ export default function ClassesSection({
                           placeholder="Valiyeva"
                           value={parentLastName}
                           onChange={(e) => setParentLastName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                         />
                       </div>
                       <div>
@@ -2767,7 +2772,7 @@ export default function ClassesSection({
                           placeholder="Dilnoza"
                           value={parentFirstName}
                           onChange={(e) => setParentFirstName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                         />
                       </div>
                     </div>
@@ -2780,7 +2785,7 @@ export default function ClassesSection({
                           placeholder="Karimovna"
                           value={parentMiddleName}
                           onChange={(e) => setParentMiddleName(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                         />
                       </div>
                       <div>
@@ -2791,7 +2796,7 @@ export default function ClassesSection({
                           placeholder="+998901234567"
                           value={parentPhone}
                           onChange={(e) => setParentPhone(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                         />
                       </div>
                     </div>
@@ -2810,7 +2815,7 @@ export default function ClassesSection({
                           placeholder="AB1234567"
                           value={parentPassport}
                           onChange={(e) => setParentPassport(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                         />
                       </div>
                       <div>
@@ -2821,7 +2826,7 @@ export default function ClassesSection({
                           autoComplete="new-password"
                           value={parentPassword}
                           onChange={(e) => setParentPassword(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                         />
                       </div>
                     </div>
@@ -2830,7 +2835,7 @@ export default function ClassesSection({
                       <button
                         type="submit"
                         disabled={actionLoading}
-                        className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                        className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-6  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                       >
                         {actionLoading ? "Bog'lanmoqda..." : "Yangi vasiyni bog'lash"}
                       </button>
@@ -2861,7 +2866,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+          <div className="w-full max-w-md max-h-[90vh] bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Yangi Ota-ona Qo'shish</h3>
@@ -2892,7 +2897,7 @@ export default function ClassesSection({
 
             <div className="flex-1 overflow-y-auto pt-4 space-y-4">
               {actionError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">
                   {actionError}
                 </div>
               )}
@@ -2904,7 +2909,7 @@ export default function ClassesSection({
                     required
                     value={selectedStudentIdForAdd}
                     onChange={(e) => setSelectedStudentIdForAdd(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                   >
                     <option value="">-- O'quvchini tanlang --</option>
                     {classStudents.map((st) => (
@@ -2924,7 +2929,7 @@ export default function ClassesSection({
                       placeholder="Dilnoza"
                       value={parentFirstName}
                       onChange={(e) => setParentFirstName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                     />
                   </div>
                   <div>
@@ -2935,7 +2940,7 @@ export default function ClassesSection({
                       placeholder="Valiyeva"
                       value={parentLastName}
                       onChange={(e) => setParentLastName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                     />
                   </div>
                 </div>
@@ -2947,7 +2952,7 @@ export default function ClassesSection({
                     placeholder="Karimovna"
                     value={parentMiddleName}
                     onChange={(e) => setParentMiddleName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-medium"
                   />
                 </div>
 
@@ -2959,7 +2964,7 @@ export default function ClassesSection({
                     placeholder="+998901234567"
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                   />
                 </div>
 
@@ -2971,7 +2976,7 @@ export default function ClassesSection({
                       placeholder="AB1234567"
                       value={parentPassport}
                       onChange={(e) => setParentPassport(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                     />
                   </div>
                   <div>
@@ -2981,7 +2986,7 @@ export default function ClassesSection({
                       required
                       value={parentPassword}
                       onChange={(e) => setParentPassword(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
                     />
                   </div>
                 </div>
@@ -3000,14 +3005,14 @@ export default function ClassesSection({
                       setSelectedStudentIdForAdd("");
                       setActionError("");
                     }}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {actionLoading ? "Qo'shilmoqda..." : "Qo'shish"}
                   </button>
@@ -3030,7 +3035,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-black text-red-600">Biriktiruvni o'chirish</h3>
               <button
@@ -3050,7 +3055,7 @@ export default function ClassesSection({
             </p>
 
             {actionError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">{actionError}</div>
             )}
 
             <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
@@ -3061,14 +3066,14 @@ export default function ClassesSection({
                   setUnassignClassTeacherId(null);
                   setActionError("");
                 }}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleUnassignTeacherSubmit}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5  shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
               </button>
@@ -3089,7 +3094,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-black text-[#1D1E26]">Vasiyni o'quvchidan ajratish</h3>
               <button
@@ -3116,7 +3121,7 @@ export default function ClassesSection({
                   setEditingParent(null);
                   setUnlinkStudentId(null);
                 }}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
               >
                 Bekor qilish
               </button>
@@ -3124,7 +3129,7 @@ export default function ClassesSection({
                 type="button"
                 onClick={handleUnlinkParentFromTab}
                 disabled={actionLoading}
-                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5  shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {actionLoading ? "Ajratilmoqda..." : "Ha, ajratish"}
               </button>
@@ -3147,7 +3152,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Sinfga O'qituvchi Biriktirish</h3>
@@ -3173,7 +3178,7 @@ export default function ClassesSection({
             </div>
 
             {actionError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">{actionError}</div>
             )}
 
             <form onSubmit={handleAssignTeacher} className="space-y-4">
@@ -3183,7 +3188,7 @@ export default function ClassesSection({
                   required
                   value={assignTeacherId}
                   onChange={(e) => setAssignTeacherId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   <option value="">O'qituvchini tanlang...</option>
                   {teachers.map((t) => (
@@ -3200,7 +3205,7 @@ export default function ClassesSection({
                 <select
                   value={assignSubjectId}
                   onChange={(e) => setAssignSubjectId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   <option value="">Tanlanmagan / Kirmaydi</option>
                   {filteredSubjectsForClass.map((s) => (
@@ -3234,14 +3239,14 @@ export default function ClassesSection({
                     setAssignIsMain(false);
                     setActionError("");
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Biriktirilmoqda..." : "Biriktirish"}
                 </button>
@@ -3263,7 +3268,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-5xl max-h-[90vh] bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
+          <div className="w-full max-w-5xl max-h-[90vh] bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] flex flex-col overflow-hidden my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Haftalik dars jadvalini tahrirlash</h3>
@@ -3280,7 +3285,7 @@ export default function ClassesSection({
                     setQuickSubjectError("");
                     setShowQuickAddSubjectModal(true);
                   }}
-                  className="bg-lime-100 text-lime-900 hover:bg-lime-200 font-black text-xs py-2 px-3 rounded-xl transition cursor-pointer"
+                  className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2 px-3 transition cursor-pointer"
                 >
                   + Yangi Fan Qo'shish
                 </button>
@@ -3291,7 +3296,7 @@ export default function ClassesSection({
                     setScheduleFormState({});
                     setActionError("");
                   }}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                  className="w-8 h-8 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
                 >
                   ✕
                 </button>
@@ -3300,7 +3305,7 @@ export default function ClassesSection({
 
             <div className="flex-1 overflow-y-auto pt-4 space-y-5">
               {actionError && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">{actionError}</div>
               )}
 
               <form onSubmit={handleSaveSchedule} className="space-y-6">
@@ -3312,10 +3317,10 @@ export default function ClassesSection({
                   token={token}
                   apiUrl={API_URL}
                   category="schedule"
-                  theme="slate"
+                  theme="admin"
                 />
 
-                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
+                <div className="overflow-x-auto  border border-slate-200/80 bg-white">
                   <table className="min-w-full divide-y divide-slate-100 text-center table-fixed">
                     <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase font-mono tracking-wider">
                       <tr>
@@ -3367,14 +3372,14 @@ export default function ClassesSection({
                       setScheduleFormState({});
                       setActionError("");
                     }}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#1D1E26] text-[#D4F562] font-extrabold py-2.5 px-6 hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
                   >
                     {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                   </button>
@@ -3396,7 +3401,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-lg bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-lg bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Kunlik Dars Jadvali O'zgarishi Kiritish</h3>
@@ -3410,14 +3415,14 @@ export default function ClassesSection({
                   setShowAddExceptionModal(false);
                   setActionError("");
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
                 ✕
               </button>
             </div>
 
             {actionError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{actionError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">{actionError}</div>
             )}
 
             <form onSubmit={handleAddExceptionSubmit} className="space-y-4">
@@ -3429,7 +3434,7 @@ export default function ClassesSection({
                   value={excDate}
                   min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setExcDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
                 />
               </div>
 
@@ -3438,7 +3443,7 @@ export default function ClassesSection({
                 <select
                   value={excLesson}
                   onChange={(e) => setExcLesson(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((period) => (
                     <option key={period} value={period}>{period}-dars</option>
@@ -3479,7 +3484,7 @@ export default function ClassesSection({
                     required={excType === "replace"}
                     value={excSubjectId}
                     onChange={(e) => setExcSubjectId(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                   >
                     <option value="">Fanni tanlang</option>
                     {subjects.map((sub) => (
@@ -3496,14 +3501,14 @@ export default function ClassesSection({
                     setShowAddExceptionModal(false);
                     setActionError("");
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] font-extrabold py-2.5 px-6 hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Kiritilmoqda..." : "Kiritish"}
                 </button>
@@ -3521,7 +3526,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
+          <div className="w-full max-w-2xl bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">O'quvchilarni Excel Orqali Import Qilish</h3>
@@ -3541,7 +3546,7 @@ export default function ClassesSection({
             </div>
 
             {/* Template Download Option */}
-            <div className="bg-[#ECFCCA] border border-indigo-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-[#ECFCCA] border border-indigo-100  p-4 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-black text-[#1D1E26]">Excel shablonini ko'chirib oling</h4>
                 <p className="text-[11px] text-[#1D1E26] font-medium mt-0.5">O'quvchilar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
@@ -3549,19 +3554,19 @@ export default function ClassesSection({
               <button
                 type="button"
                 onClick={() => downloadTemplate("students")}
-                className="bg-[#D4F562] hover:bg-[#c2e44f] text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer shadow-xs"
+                className="bg-[#D4F562] hover:bg-[#c2e44f] text-white text-xs font-bold py-2 px-4  transition cursor-pointer shadow-xs"
               >
                 📥 Shablonni Yuklash
               </button>
             </div>
 
             {importError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{importError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">{importError}</div>
             )}
 
             {!importResult ? (
               <form onSubmit={(e) => handleSheetUpload(e, "students")} className="space-y-4">
-                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 hover:border-slate-400 transition relative">
+                <div className="border-2 border-dashed border-slate-200  p-8 text-center bg-slate-50 hover:border-slate-400 transition relative">
                   <input
                     type="file"
                     required
@@ -3586,14 +3591,14 @@ export default function ClassesSection({
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={importLoading || !selectedFile}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {importLoading ? "Yuklanmoqda..." : "Faylni yuklash"}
                   </button>
@@ -3603,15 +3608,15 @@ export default function ClassesSection({
               // Results View
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-center">
+                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800  p-4 text-center">
                     <span className="text-[10px] font-extrabold text-emerald-600 block uppercase font-mono">Qabul qilindi</span>
                     <span className="text-2xl font-black">{importResult.imported_count}</span>
                   </div>
-                  <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-center">
+                  <div className="bg-red-50 border border-red-100 text-red-800  p-4 text-center">
                     <span className="text-[10px] font-extrabold text-red-600 block uppercase font-mono">Rad etildi</span>
                     <span className="text-2xl font-black">{importResult.failed_count}</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 text-center">
+                  <div className="bg-slate-50 border border-slate-200 text-slate-800  p-4 text-center">
                     <span className="text-[10px] font-extrabold text-slate-400 block uppercase font-mono">Status</span>
                     <span className="text-xs font-bold block mt-1">
                       {importResult.success ? "✅ Hammasi to'g'ri" : "⚠️ Xatolar mavjud"}
@@ -3620,7 +3625,7 @@ export default function ClassesSection({
                 </div>
 
                 {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+                  <div className="border border-slate-200  overflow-hidden text-xs">
                     <div className="bg-slate-100 text-slate-600 px-4 py-2 uppercase font-mono font-extrabold text-[10px]">Row-by-Row Error Reports</div>
                     <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto bg-slate-50/50">
                       {importResult.errors.map((err, i) => (
@@ -3637,7 +3642,7 @@ export default function ClassesSection({
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6  shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     Tugatish
                   </button>
@@ -3656,7 +3661,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-2xl bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
+          <div className="w-full max-w-2xl bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">O'quvchilar Ota-onalarini Excel Orqali Import Qilish</h3>
@@ -3676,7 +3681,7 @@ export default function ClassesSection({
             </div>
 
             {/* Template Download Option */}
-            <div className="bg-teal-50 border border-teal-100 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-teal-50 border border-teal-100  p-4 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-black text-teal-900">Excel shablonini ko'chirib oling</h4>
                 <p className="text-[11px] text-teal-600 font-medium mt-0.5">Ota-onalar shablonini yuklab olib, ma'lumotlarni to'ldiring va qayta yuklang.</p>
@@ -3684,19 +3689,19 @@ export default function ClassesSection({
               <button
                 type="button"
                 onClick={() => downloadTemplate("parents")}
-                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer shadow-xs"
+                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-4  transition cursor-pointer shadow-xs"
               >
                 📥 Shablonni Yuklash
               </button>
             </div>
 
             {importError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-2xl">{importError}</div>
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold ">{importError}</div>
             )}
 
             {!importResult ? (
               <form onSubmit={(e) => handleSheetUpload(e, "parents")} className="space-y-4">
-                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 hover:border-slate-400 transition relative">
+                <div className="border-2 border-dashed border-slate-200  p-8 text-center bg-slate-50 hover:border-slate-400 transition relative">
                   <input
                     type="file"
                     required
@@ -3721,14 +3726,14 @@ export default function ClassesSection({
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={importLoading || !selectedFile}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     {importLoading ? "Yuklanmoqda..." : "Faylni yuklash"}
                   </button>
@@ -3738,15 +3743,15 @@ export default function ClassesSection({
               // Results View
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl p-4 text-center">
+                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800  p-4 text-center">
                     <span className="text-[10px] font-extrabold text-emerald-600 block uppercase font-mono">Qabul qilindi</span>
                     <span className="text-2xl font-black">{importResult.imported_count}</span>
                   </div>
-                  <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-center">
+                  <div className="bg-red-50 border border-red-100 text-red-800  p-4 text-center">
                     <span className="text-[10px] font-extrabold text-red-600 block uppercase font-mono">Rad etildi</span>
                     <span className="text-2xl font-black">{importResult.failed_count}</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 text-center">
+                  <div className="bg-slate-50 border border-slate-200 text-slate-800  p-4 text-center">
                     <span className="text-[10px] font-extrabold text-slate-400 block uppercase font-mono">Status</span>
                     <span className="text-xs font-bold block mt-1">
                       {importResult.success ? "✅ Hammasi to'g'ri" : "⚠️ Xatolar mavjud"}
@@ -3755,7 +3760,7 @@ export default function ClassesSection({
                 </div>
 
                 {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+                  <div className="border border-slate-200  overflow-hidden text-xs">
                     <div className="bg-slate-100 text-slate-600 px-4 py-2 uppercase font-mono font-extrabold text-[10px]">Row-by-Row Error Reports</div>
                     <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto bg-slate-50/50">
                       {importResult.errors.map((err, i) => (
@@ -3772,7 +3777,7 @@ export default function ClassesSection({
                   <button
                     type="button"
                     onClick={closeSheetModal}
-                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
+                    className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-6  shadow-xs hover:opacity-90 transition cursor-pointer"
                   >
                     Tugatish
                   </button>
@@ -3793,7 +3798,7 @@ export default function ClassesSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100  p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Tezkor Fan Qo'shish</h3>
@@ -3809,7 +3814,7 @@ export default function ClassesSection({
             </div>
 
             {quickSubjectError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5  font-medium">
                 {quickSubjectError}
               </div>
             )}
@@ -3867,13 +3872,13 @@ export default function ClassesSection({
                   placeholder="Masalan: Odobnoma"
                   value={quickSubjectName}
                   onChange={(e) => setQuickSubjectName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Tegishli Level(lar)</label>
-                <div className="grid grid-cols-4 gap-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl max-h-36 overflow-y-auto">
+                <div className="grid grid-cols-4 gap-2 p-3 bg-slate-50 border border-slate-200/80  max-h-36 overflow-y-auto">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => (
                     <button
                       key={lvl}
@@ -3883,7 +3888,7 @@ export default function ClassesSection({
                           prev.includes(lvl) ? prev.filter((l) => l !== lvl) : [...prev, lvl]
                         );
                       }}
-                      className={`p-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      className={`p-2  text-xs font-bold border transition cursor-pointer ${
                         quickSubjectLevels.includes(lvl)
                           ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -3899,14 +3904,14 @@ export default function ClassesSection({
                 <button
                   type="button"
                   onClick={() => setShowQuickAddSubjectModal(false)}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={quickSubjectLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                 >
                   {quickSubjectLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -3924,7 +3929,7 @@ export default function ClassesSection({
           onClick={() => setShowEditParentModal(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            className="bg-white  shadow-2xl w-full max-w-md mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
@@ -3932,7 +3937,7 @@ export default function ClassesSection({
               <button onClick={() => setShowEditParentModal(false)} className="text-slate-400 hover:text-slate-700 transition cursor-pointer text-xl leading-none">✕</button>
             </div>
             <form onSubmit={handleUpdateParent} className="p-6 space-y-4">
-              {actionError && <p className="text-red-500 text-xs font-bold bg-red-50 px-3 py-2 rounded-xl">{actionError}</p>}
+              {actionError && <p className="text-red-500 text-xs font-bold bg-red-50 px-3 py-2 ">{actionError}</p>}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Familya *</label>
@@ -3941,7 +3946,7 @@ export default function ClassesSection({
                     required
                     value={editParentLastName}
                     onChange={(e) => setEditParentLastName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                   />
                 </div>
                 <div>
@@ -3951,7 +3956,7 @@ export default function ClassesSection({
                     required
                     value={editParentFirstName}
                     onChange={(e) => setEditParentFirstName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                   />
                 </div>
               </div>
@@ -3961,7 +3966,7 @@ export default function ClassesSection({
                   type="text"
                   value={editParentMiddleName}
                   onChange={(e) => setEditParentMiddleName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
               <div>
@@ -3971,7 +3976,7 @@ export default function ClassesSection({
                   required
                   value={editParentPhone}
                   onChange={(e) => setEditParentPhone(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
               <div>
@@ -3980,12 +3985,12 @@ export default function ClassesSection({
                   type="text"
                   value={editParentPassport}
                   onChange={(e) => setEditParentPassport(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
                 />
               </div>
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setShowEditParentModal(false)} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer">Bekor qilish</button>
-                <button type="submit" disabled={actionLoading} className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50">
+                <button type="button" onClick={() => setShowEditParentModal(false)} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer">Bekor qilish</button>
+                <button type="submit" disabled={actionLoading} className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50">
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
               </div>
@@ -4002,7 +4007,7 @@ export default function ClassesSection({
           onClick={() => setShowEditClassTeacherModal(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            className="bg-white  shadow-2xl w-full max-w-md mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
@@ -4010,7 +4015,7 @@ export default function ClassesSection({
               <button onClick={() => setShowEditClassTeacherModal(false)} className="text-slate-400 hover:text-slate-700 transition cursor-pointer text-xl leading-none">✕</button>
             </div>
             <form onSubmit={handleUpdateClassTeacher} className="p-6 space-y-4">
-              {actionError && <p className="text-red-500 text-xs font-bold bg-red-50 px-3 py-2 rounded-xl">{actionError}</p>}
+              {actionError && <p className="text-red-500 text-xs font-bold bg-red-50 px-3 py-2 ">{actionError}</p>}
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Fan</label>
                 <SearchableSingleSelect
@@ -4029,7 +4034,7 @@ export default function ClassesSection({
                   onChange={(val) => setEditCTTeacherId(val)}
                 />
               </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-3 p-3 bg-slate-50  border border-slate-200">
                 <input
                   type="checkbox"
                   id="editCTIsMain"
@@ -4042,8 +4047,8 @@ export default function ClassesSection({
                 </label>
               </div>
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setShowEditClassTeacherModal(false)} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer">Bekor qilish</button>
-                <button type="submit" disabled={actionLoading} className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50">
+                <button type="button" onClick={() => setShowEditClassTeacherModal(false)} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4  transition cursor-pointer">Bekor qilish</button>
+                <button type="submit" disabled={actionLoading} className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5  shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50">
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
               </div>
@@ -4060,7 +4065,7 @@ export default function ClassesSection({
           onClick={() => setShowClassTeacherHistoryModal(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]"
+            className="bg-white  shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 shrink-0">
@@ -4101,18 +4106,18 @@ export default function ClassesSection({
                             <span className="text-sm font-black text-[#1D1E26]">
                               {item.last_name} {item.first_name} {item.middle_name}
                             </span>
-                            <span className="bg-[#E0F2FE] text-[#0284C7] font-mono text-[11px] font-bold px-2.5 py-0.5 rounded-lg">
+                            <span className="bg-[#E0F2FE] text-[#0284C7] font-mono text-[11px] font-bold px-2.5 py-0.5 ">
                               {item.subject_name}
                             </span>
                             {item.is_main_teacher && (
-                              <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2 py-0.5 rounded-lg">
+                              <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2 py-0.5 ">
                                 Sinf Rahbari
                               </span>
                             )}
                             {isActive ? (
-                              <span className="text-green-600 font-bold text-[11px] bg-green-50 px-2 py-0.5 rounded-lg">● Faol</span>
+                              <span className="text-green-600 font-bold text-[11px] bg-green-50 px-2 py-0.5 ">● Faol</span>
                             ) : (
-                              <span className="text-red-500 font-bold text-[11px] bg-red-50 px-2 py-0.5 rounded-lg">● Almashtirilgan</span>
+                              <span className="text-red-500 font-bold text-[11px] bg-red-50 px-2 py-0.5 ">● Almashtirilgan</span>
                             )}
                           </div>
                           <div className="mt-1 text-[11px] text-slate-400 font-mono">
@@ -4132,7 +4137,7 @@ export default function ClassesSection({
             <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex justify-end">
               <button
                 onClick={() => setShowClassTeacherHistoryModal(false)}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-xl transition cursor-pointer"
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5  transition cursor-pointer"
               >
                 Yopish
               </button>

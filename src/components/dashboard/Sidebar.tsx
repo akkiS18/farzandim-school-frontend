@@ -57,6 +57,14 @@ export default function Sidebar({
             <rect x="3" y="14" width="7" height="7" rx="2" />
           </svg>
         );
+      case "clubs":
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
+        );
       case "classes":
         return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -94,9 +102,10 @@ export default function Sidebar({
         );
       case "menu":
         return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+            <path d="M7 2v20" />
+            <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
           </svg>
         );
       case "balance":
@@ -218,6 +227,7 @@ export default function Sidebar({
       items: [
         { id: "classes", label: "Sinflar", badge: null },
         { id: "schedule-overview", label: "Dars jadvali", badge: null },
+        { id: "clubs", label: "To'garaklar", badge: null },
         { id: "teachers", label: "O'qituvchilar", badge: null },
         { id: "subjects", label: "Fanlar", badge: null },
         { id: "books", label: "Kitobxonlik", badge: null },
@@ -259,14 +269,14 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col shrink-0 h-[100dvh] max-h-[100dvh] select-none shadow-2xl font-sans overflow-hidden transform transition-transform duration-300 ${
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#1D1E26] text-white flex flex-col shrink-0 h-[100dvh] max-h-[100dvh] select-none shadow-2xl font-sans overflow-hidden transform transition-transform duration-300 rounded-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
         <div className="p-6 pb-4 shrink-0">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-full bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-sm shadow-md shrink-0">
+              <div className="w-9 h-9 rounded-none bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-sm shrink-0">
                 <svg className="w-5 h-5 text-[#1D1E26]" fill="currentColor" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="3" />
                   <circle cx="12" cy="12" r="4" fill="currentColor" />
@@ -280,7 +290,7 @@ export default function Sidebar({
             {setMobileOpen && (
               <button
                 onClick={() => setMobileOpen(false)}
-                className="md:hidden text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="md:hidden text-slate-400 hover:text-white p-1 rounded-none transition cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Menyuni yopish"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -300,9 +310,9 @@ export default function Sidebar({
                   <div key={section.id || idx}>
                     <button
                       onClick={() => handleNavigate(section.id!)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition duration-200 cursor-pointer min-h-[44px] ${
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-none text-sm font-medium transition duration-150 cursor-pointer min-h-[44px] ${
                         isActive
-                          ? "bg-[#D4F562] text-[#1D1E26] shadow-lg shadow-lime-500/10 font-bold"
+                          ? "bg-[#D4F562] text-[#1D1E26] font-bold"
                           : "text-slate-300 hover:bg-white/5 hover:text-white"
                       }`}
                     >
@@ -311,7 +321,7 @@ export default function Sidebar({
                         <span>{section.label}</span>
                       </div>
                       {section.badge && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"}`}>
+                        <span className={`px-2 py-0.5 rounded-none font-mono text-[10px] font-bold ${isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"}`}>
                           {section.badge}
                         </span>
                       )}
@@ -328,9 +338,9 @@ export default function Sidebar({
                   <div key={section.title} className="space-y-1">
                     <button
                       onClick={() => toggleGroup(section.title)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition duration-200 cursor-pointer min-h-[44px] ${
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-none text-sm font-medium transition duration-150 cursor-pointer min-h-[44px] ${
                         isGroupActive
-                          ? "bg-[#D4F562] text-[#1D1E26] shadow-lg shadow-lime-500/10 font-bold"
+                          ? "bg-[#D4F562] text-[#1D1E26] font-bold"
                           : "text-slate-300 hover:bg-white/5 hover:text-white"
                       }`}
                       aria-expanded={isExpanded}
@@ -356,7 +366,7 @@ export default function Sidebar({
                           <button
                             key={item.id}
                             onClick={() => handleNavigate(item.id)}
-                            className={`w-full flex items-center justify-between pl-11 pr-3 py-2.5 rounded-xl text-sm font-medium transition duration-200 cursor-pointer min-h-[44px] ${
+                            className={`w-full flex items-center justify-between pl-11 pr-3 py-2.5 rounded-none text-sm font-medium transition duration-150 cursor-pointer min-h-[44px] ${
                               isActive
                                 ? "text-[#D4F562] font-bold"
                                 : "text-slate-400 hover:text-white hover:bg-white/5"
@@ -367,7 +377,7 @@ export default function Sidebar({
                               <span>{item.label}</span>
                             </div>
                             {item.badge && (
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"}`}>
+                              <span className={`px-2 py-0.5 rounded-none font-mono text-[10px] font-bold ${isActive ? "bg-[#1D1E26] text-[#D4F562]" : "bg-[#FF7A00] text-white"}`}>
                                 {item.badge}
                               </span>
                             )}

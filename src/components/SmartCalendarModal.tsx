@@ -247,7 +247,7 @@ export default function SmartCalendarModal({
     >
       <div
         className={`w-full max-w-sm bg-white border ${
-          isTeacherTheme ? "border-neutral-200 rounded-none shadow-[0_16px_40px_rgba(0,0,0,0.12)] p-5" : "border-slate-200 rounded-3xl shadow-2xl p-5"
+          isTeacherTheme ? "border-neutral-200 rounded-none shadow-[0_16px_40px_rgba(0,0,0,0.12)] p-5" : "border-slate-200 rounded-none shadow-2xl p-5"
         } text-slate-800 flex flex-col relative select-none`}
       >
         {/* Header bar */}
@@ -257,7 +257,7 @@ export default function SmartCalendarModal({
               className={`w-7 h-7 flex items-center justify-center ${
                 isTeacherTheme
                   ? "rounded-none bg-slate-50 border border-neutral-200 text-[#A51C30]"
-                  : "rounded-lg bg-[#ECFCCA] text-[#65A30D]"
+                  : "rounded-none bg-[#ECFCCA] text-[#65A30D]"
               }`}
             >
               <Calendar size={15} />
@@ -268,12 +268,12 @@ export default function SmartCalendarModal({
           </div>
 
           {allowModeSwitch && (
-            <div className={`flex items-center p-0.5 ${isTeacherTheme ? "rounded-none bg-slate-100 border border-neutral-200" : "rounded-lg bg-slate-100"}`}>
+            <div className={`flex items-center p-0.5 ${isTeacherTheme ? "rounded-none bg-slate-100 border border-neutral-200" : "rounded-none bg-slate-100"}`}>
               <button
                 type="button"
                 onClick={() => setActiveMode("single")}
                 className={`px-2.5 py-1 text-[10px] font-bold font-sans uppercase tracking-wider transition ${
-                  isTeacherTheme ? "rounded-none" : "rounded-md"
+                  isTeacherTheme ? "rounded-none" : "rounded-none"
                 } ${
                   activeMode === "single"
                     ? isTeacherTheme
@@ -288,7 +288,7 @@ export default function SmartCalendarModal({
                 type="button"
                 onClick={() => setActiveMode("week")}
                 className={`px-2.5 py-1 text-[10px] font-bold font-sans uppercase tracking-wider transition ${
-                  isTeacherTheme ? "rounded-none" : "rounded-md"
+                  isTeacherTheme ? "rounded-none" : "rounded-none"
                 } ${
                   activeMode === "week"
                     ? isTeacherTheme
@@ -306,7 +306,7 @@ export default function SmartCalendarModal({
             type="button"
             onClick={onClose}
             className={`w-7 h-7 flex items-center justify-center transition text-slate-500 hover:text-slate-800 cursor-pointer ${
-              isTeacherTheme ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-neutral-100" : "rounded-full bg-slate-100 hover:bg-slate-200"
+              isTeacherTheme ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-neutral-100" : "rounded-none bg-slate-100 hover:bg-slate-200"
             }`}
           >
             <X size={15} />
@@ -321,7 +321,7 @@ export default function SmartCalendarModal({
             className={`w-8 h-8 flex items-center justify-center transition text-slate-700 cursor-pointer ${
               isTeacherTheme
                 ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-slate-100"
-                : "rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+                : "rounded-none border border-slate-200 bg-white hover:bg-slate-50"
             }`}
           >
             <ChevronLeft size={16} />
@@ -337,7 +337,7 @@ export default function SmartCalendarModal({
             className={`w-8 h-8 flex items-center justify-center transition text-slate-700 cursor-pointer ${
               isTeacherTheme
                 ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-slate-100"
-                : "rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+                : "rounded-none border border-slate-200 bg-white hover:bg-slate-50"
             }`}
           >
             <ChevronRight size={16} />
@@ -381,7 +381,7 @@ export default function SmartCalendarModal({
                 onMouseEnter={() => activeMode === "week" && setHoveredWeekIdx(wIdx)}
                 onClick={() => activeMode === "week" && handleDayClick(weekDays[0])}
                 className={`grid grid-cols-7 gap-1 p-0.5 transition-all ${
-                  isTeacherTheme ? "rounded-none" : "rounded-xl"
+                  isTeacherTheme ? "rounded-none" : "rounded-none"
                 } ${weekBorderClass} ${weekBgClass} ${activeMode === "week" ? "cursor-pointer" : "cursor-default"}`}
               >
                 {weekDays.map((dayItem) => {
@@ -415,7 +415,7 @@ export default function SmartCalendarModal({
                         }
                       }}
                       className={`h-7.5 flex items-center justify-center text-xs transition-colors cursor-pointer ${
-                        isTeacherTheme ? "rounded-none" : "rounded-lg"
+                        isTeacherTheme ? "rounded-none" : "rounded-none"
                       } ${cellClass}`}
                     >
                       {dayItem.dayNum}
@@ -430,7 +430,7 @@ export default function SmartCalendarModal({
           {showMonthYearPicker && (
             <div
               className={`absolute inset-0 bg-white p-4 z-20 flex flex-col justify-between border ${
-                isTeacherTheme ? "border-neutral-200 rounded-none" : "border-slate-200 rounded-2xl"
+                isTeacherTheme ? "border-neutral-200 rounded-none" : "border-slate-200 rounded-none"
               }`}
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -454,7 +454,7 @@ export default function SmartCalendarModal({
                     type="button"
                     onClick={() => setViewYear(y)}
                     className={`px-2.5 py-1 text-[11px] font-bold font-sans transition cursor-pointer ${
-                      isTeacherTheme ? "rounded-none" : "rounded-lg"
+                      isTeacherTheme ? "rounded-none" : "rounded-none"
                     } ${
                       viewYear === y
                         ? isTeacherTheme
@@ -479,7 +479,7 @@ export default function SmartCalendarModal({
                       setShowMonthYearPicker(false);
                     }}
                     className={`p-2 text-[11px] font-bold font-sans transition cursor-pointer ${
-                      isTeacherTheme ? "rounded-none" : "rounded-xl"
+                      isTeacherTheme ? "rounded-none" : "rounded-none"
                     } ${
                       viewMonth === mIdx
                         ? isTeacherTheme
@@ -504,7 +504,7 @@ export default function SmartCalendarModal({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer ${
               isTeacherTheme
                 ? "rounded-none border border-neutral-200 bg-slate-50 hover:bg-slate-100 text-slate-800"
-                : "rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                : "rounded-none border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
             }`}
           >
             <Calendar size={13} className={isTeacherTheme ? "text-[#A51C30]" : "text-[#1D1E26]"} />
@@ -517,7 +517,7 @@ export default function SmartCalendarModal({
             className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold font-sans uppercase tracking-wider transition cursor-pointer ${
               isTeacherTheme
                 ? "rounded-none border border-[#1E2B42] bg-[#1E2B42] hover:bg-[#141E2E] text-white"
-                : "rounded-xl border border-[#D4F562] bg-[#D4F562] hover:opacity-90 text-[#1D1E26] font-black"
+                : "rounded-none border border-[#D4F562] bg-[#D4F562] hover:opacity-90 text-[#1D1E26] font-black"
             }`}
           >
             <RotateCcw size={13} />
@@ -552,7 +552,7 @@ export function SmartCalendarTrigger({
           style={{
             width: "36px",
             height: "36px",
-            borderRadius: "50%",
+            borderRadius: "0",
             backgroundColor: "#FFFFFF",
             border: "1px solid #E2E8F0",
             display: "flex",
@@ -579,7 +579,7 @@ export function SmartCalendarTrigger({
           fontWeight: 800,
           fontSize: "13px",
           padding: "8px 18px",
-          borderRadius: "999px",
+          borderRadius: "0",
           boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
           cursor: "pointer",
           display: "flex",
@@ -600,7 +600,7 @@ export function SmartCalendarTrigger({
           style={{
             width: "36px",
             height: "36px",
-            borderRadius: "50%",
+            borderRadius: "0",
             backgroundColor: "#FFFFFF",
             border: "1px solid #E2E8F0",
             display: "flex",

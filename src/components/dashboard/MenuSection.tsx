@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Plus, Trash2, X, Check, Utensils, Calendar } from "lucide-react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
 import { DateRangePresets } from "../DateRangePresets";
@@ -379,31 +380,46 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
   return (
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+{/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          
+          <span className="text-xs text-slate-500 font-mono">
+            Jami: <strong className="text-[#1D1E26] font-extrabold">{menuIntervals.length}</strong> ta interval, <strong className="text-[#1D1E26] font-extrabold">{menuExceptions.length}</strong> ta istisno
+          </span>
         </div>
-        {activeMenuSubTab === "cycle" && (
-          <button
-            onClick={() => setShowAddIntervalModal(true)}
-            className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
-          >
-            + Yangi Interval
-          </button>
-        )}
+
+        <div>
+          {activeMenuSubTab === "cycle" ? (
+            <button
+              onClick={() => setShowAddIntervalModal(true)}
+              className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Yangi Interval</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAddExceptionModal(true)}
+              className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-3.5 rounded-none flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Yangi Istisno Qo'shish</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Sub Tab Navigation */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/60 text-xs font-extrabold">
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
         <button
           onClick={() => {
             setActiveMenuSubTab("cycle");
             closeMenuExcelModal();
           }}
-          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+          className={`px-4 py-2.5 rounded-none text-xs font-extrabold transition cursor-pointer ${
             activeMenuSubTab === "cycle"
-              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-              : "text-slate-500 hover:text-slate-900"
+              ? "bg-[#1D1E26] text-[#D4F562] font-black"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
         >
           Aylanma Shablon (Template)
@@ -413,10 +429,10 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
             setActiveMenuSubTab("exception");
             closeMenuExcelModal();
           }}
-          className={`px-4 py-2 rounded-xl transition cursor-pointer ${
+          className={`px-4 py-2.5 rounded-none text-xs font-extrabold transition cursor-pointer ${
             activeMenuSubTab === "exception"
-              ? "bg-[#D4F562] text-[#1D1E26] shadow-xs font-black"
-              : "text-slate-500 hover:text-slate-900"
+              ? "bg-[#1D1E26] text-[#D4F562] font-black"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
         >
           Kunlik Istisnolar (Overrides)
@@ -429,7 +445,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
           <div className="space-y-3">
             <h2 className="text-base font-black text-[#1D1E26]">Taomnoma Intervallari</h2>
             {menuIntervals.length === 0 ? (
-              <div className="text-center py-8 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              <div className="text-center py-8 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
                 <p className="text-xs text-slate-400 font-medium">Hozircha hech qanday interval yaratilmagan. Yuqoridagi tugma orqali yangi interval yarating.</p>
               </div>
             ) : (
@@ -440,11 +456,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                     <div
                       key={interval.id}
                       onClick={() => setSelectedIntervalId(interval.id)}
-                      className={`p-5 rounded-3xl border cursor-pointer transition flex flex-col justify-between h-36 shadow-xs ${
-                        isSelected
-                          ? "bg-[#ECFCCA]/50 border-lime-300 ring-2 ring-[#D4F562]/30 text-[#1D1E26]"
-                          : "bg-white border-slate-100/80 hover:shadow-md text-slate-700"
-                      }`}
+                      className={`p-5 rounded-none border cursor-pointer transition flex flex-col justify-between h-36 shadow-xs ${isSelected ? "bg-slate-50 border-[#1D1E26] ring-2 ring-[#1D1E26]/20 text-[#1D1E26]" : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"}`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="truncate pr-2">
@@ -458,17 +470,15 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                             e.stopPropagation();
                             handleDeleteMenuInterval(interval.id);
                           }}
-                          className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-xl transition"
+                          className="text-red-600 p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-none transition cursor-pointer"
                           title="O'chirish"
                         >
-                          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       <div className="flex items-center justify-between border-t border-slate-100 pt-3">
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tsikl davomiyligi:</span>
-                        <span className="text-xs font-black font-mono text-[#65A30D]">{interval.cycle_weeks} hafta</span>
+                        <span className="text-xs font-black font-mono text-[#1D1E26]">{interval.cycle_weeks} hafta</span>
                       </div>
                     </div>
                   );
@@ -484,7 +494,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
               if (!activeInterval) return null;
 
               return (
-                <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+                <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <h2 className="text-base font-black text-[#1D1E26]">
@@ -497,13 +507,9 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
                     <button
                       onClick={() => setShowOnlyFoodDays(!showOnlyFoodDays)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 select-none cursor-pointer ${
-                        showOnlyFoodDays
-                          ? "bg-[#D4F562] text-[#1D1E26] shadow-xs"
-                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                      }`}
+                      className={`px-3.5 py-2 rounded-none text-xs font-extrabold transition flex items-center gap-1.5 select-none cursor-pointer ${showOnlyFoodDays ? "bg-[#1D1E26] text-[#D4F562]" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
                     >
-                      <span>{showOnlyFoodDays ? "✓" : "○"}</span>
+                      <span>{showOnlyFoodDays ? <Check className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 inline-block border border-slate-400 rounded-none" />}</span>
                       <span>Faqat taom bor kunlarni ko'rsatish</span>
                     </button>
                   </div>
@@ -514,9 +520,9 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                       <p className="text-xs text-slate-400">Jadval yuklanmoqda...</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <div className="overflow-x-auto rounded-none border border-slate-100">
                       <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                        <thead className="bg-[#1D1E26] text-[#D4F562] text-[10px] font-mono uppercase tracking-wider">
                           <tr>
                             <th className="px-4 py-4 w-20 text-center">Hafta</th>
                             <th className="px-4 py-4 w-28 text-center">Kun</th>
@@ -598,11 +604,11 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                                                 setEditingCell(null);
                                               }
                                             }}
-                                            className="w-full bg-white border border-[#D4F562] text-slate-800 text-xs px-2 py-1 rounded-lg outline-none focus:ring-2 focus:ring-[#D4F562]"
+                                            className="w-full bg-white border border-[#D4F562] text-slate-800 text-xs px-2 py-1 rounded-none outline-none focus:ring-2 focus:ring-[#1D1E26]"
                                           />
                                           <button
                                             onClick={() => handleSaveInlineMeal(row.week, row.day, mealKey as any, editingValue)}
-                                            className="bg-[#D4F562] text-[#1D1E26] font-bold text-[10px] px-2 py-1 rounded-lg"
+                                            className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-[10px] px-2 py-1 rounded-none transition cursor-pointer"
                                           >
                                             OK
                                           </button>
@@ -629,18 +635,13 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
         </div>
       ) : (
         /* Subtab Exception: Overrides List */
-        <div className="bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xs space-y-6">
+        <div className="bg-white border border-slate-100/80 rounded-none p-6 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-black text-[#1D1E26]">Kunlik Istisnolar Ro'yxati</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Muayyan sana uchun aylanma taomnomani bekor qiluvchi taomlar.</p>
             </div>
-            <button
-              onClick={() => setShowAddExceptionModal(true)}
-              className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
-            >
-              + Yangi Istisno Qo'shish
-            </button>
+            
           </div>
 
           {menuExceptionsLoading ? (
@@ -648,13 +649,13 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
               <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           ) : menuExceptions.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-none bg-slate-50/50">
               <p className="text-slate-400 text-xs font-medium">Hozircha hech qanday istisno taomnoma kiritilmagan. "+ Yangi Istisno Qo'shish" tugmasini bosing.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <div className="overflow-x-auto rounded-none border border-slate-100">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
+                <thead className="bg-[#1D1E26] text-[#D4F562] text-[10px] font-mono uppercase tracking-wider">
                   <tr>
                     <th className="px-6 py-4">Sana</th>
                     <th className="px-6 py-4">1-Mahal (Nonushta)</th>
@@ -684,7 +685,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                         <td className="px-6 py-4 text-right">
                           <button
                             onClick={() => handleDeleteMenuException(exc.id)}
-                            className="text-xs bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 font-extrabold py-1.5 px-3 rounded-xl transition cursor-pointer"
+                            className="text-xs bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-extrabold py-1.5 px-3 rounded-none transition cursor-pointer"
                           >
                             O'chirish
                           </button>
@@ -707,7 +708,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Yangi Taomnoma Interval Yaratish</h3>
@@ -716,9 +717,9 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
               <button
                 type="button"
                 onClick={() => setShowAddIntervalModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -732,7 +733,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                 token={token}
                 apiUrl={API_URL}
                 category="menu_interval"
-                theme="lime"
+                theme="admin"
                 label="Sana oralig'i shablonlari (Date Range Presets)"
                 startLabel="Boshlanish sanasi"
                 endLabel="Tugash sanasi"
@@ -746,7 +747,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   placeholder="Masalan: 1-Chorak taomnomasi"
                   value={newIntervalName}
                   onChange={(e) => setNewIntervalName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-bold"
                 />
               </div>
 
@@ -758,7 +759,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                     required
                     value={newIntervalStartDate}
                     onChange={(e) => setNewIntervalStartDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold"
                   />
                 </div>
                 <div>
@@ -768,7 +769,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                     required
                     value={newIntervalEndDate}
                     onChange={(e) => setNewIntervalEndDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold"
                   />
                 </div>
               </div>
@@ -782,7 +783,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   required
                   value={newIntervalWeeks}
                   onChange={(e) => setNewIntervalWeeks(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-bold"
                 />
               </div>
 
@@ -796,7 +797,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                 onStudentsChange={setIntervalTargetStudents}
                 token={token}
                 apiUrl={API_URL}
-                theme="lime"
+                theme="admin"
                 label="O'quvchilar To'plamlari (Kimlar uchun?)"
               />
 
@@ -804,14 +805,14 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                 <button
                   type="button"
                   onClick={() => setShowAddIntervalModal(false)}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -829,7 +830,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-none p-6 shadow-2xl text-[#1D1E26] space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Kunlik Istisno Taomnoma Qo'shish</h3>
@@ -838,9 +839,9 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
               <button
                 type="button"
                 onClick={() => setShowAddExceptionModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-none bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -852,7 +853,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   required
                   value={menuExcDate}
                   onChange={(e) => setMenuExcDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-mono font-bold"
                 />
               </div>
 
@@ -863,7 +864,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   placeholder="Masalan: Bo'tqa va Choy"
                   value={menuExcBreakfast}
                   onChange={(e) => setMenuExcBreakfast(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition"
                 />
               </div>
 
@@ -874,7 +875,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   placeholder="Masalan: Moshxo'rda, Osh, Salat"
                   value={menuExcLunch}
                   onChange={(e) => setMenuExcLunch(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition"
                 />
               </div>
 
@@ -885,7 +886,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   placeholder="Masalan: Meva sharbati va Pirojniy"
                   value={menuExcSnack}
                   onChange={(e) => setMenuExcSnack(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition"
                 />
               </div>
 
@@ -896,7 +897,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                   placeholder="Masalan: Sut, Kulcha va Meva"
                   value={menuExcDinner}
                   onChange={(e) => setMenuExcDinner(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-none px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition"
                 />
               </div>
 
@@ -904,14 +905,14 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
                 <button
                   type="button"
                   onClick={() => setShowAddExceptionModal(false)}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 rounded-none transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 rounded-none transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -923,6 +924,7 @@ export default function MenuSection({ token, API_URL }: MenuSectionProps) {
 
       {/* Custom Dialog Modal */}
       <CustomDialogModal
+        theme="admin"
         isOpen={dialogState.isOpen}
         type={dialogState.type}
         title={dialogState.title}

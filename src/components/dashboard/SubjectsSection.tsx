@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { SubjectItem } from "./types";
 
 interface SubjectsSectionProps {
@@ -119,46 +119,55 @@ export default function SubjectsSection({
 
   return (
     <div className="space-y-6 font-sans text-[#1D1E26] select-none">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">Maktabdagi dars fanlari va ularning sinf darajalari (level) ro'yxati.</p>
+      {/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3">
+        {/* Left: Title + Search */}
+        <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
+          
+          {/* Search */}
+          <div className="relative flex-1 max-w-sm">
+            <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Fanni izlash..."
+              value={subjectSearch}
+              onChange={(e) => setSubjectSearch(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-[#1D1E26] pl-9 pr-4 py-2 text-xs outline-none transition font-medium"
+            />
+          </div>
         </div>
-        <button
-          onClick={() => {
-            setSubjectNameInput("");
-            setSelectedLevels([]);
-            setActionError("");
-            setShowAddSubjectModal(true);
-          }}
-          className="bg-[#D4F562] text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer"
-        >
-          + Yangi Fan Qo'shish
-        </button>
-      </div>
 
-      {/* Search Bar Input */}
-      <div className="relative max-w-sm w-full">
-        <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 pointer-events-none">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-        </span>
-        <input
-          type="text"
-          placeholder="Fanni izlash..."
-          value={subjectSearch}
-          onChange={(e) => setSubjectSearch(e.target.value)}
-          className="w-full bg-white border border-slate-200 text-slate-800 placeholder-slate-400 pl-10 pr-4 py-2.5 rounded-2xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#D4F562] shadow-xs transition"
-        />
+        {/* Right: Stats + Action */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <span className="text-xs text-slate-500 font-mono hidden sm:block">
+            Jami: <strong className="text-[#1D1E26] font-extrabold">{subjects.length}</strong> ta fan
+          </span>
+          <button
+            onClick={() => {
+              setSubjectNameInput("");
+              setSelectedLevels([]);
+              setActionError("");
+              setShowAddSubjectModal(true);
+            }}
+            className="bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold text-xs py-2.5 px-4 flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Yangi Fan Qo'shish
+          </button>
+        </div>
       </div>
 
       {filteredSubjects.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+        <div className="text-center py-20 border border-dashed border-slate-200 bg-white">
           <p className="text-slate-400 text-xs font-medium">Fanlar topilmadi.</p>
         </div>
       ) : (
-        <div className="max-w-3xl overflow-x-auto rounded-3xl border border-slate-100 bg-white shadow-xs">
+        <div className="overflow-x-auto border border-slate-100 bg-white">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
               <tr>
@@ -177,11 +186,11 @@ export default function SubjectsSection({
                     <td className="px-6 py-4 font-bold text-[#1D1E26]">{s.name}</td>
                     <td className="px-6 py-4">
                       {hasLevels ? (
-                        <span className="bg-blue-50 text-blue-700 font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                        <span className="bg-slate-100 text-[#1D1E26] font-mono text-[11px] font-extrabold px-2.5 py-1">
                           {s.target_levels?.join(", ")}-sinflar
                         </span>
                       ) : (
-                        <span className="bg-[#ECFCCA] text-[#65A30D] font-extrabold text-[11px] px-2.5 py-1 rounded-lg">
+                        <span className="bg-[#1D1E26] text-[#D4F562] font-mono text-[11px] font-extrabold px-2.5 py-1">
                           Barcha sinflar uchun
                         </span>
                       )}
@@ -191,7 +200,7 @@ export default function SubjectsSection({
                         onClick={() => handleDeleteSubject(s.id)}
                         disabled={deletingId === s.id}
                         title="O'chirish"
-                        className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-xl transition shadow-2xs cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
+                        className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -217,10 +226,10 @@ export default function SubjectsSection({
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
+          <div className="w-full max-w-md bg-white border border-slate-200 p-6 shadow-2xl text-[#1D1E26] space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-[#1D1E26]">Yangi Fan Qo'shish</h3>
+                <h3 className="text-base font-extrabold text-[#1D1E26]">Yangi Fan Qo'shish</h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Fan nomini va u o'tiladigan sinf levellarini belgilang.</p>
               </div>
               <button
@@ -231,14 +240,14 @@ export default function SubjectsSection({
                   setSelectedLevels([]);
                   setActionError("");
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+                className="w-8 h-8 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
               >
                 ✕
               </button>
             </div>
 
             {actionError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 rounded-2xl font-medium">{actionError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-3.5 font-medium">{actionError}</div>
             )}
 
             <form onSubmit={handleAddSubject} className="space-y-4">
@@ -250,7 +259,7 @@ export default function SubjectsSection({
                   placeholder="Masalan: Matematika"
                   value={subjectNameInput}
                   onChange={(e) => setSubjectNameInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#1D1E26] transition font-bold"
                 />
               </div>
 
@@ -261,19 +270,19 @@ export default function SubjectsSection({
                     <button
                       type="button"
                       onClick={() => setSelectedLevels([])}
-                      className="text-[10px] text-slate-400 hover:text-slate-600 underline font-semibold"
+                      className="text-[10px] text-slate-400 hover:text-slate-600 underline font-semibold cursor-pointer"
                     >
                       Barchasiga ruxsat
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-4 gap-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl max-h-40 overflow-y-auto">
+                <div className="grid grid-cols-4 gap-2 p-3 bg-slate-50 border border-slate-200/80 max-h-40 overflow-y-auto">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lvl) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => toggleLevel(lvl)}
-                      className={`p-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      className={`p-2 text-xs font-bold border transition cursor-pointer ${
                         selectedLevels.includes(lvl)
                           ? "bg-[#1D1E26] text-[#D4F562] border-[#1D1E26]"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -299,14 +308,14 @@ export default function SubjectsSection({
                     setSelectedLevels([]);
                     setActionError("");
                   }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition cursor-pointer"
+                  className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 transition cursor-pointer"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="text-xs bg-[#D4F562] text-[#1D1E26] font-black py-2.5 px-5 rounded-xl shadow-xs hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                  className="text-xs bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 font-extrabold py-2.5 px-5 transition cursor-pointer disabled:opacity-50"
                 >
                   {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
                 </button>
@@ -320,6 +329,7 @@ export default function SubjectsSection({
       <CustomDialogModal
         isOpen={dialogState.isOpen}
         type={dialogState.type}
+        theme="admin"
         title={dialogState.title}
         message={dialogState.message}
         confirmText={dialogState.confirmText}

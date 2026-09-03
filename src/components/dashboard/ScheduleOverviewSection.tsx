@@ -167,16 +167,12 @@ export default function ScheduleOverviewSection({
   };
 
   return (
-    <div className="space-y-8 font-sans text-[#1D1E26]">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <p className="text-xs text-slate-400 font-medium mt-1">
-            Barcha sinflarning haftalik dars jadvallari — level bo&apos;yicha saralangan.{" "}
-            <span className="font-bold text-[#1D1E26]">2 marta bosib</span> tahrirlashga o&apos;ting.
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
+    <div className="space-y-6 font-sans text-[#1D1E26]">
+      {/* ── Unified Header ── */}
+      <div className="bg-white border border-slate-100/80 p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        
+
+        <div className="flex items-center flex-wrap gap-2.5">
           <SmartCalendarTrigger
             label={
               selectedDate
@@ -198,7 +194,7 @@ export default function ScheduleOverviewSection({
             <button
               onClick={() => setSelectedDate(null)}
               title="Sana filtrini tozalash (Barchasini ko'rsatish)"
-              className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs py-2.5 px-3 rounded-xl transition cursor-pointer"
+              className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-extrabold text-xs py-2 px-3 transition cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
               <span>Sana filtrini tozalash</span>
@@ -207,7 +203,7 @@ export default function ScheduleOverviewSection({
 
           <button
             onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-2 bg-[#D4F562] hover:opacity-90 text-[#1D1E26] font-black text-xs py-2.5 px-4 rounded-xl transition cursor-pointer shadow-md shadow-lime-200/50"
+            className="flex items-center gap-2 bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562] font-extrabold text-xs py-2.5 px-4 transition cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Excel Orqali Yoppasiga Yuklash</span>
@@ -216,35 +212,35 @@ export default function ScheduleOverviewSection({
           <button
             onClick={() => fetchAllSchedules(selectedDate)}
             disabled={loading}
-            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold text-xs py-2.5 px-3.5 transition cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            Yangilash
+            <span>Yangilash</span>
           </button>
         </div>
       </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="w-10 h-10 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-400 font-medium">Jadvallar yuklanmoqda...</p>
+          <div className="w-8 h-8 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-medium font-mono">Jadvallar yuklanmoqda...</p>
         </div>
       ) : grouped.length === 0 ? (
-        <div className="bg-white border border-slate-100 rounded-3xl p-12 text-center shadow-xs">
+        <div className="bg-white border border-dashed border-slate-200 p-12 text-center">
           <p className="text-slate-400 text-sm font-medium">Sinflar topilmadi.</p>
         </div>
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-8">
           {grouped.map(({ level, cardList }) => (
             <div key={level} className="space-y-4">
               <div className="flex items-center space-x-3">
-                <span className="text-xs font-black bg-[#1D1E26] text-white px-2.5 py-1 rounded-lg font-mono">
+                <span className="text-xs font-extrabold bg-[#1D1E26] text-[#D4F562] px-2.5 py-1 font-mono">
                   {level > 0 ? `${level}-SINF` : "SINFSIZ"}
                 </span>
-                <div className="h-px bg-slate-100 flex-1" />
+                <div className="h-px bg-slate-200 flex-1" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {cardList.map(({ cls, period, scheduleItems }, idx) => {
                   const hasSchedule = scheduleItems.length > 0;
                   const usedLessons = Array.from(
@@ -256,18 +252,18 @@ export default function ScheduleOverviewSection({
                       key={period ? `${cls.id}_${period.key}` : `${cls.id}_none_${idx}`}
                       onClick={() => handleCardClick(cls)}
                       title="2 marta bosib tahrirlang"
-                      className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-xs cursor-pointer hover:border-[#D4F562] hover:shadow-md hover:scale-[1.01] transition-all duration-200 select-none group flex flex-col justify-between"
+                      className="bg-white border border-slate-100/80 hover:border-[#1D1E26] overflow-hidden shadow-xs cursor-pointer hover:shadow-md transition duration-200 select-none group flex flex-col justify-between"
                     >
                       <div>
                         {/* Card header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex-wrap gap-1">
-                          <span className="text-sm font-black text-[#1D1E26]">{cls.name}</span>
+                        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-slate-50/70 flex-wrap gap-1">
+                          <span className="text-sm font-extrabold text-[#1D1E26]">{cls.name}</span>
                           {period ? (
-                            <span className="text-[10px] font-extrabold bg-[#ECFCCA] text-[#65A30D] px-2 py-0.5 rounded-lg font-mono">
+                            <span className="text-[10px] font-extrabold bg-[#1D1E26] text-[#D4F562] px-2 py-0.5 font-mono">
                               {period.periodNumber}-chorak ({period.startDate})
                             </span>
                           ) : (
-                            <span className="text-[10px] font-bold bg-slate-100 text-slate-400 px-2 py-0.5 rounded-lg">
+                            <span className="text-[10px] font-bold bg-slate-100 text-slate-400 px-2 py-0.5 font-mono">
                               Jadval yo&apos;q
                             </span>
                           )}
@@ -275,7 +271,7 @@ export default function ScheduleOverviewSection({
 
                         {/* Period dates sub-bar */}
                         {period && (
-                          <div className="px-4 py-1.5 bg-slate-50/30 border-b border-slate-50 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                          <div className="px-4 py-1.5 bg-slate-50/30 border-b border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-500">
                             <span>Davr:</span>
                             <span>{period.startDate} — {period.endDate}</span>
                           </div>
@@ -289,7 +285,7 @@ export default function ScheduleOverviewSection({
                                 <tr>
                                   <th className="text-left text-[9px] font-mono text-slate-300 pb-1 pr-1 w-4">#</th>
                                   {DAY_SHORT.map((d, idx) => (
-                                    <th key={idx} className="text-center font-extrabold text-slate-400 pb-1 px-0.5">
+                                    <th key={idx} className="text-center font-extrabold text-slate-400 pb-1 px-0.5 font-mono">
                                       {d}
                                     </th>
                                   ))}
@@ -307,13 +303,13 @@ export default function ScheduleOverviewSection({
                                         <td key={day} className="text-center py-0.5 px-0.5">
                                           {subj ? (
                                             <span
-                                              className="inline-block bg-[#E0F2FE] text-[#0284C7] rounded px-1 py-0.5 text-[9px] font-bold leading-tight max-w-[38px] truncate"
+                                              className="inline-block bg-slate-100 text-[#1D1E26] px-1 py-0.5 text-[9px] font-bold leading-tight max-w-[38px] truncate"
                                               title={subj}
                                             >
                                               {subj.length > 4 ? subj.slice(0, 4) + "…" : subj}
                                             </span>
                                           ) : (
-                                            <span className="inline-block w-4 h-3 rounded bg-slate-50/80" />
+                                            <span className="inline-block w-4 h-3 bg-slate-50/80" />
                                           )}
                                         </td>
                                       );
@@ -332,7 +328,7 @@ export default function ScheduleOverviewSection({
                                 e.stopPropagation();
                                 setIsImportOpen(true);
                               }}
-                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ECFCCA] hover:bg-indigo-100 text-[#1D1E26] rounded-lg text-xs font-bold transition cursor-pointer"
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1D1E26] hover:bg-slate-800 text-[#D4F562] text-xs font-extrabold transition cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Dars jadvalini yaratish</span>
@@ -354,6 +350,7 @@ export default function ScheduleOverviewSection({
         onClose={() => setIsCalendarOpen(false)}
         mode="single"
         title="Sanani tanlash"
+        theme="admin"
         selectedDate={selectedDate || undefined}
         onSelectDate={(dateStr) => {
           setSelectedDate(dateStr);
