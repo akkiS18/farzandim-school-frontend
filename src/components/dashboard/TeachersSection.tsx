@@ -88,7 +88,7 @@ export default function TeachersSection({
       const headers = safeFetchHeaders();
       headers["Content-Type"] = "application/json";
 
-      const response = await fetch(`${API_URL}/api/schools/users`, {
+      const response = await fetch(`${API_URL}/api/schools/teachers`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -96,7 +96,7 @@ export default function TeachersSection({
           last_name: teacherLastName.trim(),
           middle_name: teacherMiddleName.trim() || undefined,
           phone: teacherPhone.trim(),
-          role_name: teacherRole,
+          role: teacherRole,
           password: teacherPassword,
         }),
       });
