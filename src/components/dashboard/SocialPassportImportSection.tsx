@@ -55,6 +55,8 @@ export interface ExistingStudentDocInfo {
   class_id: number;
   class_name: string;
   ina: string;
+  class_teacher_name?: string;
+  class_teacher_id?: number;
 }
 
 export interface ExistingParentPassportInfo {

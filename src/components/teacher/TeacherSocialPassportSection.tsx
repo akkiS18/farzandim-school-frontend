@@ -55,6 +55,8 @@ export interface ExistingStudentDocInfo {
   class_id: number;
   class_name: string;
   ina: string;
+  class_teacher_name?: string;
+  class_teacher_id?: number;
 }
 
 export interface ExistingParentPassportInfo {
@@ -530,6 +532,9 @@ export default function TeacherSocialPassportSection({
 
     try {
       const schoolId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const currentUser = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
+      const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
+
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -537,20 +542,30 @@ export default function TeacherSocialPassportSection({
       if (schoolId) headers["X-School-ID"] = schoolId;
 
       const targetClassName = (selectedTargetClass || transferModal.targetClass || "1-A").trim();
+      const endpoint = isAdmin
+        ? `${API_URL}/api/schools/students/transfer-by-doc`
+        : `${API_URL}/api/schools/students/transfer-request`;
 
-      const res = await fetch(`${API_URL}/api/schools/students/transfer-by-doc`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers,
         body: JSON.stringify({
           ina: transferModal.student.ina,
           target_class_name: targetClassName,
+          message: `${targetClassName} sinfiga o'tkazish so'rovi`,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        showToast(data.message || `O'quvchi muvaffaqiyatli ${targetClassName} sinfiga o'tkazildi!`, "success");
+        showToast(
+          data.message ||
+            (isAdmin
+              ? `O'quvchi muvaffaqiyatli ${targetClassName} sinfiga o'tkazildi!`
+              : `Sinf rahbariga o'tkazish so'rovi yuborildi!`),
+          "success"
+        );
 
         // Clear transferred student INA from existingStudentsMap so red button & highlight disappear immediately!
         if (transferModal.student.ina) {
@@ -568,7 +583,7 @@ export default function TeacherSocialPassportSection({
         setTransferModal(null);
         if (onSuccess) onSuccess();
       } else {
-        showToast(data.error || "O'quvchini ko'chirishda xatolik yuz berdi", "error");
+        showToast(data.error || "O'quvchini ko'chirish / so'rov yuborishda xatolik yuz berdi", "error");
       }
     } catch (err) {
       console.error("Transfer student error:", err);
@@ -1159,77 +1174,101 @@ export default function TeacherSocialPassportSection({
 
             {/* Content */}
             <div className="p-6 space-y-4">
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-none space-y-1">
-                <p className="text-xs text-rose-900 font-extrabold">
-                  Ushbu I-NA hujjatli o'quvchi bazada allaqachon mavjud!
-                </p>
-                <p className="text-[11px] text-rose-700 font-medium">
-                  Yangi o'quvchi yaratilmasdan, eski o'quvchining sinfini yangi tanlangan sinfga o'tkazish uchun pastdagi tugmani bosing.
-                </p>
-              </div>
+              {(() => {
+                const currentUser = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
+                const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-none p-4 space-y-3 text-xs text-slate-800">
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                  <span className="text-slate-500 font-medium">O'quvchi F.I.Sh:</span>
-                  <span className="font-extrabold text-slate-900">
-                    {transferModal.student.last_name} {transferModal.student.first_name} {transferModal.student.middle_name}
-                  </span>
-                </div>
+                return (
+                  <>
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-none space-y-1">
+                      <p className="text-xs text-rose-900 font-extrabold">
+                        Ushbu hujjatli o'quvchi boshqa sinfda ({transferModal.student.class_name}) ro'yxatda turibdi!
+                      </p>
+                      <p className="text-[11px] text-rose-700 font-medium">
+                        {isAdmin
+                          ? "Ma'muriyat vakili sifatida uni yangi sinfga to'g'ridan-to'g'ri ko'chirishingiz mumkin."
+                          : "O'quvchini ruxsatsiz ko'chirish mumkin emas. Amaldagi sinf rahbariga rasmiy so'rov yuborish uchun pastdagi tugmani bosing."}
+                      </p>
+                    </div>
 
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                  <span className="text-slate-500 font-medium">Metrika / Pasport (I-NA):</span>
-                  <span className="font-mono font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-none border border-indigo-200">
-                    {transferModal.student.ina}
-                  </span>
-                </div>
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-none p-4 space-y-3 text-xs text-slate-800">
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <span className="text-slate-500 font-medium">O'quvchi F.I.Sh:</span>
+                        <span className="font-extrabold text-slate-900">
+                          {transferModal.student.last_name} {transferModal.student.first_name} {transferModal.student.middle_name}
+                        </span>
+                      </div>
 
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                  <span className="text-slate-500 font-medium">Hozirgi Sinf:</span>
-                  <span className="font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-none border border-amber-200">
-                    {transferModal.student.class_name} sinfi
-                  </span>
-                </div>
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <span className="text-slate-500 font-medium">Hujjat raqami:</span>
+                        <span className="font-mono font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-none border border-indigo-200">
+                          {transferModal.student.ina}
+                        </span>
+                      </div>
 
-                {/* Target Class Selector Dropdown */}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-slate-500 font-medium">O'tkaziladigan sinf:</span>
-                  <select
-                    value={selectedTargetClass}
-                    onChange={(e) => setSelectedTargetClass(e.target.value)}
-                    className="px-3 py-1.5 bg-white border border-slate-300 focus:border-indigo-500 rounded-none text-xs font-extrabold text-indigo-900 outline-none shadow-2xs cursor-pointer"
-                  >
-                    {schoolClasses.length === 0 ? (
-                      <option value={transferModal.targetClass}>{transferModal.targetClass} sinfi</option>
-                    ) : (
-                      schoolClasses.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name} sinfi
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <span className="text-slate-500 font-medium">Hozirgi Sinf:</span>
+                        <span className="font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-none border border-amber-200">
+                          {transferModal.student.class_name} sinfi
+                        </span>
+                      </div>
 
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setTransferModal(null)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  type="button"
-                  onClick={handleTransferStudent}
-                  disabled={transferring}
-                  className="px-5 py-2.5 bg-[#1E2B42] hover:bg-slate-700 text-white rounded-none text-xs font-extrabold transition cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-2 disabled:opacity-50"
-                >
-                  <ArrowRightLeft className="w-4 h-4" />
-                  <span>{transferring ? "O'tkazilmoqda..." : "Sinfga o'tkazish"}</span>
-                </button>
-              </div>
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <span className="text-slate-500 font-medium">Amaldagi Sinf Rahbari:</span>
+                        <span className="font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-none border border-indigo-200">
+                          {transferModal.student.class_teacher_name || "Tayinlanmagan"}
+                        </span>
+                      </div>
+
+                      {/* Target Class Selector Dropdown */}
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-slate-500 font-medium">O'tkaziladigan sinf:</span>
+                        <select
+                          value={selectedTargetClass}
+                          onChange={(e) => setSelectedTargetClass(e.target.value)}
+                          className="px-3 py-1.5 bg-white border border-slate-300 focus:border-indigo-500 rounded-none text-xs font-extrabold text-indigo-900 outline-none shadow-2xs cursor-pointer"
+                        >
+                          {schoolClasses.length === 0 ? (
+                            <option value={transferModal.targetClass}>{transferModal.targetClass} sinfi</option>
+                          ) : (
+                            schoolClasses.map((c) => (
+                              <option key={c.id} value={c.name}>
+                                {c.name} sinfi
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setTransferModal(null)}
+                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-200 transition cursor-pointer"
+                      >
+                        Bekor qilish
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTransferStudent}
+                        disabled={transferring}
+                        className="px-5 py-2.5 bg-[#1E2B42] hover:bg-slate-700 text-white rounded-none text-xs font-extrabold transition cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <ArrowRightLeft className="w-4 h-4" />
+                        <span>
+                          {transferring
+                            ? "Yuborilmoqda..."
+                            : isAdmin
+                            ? "Sinfga o'tkazish"
+                            : `${transferModal.student.class_teacher_name || "Sinf rahbari"}ga so'rov yuborish`}
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
