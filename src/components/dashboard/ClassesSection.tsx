@@ -876,7 +876,7 @@ export default function ClassesSection({
     setActionError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.id}`, {
+      const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1543,7 +1543,7 @@ export default function ClassesSection({
                                     </button>
                                     <button
                                       onClick={() => {
-                                        setDeletingStudentId(student.id);
+                                        setDeletingStudentId(student.student_id || student.id);
                                         setShowDeleteStudentModal(true);
                                       }}
                                       title="O'chirish"

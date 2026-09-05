@@ -164,7 +164,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           <div className="block sm:hidden divide-y divide-neutral-200">
             {paginatedStudents.map((st, idx) => {
               const globalIndex = (currentPage - 1) * studentsPageSize + idx + 1;
-              const stId = Number(st.id || st.student_id);
+              const stId = Number(st.student_id || st.id);
 
               return (
                 <div key={stId || idx} className="p-4 flex flex-col gap-3 bg-white">
@@ -247,7 +247,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
               <tbody className="text-slate-700 bg-white">
                 {paginatedStudents.map((st, idx) => {
                   const globalIndex = (currentPage - 1) * studentsPageSize + idx + 1;
-                  const stId = Number(st.id || st.student_id);
+                  const stId = Number(st.student_id || st.id);
                   const isLastRow = idx === paginatedStudents.length - 1;
                   const borderBottomClass = isLastRow ? "" : "border-b border-neutral-200";
 
