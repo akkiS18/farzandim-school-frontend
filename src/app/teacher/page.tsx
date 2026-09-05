@@ -556,7 +556,7 @@ function TeacherDashboardContent() {
     }
   };
 
-  const handleDeleteSchedule = (scheduleId: number) => {
+  const handleDeleteClubSchedule = (scheduleId: number) => {
     setTeacherDialog({
       isOpen: true,
       type: "danger",
@@ -1563,13 +1563,130 @@ function TeacherDashboardContent() {
 
       showToast("success", "Haftalik dars jadvali muvaffaqiyatli saqlandi!");
       setShowEditScheduleModal(false);
-      fetchClassSchedule();
-      fetchSchedulePeriods();
+      setScheduleViewDate(scheduleStartDate);
+      await fetchSchedulePeriods();
+      await fetchClassSchedule(scheduleStartDate);
     } catch (err: any) {
       setActionError(err.message);
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleOpenEditScheduleModal = (overrideStart?: string) => {
+    setActionError("");
+
+    const targetDate = overrideStart || scheduleViewDate;
+    const currentPeriod =
+      schedulePeriods.find((p: any) => p.start_date === targetDate || (targetDate >= p.start_date && targetDate <= p.end_date)) ||
+      schedulePeriods[0];
+
+    const activeStart =
+      overrideStart ||
+      currentPeriod?.start_date ||
+      (classSchedule.length > 0 && classSchedule[0].start_date) ||
+      "2026-09-01";
+    const activeEnd =
+      currentPeriod?.end_date ||
+      (classSchedule.length > 0 && classSchedule[0].end_date) ||
+      "2027-05-31";
+
+    const initialFormState: { [key: string]: number } = {};
+    for (let d = 1; d <= 6; d++) {
+      for (let l = 1; l <= 8; l++) {
+        initialFormState[`${d}-${l}`] = 0;
+      }
+    }
+    classSchedule.forEach((item) => {
+      if (item.subject_id > 0) {
+        initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
+      }
+    });
+
+    setScheduleFormState(initialFormState);
+    setEditingScheduleOriginalStartDate(activeStart);
+    setScheduleStartDate(activeStart);
+    setScheduleEndDate(activeEnd);
+    setShowEditScheduleModal(true);
+  };
+
+  const handleOpenNewPeriodModal = () => {
+    const initialFormState: { [key: string]: number } = {};
+    for (let d = 1; d <= 6; d++) {
+      for (let l = 1; l <= 8; l++) {
+        initialFormState[`${d}-${l}`] = 0;
+      }
+    }
+    setScheduleFormState(initialFormState);
+    setActionError("");
+    setEditingScheduleOriginalStartDate("");
+
+    if (schedulePeriods.length > 0) {
+      const sorted = [...schedulePeriods].sort((a, b) => a.end_date.localeCompare(b.end_date));
+      const lastPeriod = sorted[sorted.length - 1];
+      if (lastPeriod && lastPeriod.end_date) {
+        const nextStart = new Date(lastPeriod.end_date + "T00:00:00");
+        nextStart.setDate(nextStart.getDate() + 1);
+        const nextEnd = new Date(nextStart);
+        nextEnd.setMonth(nextEnd.getMonth() + 2);
+        const yyyy1 = nextStart.getFullYear();
+        const mm1 = String(nextStart.getMonth() + 1).padStart(2, "0");
+        const dd1 = String(nextStart.getDate()).padStart(2, "0");
+        const yyyy2 = nextEnd.getFullYear();
+        const mm2 = String(nextEnd.getMonth() + 1).padStart(2, "0");
+        const dd2 = String(nextEnd.getDate()).padStart(2, "0");
+        setScheduleStartDate(`${yyyy1}-${mm1}-${dd1}`);
+        setScheduleEndDate(`${yyyy2}-${mm2}-${dd2}`);
+      } else {
+        setScheduleStartDate("2026-09-01");
+        setScheduleEndDate("2026-10-24");
+      }
+    } else {
+      setScheduleStartDate("2026-09-01");
+      setScheduleEndDate("2026-10-24");
+    }
+    setShowEditScheduleModal(true);
+  };
+
+  const handleDeleteSchedule = (startDateToDelete?: string) => {
+    if (!selectedClassId) return;
+
+    const currentPeriod =
+      schedulePeriods.find((p: any) => p.start_date === scheduleViewDate || (scheduleViewDate >= p.start_date && scheduleViewDate <= p.end_date)) ||
+      schedulePeriods[0];
+    const targetStart = startDateToDelete || currentPeriod?.start_date || (classSchedule.length > 0 && classSchedule[0].start_date) || "";
+
+    const periodLabel = currentPeriod
+      ? `(${currentPeriod.start_date} — ${currentPeriod.end_date})`
+      : targetStart ? `(${targetStart})` : "";
+
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Dars jadvalini o'chirish",
+      message: `Haqiqatan ham ushbu ${periodLabel} dars jadvalini o'chirmoqchimisiz? Ushbu davrdagi barcha darslar o'chiriladi.`,
+      confirmText: "Ha, o'chirish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        setActionError("");
+        try {
+          const deleteUrl = targetStart
+            ? `/api/schools/classes/${selectedClassId}/schedule?start_date=${targetStart}`
+            : `/api/schools/classes/${selectedClassId}/schedule`;
+          await api.delete(deleteUrl);
+          showToast("success", "Dars jadvali muvaffaqiyatli o'chirildi!");
+          setShowEditScheduleModal(false);
+          setClassSchedule([]);
+          await fetchSchedulePeriods();
+          await fetchClassSchedule();
+        } catch (err: any) {
+          showToast("error", err.message || "Dars jadvalini o'chirishda xatolik yuz berdi");
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const fetchClassData = async () => {
@@ -2560,25 +2677,40 @@ function TeacherDashboardContent() {
               </table>
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditScheduleModal(false);
-                  setScheduleFormState({});
-                  setActionError("");
-                }}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-none transition cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="submit"
-                disabled={actionLoading}
-                className="text-xs bg-[#1E2B42] hover:bg-slate-700 text-white font-bold py-2.5 px-6 rounded-none transition cursor-pointer disabled:opacity-50"
-              >
-                {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
-              </button>
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
+              <div>
+                {editingScheduleOriginalStartDate && (classes.find(c => c.id === selectedClassId)?.is_main_teacher || userInfo?.role === "ADMIN") && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSchedule(editingScheduleOriginalStartDate)}
+                    disabled={actionLoading}
+                    className="text-xs bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold py-2.5 px-4 rounded-none transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Jadvalni o'chirish</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditScheduleModal(false);
+                    setScheduleFormState({});
+                    setActionError("");
+                  }}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-none transition cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="text-xs bg-[#1E2B42] hover:bg-slate-700 text-white font-bold py-2.5 px-6 rounded-none transition cursor-pointer disabled:opacity-50"
+                >
+                  {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -3365,7 +3497,11 @@ function TeacherDashboardContent() {
                 {selectedClassId && schedulePeriods.length > 0 && (
                   <div className="shrink-0 min-w-0 max-w-[130px] sm:max-w-[200px]">
                     <select
-                      value={scheduleViewDate}
+                      value={
+                        schedulePeriods.some(p => p.start_date === scheduleViewDate)
+                          ? scheduleViewDate
+                          : (schedulePeriods.find(p => scheduleViewDate >= p.start_date && scheduleViewDate <= p.end_date)?.start_date || schedulePeriods[0]?.start_date || scheduleViewDate)
+                      }
                       onChange={(e) => { setScheduleViewDate(e.target.value); fetchClassSchedule(e.target.value); }}
                       className="w-full h-10 sm:h-11 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-2 sm:px-3 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer truncate outline-none focus:border-[#1E2B42] focus:ring-1 focus:ring-[#1E2B42]"
                     >
@@ -3401,21 +3537,7 @@ function TeacherDashboardContent() {
                   <>
                     <button
                       type="button"
-                      onClick={() => {
-                        const currentPeriod = schedulePeriods.find(p => p.start_date === scheduleViewDate);
-                        const activeStart =
-                          currentPeriod?.start_date ||
-                          (classSchedule.length > 0 && classSchedule[0].start_date) ||
-                          "2026-09-02";
-                        const activeEnd =
-                          currentPeriod?.end_date ||
-                          (classSchedule.length > 0 && classSchedule[0].end_date) ||
-                          "2027-05-31";
-                        setEditingScheduleOriginalStartDate(activeStart);
-                        setScheduleStartDate(activeStart);
-                        setScheduleEndDate(activeEnd);
-                        setShowEditScheduleModal(true);
-                      }}
+                      onClick={() => handleOpenEditScheduleModal()}
                       className="bg-[#1E2B42] hover:bg-slate-700 text-white font-bold text-xs px-3 sm:px-3.5 rounded-none transition cursor-pointer flex items-center justify-center gap-1.5 h-10 sm:h-11"
                       title="Sinf haftalik dars jadvalini tahrirlash"
                     >
@@ -3425,24 +3547,25 @@ function TeacherDashboardContent() {
                     
                     <button
                       type="button"
-                      onClick={() => {
-                        const initialFormState: { [key: string]: number } = {};
-                        for (let d = 1; d <= 6; d++) {
-                          for (let l = 1; l <= 8; l++) {
-                            initialFormState[`${d}-${l}`] = 0;
-                          }
-                        }
-                        setScheduleFormState(initialFormState);
-                        setActionError("");
-                        setEditingScheduleOriginalStartDate("");
-                        setShowEditScheduleModal(true);
-                      }}
+                      onClick={handleOpenNewPeriodModal}
                       className="bg-[#1E2B42] hover:bg-slate-700 text-white font-bold text-xs px-3 sm:px-3.5 rounded-none transition cursor-pointer flex items-center justify-center gap-1.5 h-10 sm:h-11"
                       title="Yangi chorak yoki vaqt oralig'i qo'shish"
                     >
                       <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                       <span className="hidden sm:inline">Yangi Davr</span>
                     </button>
+
+                    {classSchedule.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSchedule()}
+                        className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs px-2.5 sm:px-3 rounded-none transition cursor-pointer flex items-center justify-center gap-1.5 h-10 sm:h-11"
+                        title="Ushbu davr dars jadvalini o'chirish"
+                      >
+                        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">O'chirish</span>
+                      </button>
+                    )}
                   </>
                 )}
 
@@ -3806,73 +3929,8 @@ function TeacherDashboardContent() {
                 setScheduleViewDate(startDate);
                 fetchClassSchedule(startDate);
               }}
-              onOpenEditScheduleModal={() => {
-                const initialFormState: { [key: string]: number } = {};
-                for (let d = 1; d <= 6; d++) {
-                  for (let l = 1; l <= 8; l++) {
-                    initialFormState[`${d}-${l}`] = 0;
-                  }
-                }
-                classSchedule.forEach((item) => {
-                  if (item.subject_id > 0) {
-                    initialFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
-                  }
-                });
-                setActionError("");
-
-                const currentPeriod =
-                  schedulePeriods.find((p: any) => scheduleViewDate >= p.start_date && scheduleViewDate <= p.end_date) ||
-                  schedulePeriods[0];
-                const activeStart =
-                  currentPeriod?.start_date ||
-                  (classSchedule.length > 0 && classSchedule[0].start_date) ||
-                  "2026-09-01";
-                const activeEnd =
-                  currentPeriod?.end_date ||
-                  (classSchedule.length > 0 && classSchedule[0].end_date) ||
-                  "2027-05-31";
-                setEditingScheduleOriginalStartDate(activeStart);
-                setScheduleStartDate(activeStart);
-                setScheduleEndDate(activeEnd);
-                setShowEditScheduleModal(true);
-              }}
-              onOpenNewPeriodModal={() => {
-                const initialFormState: { [key: string]: number } = {};
-                for (let d = 1; d <= 6; d++) {
-                  for (let l = 1; l <= 8; l++) {
-                    initialFormState[`${d}-${l}`] = 0;
-                  }
-                }
-                setScheduleFormState(initialFormState);
-                setActionError("");
-                setEditingScheduleOriginalStartDate("");
-
-                if (schedulePeriods.length > 0) {
-                  const sorted = [...schedulePeriods].sort((a, b) => a.end_date.localeCompare(b.end_date));
-                  const lastPeriod = sorted[sorted.length - 1];
-                  if (lastPeriod && lastPeriod.end_date) {
-                    const nextStart = new Date(lastPeriod.end_date + "T00:00:00");
-                    nextStart.setDate(nextStart.getDate() + 1);
-                    const nextEnd = new Date(nextStart);
-                    nextEnd.setMonth(nextEnd.getMonth() + 2);
-                    const yyyy1 = nextStart.getFullYear();
-                    const mm1 = String(nextStart.getMonth() + 1).padStart(2, "0");
-                    const dd1 = String(nextStart.getDate()).padStart(2, "0");
-                    const yyyy2 = nextEnd.getFullYear();
-                    const mm2 = String(nextEnd.getMonth() + 1).padStart(2, "0");
-                    const dd2 = String(nextEnd.getDate()).padStart(2, "0");
-                    setScheduleStartDate(`${yyyy1}-${mm1}-${dd1}`);
-                    setScheduleEndDate(`${yyyy2}-${mm2}-${dd2}`);
-                  } else {
-                    setScheduleStartDate("2026-09-01");
-                    setScheduleEndDate("2026-10-24");
-                  }
-                } else {
-                  setScheduleStartDate("2026-09-01");
-                  setScheduleEndDate("2026-10-24");
-                }
-                setShowEditScheduleModal(true);
-              }}
+              onOpenEditScheduleModal={() => handleOpenEditScheduleModal()}
+              onOpenNewPeriodModal={handleOpenNewPeriodModal}
               overallSchedule={overallSchedule}
               overallScheduleLoading={overallScheduleLoading}
               classSchedule={classSchedule}
@@ -4193,7 +4251,7 @@ function TeacherDashboardContent() {
                   fetchClubStudentsAndGrades(club.id, today);
                   setShowClubGradingModal(true);
                 }}
-                onDeleteSchedule={handleDeleteSchedule}
+                onDeleteSchedule={handleDeleteClubSchedule}
               />
             )}
 

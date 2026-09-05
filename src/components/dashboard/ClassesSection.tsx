@@ -979,6 +979,48 @@ export default function ClassesSection({
     }
   };
 
+  const handleDeleteSchedule = (startDateToDelete?: string) => {
+    if (!selectedClass) return;
+    const targetStart = startDateToDelete || (classSchedule.length > 0 && classSchedule[0].start_date) || "";
+
+    showConfirm(
+      `Haqiqatan ham ushbu dars jadvalini o'chirmoqchimisiz? Ushbu davrdagi barcha darslar o'chiriladi.`,
+      async () => {
+        setActionLoading(true);
+        setActionError("");
+        try {
+          const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+          const headers: Record<string, string> = {
+            Authorization: `Bearer ${token}`,
+          };
+          if (sId) headers["X-School-ID"] = sId;
+
+          const deleteUrl = targetStart
+            ? `${API_URL}/api/schools/classes/${selectedClass.id}/schedule?start_date=${targetStart}`
+            : `${API_URL}/api/schools/classes/${selectedClass.id}/schedule`;
+          const res = await fetch(deleteUrl, { method: "DELETE", headers });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Dars jadvalini o'chirib bo'lmadi");
+
+          showAlert("Dars jadvali muvaffaqiyatli o'chirildi!");
+          setShowEditScheduleModal(false);
+          setClassSchedule([]);
+          fetchClassSchedule();
+          fetchSchedulePresets();
+        } catch (err: any) {
+          showAlert(err.message || "Xatolik yuz berdi");
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      {
+        title: "Dars jadvalini o'chirish",
+        type: "danger",
+        confirmText: "Ha, o'chirish",
+      }
+    );
+  };
+
   const handleAssignTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClass) return;
@@ -1872,6 +1914,7 @@ export default function ClassesSection({
                         <button
                           onClick={() => {
                             setScheduleFormState({});
+                            setEditingScheduleOriginalStartDate("");
                             const todayStr = new Date().toISOString().split("T")[0];
                             setScheduleStartDate(todayStr);
                             const nextYear = new Date();
@@ -1897,12 +1940,14 @@ export default function ClassesSection({
                             if (classSchedule.length > 0 && classSchedule[0].start_date && classSchedule[0].end_date) {
                               setScheduleStartDate(classSchedule[0].start_date);
                               setScheduleEndDate(classSchedule[0].end_date);
+                              setEditingScheduleOriginalStartDate(classSchedule[0].start_date);
                             } else {
                               const todayStr = new Date().toISOString().split("T")[0];
                               setScheduleStartDate(todayStr);
                               const nextYear = new Date();
                               nextYear.setFullYear(nextYear.getFullYear() + 1);
                               setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                              setEditingScheduleOriginalStartDate("");
                             }
 
                             setShowEditScheduleModal(true);
@@ -1912,6 +1957,16 @@ export default function ClassesSection({
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
+
+                        {classSchedule.length > 0 && (
+                          <button
+                            onClick={() => handleDeleteSchedule(classSchedule[0].start_date)}
+                            title="Jadvalni o'chirish"
+                            className="w-9 h-9 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition cursor-pointer flex items-center justify-center shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -3364,25 +3419,40 @@ export default function ClassesSection({
                   </table>
                 </div>
 
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowEditScheduleModal(false);
-                      setScheduleFormState({});
-                      setActionError("");
-                    }}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 transition cursor-pointer"
-                  >
-                    Bekor qilish
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={actionLoading}
-                    className="text-xs bg-[#1D1E26] text-[#D4F562] font-extrabold py-2.5 px-6 hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
-                  >
-                    {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
-                  </button>
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <div>
+                    {editingScheduleOriginalStartDate && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSchedule(editingScheduleOriginalStartDate)}
+                        disabled={actionLoading}
+                        className="text-xs bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold py-2.5 px-4 rounded-none transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Jadvalni o'chirish</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEditScheduleModal(false);
+                        setScheduleFormState({});
+                        setActionError("");
+                      }}
+                      className="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[#1D1E26] font-extrabold py-2.5 px-4 transition cursor-pointer"
+                    >
+                      Bekor qilish
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={actionLoading}
+                      className="text-xs bg-[#1D1E26] text-[#D4F562] font-extrabold py-2.5 px-6 hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {actionLoading ? "Saqlanmoqda..." : "Saqlash"}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
