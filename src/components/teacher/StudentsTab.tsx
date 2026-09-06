@@ -15,14 +15,19 @@ import {
   ArrowUp,
   ArrowDown,
   RotateCcw,
+  Filter,
+  UserCheck,
+  UserX,
+  Calendar,
 } from "lucide-react";
 
-interface Student {
+export interface Student {
   id?: number;
   student_id?: number;
   first_name: string;
   last_name: string;
   middle_name?: string;
+  class_id?: number;
   class_name?: string;
   phone?: string;
   birthdate?: string;
@@ -30,10 +35,17 @@ interface Student {
   created_at?: string;
   address?: string;
   ina?: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
 }
 
 interface StudentsTabProps {
   selectedClassId: string | number | null;
+  classes?: any[];
+  statusFilter?: "active" | "archived" | "all";
+  onChangeStatusFilter?: (val: "active" | "archived" | "all") => void;
+  selectedClassFilter?: string;
+  onChangeClassFilter?: (val: string) => void;
   studentsTabList: Student[];
   studentsTabLoading: boolean;
   studentsSearch: string;
@@ -50,7 +62,15 @@ interface StudentsTabProps {
   onDeleteStudent: (studentId: any) => void;
 }
 
-type StudentSortField = "default" | "name" | "birthdate" | "enrollment_date";
+type StudentSortField =
+  | "default"
+  | "name"
+  | "class_name"
+  | "ina"
+  | "birthdate"
+  | "enrollment_date"
+  | "deleted_at";
+
 type StudentSortDirection = "asc" | "desc";
 
 const parseDateTimestamp = (d?: string): number => {
@@ -62,6 +82,11 @@ const parseDateTimestamp = (d?: string): number => {
 
 export const StudentsTab: React.FC<StudentsTabProps> = ({
   selectedClassId,
+  classes = [],
+  statusFilter = "active",
+  onChangeStatusFilter,
+  selectedClassFilter = "all",
+  onChangeClassFilter,
   studentsTabList,
   studentsTabLoading,
   studentsSearch,
@@ -79,19 +104,40 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
 }) => {
   const [sortField, setSortField] = useState<StudentSortField>("default");
   const [sortDirection, setSortDirection] = useState<StudentSortDirection>("asc");
+  const [leavingDateFrom, setLeavingDateFrom] = useState("");
+  const [leavingDateTo, setLeavingDateTo] = useState("");
 
+  const showLeavingDateColumn = statusFilter === "archived" || statusFilter === "all";
+
+  // Filter students based on search and optional leaving date range
   const filteredStudents = useMemo(() => {
+    let list = studentsTabList;
+
+    // Filter by leaving date range if specified
+    if (leavingDateFrom || leavingDateTo) {
+      const fromTs = leavingDateFrom ? new Date(leavingDateFrom).getTime() : 0;
+      const toTs = leavingDateTo ? new Date(leavingDateTo).getTime() + 86400000 - 1 : Infinity;
+
+      list = list.filter((st) => {
+        if (!st.deleted_at) return false;
+        const delTs = parseDateTimestamp(st.deleted_at);
+        return delTs >= fromTs && delTs <= toTs;
+      });
+    }
+
     const q = studentsSearch.toLowerCase().trim();
-    if (!q) return studentsTabList;
-    return studentsTabList.filter((st) => {
+    if (!q) return list;
+
+    return list.filter((st) => {
       const name = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
       const phone = (st.phone || "").toLowerCase();
       const cls = (st.class_name || "").toLowerCase();
       const ina = (st.ina || "").toLowerCase();
       return name.includes(q) || phone.includes(q) || cls.includes(q) || ina.includes(q);
     });
-  }, [studentsTabList, studentsSearch]);
+  }, [studentsTabList, studentsSearch, leavingDateFrom, leavingDateTo]);
 
+  // Sort students across all requested fields
   const sortedStudents = useMemo(() => {
     if (sortField === "default") return filteredStudents;
 
@@ -100,6 +146,20 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
         const nameA = `${a.first_name || ""} ${a.last_name || ""} ${a.middle_name || ""}`.trim();
         const nameB = `${b.first_name || ""} ${b.last_name || ""} ${b.middle_name || ""}`.trim();
         const cmp = nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+        return sortDirection === "asc" ? cmp : -cmp;
+      }
+
+      if (sortField === "class_name") {
+        const clsA = (a.class_name || "").trim();
+        const clsB = (b.class_name || "").trim();
+        const cmp = clsA.localeCompare(clsB, "uz", { numeric: true, sensitivity: "base" });
+        return sortDirection === "asc" ? cmp : -cmp;
+      }
+
+      if (sortField === "ina") {
+        const inaA = (a.ina || "").trim();
+        const inaB = (b.ina || "").trim();
+        const cmp = inaA.localeCompare(inaB, "uz", { numeric: true, sensitivity: "base" });
         return sortDirection === "asc" ? cmp : -cmp;
       }
 
@@ -115,6 +175,15 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
       if (sortField === "enrollment_date") {
         const timeA = parseDateTimestamp(a.enrollment_date || a.created_at);
         const timeB = parseDateTimestamp(b.enrollment_date || b.created_at);
+        if (!timeA && timeB) return 1;
+        if (timeA && !timeB) return -1;
+        if (!timeA && !timeB) return 0;
+        return sortDirection === "desc" ? timeB - timeA : timeA - timeB;
+      }
+
+      if (sortField === "deleted_at") {
+        const timeA = parseDateTimestamp(a.deleted_at);
+        const timeB = parseDateTimestamp(b.deleted_at);
         if (!timeA && timeB) return 1;
         if (timeA && !timeB) return -1;
         if (!timeA && !timeB) return 0;
@@ -141,7 +210,8 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
     }
 
     if (sortField === field) {
-      const defaultDir: StudentSortDirection = field === "name" ? "asc" : "desc";
+      const defaultDir: StudentSortDirection =
+        field === "name" || field === "class_name" || field === "ina" ? "asc" : "desc";
       if (sortDirection === defaultDir) {
         setSortDirection(defaultDir === "asc" ? "desc" : "asc");
       } else {
@@ -150,49 +220,59 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
       }
     } else {
       setSortField(field);
-      // Name defaults to 'asc' (A-Z), dates default to 'desc' (eng yangi sana birinchi)
-      setSortDirection(field === "name" ? "asc" : "desc");
+      const defaultDir: StudentSortDirection =
+        field === "name" || field === "class_name" || field === "ina" ? "asc" : "desc";
+      setSortDirection(defaultDir);
     }
     setStudentsPage(1);
   };
 
+  const getSortBadge = (field: StudentSortField, labelAsc = "A-Z", labelDesc = "Z-A") => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 group-hover:scale-110 transition-all ml-1 shrink-0" />;
+    }
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42] ml-1 shrink-0">
+        {sortDirection === "asc" ? (
+          <>
+            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> {labelAsc}
+          </>
+        ) : (
+          <>
+            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> {labelDesc}
+          </>
+        )}
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-4 animate-fadeIn font-sans">
       {/* HEADER BREADCRUMB / ACTIONS */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-4">
         <div>
           <h2 className="text-xl font-bold font-serif text-[#1E2B42]">
-            {selectedClassId ? "Sinf O'quvchilari" : "Barcha O'quvchilar"}
+            {selectedClassFilter && selectedClassFilter !== "all"
+              ? classes.find((c) => String(c.id) === String(selectedClassFilter))?.name + " O'quvchilari"
+              : selectedClassId
+              ? "Sinf O'quvchilari"
+              : "Barcha O'quvchilar"}
           </h2>
-          <p className="text-sm text-slate-500 font-sans mt-1">
-            {selectedClassId
-              ? "Sinf rahbari sifatida o'quvchilarni qo'shishingiz va boshqarishingiz mumkin"
-              : "Maktabdagi barcha sinf o'quvchilarining umumiy ro'yxati"}
+          <p className="text-sm text-slate-500 mt-0.5">
+            {statusFilter === "archived"
+              ? "Maktabdan chiqib ketgan (arxivlangan) o'quvchilar ro'yxati"
+              : statusFilter === "all"
+              ? "Maktabdagi barcha faol va arxivlangan o'quvchilar ro'yxati"
+              : "O'quvchilarni qo'shishingiz, saralashingiz va boshqarishingiz mumkin"}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Quick Search */}
-          <div className="flex items-center gap-2 bg-white border border-neutral-300 px-3 py-2">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={studentsSearch}
-              onChange={(e) => {
-                setStudentsSearch(e.target.value);
-                setStudentsPage(1);
-              }}
-              placeholder="O'quvchi qidirish..."
-              className="bg-transparent border-none text-xs font-bold text-slate-700 outline-none w-32 sm:w-44 transition-all focus:ring-0 p-0"
-            />
-          </div>
-
-
           <button
             type="button"
             title="O'quvchilarni sinfdan sinfga ko'chirish"
             onClick={onOpenTransferModal}
-            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] font-bold text-xs rounded-none transition cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] font-bold text-xs rounded-none transition cursor-pointer flex items-center gap-1.5"
           >
             <ArrowRightLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Ko'chirish</span>
@@ -202,21 +282,154 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
             type="button"
             title="Excel orqali yuklash"
             onClick={onOpenImportStudentsModal}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] rounded-none transition cursor-pointer flex items-center justify-center"
+            className="p-2 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] rounded-none transition cursor-pointer flex items-center justify-center"
           >
             <FileSpreadsheet className="w-4 h-4" />
           </button>
-          
+
           <button
             type="button"
             title="O'quvchi qo'shish"
             onClick={onOpenCreateStudentModal}
-            className="p-2.5 bg-[#A51C30] hover:bg-[#8a1526] text-white rounded-none transition cursor-pointer flex items-center justify-center"
+            className="px-3 py-2 bg-[#A51C30] hover:bg-[#8a1526] text-white rounded-none transition cursor-pointer flex items-center justify-center gap-1.5"
           >
             <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline ml-2 text-xs font-bold">Qo'shish</span>
+            <span className="text-xs font-bold">Qo'shish</span>
           </button>
         </div>
+      </div>
+
+      {/* FILTER & CONTROL BAR */}
+      <div className="bg-white border border-neutral-200 p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Quick Search */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-neutral-300 px-3 py-1.5 min-w-[200px]">
+            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={studentsSearch}
+              onChange={(e) => {
+                setStudentsSearch(e.target.value);
+                setStudentsPage(1);
+              }}
+              placeholder="O'quvchi qidirish..."
+              className="bg-transparent border-none text-xs font-semibold text-slate-700 outline-none w-full p-0"
+            />
+          </div>
+
+          {/* Class Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-neutral-300 px-2 py-1.5">
+            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <select
+              value={selectedClassFilter}
+              onChange={(e) => {
+                if (onChangeClassFilter) onChangeClassFilter(e.target.value);
+                setStudentsPage(1);
+              }}
+              className="bg-transparent border-none text-xs font-bold text-slate-700 outline-none cursor-pointer pr-4 p-0"
+            >
+              <option value="all">Barcha sinflar</option>
+              {classes.map((cls) => (
+                <option key={cls.id} value={String(cls.id)}>
+                  {cls.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter (Pills) */}
+          <div className="inline-flex border border-neutral-300 bg-slate-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (onChangeStatusFilter) onChangeStatusFilter("active");
+                setStudentsPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                statusFilter === "active"
+                  ? "bg-white text-emerald-700 shadow-2xs border border-neutral-200"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Faol
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onChangeStatusFilter) onChangeStatusFilter("archived");
+                setStudentsPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                statusFilter === "archived"
+                  ? "bg-white text-red-700 shadow-2xs border border-neutral-200"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UserX className="w-3.5 h-3.5 text-red-600" />
+              Chiqib ketganlar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onChangeStatusFilter) onChangeStatusFilter("all");
+                setStudentsPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                statusFilter === "all"
+                  ? "bg-white text-[#1E2B42] shadow-2xs border border-neutral-200"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-[#1E2B42]" />
+              Barchasi
+            </button>
+          </div>
+        </div>
+
+        {/* Date range filter for leaving date (when showing archived / all) */}
+        {showLeavingDateColumn && (
+          <div className="flex items-center gap-2 text-xs text-slate-600 shrink-0">
+            <div className="flex items-center gap-1 font-semibold text-slate-500">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              Chiqish sanasi:
+            </div>
+            <input
+              type="date"
+              value={leavingDateFrom}
+              onChange={(e) => {
+                setLeavingDateFrom(e.target.value);
+                setStudentsPage(1);
+              }}
+              title="Dan"
+              className="px-2 py-1 bg-slate-50 border border-neutral-300 text-xs font-semibold text-slate-700"
+            />
+            <span className="text-slate-400">-</span>
+            <input
+              type="date"
+              value={leavingDateTo}
+              onChange={(e) => {
+                setLeavingDateTo(e.target.value);
+                setStudentsPage(1);
+              }}
+              title="Gacha"
+              className="px-2 py-1 bg-slate-50 border border-neutral-300 text-xs font-semibold text-slate-700"
+            />
+            {(leavingDateFrom || leavingDateTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLeavingDateFrom("");
+                  setLeavingDateTo("");
+                  setStudentsPage(1);
+                }}
+                className="text-[11px] text-red-600 font-bold hover:underline cursor-pointer"
+              >
+                Tozalash
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {studentsTabLoading ? (
@@ -225,47 +438,43 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Yuklanmoqda...</p>
         </div>
       ) : sortedStudents.length === 0 ? (
-        <div className="py-16 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-neutral-300">
+        <div className="py-16 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-neutral-300 text-center px-4">
           <p className="text-sm font-bold text-slate-700 font-serif mb-1">
             {studentsSearch
-              ? "Hech kim topilmadi"
-              : selectedClassId
-              ? "Ushbu sinfda o'quvchilar yo'q"
-              : "Maktabda o'quvchilar ro'yxatga olinmagan"}
+              ? "Qidiruv bo'yicha hech kim topilmadi"
+              : statusFilter === "archived"
+              ? "Ushbu parametrlar bo'yicha chiqib ketgan o'quvchilar yo'q"
+              : selectedClassFilter !== "all"
+              ? "Tanlangan sinfda o'quvchilar yo'q"
+              : "O'quvchilar ro'yxati bo'sh"}
           </p>
-          <p className="text-xs text-slate-500 font-sans">
-            Yangi o'quvchi qo'shish yoki qidiruvni o'zgartirish orqali ro'yxatni shakllantiring.
+          <p className="text-xs text-slate-500 max-w-md">
+            Filtr parametrlarini o'zgartirib ko'ring yoki yangi o'quvchi qo'shing.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-neutral-200 overflow-hidden shadow-xs">
-          {/* Always visible table sort status bar */}
-          <div className="px-4 py-2 bg-slate-50 border-b border-neutral-200 flex items-center justify-between text-xs text-slate-700 font-sans">
+        <div className="bg-white border border-neutral-200 overflow-hidden shadow-2xs">
+          {/* Table Sort Status Indicator Bar */}
+          <div className="px-4 py-2 bg-slate-50 border-b border-neutral-200 flex items-center justify-between text-xs text-slate-700">
             <div className="flex items-center gap-2">
               <span className="font-bold text-[#1E2B42]">Tartib:</span>
               {sortField === "default" ? (
-                <span className="text-slate-500">Saralanmagan</span>
+                <span className="text-slate-500">Asl tartib (T/R)</span>
               ) : (
                 <span className="text-slate-800">
                   <span className="text-[#1E2B42] font-semibold">
-                    {sortField === "name" && "Ism-familiya bo'yicha"}
-                    {sortField === "birthdate" && "Tug'ilgan sana bo'yicha"}
-                    {sortField === "enrollment_date" && "Maktabga kirish sanasi bo'yicha"}
-                  </span>
-                  {" ("}
-                  <strong className="text-[#1E2B42]">
-                    {sortField === "name"
-                      ? sortDirection === "asc"
-                        ? "A → Z"
-                        : "Z → A"
-                      : sortDirection === "desc"
-                      ? "So'nggi sanalar oldinda"
-                      : "Avvalgi sanalar oldinda"}
-                  </strong>
-                  {")"}
+                    {sortField === "name" && "Ism-familiya"}
+                    {sortField === "class_name" && "Sinf"}
+                    {sortField === "ina" && "INA"}
+                    {sortField === "birthdate" && "Tug'ilgan sana"}
+                    {sortField === "enrollment_date" && "Kirish sanasi"}
+                    {sortField === "deleted_at" && "Chiqish sanasi"}
+                  </span>{" "}
+                  ({sortDirection === "asc" ? "o'sish bo'yicha" : "kamayish bo'yicha"})
                 </span>
               )}
             </div>
+
             {sortField !== "default" && (
               <button
                 type="button"
@@ -279,24 +488,32 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
             )}
           </div>
 
-          {/* MOBILE CARD VIEW FOR STUDENTS (Hidden on SM and up) */}
+          {/* MOBILE CARD VIEW FOR STUDENTS */}
           <div className="block sm:hidden divide-y divide-neutral-200">
             {paginatedStudents.map((st, idx) => {
               const globalIndex = (currentPage - 1) * studentsPageSize + idx + 1;
               const stId = Number(st.student_id || st.id);
+              const isArchived = Boolean(st.is_deleted);
 
               return (
-                <div key={stId || idx} className="p-4 flex flex-col gap-3 bg-white">
+                <div key={stId || idx} className={`p-4 flex flex-col gap-3 ${isArchived ? "bg-red-50/30" : "bg-white"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="pt-0.5">
                         <span className="font-mono text-slate-400 text-xs">{globalIndex}.</span>
                       </div>
                       <div>
-                        <p className="font-bold text-base text-[#1E2B42] leading-tight mb-1">
-                          {st.first_name} {st.last_name}
-                        </p>
-                        <p className="text-xs text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-base text-[#1E2B42] leading-tight">
+                            {st.first_name} {st.last_name}
+                          </p>
+                          {isArchived && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-700 border border-red-200">
+                              Chiqib ketgan
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-mono mt-0.5">
                           {st.middle_name ? st.middle_name : ""}
                         </p>
                       </div>
@@ -307,11 +524,14 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="pl-6 flex flex-col gap-1 text-xs text-slate-600 mt-1">
                     <p><span className="font-bold text-slate-400 mr-1">INA:</span> {st.ina || "—"}</p>
                     <p><span className="font-bold text-slate-400 mr-1">Tug'ilgan sana:</span> {st.birthdate ? st.birthdate.split("T")[0] : "—"}</p>
                     <p><span className="font-bold text-slate-400 mr-1">Qabul:</span> {st.enrollment_date ? st.enrollment_date.split("T")[0] : st.created_at ? st.created_at.split("T")[0] : "—"}</p>
+                    {st.deleted_at && (
+                      <p><span className="font-bold text-red-500 mr-1">Chiqish:</span> {st.deleted_at.split("T")[0]}</p>
+                    )}
                   </div>
 
                   <div className="pl-6 flex items-center justify-end gap-2 mt-2 border-t border-neutral-100 pt-3">
@@ -331,14 +551,16 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button
-                      type="button"
-                      title="O'chirish"
-                      onClick={() => onDeleteStudent(stId)}
-                      className="p-2 border border-neutral-200 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {!isArchived && (
+                      <button
+                        type="button"
+                        title="O'chirish"
+                        onClick={() => onDeleteStudent(stId)}
+                        className="p-2 border border-neutral-200 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -362,92 +584,97 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                   {/* ISM FAMILIYA Header */}
                   <th
                     onClick={() => handleSort("name")}
-                    className={`px-6 py-3.5 sticky top-0 left-12 z-30 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[180px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                    className={`px-6 py-3.5 sticky top-0 left-12 z-30 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[190px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
                       sortField === "name" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
                     }`}
-                    title="Ism-familiya bo'yicha saralash (A-Z / Z-A)"
+                    title="Ism-familiya bo'yicha saralash"
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       <span>Ism Familiya</span>
-                      {sortField === "name" ? (
-                        sortDirection === "asc" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> A-Z
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> Z-A
-                          </span>
-                        )
-                      ) : (
-                        <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-all" />
-                      )}
+                      {getSortBadge("name", "A-Z", "Z-A")}
                     </div>
                   </th>
 
-                  {/* SINF Header (Static) */}
-                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 min-w-[90px] text-slate-500">
-                    Sinf
+                  {/* SINF Header */}
+                  <th
+                    onClick={() => handleSort("class_name")}
+                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[110px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                      sortField === "class_name" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
+                    }`}
+                    title="Sinf bo'yicha saralash"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Sinf</span>
+                      {getSortBadge("class_name", "A-Z", "Z-A")}
+                    </div>
                   </th>
 
-                  {/* INA Header (Static) */}
-                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 text-slate-500">
-                    INA
+                  {/* INA Header */}
+                  <th
+                    onClick={() => handleSort("ina")}
+                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[110px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                      sortField === "ina" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
+                    }`}
+                    title="INA bo'yicha saralash"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>INA</span>
+                      {getSortBadge("ina", "A-Z", "Z-A")}
+                    </div>
                   </th>
 
                   {/* TUG'ILGAN SANA Header */}
                   <th
                     onClick={() => handleSort("birthdate")}
-                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[130px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
                       sortField === "birthdate" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
                     }`}
-                    title="Tug'ilgan sana bo'yicha saralash (So'nggi → Avvalgi / Avvalgi → So'nggi)"
+                    title="Tug'ilgan sana bo'yicha saralash"
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       <span>Tug'ilgan sana</span>
-                      {sortField === "birthdate" ? (
-                        sortDirection === "desc" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> So'nggi
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> Avvalgi
-                          </span>
-                        )
-                      ) : (
-                        <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-all" />
-                      )}
+                      {getSortBadge("birthdate", "Avvalgi", "So'nggi")}
                     </div>
                   </th>
 
                   {/* MAKTABGA KIRISH SANASI Header */}
                   <th
                     onClick={() => handleSort("enrollment_date")}
-                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[140px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
                       sortField === "enrollment_date" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
                     }`}
-                    title="Maktabga kirish sanasi bo'yicha saralash (So'nggi → Avvalgi / Avvalgi → So'nggi)"
+                    title="Maktabga kirish sanasi bo'yicha saralash"
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span>Maktabga kirish sanasi</span>
-                      {sortField === "enrollment_date" ? (
-                        sortDirection === "desc" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> So'nggi
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> Avvalgi
-                          </span>
-                        )
-                      ) : (
-                        <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-all" />
-                      )}
+                    <div className="flex items-center gap-1">
+                      <span>Kirish sanasi</span>
+                      {getSortBadge("enrollment_date", "Avvalgi", "So'nggi")}
                     </div>
                   </th>
 
-                  {/* AMALLAR Header (Static) */}
+                  {/* MAKTABDAN CHIQISH SANASI Header (When visible) */}
+                  {showLeavingDateColumn && (
+                    <th
+                      onClick={() => handleSort("deleted_at")}
+                      className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[140px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                        sortField === "deleted_at" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
+                      }`}
+                      title="Maktabdan chiqish sanasi bo'yicha saralash"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="text-red-700">Chiqish sanasi</span>
+                        {getSortBadge("deleted_at", "Avvalgi", "So'nggi")}
+                      </div>
+                    </th>
+                  )}
+
+                  {/* STATUS Header (When 'all' is selected) */}
+                  {statusFilter === "all" && (
+                    <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 min-w-[100px] text-slate-500">
+                      Holat
+                    </th>
+                  )}
+
+                  {/* AMALLAR Header */}
                   <th className="px-6 py-3.5 text-right sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 text-slate-500">
                     Amallar
                   </th>
@@ -459,15 +686,30 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                   const stId = Number(st.student_id || st.id);
                   const isLastRow = idx === paginatedStudents.length - 1;
                   const borderBottomClass = isLastRow ? "" : "border-b border-neutral-200";
+                  const isArchived = Boolean(st.is_deleted);
 
                   return (
-                    <tr key={stId || idx} className="group hover:bg-slate-50 transition">
+                    <tr
+                      key={stId || idx}
+                      className={`group transition ${
+                        isArchived ? "bg-red-50/30 hover:bg-red-50/60" : "hover:bg-slate-50"
+                      }`}
+                    >
                       <td className={`px-4 py-3.5 text-center font-mono text-slate-500 sticky left-0 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] ${borderBottomClass}`}>
                         {globalIndex}
                       </td>
-                      <td className={`px-6 py-3.5 font-bold text-[#1E2B42] sticky left-12 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[180px] whitespace-nowrap ${borderBottomClass}`}>
-                        {st.first_name} {st.last_name}{" "}
-                        {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
+                      <td className={`px-6 py-3.5 font-bold text-[#1E2B42] sticky left-12 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[190px] whitespace-nowrap ${borderBottomClass}`}>
+                        <div className="flex items-center gap-2">
+                          <span>
+                            {st.first_name} {st.last_name}{" "}
+                            {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
+                          </span>
+                          {isArchived && statusFilter !== "all" && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-bold bg-red-100 text-red-700 border border-red-200">
+                              Chiqib ketgan
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className={`px-6 py-3.5 font-mono whitespace-nowrap ${borderBottomClass}`}>
                         <span className="px-2.5 py-1 bg-slate-100 border border-neutral-200 font-bold text-sm text-[#1E2B42] inline-block shrink-0">
@@ -485,6 +727,24 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                           ? st.created_at.split("T")[0]
                           : "—"}
                       </td>
+                      {showLeavingDateColumn && (
+                        <td className={`px-6 py-3.5 font-mono text-red-600 font-bold whitespace-nowrap ${borderBottomClass}`}>
+                          {st.deleted_at ? st.deleted_at.split("T")[0] : "—"}
+                        </td>
+                      )}
+                      {statusFilter === "all" && (
+                        <td className={`px-6 py-3.5 font-mono whitespace-nowrap ${borderBottomClass}`}>
+                          {isArchived ? (
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 inline-block">
+                              Chiqib ketgan
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 inline-block">
+                              Faol
+                            </span>
+                          )}
+                        </td>
+                      )}
                       <td className={`px-6 py-3.5 text-right whitespace-nowrap ${borderBottomClass}`}>
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -503,14 +763,16 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            type="button"
-                            title="O'chirish"
-                            onClick={() => onDeleteStudent(stId)}
-                            className="p-1.5 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {!isArchived && (
+                            <button
+                              type="button"
+                              title="O'chirish"
+                              onClick={() => onDeleteStudent(stId)}
+                              className="p-1.5 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

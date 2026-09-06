@@ -2099,17 +2099,30 @@ function TeacherDashboardContent() {
     }
   };
 
+  const [studentsTabStatusFilter, setStudentsTabStatusFilter] = useState<"active" | "archived" | "all">("active");
+  const [studentsTabClassFilter, setStudentsTabClassFilter] = useState<string>("all");
+
   // Students list for CRUD operations
-  const fetchStudentsTabList = async () => {
+  const fetchStudentsTabList = async (overrideStatus?: string, overrideClassId?: string) => {
     setStudentsTabLoading(true);
     try {
-      const isSelectedClassMain = selectedClassId && mainClasses.some((c) => c.id === Number(selectedClassId));
-      const effectiveClassId = isSelectedClassMain ? selectedClassId : (mainClasses[0]?.id || "");
+      const status = overrideStatus !== undefined ? overrideStatus : studentsTabStatusFilter;
+      const classIdVal = overrideClassId !== undefined ? overrideClassId : studentsTabClassFilter;
 
-      const url = effectiveClassId
-        ? `/api/schools/users?role=STUDENT&class_id=${effectiveClassId}`
-        : `/api/schools/users?role=STUDENT`;
-      const data = await api.get(url);
+      let effectiveClassId = "";
+      if (classIdVal && classIdVal !== "all") {
+        effectiveClassId = classIdVal;
+      }
+
+      const params = new URLSearchParams({ role: "STUDENT" });
+      if (effectiveClassId) {
+        params.append("class_id", effectiveClassId);
+      }
+      if (status) {
+        params.append("status", status);
+      }
+
+      const data = await api.get(`/api/schools/users?${params.toString()}`);
       setStudentsTabList(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
@@ -3293,6 +3306,7 @@ function TeacherDashboardContent() {
             setShowImportStudentsModal(false);
             setShowTransferModal(false);
             setSelectedStudentForParents(null);
+            fetchStudentsTabList();
           } else if (tabId === "parents") {
             setParentsSearch("");
             setParentsPage(1);
@@ -4057,6 +4071,17 @@ function TeacherDashboardContent() {
             <StudentsTab
               key={`students-${tabResetKeys["students"] || 0}`}
               selectedClassId={selectedClassId}
+              classes={mainClasses.length > 0 ? mainClasses : classes}
+              statusFilter={studentsTabStatusFilter}
+              onChangeStatusFilter={(st) => {
+                setStudentsTabStatusFilter(st);
+                fetchStudentsTabList(st, studentsTabClassFilter);
+              }}
+              selectedClassFilter={studentsTabClassFilter}
+              onChangeClassFilter={(cid) => {
+                setStudentsTabClassFilter(cid);
+                fetchStudentsTabList(studentsTabStatusFilter, cid);
+              }}
               studentsTabList={studentsTabList}
               studentsTabLoading={studentsTabLoading}
               studentsSearch={studentsSearch}
