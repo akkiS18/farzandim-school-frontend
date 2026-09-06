@@ -4144,6 +4144,26 @@ function TeacherDashboardContent() {
                 setShowStudentModal(true);
               }}
               onDeleteStudent={handleDeleteStudent}
+              onUpdateLeavingDate={async (stId, newLeavingDate) => {
+                try {
+                  await api.put(`/api/schools/students/${stId}/leaving-date`, { leaving_date: newLeavingDate });
+                  showToast("success", "Chiqish sanasi muvaffaqiyatli yangilandi");
+                  fetchStudentsTabList();
+                  fetchJournalData();
+                } catch (err: any) {
+                  showToast("error", err.message);
+                }
+              }}
+              onRestoreStudent={async (stId) => {
+                try {
+                  await api.post(`/api/schools/students/${stId}/restore`, {});
+                  showToast("success", "O'quvchi muvaffaqiyatli qayta tiklandi");
+                  fetchStudentsTabList();
+                  fetchJournalData();
+                } catch (err: any) {
+                  showToast("error", err.message);
+                }
+              }}
             />
           )}
 

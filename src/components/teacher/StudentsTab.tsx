@@ -16,9 +16,11 @@ import {
   ArrowDown,
   RotateCcw,
   Filter,
-  UserCheck,
-  UserX,
+  GraduationCap,
+  Archive,
   Calendar,
+  RefreshCw,
+  Edit3,
 } from "lucide-react";
 
 export interface Student {
@@ -60,6 +62,8 @@ interface StudentsTabProps {
   onOpenParentsModal: (student: Student) => void;
   onOpenEditStudentModal: (student: Student) => void;
   onDeleteStudent: (studentId: any) => void;
+  onUpdateLeavingDate?: (studentId: number, newLeavingDate: string) => Promise<void>;
+  onRestoreStudent?: (studentId: number) => Promise<void>;
 }
 
 type StudentSortField =
@@ -101,13 +105,23 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
   onOpenParentsModal,
   onOpenEditStudentModal,
   onDeleteStudent,
+  onUpdateLeavingDate,
+  onRestoreStudent,
 }) => {
   const [sortField, setSortField] = useState<StudentSortField>("default");
   const [sortDirection, setSortDirection] = useState<StudentSortDirection>("asc");
   const [leavingDateFrom, setLeavingDateFrom] = useState("");
   const [leavingDateTo, setLeavingDateTo] = useState("");
 
-  const showLeavingDateColumn = statusFilter === "archived" || statusFilter === "all";
+  // Modal states for editing leaving date and restoring student
+  const [editingLeavingStudent, setEditingLeavingStudent] = useState<Student | null>(null);
+  const [editLeavingDateVal, setEditLeavingDateVal] = useState("");
+  const [editLeavingLoading, setEditLeavingLoading] = useState(false);
+
+  const [restoringStudent, setRestoringStudent] = useState<Student | null>(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+
+  const isArchivedTab = statusFilter === "archived";
 
   // Filter students based on search and optional leaving date range
   const filteredStudents = useMemo(() => {
@@ -246,57 +260,112 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
     );
   };
 
+  const handleSaveLeavingDate = async () => {
+    if (!editingLeavingStudent || !editLeavingDateVal || !onUpdateLeavingDate) return;
+    setEditLeavingLoading(true);
+    try {
+      const stId = Number(editingLeavingStudent.student_id || editingLeavingStudent.id);
+      await onUpdateLeavingDate(stId, editLeavingDateVal);
+      setEditingLeavingStudent(null);
+    } finally {
+      setEditLeavingLoading(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoringStudent || !onRestoreStudent) return;
+    setRestoreLoading(true);
+    try {
+      const stId = Number(restoringStudent.student_id || restoringStudent.id);
+      await onRestoreStudent(stId);
+      setRestoringStudent(null);
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4 animate-fadeIn font-sans">
+      {/* 2 MAIN TABS: FAOL O'QUVCHILAR vs CHIQIB KETGANLAR (ARXIV) */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 pb-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (onChangeStatusFilter) onChangeStatusFilter("active");
+            setStudentsPage(1);
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer border-b-2 ${
+            statusFilter === "active"
+              ? "border-[#1E2B42] text-[#1E2B42] bg-slate-100"
+              : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          <GraduationCap className="w-4 h-4 text-indigo-600" />
+          Faol o'quvchilar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (onChangeStatusFilter) onChangeStatusFilter("archived");
+            setStudentsPage(1);
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer border-b-2 ${
+            statusFilter === "archived"
+              ? "border-red-600 text-red-700 bg-red-50/50"
+              : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+          }`}
+        >
+          <Archive className="w-4 h-4 text-red-600" />
+          Chiqib ketganlar (Arxiv)
+        </button>
+      </div>
+
       {/* HEADER BREADCRUMB / ACTIONS */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold font-serif text-[#1E2B42]">
-            {selectedClassFilter && selectedClassFilter !== "all"
-              ? classes.find((c) => String(c.id) === String(selectedClassFilter))?.name + " O'quvchilari"
-              : selectedClassId
-              ? "Sinf O'quvchilari"
-              : "Barcha O'quvchilar"}
+            {isArchivedTab ? "Chiqib ketgan o'quvchilar arxivi" : "Sinf O'quvchilari"}
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            {statusFilter === "archived"
-              ? "Maktabdan chiqib ketgan (arxivlangan) o'quvchilar ro'yxati"
-              : statusFilter === "all"
-              ? "Maktabdagi barcha faol va arxivlangan o'quvchilar ro'yxati"
-              : "O'quvchilarni qo'shishingiz, saralashingiz va boshqarishingiz mumkin"}
+            {isArchivedTab
+              ? "Maktabdan chiqib ketgan o'quvchilar ro'yxati, chiqish sanalarini tahrirlash va qayta tiklash"
+              : "Sinfdagi faol o'quvchilar ro'yxati, vasiylar va ma'lumotlarni boshqarish"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            title="O'quvchilarni sinfdan sinfga ko'chirish"
-            onClick={onOpenTransferModal}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] font-bold text-xs rounded-none transition cursor-pointer flex items-center gap-1.5"
-          >
-            <ArrowRightLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Ko'chirish</span>
-          </button>
+        {!isArchivedTab && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              title="O'quvchilarni sinfdan sinfga ko'chirish"
+              onClick={onOpenTransferModal}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] font-bold text-xs rounded-none transition cursor-pointer flex items-center gap-1.5"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Ko'chirish</span>
+            </button>
 
-          <button
-            type="button"
-            title="Excel orqali yuklash"
-            onClick={onOpenImportStudentsModal}
-            className="p-2 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] rounded-none transition cursor-pointer flex items-center justify-center"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-          </button>
+            <button
+              type="button"
+              title="Excel orqali yuklash"
+              onClick={onOpenImportStudentsModal}
+              className="p-2 bg-slate-100 hover:bg-slate-200 border border-neutral-200 text-[#1E2B42] rounded-none transition cursor-pointer flex items-center justify-center"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+            </button>
 
-          <button
-            type="button"
-            title="O'quvchi qo'shish"
-            onClick={onOpenCreateStudentModal}
-            className="px-3 py-2 bg-[#A51C30] hover:bg-[#8a1526] text-white rounded-none transition cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span className="text-xs font-bold">Qo'shish</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              title="O'quvchi qo'shish"
+              onClick={onOpenCreateStudentModal}
+              className="px-3 py-2 bg-[#A51C30] hover:bg-[#8a1526] text-white rounded-none transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="text-xs font-bold">Qo'shish</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* FILTER & CONTROL BAR */}
@@ -336,59 +405,10 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
               ))}
             </select>
           </div>
-
-          {/* Status Filter (Pills) */}
-          <div className="inline-flex border border-neutral-300 bg-slate-100 p-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                if (onChangeStatusFilter) onChangeStatusFilter("active");
-                setStudentsPage(1);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold transition cursor-pointer ${
-                statusFilter === "active"
-                  ? "bg-white text-emerald-700 shadow-2xs border border-neutral-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Faol
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (onChangeStatusFilter) onChangeStatusFilter("archived");
-                setStudentsPage(1);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold transition cursor-pointer ${
-                statusFilter === "archived"
-                  ? "bg-white text-red-700 shadow-2xs border border-neutral-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <UserX className="w-3.5 h-3.5 text-red-600" />
-              Chiqib ketganlar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (onChangeStatusFilter) onChangeStatusFilter("all");
-                setStudentsPage(1);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold transition cursor-pointer ${
-                statusFilter === "all"
-                  ? "bg-white text-[#1E2B42] shadow-2xs border border-neutral-200"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Users className="w-3.5 h-3.5 text-[#1E2B42]" />
-              Barchasi
-            </button>
-          </div>
         </div>
 
-        {/* Date range filter for leaving date (when showing archived / all) */}
-        {showLeavingDateColumn && (
+        {/* Date range filter for leaving date (when showing archived) */}
+        {isArchivedTab && (
           <div className="flex items-center gap-2 text-xs text-slate-600 shrink-0">
             <div className="flex items-center gap-1 font-semibold text-slate-500">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -442,7 +462,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           <p className="text-sm font-bold text-slate-700 font-serif mb-1">
             {studentsSearch
               ? "Qidiruv bo'yicha hech kim topilmadi"
-              : statusFilter === "archived"
+              : isArchivedTab
               ? "Ushbu parametrlar bo'yicha chiqib ketgan o'quvchilar yo'q"
               : selectedClassFilter !== "all"
               ? "Tanlangan sinfda o'quvchilar yo'q"
@@ -488,87 +508,8 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
             )}
           </div>
 
-          {/* MOBILE CARD VIEW FOR STUDENTS */}
-          <div className="block sm:hidden divide-y divide-neutral-200">
-            {paginatedStudents.map((st, idx) => {
-              const globalIndex = (currentPage - 1) * studentsPageSize + idx + 1;
-              const stId = Number(st.student_id || st.id);
-              const isArchived = Boolean(st.is_deleted);
-
-              return (
-                <div key={stId || idx} className={`p-4 flex flex-col gap-3 ${isArchived ? "bg-red-50/30" : "bg-white"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="pt-0.5">
-                        <span className="font-mono text-slate-400 text-xs">{globalIndex}.</span>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-base text-[#1E2B42] leading-tight">
-                            {st.first_name} {st.last_name}
-                          </p>
-                          {isArchived && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-700 border border-red-200">
-                              Chiqib ketgan
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 font-mono mt-0.5">
-                          {st.middle_name ? st.middle_name : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="inline-block px-2.5 py-1 bg-slate-100 border border-neutral-200 font-bold text-sm text-[#1E2B42]">
-                        {st.class_name || "—"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pl-6 flex flex-col gap-1 text-xs text-slate-600 mt-1">
-                    <p><span className="font-bold text-slate-400 mr-1">INA:</span> {st.ina || "—"}</p>
-                    <p><span className="font-bold text-slate-400 mr-1">Tug'ilgan sana:</span> {st.birthdate ? st.birthdate.split("T")[0] : "—"}</p>
-                    <p><span className="font-bold text-slate-400 mr-1">Qabul:</span> {st.enrollment_date ? st.enrollment_date.split("T")[0] : st.created_at ? st.created_at.split("T")[0] : "—"}</p>
-                    {st.deleted_at && (
-                      <p><span className="font-bold text-red-500 mr-1">Chiqish:</span> {st.deleted_at.split("T")[0]}</p>
-                    )}
-                  </div>
-
-                  <div className="pl-6 flex items-center justify-end gap-2 mt-2 border-t border-neutral-100 pt-3">
-                    <button
-                      type="button"
-                      title="Vasiylar (Ota-onalar)"
-                      onClick={() => onOpenParentsModal(st)}
-                      className="p-2 border border-neutral-200 text-[#1E2B42] hover:bg-slate-100 transition cursor-pointer"
-                    >
-                      <Users className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Tahrirlash"
-                      onClick={() => onOpenEditStudentModal(st)}
-                      className="p-2 border border-neutral-200 text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    {!isArchived && (
-                      <button
-                        type="button"
-                        title="O'chirish"
-                        onClick={() => onDeleteStudent(stId)}
-                        className="p-2 border border-neutral-200 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
           {/* DESKTOP TABLE VIEW */}
-          <div className="hidden sm:block overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-separate border-spacing-0 text-xs font-sans">
               <thead className="text-[10px] font-bold uppercase tracking-wider font-mono">
                 <tr>
@@ -651,11 +592,11 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                     </div>
                   </th>
 
-                  {/* MAKTABDAN CHIQISH SANASI Header (When visible) */}
-                  {showLeavingDateColumn && (
+                  {/* MAKTABDAN CHIQISH SANASI Header (Only in archived tab) */}
+                  {isArchivedTab && (
                     <th
                       onClick={() => handleSort("deleted_at")}
-                      className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[140px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                      className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 min-w-[150px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
                         sortField === "deleted_at" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
                       }`}
                       title="Maktabdan chiqish sanasi bo'yicha saralash"
@@ -664,13 +605,6 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                         <span className="text-red-700">Chiqish sanasi</span>
                         {getSortBadge("deleted_at", "Avvalgi", "So'nggi")}
                       </div>
-                    </th>
-                  )}
-
-                  {/* STATUS Header (When 'all' is selected) */}
-                  {statusFilter === "all" && (
-                    <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 min-w-[100px] text-slate-500">
-                      Holat
                     </th>
                   )}
 
@@ -686,13 +620,12 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                   const stId = Number(st.student_id || st.id);
                   const isLastRow = idx === paginatedStudents.length - 1;
                   const borderBottomClass = isLastRow ? "" : "border-b border-neutral-200";
-                  const isArchived = Boolean(st.is_deleted);
 
                   return (
                     <tr
                       key={stId || idx}
                       className={`group transition ${
-                        isArchived ? "bg-red-50/30 hover:bg-red-50/60" : "hover:bg-slate-50"
+                        isArchivedTab ? "bg-red-50/20 hover:bg-red-50/50" : "hover:bg-slate-50"
                       }`}
                     >
                       <td className={`px-4 py-3.5 text-center font-mono text-slate-500 sticky left-0 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] ${borderBottomClass}`}>
@@ -704,11 +637,6 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                             {st.first_name} {st.last_name}{" "}
                             {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
                           </span>
-                          {isArchived && statusFilter !== "all" && (
-                            <span className="px-1.5 py-0.2 text-[9px] font-bold bg-red-100 text-red-700 border border-red-200">
-                              Chiqib ketgan
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td className={`px-6 py-3.5 font-mono whitespace-nowrap ${borderBottomClass}`}>
@@ -727,51 +655,77 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                           ? st.created_at.split("T")[0]
                           : "—"}
                       </td>
-                      {showLeavingDateColumn && (
+                      {isArchivedTab && (
                         <td className={`px-6 py-3.5 font-mono text-red-600 font-bold whitespace-nowrap ${borderBottomClass}`}>
-                          {st.deleted_at ? st.deleted_at.split("T")[0] : "—"}
-                        </td>
-                      )}
-                      {statusFilter === "all" && (
-                        <td className={`px-6 py-3.5 font-mono whitespace-nowrap ${borderBottomClass}`}>
-                          {isArchived ? (
-                            <span className="px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 inline-block">
-                              Chiqib ketgan
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 inline-block">
-                              Faol
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            <span>{st.deleted_at ? st.deleted_at.split("T")[0] : "—"}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingLeavingStudent(st);
+                                setEditLeavingDateVal(st.deleted_at ? st.deleted_at.split("T")[0] : new Date().toISOString().split("T")[0]);
+                              }}
+                              title="Chiqish sanasini o'zgartirish"
+                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       )}
                       <td className={`px-6 py-3.5 text-right whitespace-nowrap ${borderBottomClass}`}>
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            title="Vasiylar (Ota-onalar)"
-                            onClick={() => onOpenParentsModal(st)}
-                            className="p-1.5 text-[#1E2B42] hover:bg-slate-200 transition cursor-pointer"
-                          >
-                            <Users className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Tahrirlash"
-                            onClick={() => onOpenEditStudentModal(st)}
-                            className="p-1.5 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          {!isArchived && (
-                            <button
-                              type="button"
-                              title="O'chirish"
-                              onClick={() => onDeleteStudent(stId)}
-                              className="p-1.5 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isArchivedTab ? (
+                            <>
+                              <button
+                                type="button"
+                                title="Chiqish sanasini o'zgartirish"
+                                onClick={() => {
+                                  setEditingLeavingStudent(st);
+                                  setEditLeavingDateVal(st.deleted_at ? st.deleted_at.split("T")[0] : new Date().toISOString().split("T")[0]);
+                                }}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded transition cursor-pointer flex items-center gap-1"
+                              >
+                                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                                Sana
+                              </button>
+                              <button
+                                type="button"
+                                title="Sinfga qayta tiklash"
+                                onClick={() => setRestoringStudent(st)}
+                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-xs rounded transition cursor-pointer flex items-center gap-1"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                                Qayta tiklash
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                title="Vasiylar (Ota-onalar)"
+                                onClick={() => onOpenParentsModal(st)}
+                                className="p-1.5 text-[#1E2B42] hover:bg-slate-200 transition cursor-pointer"
+                              >
+                                <Users className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Tahrirlash"
+                                onClick={() => onOpenEditStudentModal(st)}
+                                className="p-1.5 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                title="O'chirish"
+                                onClick={() => onDeleteStudent(stId)}
+                                className="p-1.5 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -852,6 +806,112 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                   <ChevronRight className="w-4 h-4 text-[#1E2B42]" />
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Edit Leaving Date */}
+      {editingLeavingStudent && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingLeavingStudent(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 p-6 shadow-2xl text-[#1D1E26] space-y-5 rounded-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-[#1E2B42]">Maktabdan chiqish sanasini o'zgartirish</h3>
+              <button
+                type="button"
+                onClick={() => setEditingLeavingStudent(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+              <p className="font-bold text-[#1E2B42]">
+                {editingLeavingStudent.first_name} {editingLeavingStudent.last_name}
+              </p>
+              <p className="text-slate-500 font-mono mt-0.5">Sinf: {editingLeavingStudent.class_name || "—"}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Yangi chiqish sanasi:
+              </label>
+              <input
+                type="date"
+                value={editLeavingDateVal}
+                onChange={(e) => setEditLeavingDateVal(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              />
+              <p className="text-[11px] text-slate-500 italic">
+                * Ushbu sanadan oldingi barcha jurnallarda o'quvchi saqlanadi, ushbu sanadan boshlab esa jurnaldan chiqariladi.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingLeavingStudent(null)}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-lg transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleSaveLeavingDate}
+                disabled={editLeavingLoading || !editLeavingDateVal}
+                className="text-xs bg-[#1E2B42] hover:bg-[#2d4063] text-white font-bold py-2.5 px-5 rounded-lg shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {editLeavingLoading ? "Saqlanmoqda..." : "Saqlash"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Restore Student */}
+      {restoringStudent && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRestoringStudent(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 p-6 shadow-2xl text-[#1D1E26] space-y-5 rounded-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-emerald-700">O'quvchini qayta tiklash</h3>
+              <button
+                type="button"
+                onClick={() => setRestoringStudent(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Haqiqatan ham <b className="text-slate-800">{restoringStudent.first_name} {restoringStudent.last_name}</b>ni yana sinfga faol o'quvchi sifatida qayta tiklamoqchimisiz?
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRestoringStudent(null)}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-lg transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleConfirmRestore}
+                disabled={restoreLoading}
+                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {restoreLoading ? "Tiklanmoqda..." : "Ha, qayta tiklash"}
+              </button>
             </div>
           </div>
         </div>
