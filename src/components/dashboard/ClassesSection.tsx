@@ -271,6 +271,7 @@ export default function ClassesSection({
   const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
   const [showTransferStudentsModal, setShowTransferStudentsModal] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<number | null>(null);
+  const [deleteStudentLeavingDate, setDeleteStudentLeavingDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   const [classStudentsPage, setClassStudentsPage] = useState(1);
   const [classStudentsPerPage, setClassStudentsPerPage] = useState<number>(10);
@@ -925,7 +926,8 @@ export default function ClassesSection({
     if (!deletingStudentId) return;
     setActionLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/students/${deletingStudentId}`, {
+      const leavingParam = deleteStudentLeavingDate ? `?leaving_date=${encodeURIComponent(deleteStudentLeavingDate)}` : "";
+      const response = await fetch(`${API_URL}/api/schools/students/${deletingStudentId}${leavingParam}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -2718,6 +2720,21 @@ export default function ClassesSection({
             <p className="text-xs text-slate-600 font-medium leading-relaxed">
               Haqiqatan ham ushbu o'quvchini sinfdan o'chirmoqchisiz? Barcha baholar va bog'liqliklar saqlanadi, lekin o'quvchi ro'yxatdan o'chadi.
             </p>
+
+            <div className="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <label className="text-xs font-bold text-slate-700 block">
+                Maktabdan chiqish sanasi:
+              </label>
+              <input
+                type="date"
+                value={deleteStudentLeavingDate}
+                onChange={(e) => setDeleteStudentLeavingDate(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              />
+              <p className="text-[11px] text-slate-500 italic leading-snug">
+                * Tanlangan sanadan boshlab o'quvchi jurnaldan o'chiriladi. Ushbu sanagacha bo'lgan barcha o'tgan darslar jurnalida saqlanib qoladi.
+              </p>
+            </div>
 
             <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
               <button

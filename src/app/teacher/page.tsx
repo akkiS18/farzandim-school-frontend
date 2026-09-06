@@ -2165,26 +2165,34 @@ function TeacherDashboardContent() {
     }
   };
 
+  const [showTeacherDeleteStudentModal, setShowTeacherDeleteStudentModal] = useState(false);
+  const [teacherDeletingStudentId, setTeacherDeletingStudentId] = useState<number | null>(null);
+  const [teacherDeleteLeavingDate, setTeacherDeleteLeavingDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [teacherDeleteStudentLoading, setTeacherDeleteStudentLoading] = useState(false);
+
   // Student soft delete handler
   const handleDeleteStudent = (studentId: number) => {
-    setTeacherDialog({
-      isOpen: true,
-      type: "danger",
-      title: "O'quvchini o'chirish",
-      message: "Haqiqatan ham bu o'quvchini o'chirmoqchimisiz?",
-      confirmText: "Ha, o'chirish",
-      onConfirm: async () => {
-        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
-        try {
-          await api.delete(`/api/schools/students/${studentId}`);
-          showToast("success", "O'quvchi muvaffaqiyatli o'chirildi");
-          fetchStudentsTabList();
-          fetchJournalData();
-        } catch (err: any) {
-          showToast("error", err.message);
-        }
-      },
-    });
+    setTeacherDeletingStudentId(studentId);
+    setTeacherDeleteLeavingDate(new Date().toISOString().split("T")[0]);
+    setShowTeacherDeleteStudentModal(true);
+  };
+
+  const handleConfirmTeacherDeleteStudent = async () => {
+    if (!teacherDeletingStudentId) return;
+    setTeacherDeleteStudentLoading(true);
+    try {
+      const leavingParam = teacherDeleteLeavingDate ? `?leaving_date=${encodeURIComponent(teacherDeleteLeavingDate)}` : "";
+      await api.delete(`/api/schools/students/${teacherDeletingStudentId}${leavingParam}`);
+      showToast("success", "O'quvchi muvaffaqiyatli o'chirildi");
+      setShowTeacherDeleteStudentModal(false);
+      setTeacherDeletingStudentId(null);
+      fetchStudentsTabList();
+      fetchJournalData();
+    } catch (err: any) {
+      showToast("error", err.message);
+    } finally {
+      setTeacherDeleteStudentLoading(false);
+    }
   };
 
   // Parent Management API Calls
@@ -4727,6 +4735,73 @@ function TeacherDashboardContent() {
             setUserInfo((prev) => prev ? { ...prev, password_reset_required: false } : null);
           }}
         />
+      )}
+
+      {/* MODAL: Teacher Delete Student */}
+      {showTeacherDeleteStudentModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTeacherDeleteStudentModal(false);
+              setTeacherDeletingStudentId(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 font-sans"
+        >
+          <div className="w-full max-w-md bg-white border border-slate-100 p-6 shadow-2xl text-[#1D1E26] space-y-5 rounded-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-red-600">O'quvchini o'chirish</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTeacherDeleteStudentModal(false);
+                  setTeacherDeletingStudentId(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Haqiqatan ham ushbu o'quvchini sinfdan o'chirmoqchisiz? Barcha baholar va bog'liqliklar saqlanadi, lekin o'quvchi ro'yxatdan o'chadi.
+            </p>
+
+            <div className="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <label className="text-xs font-bold text-slate-700 block">
+                Maktabdan chiqish sanasi:
+              </label>
+              <input
+                type="date"
+                value={teacherDeleteLeavingDate}
+                onChange={(e) => setTeacherDeleteLeavingDate(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              />
+              <p className="text-[11px] text-slate-500 italic leading-snug">
+                * Tanlangan sanadan boshlab o'quvchi jurnaldan o'chiriladi. Ushbu sanagacha bo'lgan barcha o'tgan darslar jurnalida saqlanib qoladi.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTeacherDeleteStudentModal(false);
+                  setTeacherDeletingStudentId(null);
+                }}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-lg transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleConfirmTeacherDeleteStudent}
+                disabled={teacherDeleteStudentLoading}
+                className="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {teacherDeleteStudentLoading ? "O'chirilmoqda..." : "O'chirishni tasdiqlash"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
