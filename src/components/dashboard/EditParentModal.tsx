@@ -1,17 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  X,
-  UserCheck,
-  Phone,
-  User,
-  CreditCard,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+import { X } from "lucide-react";
 import api from "@/lib/api";
+import PasswordInput from "@/components/common/PasswordInput";
 
 interface ParentData {
   id: number;
@@ -40,6 +32,7 @@ export default function EditParentModal({
   const [middleName, setMiddleName] = useState("");
   const [phone, setPhone] = useState("");
   const [passport, setPassport] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -51,10 +44,21 @@ export default function EditParentModal({
       setMiddleName(parent.middle_name || "");
       setPhone(parent.phone || "");
       setPassport(parent.passport || "");
+      setPassword("");
       setError("");
       setSuccessMsg("");
     }
   }, [parent, isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !parent) return null;
 
@@ -62,22 +66,35 @@ export default function EditParentModal({
     e.preventDefault();
     setError("");
     setSuccessMsg("");
+
+    const trimmedPassword = password.trim();
+    if (trimmedPassword && trimmedPassword.length < 6) {
+      setError("Yangi parol kamida 6 ta belgidan iborat bo'lishi kerak");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await api.put(`/api/schools/parents/${parent.id}`, {
+      const payload: Record<string, any> = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         middle_name: middleName.trim() || undefined,
         phone: phone.trim() || undefined,
         passport: passport.trim() || undefined,
-      });
+      };
+
+      if (trimmedPassword) {
+        payload.password = trimmedPassword;
+      }
+
+      await api.put(`/api/schools/parents/${parent.id}`, payload);
 
       setSuccessMsg("Ota-ona ma'lumotlari muvaffaqiyatli yangilandi!");
       setTimeout(() => {
         onSuccess();
         onClose();
-      }, 1200);
+      }, 700);
     } catch (err: any) {
       setError(err.message || "Ota-ona ma'lumotlarini yangilashda xatolik yuz berdi.");
     } finally {
@@ -86,148 +103,155 @@ export default function EditParentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+    >
+      <div className="bg-white border border-neutral-200 shadow-xl max-w-sm sm:max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-5 bg-indigo-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold tracking-tight">Ota-ona Ma'lumotlarini Tahrirlash</h2>
-              <p className="text-xs text-indigo-200">ID: {parent.id} • Vasiy profil ma'lumotlari</p>
-            </div>
+        <div className="px-6 py-4 border-b border-neutral-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <div>
+            <h3 className="text-lg font-bold font-serif text-[#1E2B42]">
+              Ota-ona ma'lumotlarini tahrirlash
+            </h3>
+            <p className="text-xs text-slate-500 font-sans mt-0.5">
+              Barcha kerakli maydonlarni to'ldiring
+            </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition"
+            className="p-2 bg-white hover:bg-slate-100 border border-neutral-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shrink-0"
+            title="Yopish"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto bg-white">
           {error && (
-            <div className="flex items-start gap-3 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
+            <div className="p-3 bg-red-50 border border-red-200 text-[#A51C30] text-xs font-sans">
+              {error}
             </div>
           )}
 
           {successMsg && (
-            <div className="flex items-center gap-3 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-2xl">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span>{successMsg}</span>
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-sans font-bold">
+              {successMsg}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                Ism *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Ismi"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
                 Familiya *
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Familiyasi"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition"
-                />
-              </div>
+              <input
+                type="text"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
+                placeholder="Familiyani kiriting"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
+                Ism *
+              </label>
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
+                placeholder="Ismni kiriting"
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-              Otasi (Sharifi)
+            <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
+              Otasining ismi (sharif)
             </label>
             <input
               type="text"
               value={middleName}
               onChange={(e) => setMiddleName(e.target.value)}
-              placeholder="Masalan: Alisher o'g'li"
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition"
+              className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
+              placeholder="Otasining ismini kiriting"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                Telefon Raqam
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
+                Telefon raqam
               </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+998 90 123 45 67"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition"
-                />
-              </div>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
+                placeholder="+998901234567"
+              />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                Pasport Seriyasi
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
+                Pasport seriyasi
               </label>
-              <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={passport}
-                  onChange={(e) => setPassport(e.target.value)}
-                  placeholder="AA 1234567"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition"
-                />
-              </div>
+              <input
+                type="text"
+                value={passport}
+                onChange={(e) => setPassport(e.target.value)}
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
+                placeholder="AA1234567"
+              />
             </div>
           </div>
 
-          {/* Footer buttons */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div>
+            <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
+              Yangi parol (ixtiyoriy)
+            </label>
+            {/* Yandex / Chrome autofill trap */}
+            <input
+              type="text"
+              name="fakeusernameremembered"
+              autoComplete="username"
+              className="absolute w-0 h-0 opacity-0 -z-10"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <PasswordInput
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="O'zgartirish shart bo'lmasa bo'sh qoldiring"
+            />
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+              className="px-4 py-2 border border-neutral-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold font-sans cursor-pointer transition"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/25 transition disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2 bg-[#A51C30] hover:bg-[#8a1526] text-white text-xs font-bold font-sans disabled:opacity-50 flex items-center space-x-2 cursor-pointer transition"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saqlanmoqda...
-                </>
-              ) : (
-                "Saqlash"
+              {loading && (
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-none animate-spin shrink-0"></span>
               )}
+              <span>Saqlash</span>
             </button>
           </div>
         </form>

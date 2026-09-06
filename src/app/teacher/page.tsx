@@ -2,7 +2,7 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import api from "@/lib/api";
 import { formatLocalDate, parseLocalDate } from "@/lib/dateUtils";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -197,7 +197,20 @@ function TeacherDashboardContent() {
   const teacherTab: TeacherTabType =
     tabParam && validTabs.includes(tabParam) ? tabParam : "dashboard";
 
+  const hasMainClass = useMemo(() => {
+    if (userInfo?.role === "ADMIN") return true;
+    return classes.some((c) => c.is_main_teacher);
+  }, [classes, userInfo]);
+
+  const mainClasses = useMemo(() => {
+    if (userInfo?.role === "ADMIN") return classes;
+    return classes.filter((c) => c.is_main_teacher);
+  }, [classes, userInfo]);
+
   const setTeacherTab = (newTab: TeacherTabType | string) => {
+    if (!hasMainClass && ["students", "parents", "social-passport"].includes(newTab)) {
+      newTab = "dashboard";
+    }
     const params = new URLSearchParams(searchParams.toString());
     if (newTab === "dashboard") {
       params.delete("tab");
@@ -207,6 +220,13 @@ function TeacherDashboardContent() {
     const qs = params.toString();
     router.push(qs ? `/teacher?${qs}` : "/teacher", { scroll: false });
   };
+
+  useEffect(() => {
+    if (!loading && !hasMainClass && ["students", "parents", "social-passport"].includes(teacherTab)) {
+      setTeacherTab("dashboard");
+    }
+  }, [loading, hasMainClass, teacherTab]);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Default expanded (shows labels/tabs)
   const [tabResetKeys, setTabResetKeys] = useState<Record<string, number>>({});
@@ -883,6 +903,7 @@ function TeacherDashboardContent() {
   const [linkedParentsLoading, setLinkedParentsLoading] = useState(false);
   const [classParents, setClassParents] = useState<any[]>([]);
   const [classParentsLoading, setClassParentsLoading] = useState(false);
+  const [selectedParentFilterClassId, setSelectedParentFilterClassId] = useState<string | number>("");
   const [showAddParentModal, setShowAddParentModal] = useState(false);
   const [selectedStudentIdForAdd, setSelectedStudentIdForAdd] = useState<number | "">("");
   const [parentFirstName, setParentFirstName] = useState("");
@@ -1278,12 +1299,12 @@ function TeacherDashboardContent() {
     }
   }, [selectedClassId, token, teacherTab]);
 
-  // Parents tab data load: reload when class or active tab changes to "parents"
+  // Parents tab data load: reload when class filter or active tab changes to "parents"
   useEffect(() => {
     if (token && teacherTab === 'parents') {
       fetchClassParents();
     }
-  }, [selectedClassId, token, teacherTab]);
+  }, [selectedParentFilterClassId, token, teacherTab]);
 
   // Unapproved grades tab data load: reload when tab changes
   useEffect(() => {
@@ -2082,8 +2103,11 @@ function TeacherDashboardContent() {
   const fetchStudentsTabList = async () => {
     setStudentsTabLoading(true);
     try {
-      const url = selectedClassId
-        ? `/api/schools/users?role=STUDENT&class_id=${selectedClassId}`
+      const isSelectedClassMain = selectedClassId && mainClasses.some((c) => c.id === Number(selectedClassId));
+      const effectiveClassId = isSelectedClassMain ? selectedClassId : (mainClasses[0]?.id || "");
+
+      const url = effectiveClassId
+        ? `/api/schools/users?role=STUDENT&class_id=${effectiveClassId}`
         : `/api/schools/users?role=STUDENT`;
       const data = await api.get(url);
       setStudentsTabList(Array.isArray(data) ? data : []);
@@ -2097,8 +2121,19 @@ function TeacherDashboardContent() {
   // Student form submission handler
   const handleStudentFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClassId) return;
+    const isSelectedClassMain = selectedClassId && mainClasses.some((c) => c.id === Number(selectedClassId));
+    const effectiveClassId = isSelectedClassMain ? selectedClassId : (mainClasses[0]?.id || "");
+    if (!effectiveClassId) {
+      showToast("error", "Sinf rahbari bo'lgan sinf topilmadi");
+      return;
+    }
     
+    const cleanIna = studentForm.ina.trim();
+    if (!cleanIna || cleanIna === "-" || cleanIna.toLowerCase() === "yo'q") {
+      showToast("error", "O'quvchining I-NA yoki pasport seriya raqami kiritilishi shart");
+      return;
+    }
+
     const body: any = {
       first_name: studentForm.first_name.trim(),
       last_name: studentForm.last_name.trim(),
@@ -2107,13 +2142,13 @@ function TeacherDashboardContent() {
       address: studentForm.address.trim() || undefined,
       birthdate: studentForm.birthdate || undefined,
       enrollment_date: studentForm.enrollment_date || new Date().toISOString().split("T")[0],
-      ina: studentForm.ina.trim() || undefined,
+      ina: cleanIna,
     };
 
     try {
       if (studentModalMode === "create") {
         body.password = studentForm.password.trim() || "123456";
-        await api.post(`/api/schools/classes/${selectedClassId}/students`, body);
+        await api.post(`/api/schools/classes/${effectiveClassId}/students`, body);
       } else {
         if (studentForm.password.trim()) {
           body.password = studentForm.password.trim();
@@ -2166,14 +2201,16 @@ function TeacherDashboardContent() {
     }
   };
 
-  const fetchClassParents = async () => {
+  const fetchClassParents = async (overrideClassId?: string | number) => {
     setClassParentsLoading(true);
     try {
       if (studentsTabList.length === 0) {
         fetchStudentsTabList();
       }
-      const url = selectedClassId
-        ? `/api/schools/users?role=PARENT&class_id=${selectedClassId}`
+      const classIdToUse = overrideClassId !== undefined ? overrideClassId : selectedParentFilterClassId;
+
+      const url = classIdToUse
+        ? `/api/schools/users?role=PARENT&class_id=${classIdToUse}`
         : `/api/schools/users?role=PARENT`;
       const data = await api.get(url);
       setClassParents(Array.isArray(data) ? data : []);
@@ -2331,9 +2368,14 @@ function TeacherDashboardContent() {
   };
 
   const downloadParentsTemplate = async () => {
-    if (!selectedClassId) return;
+    const isSelectedClassMain = selectedClassId && mainClasses.some((c) => c.id === Number(selectedClassId));
+    const effectiveClassId = isSelectedClassMain ? selectedClassId : (mainClasses[0]?.id || "");
+    if (!effectiveClassId) {
+      showToast("error", "Sinf rahbari bo'lgan sinf tanlanmagan");
+      return;
+    }
     try {
-      const url = `${API_URL}/api/schools/import/template/parents?class_id=${selectedClassId}`;
+      const url = `${API_URL}/api/schools/import/template/parents?class_id=${effectiveClassId}`;
       const response = await fetch(url, {
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -2354,7 +2396,12 @@ function TeacherDashboardContent() {
 
   const handleStudentsExcelImport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !selectedClassId) return;
+    const isSelectedClassMain = selectedClassId && mainClasses.some((c) => c.id === Number(selectedClassId));
+    const effectiveClassId = isSelectedClassMain ? selectedClassId : (mainClasses[0]?.id || "");
+    if (!selectedFile || !effectiveClassId) {
+      showToast("error", "Fayl yoki sinf rahbari bo'lgan sinf tanlanmagan");
+      return;
+    }
     setImportLoading(true);
     setImportError("");
     setImportResult(null);
@@ -2363,7 +2410,7 @@ function TeacherDashboardContent() {
     formData.append("file", selectedFile);
 
     try {
-      const data = await api.post(`/api/schools/import/students?class_id=${selectedClassId}`, formData);
+      const data = await api.post(`/api/schools/import/students?class_id=${effectiveClassId}`, formData);
 
       setImportResult(data);
       setSelectedFile(null);
@@ -2378,9 +2425,14 @@ function TeacherDashboardContent() {
   };
 
   const downloadStudentsTemplate = async () => {
-    if (!selectedClassId) return;
+    const isSelectedClassMain = selectedClassId && mainClasses.some((c) => c.id === Number(selectedClassId));
+    const effectiveClassId = isSelectedClassMain ? selectedClassId : (mainClasses[0]?.id || "");
+    if (!effectiveClassId) {
+      showToast("error", "Sinf rahbari bo'lgan sinf tanlanmagan");
+      return;
+    }
     try {
-      const url = `${API_URL}/api/schools/import/template/students?class_id=${selectedClassId}`;
+      const url = `${API_URL}/api/schools/import/template/students?class_id=${effectiveClassId}`;
       const response = await fetch(url, {
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -3054,14 +3106,15 @@ function TeacherDashboardContent() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Guvohnoma (INA)</label>
+              <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">Guvohnoma (I-NA) yoki Pasport seriyasi *</label>
               <input
                 type="text"
+                required
                 autoComplete="off"
                 value={studentForm.ina}
                 onChange={(e) => setStudentForm(prev => ({ ...prev, ina: e.target.value }))}
-                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
-                placeholder="I-TV No 123456"
+                className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors font-mono font-bold"
+                placeholder="I-TV No 123456 yoki AB1234567"
               />
             </div>
 
@@ -3218,6 +3271,7 @@ function TeacherDashboardContent() {
         setTeacherTab={setTeacherTab}
         userInfo={userInfo}
         unapprovedCount={unapprovedGrades.length}
+        hasMainClass={hasMainClass}
         onTabClick={(tabId) => {
           setTabResetKeys((prev) => ({
             ...prev,
@@ -3290,6 +3344,21 @@ function TeacherDashboardContent() {
           const qaSubj = selectedSubjectId ? subjects.find((s) => s.id === selectedSubjectId) : null;
           const qaClsName = qaCls?.name || "";
           const qaSubjName = qaSubj?.name || "Fan";
+          const isJournalSunday = (() => {
+            try {
+              const d = new Date(journalDate + "T00:00:00");
+              return d.getDay() === 0;
+            } catch { return false; }
+          })();
+          const isJournalHoliday = (holidays || []).some((h: any) => {
+            const hDate = h.holiday_date ? (typeof h.holiday_date === "string" ? h.holiday_date.split("T")[0] : "") : "";
+            if (hDate !== journalDate) return false;
+            if (h.target_classes && Array.isArray(h.target_classes) && h.target_classes.length > 0) {
+              if (!selectedClassId || !h.target_classes.includes(Number(selectedClassId))) return false;
+            }
+            return true;
+          });
+          const isJournalDayOff = isJournalSunday || isJournalHoliday;
           const qaShortDate = (() => {
             try {
               const d = new Date(journalDate + "T00:00:00");
@@ -3352,27 +3421,35 @@ function TeacherDashboardContent() {
                     {qaSubjectOpen && (
                       <div className="absolute top-full mt-1 left-0 w-64 bg-white border border-neutral-200 shadow-md rounded-none p-1 z-50 max-h-60 overflow-y-auto">
                         <div className="text-[10px] font-bold text-slate-400 uppercase px-2.5 py-1 tracking-wider">Darsni tanlang</div>
-                        {journalLessonsToday.length > 0 ? journalLessonsToday.map((lesson) => {
-                          const isSel = selectedSubjectId === lesson.subject_id && selectedLessonNumber === lesson.lesson_number;
-                          return (
-                            <button key={`${lesson.subject_id}_${lesson.lesson_number}`} type="button"
-                              onClick={() => { setSelectedSubjectId(lesson.subject_id); setSelectedLessonNumber(lesson.lesson_number); setQaSubjectOpen(false); }}
-                              className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer ${isSel ? "bg-[#A51C30] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
-                            >
-                              {lesson.lesson_number}-soat: {lesson.subject_name}
-                            </button>
-                          );
-                        }) : subjects.map((sub) => {
-                          const isSel = selectedSubjectId === sub.id;
-                          return (
-                            <button key={sub.id} type="button"
-                              onClick={() => { setSelectedSubjectId(sub.id); setSelectedLessonNumber(""); setQaSubjectOpen(false); }}
-                              className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer ${isSel ? "bg-[#A51C30] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
-                            >
-                              {sub.name}
-                            </button>
-                          );
-                        })}
+                        {journalLessonsToday.length > 0 ? (
+                          journalLessonsToday.map((lesson) => {
+                            const isSel = selectedSubjectId === lesson.subject_id && selectedLessonNumber === lesson.lesson_number;
+                            return (
+                              <button key={`${lesson.subject_id}_${lesson.lesson_number}`} type="button"
+                                onClick={() => { setSelectedSubjectId(lesson.subject_id); setSelectedLessonNumber(lesson.lesson_number); setQaSubjectOpen(false); }}
+                                className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer ${isSel ? "bg-[#A51C30] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                              >
+                                {lesson.lesson_number}-soat: {lesson.subject_name}
+                              </button>
+                            );
+                          })
+                        ) : isJournalDayOff ? (
+                          <div className="px-3 py-4 text-center text-xs text-slate-500 font-medium">
+                            Bugun dam olish kuni. Darslar mavjud emas.
+                          </div>
+                        ) : (
+                          subjects.map((sub) => {
+                            const isSel = selectedSubjectId === sub.id;
+                            return (
+                              <button key={sub.id} type="button"
+                                onClick={() => { setSelectedSubjectId(sub.id); setSelectedLessonNumber(""); setQaSubjectOpen(false); }}
+                                className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer ${isSel ? "bg-[#A51C30] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
+                              >
+                                {sub.name}
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
                     )}
                   </div>
@@ -3390,7 +3467,7 @@ function TeacherDashboardContent() {
               </div>
 
               {/* Save Button */}
-              {selectedClassId && selectedSubjectId && (
+              {selectedClassId && selectedSubjectId && !isJournalDayOff && (
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="hidden md:flex items-center gap-1">
                     <select value={selectedGradeCategory} onChange={(e) => setSelectedGradeCategory(e.target.value)}
@@ -3454,6 +3531,22 @@ function TeacherDashboardContent() {
 
         {/* ── SCHEDULE QUICK ACCESS BAR (outside scroll → never scrolls horizontally) ── */}
         {teacherTab === "schedule" && (() => {
+          if (!hasMainClass) {
+            return (
+              <div className="bg-white border-b border-neutral-200 px-3 py-2.5 sm:px-4 sm:py-3 z-30 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#A51C30]" />
+                  <span className="font-bold text-xs sm:text-sm text-slate-900">
+                    Mening haftalik dars jadvalim
+                  </span>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-none">
+                  Haftalik darslar taqvimi
+                </div>
+              </div>
+            );
+          }
+
           const qaCls = classes.find((c) => c.id === selectedClassId);
           const qaClsName = qaCls?.name || "";
           
@@ -3480,13 +3573,13 @@ function TeacherDashboardContent() {
                       >
                         <span>Umumiy Jadval</span>
                       </button>
-                      {classes.map((cls) => (
+                      {mainClasses.map((cls) => (
                         <button key={cls.id} type="button"
                           onClick={() => { setSelectedClassId(cls.id); setQaClassOpen(false); }}
                           className={`w-full text-left px-3 py-2 text-xs font-medium transition cursor-pointer flex items-center justify-between ${selectedClassId === cls.id ? "bg-[#1E2B42] text-white font-bold" : "hover:bg-slate-100 text-slate-800"}`}
                         >
                           <span>{cls.name}</span>
-                          {cls.is_main_teacher && <span className="text-[9px] bg-amber-100 text-amber-900 px-1 font-bold">★</span>}
+                          {cls.is_main_teacher && <span className="text-[9px] bg-amber-100 text-amber-900 px-1 font-bold">★ Rahbar</span>}
                         </button>
                       ))}
                     </div>
@@ -3918,7 +4011,7 @@ function TeacherDashboardContent() {
           {teacherTab === "schedule" && (
             <ScheduleTab
               key={`schedule-${tabResetKeys["schedule"] || 0}`}
-              selectedClassId={selectedClassId}
+              selectedClassId={hasMainClass ? selectedClassId : ""}
               classes={classes}
               isMainTeacherOfClass={isMainTeacherOfClass}
               userInfo={userInfo}
@@ -3947,6 +4040,7 @@ function TeacherDashboardContent() {
               scheduleExceptions={scheduleExceptions}
               scheduleExceptionsLoading={scheduleExceptionsLoading}
               onDeleteException={handleDeleteException}
+              hasMainClass={hasMainClass}
             />
           )}
 
@@ -4174,6 +4268,13 @@ function TeacherDashboardContent() {
                 setParentsPage={setParentsPage}
                 parentsPageSize={parentsPageSize}
                 setParentsPageSize={setParentsPageSize}
+                mainClasses={mainClasses}
+                selectedFilterClassId={selectedParentFilterClassId}
+                onSelectFilterClass={(newCid) => {
+                  setSelectedParentFilterClassId(newCid);
+                  fetchClassParents(newCid);
+                }}
+                onRefreshParents={() => fetchClassParents(selectedParentFilterClassId)}
                 onOpenImportParentsModal={() => {
                   setSelectedFile(null);
                   setImportResult(null);

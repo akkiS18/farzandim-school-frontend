@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   Search,
   ArrowRightLeft,
@@ -11,6 +11,10 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
 } from "lucide-react";
 
 interface Student {
@@ -46,6 +50,16 @@ interface StudentsTabProps {
   onDeleteStudent: (studentId: any) => void;
 }
 
+type StudentSortField = "default" | "name" | "birthdate" | "enrollment_date";
+type StudentSortDirection = "asc" | "desc";
+
+const parseDateTimestamp = (d?: string): number => {
+  if (!d) return 0;
+  const clean = d.split("T")[0];
+  const time = new Date(clean).getTime();
+  return isNaN(time) ? 0 : time;
+};
+
 export const StudentsTab: React.FC<StudentsTabProps> = ({
   selectedClassId,
   studentsTabList,
@@ -63,21 +77,84 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
   onOpenEditStudentModal,
   onDeleteStudent,
 }) => {
-  const filteredStudents = studentsTabList.filter((st) => {
-    const q = studentsSearch.toLowerCase().trim();
-    if (!q) return true;
-    const name = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
-    const phone = (st.phone || "").toLowerCase();
-    const cls = (st.class_name || "").toLowerCase();
-    return name.includes(q) || phone.includes(q) || cls.includes(q);
-  });
+  const [sortField, setSortField] = useState<StudentSortField>("default");
+  const [sortDirection, setSortDirection] = useState<StudentSortDirection>("asc");
 
-  const totalStudentsPages = Math.ceil(filteredStudents.length / studentsPageSize) || 1;
+  const filteredStudents = useMemo(() => {
+    const q = studentsSearch.toLowerCase().trim();
+    if (!q) return studentsTabList;
+    return studentsTabList.filter((st) => {
+      const name = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+      const phone = (st.phone || "").toLowerCase();
+      const cls = (st.class_name || "").toLowerCase();
+      const ina = (st.ina || "").toLowerCase();
+      return name.includes(q) || phone.includes(q) || cls.includes(q) || ina.includes(q);
+    });
+  }, [studentsTabList, studentsSearch]);
+
+  const sortedStudents = useMemo(() => {
+    if (sortField === "default") return filteredStudents;
+
+    return [...filteredStudents].sort((a, b) => {
+      if (sortField === "name") {
+        const nameA = `${a.first_name || ""} ${a.last_name || ""} ${a.middle_name || ""}`.trim();
+        const nameB = `${b.first_name || ""} ${b.last_name || ""} ${b.middle_name || ""}`.trim();
+        const cmp = nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+        return sortDirection === "asc" ? cmp : -cmp;
+      }
+
+      if (sortField === "birthdate") {
+        const timeA = parseDateTimestamp(a.birthdate);
+        const timeB = parseDateTimestamp(b.birthdate);
+        if (!timeA && timeB) return 1;
+        if (timeA && !timeB) return -1;
+        if (!timeA && !timeB) return 0;
+        return sortDirection === "desc" ? timeB - timeA : timeA - timeB;
+      }
+
+      if (sortField === "enrollment_date") {
+        const timeA = parseDateTimestamp(a.enrollment_date || a.created_at);
+        const timeB = parseDateTimestamp(b.enrollment_date || b.created_at);
+        if (!timeA && timeB) return 1;
+        if (timeA && !timeB) return -1;
+        if (!timeA && !timeB) return 0;
+        return sortDirection === "desc" ? timeB - timeA : timeA - timeB;
+      }
+
+      return 0;
+    });
+  }, [filteredStudents, sortField, sortDirection]);
+
+  const totalStudentsPages = Math.ceil(sortedStudents.length / studentsPageSize) || 1;
   const currentPage = Math.min(studentsPage, totalStudentsPages);
-  const paginatedStudents = filteredStudents.slice(
+  const paginatedStudents = sortedStudents.slice(
     (currentPage - 1) * studentsPageSize,
     currentPage * studentsPageSize
   );
+
+  const handleSort = (field: StudentSortField) => {
+    if (field === "default") {
+      setSortField("default");
+      setSortDirection("asc");
+      setStudentsPage(1);
+      return;
+    }
+
+    if (sortField === field) {
+      const defaultDir: StudentSortDirection = field === "name" ? "asc" : "desc";
+      if (sortDirection === defaultDir) {
+        setSortDirection(defaultDir === "asc" ? "desc" : "asc");
+      } else {
+        setSortField("default");
+        setSortDirection("asc");
+      }
+    } else {
+      setSortField(field);
+      // Name defaults to 'asc' (A-Z), dates default to 'desc' (eng yangi sana birinchi)
+      setSortDirection(field === "name" ? "asc" : "desc");
+    }
+    setStudentsPage(1);
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -95,6 +172,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Quick Search */}
           <div className="flex items-center gap-2 bg-white border border-neutral-300 px-3 py-2">
             <Search className="w-4 h-4 text-slate-400" />
             <input
@@ -108,6 +186,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
               className="bg-transparent border-none text-xs font-bold text-slate-700 outline-none w-32 sm:w-44 transition-all focus:ring-0 p-0"
             />
           </div>
+
 
           <button
             type="button"
@@ -145,7 +224,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           <div className="w-6 h-6 border-2 border-[#1E2B42] border-t-transparent rounded-full animate-spin mb-3"></div>
           <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Yuklanmoqda...</p>
         </div>
-      ) : filteredStudents.length === 0 ? (
+      ) : sortedStudents.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center bg-slate-50 border border-dashed border-neutral-300">
           <p className="text-sm font-bold text-slate-700 font-serif mb-1">
             {studentsSearch
@@ -159,7 +238,47 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-neutral-200 overflow-hidden">
+        <div className="bg-white border border-neutral-200 overflow-hidden shadow-xs">
+          {/* Always visible table sort status bar */}
+          <div className="px-4 py-2 bg-slate-50 border-b border-neutral-200 flex items-center justify-between text-xs text-slate-700 font-sans">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[#1E2B42]">Tartib:</span>
+              {sortField === "default" ? (
+                <span className="text-slate-500">Saralanmagan</span>
+              ) : (
+                <span className="text-slate-800">
+                  <span className="text-[#1E2B42] font-semibold">
+                    {sortField === "name" && "Ism-familiya bo'yicha"}
+                    {sortField === "birthdate" && "Tug'ilgan sana bo'yicha"}
+                    {sortField === "enrollment_date" && "Maktabga kirish sanasi bo'yicha"}
+                  </span>
+                  {" ("}
+                  <strong className="text-[#1E2B42]">
+                    {sortField === "name"
+                      ? sortDirection === "asc"
+                        ? "A → Z"
+                        : "Z → A"
+                      : sortDirection === "desc"
+                      ? "So'nggi sanalar oldinda"
+                      : "Avvalgi sanalar oldinda"}
+                  </strong>
+                  {")"}
+                </span>
+              )}
+            </div>
+            {sortField !== "default" && (
+              <button
+                type="button"
+                onClick={() => handleSort("default")}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1E2B42] hover:text-[#2d4063] hover:underline cursor-pointer transition-colors"
+                title="Boshlang'ich tartibga qaytarish"
+              >
+                <RotateCcw className="w-3 h-3 text-[#1E2B42]" />
+                Asl holatga qaytarish
+              </button>
+            )}
+          </div>
+
           {/* MOBILE CARD VIEW FOR STUDENTS (Hidden on SM and up) */}
           <div className="block sm:hidden divide-y divide-neutral-200">
             {paginatedStudents.map((st, idx) => {
@@ -229,19 +348,109 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           {/* DESKTOP TABLE VIEW */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-separate border-spacing-0 text-xs font-sans">
-              <thead className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+              <thead className="text-[10px] font-bold uppercase tracking-wider font-mono">
                 <tr>
-                  <th className="px-4 py-3.5 text-center w-12 sticky top-0 left-0 z-30 bg-slate-50 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5]">
+                  {/* T/R Header */}
+                  <th
+                    onClick={() => handleSort("default")}
+                    className="px-4 py-3.5 text-center w-12 sticky top-0 left-0 z-30 bg-slate-50 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] cursor-pointer select-none hover:bg-slate-100 transition-colors text-slate-500"
+                    title="Asl tartib (T/R)"
+                  >
                     T/R
                   </th>
-                  <th className="px-6 py-3.5 sticky top-0 left-12 z-30 bg-slate-50 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[180px]">
-                    Ism Familiya
+
+                  {/* ISM FAMILIYA Header */}
+                  <th
+                    onClick={() => handleSort("name")}
+                    className={`px-6 py-3.5 sticky top-0 left-12 z-30 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[180px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                      sortField === "name" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
+                    }`}
+                    title="Ism-familiya bo'yicha saralash (A-Z / Z-A)"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Ism Familiya</span>
+                      {sortField === "name" ? (
+                        sortDirection === "asc" ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> A-Z
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> Z-A
+                          </span>
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-all" />
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 min-w-[90px]">Sinf</th>
-                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200">INA</th>
-                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200">Tug'ilgan sana</th>
-                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200">Maktabga kirish sanasi</th>
-                  <th className="px-6 py-3.5 text-right sticky top-0 z-20 bg-slate-50 border-b border-neutral-200">Amallar</th>
+
+                  {/* SINF Header (Static) */}
+                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 min-w-[90px] text-slate-500">
+                    Sinf
+                  </th>
+
+                  {/* INA Header (Static) */}
+                  <th className="px-6 py-3.5 sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 text-slate-500">
+                    INA
+                  </th>
+
+                  {/* TUG'ILGAN SANA Header */}
+                  <th
+                    onClick={() => handleSort("birthdate")}
+                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                      sortField === "birthdate" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
+                    }`}
+                    title="Tug'ilgan sana bo'yicha saralash (So'nggi → Avvalgi / Avvalgi → So'nggi)"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Tug'ilgan sana</span>
+                      {sortField === "birthdate" ? (
+                        sortDirection === "desc" ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> So'nggi
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> Avvalgi
+                          </span>
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-all" />
+                      )}
+                    </div>
+                  </th>
+
+                  {/* MAKTABGA KIRISH SANASI Header */}
+                  <th
+                    onClick={() => handleSort("enrollment_date")}
+                    className={`px-6 py-3.5 sticky top-0 z-20 border-b border-neutral-200 cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                      sortField === "enrollment_date" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
+                    }`}
+                    title="Maktabga kirish sanasi bo'yicha saralash (So'nggi → Avvalgi / Avvalgi → So'nggi)"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Maktabga kirish sanasi</span>
+                      {sortField === "enrollment_date" ? (
+                        sortDirection === "desc" ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> So'nggi
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> Avvalgi
+                          </span>
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-all" />
+                      )}
+                    </div>
+                  </th>
+
+                  {/* AMALLAR Header (Static) */}
+                  <th className="px-6 py-3.5 text-right sticky top-0 z-20 bg-slate-50 border-b border-neutral-200 text-slate-500">
+                    Amallar
+                  </th>
                 </tr>
               </thead>
               <tbody className="text-slate-700 bg-white">
@@ -314,9 +523,9 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           {/* Pagination */}
           <div className="shrink-0 p-4 border-t border-neutral-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans text-slate-500">
             <div>
-              Jami <b>{filteredStudents.length}</b> ta o'quvchidan{" "}
-              <b>{(currentPage - 1) * studentsPageSize + 1}</b>-
-              <b>{Math.min(currentPage * studentsPageSize, filteredStudents.length)}</b> ko'rsatilmoqda
+              Jami <b>{sortedStudents.length}</b> ta o'quvchidan{" "}
+              <b>{sortedStudents.length > 0 ? (currentPage - 1) * studentsPageSize + 1 : 0}</b>-
+              <b>{Math.min(currentPage * studentsPageSize, sortedStudents.length)}</b> ko'rsatilmoqda
             </div>
 
             <div className="flex items-center gap-4">

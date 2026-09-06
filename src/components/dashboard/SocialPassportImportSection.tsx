@@ -182,6 +182,8 @@ const TableRow = memo(function TableRow({
           }
         }
 
+        const isDocMissing = isDocField && (!val.trim() || val.trim() === "-" || val.trim().toLowerCase() === "yo'q");
+
         return (
           <td
             key={f.key}
@@ -201,11 +203,28 @@ const TableRow = memo(function TableRow({
                   ? `Ushbu I-NA bazada mavjud! (${existingStudentInfo.first_name} ${existingStudentInfo.last_name}, ${existingStudentInfo.class_name} sinfi). Ikki marta bosib sinfga o'tkazing.`
                   : hasParentConflict && conflictParentInfo
                   ? `Ushbu pasportlik ota-ona (${conflictParentInfo.first_name} ${conflictParentInfo.last_name}) bazada bor, lekin ismi/telefonida tafovut bor! Ikki marta bosing.`
+                  : isDocMissing
+                  ? "O'quvchining I-NA yoki pasport seriya raqami kiritilishi shart!"
                   : undefined
               }
-              className={`w-full text-xs rounded-none px-2.5 py-1.5 transition flex items-center justify-between min-h-[32px] truncate ${hasExistingMatch || hasParentConflict ? "bg-amber-500 text-white font-extrabold border border-amber-600 hover:bg-amber-600 animate-pulse" : isSelected ? "bg-[#1D1E26] text-[#D4F562] font-black ring-2 ring-[#1D1E26]" : val ? "bg-slate-50 border border-slate-200 text-slate-800 font-medium hover:border-[#1D1E26] hover:bg-white" : "bg-slate-50/50 border border-dashed border-slate-200 text-slate-400 italic"} ${f.extraStyle || ""}`}
+              className={`w-full text-xs rounded-none px-2.5 py-1.5 transition flex items-center justify-between min-h-[32px] truncate ${
+                hasExistingMatch || hasParentConflict
+                  ? "bg-amber-500 text-white font-extrabold border border-amber-600 hover:bg-amber-600 animate-pulse"
+                  : isDocMissing
+                  ? "bg-amber-50 border border-amber-300 text-amber-900 font-semibold"
+                  : isSelected
+                  ? "bg-[#1D1E26] text-[#D4F562] font-black ring-2 ring-[#1D1E26]"
+                  : val
+                  ? "bg-slate-50 border border-slate-200 text-slate-800 font-medium hover:border-[#1D1E26] hover:bg-white"
+                  : "bg-slate-50/50 border border-dashed border-slate-200 text-slate-400 italic"
+              } ${f.extraStyle || ""}`}
             >
               <span className="truncate">{val || "-"}</span>
+              {isDocMissing && (
+                <span className="ml-1 text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded-none font-mono font-bold shrink-0">
+                  I-NA YO'Q
+                </span>
+              )}
               {(hasExistingMatch || hasParentConflict) && (
                 <span className="ml-1 text-[9px] bg-amber-700 text-white px-1.5 py-0.5 rounded-none font-mono shrink-0">
                   {hasParentConflict ? "ZIDDIYAT" : "DUBLIKAT"}
@@ -917,15 +936,29 @@ export default function SocialPassportImportSection({
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Bazaga saqlashda xatolik yuz berdi");
+      if (!res.ok) {
+        let msg = data.error || "Bazaga saqlashda xatolik yuz berdi";
+        if (msg.toLowerCase().includes("access denied") || res.status === 403) {
+          msg = "Ruxsat berilmagan: siz ushbu sinf rahbari emassiz. Faqat o'zingiz rahbarlik qiladigan sinfga o'quvchi qo'sha olasiz.";
+        }
+        throw new Error(msg);
+      }
 
       if (data.failed_count > 0 && data.errors && data.errors.length > 0) {
-        const errorMsgs = Array.from(new Set(data.errors.map((e: any) => e.error))).join("; ");
+        const errorMsgs = Array.from(new Set(data.errors.map((e: any) => {
+          let msg = e.error || "";
+          if (msg.toLowerCase().includes("access denied")) {
+            return "Ruxsat berilmagan: siz ushbu sinf rahbari emassiz";
+          }
+          return msg;
+        }))).join("; ");
         if (data.imported_count > 0) {
-          showToast(`${data.imported_count} ta saqlandi, lekin ${data.failed_count} tasida xatolik: ${errorMsgs}`, "error");
+          showToast(`${data.imported_count} ta o'quvchi qo'shildi, ${data.failed_count} tasi qo'shilmadi. Sababi: ${errorMsgs}`, "error");
+          const failedRowIndices = new Set(data.errors.map((e: any) => e.row - 1));
+          setParsedRows(prev => prev.filter((_, idx) => failedRowIndices.has(idx)));
           if (onSuccess) onSuccess();
         } else {
-          showToast(`Xatolik! ${errorMsgs}`, "error");
+          showToast(`O'quvchilar qo'shilmadi. Sababi: ${errorMsgs}`, "error");
         }
       } else {
         showToast(`Muvaffaqiyatli! ${data.imported_count} ta o'quvchi bazaga saqlandi.`, "success");
@@ -935,7 +968,11 @@ export default function SocialPassportImportSection({
         if (onSuccess) onSuccess();
       }
     } catch (err: any) {
-      showToast(err.message || "Saqlashda xatolik", "error");
+      let errMsg = err.message || "Saqlashda xatolik";
+      if (errMsg.toLowerCase().includes("access denied")) {
+        errMsg = "Ruxsat berilmagan: siz ushbu sinf rahbari emassiz. Faqat o'zingiz rahbarlik qiladigan sinfga o'quvchi qo'sha olasiz.";
+      }
+      showToast(errMsg, "error");
     } finally {
       setSaving(false);
     }

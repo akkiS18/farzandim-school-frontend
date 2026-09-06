@@ -828,6 +828,13 @@ export default function ClassesSection({
     setActionLoading(true);
     setActionError("");
 
+    const cleanIna = studentINA.trim();
+    if (!cleanIna || cleanIna === "-" || cleanIna.toLowerCase() === "yo'q") {
+      setActionError("O'quvchining I-NA yoki pasport seriya raqami kiritilishi shart");
+      setActionLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/students`, {
         method: "POST",
@@ -842,7 +849,7 @@ export default function ClassesSection({
           address: studentAddress.trim() || undefined,
           birthdate: studentBirthDate || undefined,
           enrollment_date: studentEnrollmentDate || new Date().toISOString().split("T")[0],
-          ina: studentINA.trim() || undefined,
+          ina: cleanIna,
         }),
       });
 
@@ -875,6 +882,13 @@ export default function ClassesSection({
     setActionLoading(true);
     setActionError("");
 
+    const cleanIna = editStudentINA.trim();
+    if (!cleanIna || cleanIna === "-" || cleanIna.toLowerCase() === "yo'q") {
+      setActionError("O'quvchining I-NA yoki pasport seriya raqami kiritilishi shart");
+      setActionLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/api/schools/students/${editingStudent.student_id || editingStudent.id}`, {
         method: "PUT",
@@ -889,7 +903,7 @@ export default function ClassesSection({
           address: editStudentAddress.trim() || undefined,
           birthdate: editStudentBirthDate || undefined,
           enrollment_date: editStudentEnrollmentDate || undefined,
-          ina: editStudentINA.trim() || undefined,
+          ina: cleanIna,
         }),
       });
 
@@ -2485,10 +2499,11 @@ export default function ClassesSection({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (I-NA) yoki Pasport seriyasi *</label>
                   <input
                     type="text"
-                    placeholder="I-TV No 123456"
+                    required
+                    placeholder="I-TV No 123456 yoki AB1234567"
                     value={studentINA}
                     onChange={(e) => setStudentINA(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
@@ -2631,9 +2646,11 @@ export default function ClassesSection({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (INA)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Guvohnoma (I-NA) yoki Pasport seriyasi *</label>
                   <input
                     type="text"
+                    required
+                    placeholder="I-TV No 123456 yoki AB1234567"
                     value={editStudentINA}
                     onChange={(e) => setEditStudentINA(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"

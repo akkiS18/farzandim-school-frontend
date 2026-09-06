@@ -53,6 +53,7 @@ interface ScheduleTabProps {
   scheduleExceptions: ScheduleException[];
   scheduleExceptionsLoading: boolean;
   onDeleteException: (id: number) => void;
+  hasMainClass?: boolean;
 }
 
 /** Format "2026-09-01" → "01-Sen" */
@@ -86,6 +87,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
   scheduleExceptions,
   scheduleExceptionsLoading,
   onDeleteException,
+  hasMainClass = true,
 }) => {
   const selectedClassName = classes.find((c) => c.id === selectedClassId)?.name || "Sinf";
 
@@ -236,98 +238,100 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
       </div>
 
       {/* ── EXCEPTIONS SECTION ── */}
-      <div
-        ref={exceptionsSectionRef}
-        className="bg-white border border-neutral-200 rounded-none p-4 sm:p-6 space-y-4 text-slate-900"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-neutral-200 pb-4">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
-              DARS O'ZGARISHLARI
-            </span>
-            <h2 className="font-serif font-bold text-xl sm:text-2xl text-slate-900 tracking-tight">
-              Kunlik Dars Jadvali O'zgarishlari
-            </h2>
-            <p className="text-xs text-slate-500 font-normal">
-              Sinf o'qituvchisi yoki fan o'qituvchilari tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.
-            </p>
+      {hasMainClass && (
+        <div
+          ref={exceptionsSectionRef}
+          className="bg-white border border-neutral-200 rounded-none p-4 sm:p-6 space-y-4 text-slate-900"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-neutral-200 pb-4">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
+                DARS O'ZGARISHLARI
+              </span>
+              <h2 className="font-serif font-bold text-xl sm:text-2xl text-slate-900 tracking-tight">
+                Kunlik Dars Jadvali O'zgarishlari
+              </h2>
+              <p className="text-xs text-slate-500 font-normal">
+                Sinf o'qituvchisi yoki fan o'qituvchilari tomonidan kiritilgan bir martalik dars qo'shimchalari yoki bekor qilishlar.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenAddExceptionModal}
+              className="bg-[#A51C30] hover:bg-[#8B1828] text-white font-bold text-xs py-2 px-3.5 rounded-none transition cursor-pointer flex items-center gap-1.5 shrink-0 h-9"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Dars O'zgarishi Qo'shish</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onOpenAddExceptionModal}
-            className="bg-[#A51C30] hover:bg-[#8B1828] text-white font-bold text-xs py-2 px-3.5 rounded-none transition cursor-pointer flex items-center gap-1.5 shrink-0 h-9"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>O'zgarish kiritish</span>
-          </button>
-        </div>
 
-        {scheduleExceptionsLoading ? (
-          <div className="text-center py-6">
-            <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto" />
-          </div>
-        ) : scheduleExceptions.length === 0 ? (
-          <p className="text-slate-400 text-xs font-mono py-8 text-center border border-dashed border-neutral-200 bg-slate-50">
-            Hech qanday dars o'zgarishi kiritilmagan.
-          </p>
-        ) : (
-          <div className="overflow-x-auto border border-neutral-200 rounded-none">
-            <table className="min-w-full divide-y divide-neutral-200 text-left text-xs text-slate-700">
-              <thead className="bg-slate-100 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3 border-r border-neutral-200">Sana</th>
-                  <th className="px-4 py-3 border-r border-neutral-200">Dars soati</th>
-                  <th className="px-4 py-3 border-r border-neutral-200">Holat / Fan</th>
-                  <th className="px-4 py-3 border-r border-neutral-200">Kiritilgan vaqt</th>
-                  <th className="px-4 py-3 text-right">Amal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200">
-                {scheduleExceptions.map((exc) => {
-                  const isPast = new Date(exc.date + "T23:59:59") < new Date();
-                  return (
-                    <tr key={exc.id} className="hover:bg-slate-50 transition">
-                      <td className="px-4 py-3 font-semibold text-slate-800 border-r border-neutral-200">
-                        {exc.date}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-slate-500 border-r border-neutral-200">
-                        {exc.lesson_number}-dars
-                      </td>
-                      <td className="px-4 py-3 border-r border-neutral-200">
-                        {exc.is_deleted ? (
-                          <span className="text-slate-400 line-through italic text-[11px]">O'chirilgan</span>
-                        ) : exc.subject_id === null ? (
-                          <span className="bg-red-50 border border-red-200 text-red-600 px-2 py-0.5 rounded-none text-[10px] font-bold">
-                            Bekor qilingan
-                          </span>
-                        ) : (
-                          <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-none text-[10px] font-bold">
-                            {exc.subject_name} — O'zgartirilgan
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400 text-[10px] font-mono border-r border-neutral-200">
-                        {new Date(exc.created_at).toLocaleString("uz-UZ")}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {!exc.is_deleted && !isPast && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteException(exc.id)}
-                            className="text-[#A51C30] hover:text-[#8B1828] font-bold text-[10px] bg-red-50 border border-red-200 px-2.5 py-1 rounded-none transition cursor-pointer"
-                          >
-                            O'chirish
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+          {scheduleExceptionsLoading ? (
+            <div className="text-center py-6">
+              <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : scheduleExceptions.length === 0 ? (
+            <p className="text-slate-400 text-xs font-mono py-8 text-center border border-dashed border-neutral-200 bg-slate-50">
+              Hech qanday dars o'zgarishi kiritilmagan.
+            </p>
+          ) : (
+            <div className="overflow-x-auto border border-neutral-200 rounded-none">
+              <table className="min-w-full divide-y divide-neutral-200 text-left text-xs text-slate-700">
+                <thead className="bg-slate-100 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3 border-r border-neutral-200">Sana</th>
+                    <th className="px-4 py-3 border-r border-neutral-200">Dars soati</th>
+                    <th className="px-4 py-3 border-r border-neutral-200">Holat / Fan</th>
+                    <th className="px-4 py-3 border-r border-neutral-200">Kiritilgan vaqt</th>
+                    <th className="px-4 py-3 text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-200">
+                  {scheduleExceptions.map((exc) => {
+                    const isPast = new Date(exc.date + "T23:59:59") < new Date();
+                    return (
+                      <tr key={exc.id} className="hover:bg-slate-50 transition">
+                        <td className="px-4 py-3 font-semibold text-slate-800 border-r border-neutral-200">
+                          {exc.date}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-slate-500 border-r border-neutral-200">
+                          {exc.lesson_number}-dars
+                        </td>
+                        <td className="px-4 py-3 border-r border-neutral-200">
+                          {exc.is_deleted ? (
+                            <span className="text-slate-400 line-through italic text-[11px]">O'chirilgan</span>
+                          ) : exc.subject_id === null ? (
+                            <span className="bg-red-50 border border-red-200 text-red-600 px-2 py-0.5 rounded-none text-[10px] font-bold">
+                              Bekor qilingan
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-none text-[10px] font-bold">
+                              {exc.subject_name} — O'zgartirilgan
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 text-[10px] font-mono border-r border-neutral-200">
+                          {new Date(exc.created_at).toLocaleString("uz-UZ")}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {!exc.is_deleted && !isPast && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteException(exc.id)}
+                              className="text-[#A51C30] hover:text-[#8B1828] font-bold text-[10px] bg-red-50 border border-red-200 px-2.5 py-1 rounded-none transition cursor-pointer"
+                            >
+                              O'chirish
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

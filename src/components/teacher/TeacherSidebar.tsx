@@ -38,6 +38,7 @@ interface TeacherSidebarProps {
   unapprovedCount?: number;
   onTabClick?: (tabId: string) => void;
   onLogout: () => void;
+  hasMainClass?: boolean;
 }
 
 type NavEntry =
@@ -72,11 +73,12 @@ export default function TeacherSidebar({
   unapprovedCount = 0,
   onTabClick,
   onLogout,
+  hasMainClass = true,
 }: TeacherSidebarProps) {
   const isCollapsedDesktop = sidebarCollapsed && !sidebarOpen;
 
   // 6 Main Grouped Entries (Consistent Title Case)
-  const navEntries: NavEntry[] = [
+  const allNavEntries: NavEntry[] = [
     {
       type: "single",
       id: "dashboard",
@@ -133,6 +135,13 @@ export default function TeacherSidebar({
       icon: Settings,
     },
   ];
+
+  const navEntries = allNavEntries.filter((entry) => {
+    if (entry.id === "students_group" && !hasMainClass) {
+      return false;
+    }
+    return true;
+  });
 
   // State to track which groups are expanded (VS Code tree style - closed by default)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});

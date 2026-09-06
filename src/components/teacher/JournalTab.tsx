@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   BookOpen,
   Calendar,
+  CalendarOff,
   MessageSquare,
   Clock,
   ChevronDown,
@@ -11,6 +12,10 @@ import {
   Check,
   Lock,
   CheckCheck,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
 } from "lucide-react";
 import { parseDateString, parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 
@@ -142,6 +147,21 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 }) => {
   const [showClassDropdown, setShowClassDropdown] = useState(false);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
+  const [studentSortDirection, setStudentSortDirection] = useState<"default" | "asc" | "desc">("default");
+
+  useEffect(() => {
+    setStudentSortDirection("default");
+  }, [selectedClassId]);
+
+  const sortedStudents = useMemo(() => {
+    if (studentSortDirection === "default") return students;
+    return [...students].sort((a, b) => {
+      const nameA = `${a.first_name || ""} ${a.last_name || ""} ${a.middle_name || ""}`.trim();
+      const nameB = `${b.first_name || ""} ${b.last_name || ""} ${b.middle_name || ""}`.trim();
+      const cmp = nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+      return studentSortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [students, studentSortDirection]);
 
   useEffect(() => {
     if (highlightStudentId) {
@@ -183,10 +203,29 @@ export const JournalTab: React.FC<JournalTabProps> = ({
     }
   })();
 
-  const activeHoliday = holidays.find((h) => {
+  const isSunday = (() => {
+    try {
+      const d = parseLocalDate(journalDate);
+      return d.getDay() === 0;
+    } catch {
+      return false;
+    }
+  })();
+
+  const activeHoliday = holidays.find((h: any) => {
     const hDate = parseDateString(h.holiday_date);
-    return hDate === journalDate;
+    if (hDate !== journalDate) return false;
+    if (h.target_classes && Array.isArray(h.target_classes) && h.target_classes.length > 0) {
+      if (!selectedClassId || !h.target_classes.includes(Number(selectedClassId))) return false;
+    }
+    return true;
   });
+
+  const isDayOff = isSunday || !!activeHoliday;
+  const dayOffTitle = isSunday ? "Yakshanba — Dam Olish Kuni" : (activeHoliday?.name || "Dam Olish Kuni");
+  const dayOffSubtitle = isSunday
+    ? "Bugun yakshanba, dam olish kuni. Jurnalda darslar va baholash o'tkazilmaydi."
+    : "Admin tomonidan ushbu sana dam olish kuni deb belgilangan. Jurnalda darslar va baholash o'tkazilmaydi.";
 
   return (
     <div className="space-y-0 sm:space-y-3 font-sans">
@@ -234,14 +273,16 @@ export const JournalTab: React.FC<JournalTabProps> = ({
         </div>
       ) : (
         <>
-          {/* JOURNAL TABLE */}
-          {activeHoliday && (
+          {/* JOURNAL TABLE BANNER */}
+          {isDayOff && (
             <div className="bg-rose-50 border-y sm:border border-rose-200 text-rose-900 rounded-none p-3.5 flex items-center space-x-3 text-xs font-semibold">
               <span className="text-base font-bold">⚠️</span>
               <div>
-                <p className="font-bold">Dam olish kuni: {activeHoliday.name}</p>
+                <p className="font-bold">Dam olish kuni: {dayOffTitle}</p>
                 <p className="text-[11px] text-rose-700 mt-0.5 font-normal">
-                  Bugun dam olish kuni deb belgilangan. Jurnalda baho qo'yish imkoniyati bloklanadi.
+                  {isSunday
+                    ? "Bugun yakshanba, dam olish kuni. Jurnalda darslar va baho qo'yish imkoniyati bloklanadi."
+                    : "Bugun dam olish kuni deb belgilangan. Jurnalda baho qo'yish imkoniyati bloklanadi."}
                 </p>
               </div>
             </div>
@@ -255,6 +296,23 @@ export const JournalTab: React.FC<JournalTabProps> = ({
             </div>
           ) : !selectedSubjectId ? (
             (() => {
+              if (isDayOff) {
+                return (
+                  <div className="w-full bg-white border-y sm:border border-neutral-200 rounded-none p-8 sm:p-12 text-center space-y-3 shadow-none">
+                    <CalendarOff className="w-8 h-8 text-[#A51C30] mx-auto" />
+                    <span className="inline-block text-[11px] font-bold font-sans text-slate-500 uppercase tracking-widest">
+                      Dam Olish Kuni
+                    </span>
+                    <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900">
+                      {dayOffTitle}
+                    </h3>
+                    <p className="text-sm text-slate-600 font-normal leading-relaxed max-w-md mx-auto">
+                      {dayOffSubtitle}
+                    </p>
+                  </div>
+                );
+              }
+
               const isScheduleEmpty =
                 classSchedule.length === 0 ||
                 classSchedule.every((item) => item.subject_id === 0 || !item.subject_id);
@@ -269,6 +327,19 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   </div>
                 );
               }
+
+              if (journalLessonsToday.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-white border-y sm:border border-neutral-200 rounded-none p-6 space-y-2">
+                    <Clock className="w-8 h-8 text-slate-400 mx-auto" />
+                    <h4 className="font-serif text-base font-bold text-slate-900">Bugungi kunda darslar mavjud emas</h4>
+                    <p className="text-xs text-slate-600 font-normal max-w-sm mx-auto">
+                      Tanlangan sanada ({formattedUzbekDate}) ushbu sinf uchun dars jadvali belgilanmagan.
+                    </p>
+                  </div>
+                );
+              }
+
               return (
                 <div className="bg-white border-y sm:border border-neutral-200 rounded-none p-4 sm:p-6 space-y-3">
                   <div className="border-b border-neutral-200 pb-2">
@@ -308,11 +379,40 @@ export const JournalTab: React.FC<JournalTabProps> = ({
               <table className="min-w-full text-left border-separate border-spacing-0">
                 <thead className="bg-slate-100 text-[10px] sm:text-[11px] font-bold font-sans text-slate-700 uppercase tracking-wider sticky top-0 z-20 shadow-xs">
                   <tr>
-                    <th className="px-1 py-3 w-11 min-w-[44px] max-w-[44px] text-center font-mono sticky top-0 left-0 z-30 bg-slate-100 border-r border-b border-neutral-200">
+                    <th
+                      onClick={() => setStudentSortDirection("default")}
+                      className="px-1 py-3 w-11 min-w-[44px] max-w-[44px] text-center font-mono sticky top-0 left-0 z-30 bg-slate-100 border-r border-b border-neutral-200 cursor-pointer select-none hover:bg-slate-200 transition-colors text-slate-500"
+                      title="Asl tartib (№)"
+                    >
                       №
                     </th>
-                    <th className="px-3 py-3 sticky top-0 left-[44px] z-30 bg-slate-100 border-r border-b border-neutral-200 min-w-[140px] max-w-[170px] sm:min-w-[180px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
-                      O'quvchi ismi
+                    <th
+                      onClick={() => {
+                        setStudentSortDirection((prev) => {
+                          if (prev === "default") return "asc";
+                          if (prev === "asc") return "desc";
+                          return "default";
+                        });
+                      }}
+                      className={`px-3 py-3 sticky top-0 left-[44px] z-30 border-r border-b border-neutral-200 min-w-[140px] max-w-[170px] sm:min-w-[180px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] cursor-pointer select-none hover:bg-slate-200 transition-colors group ${
+                        studentSortDirection !== "default" ? "bg-slate-200/80 text-[#1E2B42] font-black" : "bg-slate-100 text-slate-700"
+                      }`}
+                      title="Ism-familiya bo'yicha saralash (A-Z / Z-A)"
+                    >
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span>O'quvchi ismi</span>
+                        {studentSortDirection === "asc" ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> A-Z
+                          </span>
+                        ) : studentSortDirection === "desc" ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
+                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> Z-A
+                          </span>
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-transform" />
+                        )}
+                      </div>
                     </th>
                     {journalColumns.map((col) => (
                       <th
@@ -389,7 +489,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                 </thead>
 
                 <tbody className="divide-y divide-neutral-200 text-xs bg-white">
-                  {students.length === 0 ? (
+                  {sortedStudents.length === 0 ? (
                     <tr>
                       <td
                         colSpan={3 + journalColumns.length}
@@ -399,7 +499,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    students.map((st, idx) => {
+                    sortedStudents.map((st, idx) => {
                       const attKey = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
                       const attendanceVal = cellInputs[attKey] || "+";
                       const isHighlighted = highlightStudentId === st.id;
@@ -443,10 +543,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                             const isApproved = grade?.status === "approved";
                             const isParentApproved = grade?.approved_by_parent;
                             const isSaving = cellSaving === key;
-                            const isHoliday = holidays.some((h) => {
-                              const hDate = parseDateString(h.holiday_date);
-                              return hDate === journalDate;
-                            });
+                            const isHoliday = isDayOff;
 
                             return (
                               <td key={col.id} className="px-1.5 py-2.5 text-center border-b border-neutral-200 min-w-[68px] max-w-[80px]">
@@ -746,7 +843,20 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 
               {/* Table Footer Summary */}
               <div className="px-4 py-2 border-t border-neutral-200 bg-slate-50 flex items-center justify-between text-slate-500 text-[10px] font-sans uppercase tracking-wider">
-                <span>O'quvchilar: {students.length} ta</span>
+                <div className="flex items-center gap-3">
+                  <span>O'quvchilar: {students.length} ta</span>
+                  {studentSortDirection !== "default" && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentSortDirection("default")}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1E2B42] hover:underline cursor-pointer transition-colors"
+                      title="Boshlang'ich tartibga qaytarish"
+                    >
+                      <RotateCcw className="w-3 h-3 text-[#1E2B42]" />
+                      Asl holatga qaytarish
+                    </button>
+                  )}
+                </div>
                 <span>
                   Kiritilgan baholar:{" "}
                   {
