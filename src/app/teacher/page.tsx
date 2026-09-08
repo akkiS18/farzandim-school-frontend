@@ -1888,7 +1888,7 @@ function TeacherDashboardContent() {
         if (savedGS) {
           colSysMap[col.id] = Number(savedGS);
         } else {
-          const existingGradeWithGS = gradesList.find(g => g.grade_type === col.id && g.grading_system_id);
+          const existingGradeWithGS = gradesList.find(g => (g.grade_type === col.id || (col.id === "MASTERY" && g.grade_type === "DAILY")) && g.grading_system_id);
           if (existingGradeWithGS) {
             colSysMap[col.id] = existingGradeWithGS.grading_system_id;
           } else if (col.id === "MASTERY" && activeGS) {
@@ -1911,7 +1911,7 @@ function TeacherDashboardContent() {
               return g.student_id === st.id && 
                      g.subject_id === lesson.subject_id && 
                      g.lesson_number === lesson.lesson_number && 
-                     g.grade_type === col.id &&
+                     (g.grade_type === col.id || (col.id === "MASTERY" && g.grade_type === "DAILY")) &&
                      gDate === targetDate;
             });
             
@@ -1978,7 +1978,7 @@ function TeacherDashboardContent() {
       return g.student_id === studentId && 
              g.subject_id === subjectId && 
              g.lesson_number === lessonNumber && 
-             g.grade_type === gradeType &&
+             (g.grade_type === gradeType || (gradeType === "MASTERY" && g.grade_type === "DAILY")) &&
              gDate === journalDate;
     });
 
