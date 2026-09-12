@@ -345,7 +345,7 @@ function ClubStudentsModalComponent({
     const id = s.id || s.student_id;
     if (memberIds.has(id)) return false;
     if (!search.trim()) return true;
-    const full = `${s.first_name||""} ${s.last_name||""} ${s.middle_name||""}`.toLowerCase();
+    const full = `${s.last_name||""} ${s.first_name||""} ${s.middle_name||""}`.toLowerCase();
     return full.includes(search.toLowerCase());
   });
 
@@ -374,7 +374,7 @@ function ClubStudentsModalComponent({
               <div key={st.id || st.student_id}
                 className="flex items-center justify-between px-3 py-2 text-xs hover:bg-slate-50 transition">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#1D1E26]">{st.first_name} {st.last_name}</span>
+                  <span className="font-bold text-[#1D1E26]">{st.last_name} {st.first_name}</span>
                   {st.class_name && (
                     <span className="px-2 py-0.5 text-[10px] font-extrabold bg-slate-100 text-[#1D1E26] border border-slate-200 font-mono">
                       {st.class_name}

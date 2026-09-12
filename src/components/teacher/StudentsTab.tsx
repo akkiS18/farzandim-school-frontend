@@ -143,7 +143,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
     if (!q) return list;
 
     return list.filter((st) => {
-      const name = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+      const name = `${st.last_name || ""} ${st.first_name || ""} ${st.middle_name || ""}`.toLowerCase();
       const phone = (st.phone || "").toLowerCase();
       const cls = (st.class_name || "").toLowerCase();
       const ina = (st.ina || "").toLowerCase();
@@ -153,12 +153,18 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
 
   // Sort students across all requested fields
   const sortedStudents = useMemo(() => {
-    if (sortField === "default") return filteredStudents;
+    if (sortField === "default") {
+      return [...filteredStudents].sort((a, b) => {
+        const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+        const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+      });
+    }
 
     return [...filteredStudents].sort((a, b) => {
       if (sortField === "name") {
-        const nameA = `${a.first_name || ""} ${a.last_name || ""} ${a.middle_name || ""}`.trim();
-        const nameB = `${b.first_name || ""} ${b.last_name || ""} ${b.middle_name || ""}`.trim();
+        const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+        const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
         const cmp = nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
         return sortDirection === "asc" ? cmp : -cmp;
       }
@@ -634,7 +640,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                       <td className={`px-6 py-3.5 font-bold text-[#1E2B42] sticky left-12 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[190px] whitespace-nowrap ${borderBottomClass}`}>
                         <div className="flex items-center gap-2">
                           <span>
-                            {st.first_name} {st.last_name}{" "}
+                            {st.last_name} {st.first_name}{" "}
                             {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
                           </span>
                         </div>
@@ -833,7 +839,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
 
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
               <p className="font-bold text-[#1E2B42]">
-                {editingLeavingStudent.first_name} {editingLeavingStudent.last_name}
+                {editingLeavingStudent.last_name} {editingLeavingStudent.first_name}
               </p>
               <p className="text-slate-500 font-mono mt-0.5">Sinf: {editingLeavingStudent.class_name || "—"}</p>
             </div>
@@ -894,7 +900,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 font-medium leading-relaxed">
-              Haqiqatan ham <b className="text-slate-800">{restoringStudent.first_name} {restoringStudent.last_name}</b>ni yana sinfga faol o'quvchi sifatida qayta tiklamoqchimisiz?
+              Haqiqatan ham <b className="text-slate-800">{restoringStudent.last_name} {restoringStudent.first_name}</b>ni yana sinfga faol o'quvchi sifatida qayta tiklamoqchimisiz?
             </p>
 
             <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">

@@ -227,7 +227,7 @@ const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
   const filteredStudents = students.filter((st) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
-    const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+    const fullName = `${st.last_name || ""} ${st.first_name || ""} ${st.middle_name || ""}`.toLowerCase();
     const className = (st.class_name || "").toLowerCase();
     return fullName.includes(q) || className.includes(q);
   });
@@ -261,7 +261,7 @@ const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-[#1D1E26]">
-                {selectedStudent.first_name} {selectedStudent.last_name}
+                {selectedStudent.last_name} {selectedStudent.first_name}
               </span>
               <span className="text-[11px] text-slate-500 font-mono font-medium">
                 ({selectedStudent.class_name || "Sinfsiz"})
@@ -341,7 +341,7 @@ const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
                   >
                     <div>
                       <span className="font-bold">
-                        {st.first_name} {st.last_name}
+                        {st.last_name} {st.first_name}
                       </span>
                       <span className={`text-[11px] ml-1.5 font-mono ${isSelected ? "text-[#D4F562]/80" : "text-slate-400"}`}>
                         ({st.class_name || "Sinfsiz"})
@@ -465,7 +465,15 @@ export default function BalanceSection({
         headers: safeFetchHeaders(),
       });
       const data = await response.json();
-      if (response.ok) setStudentsBalanceList(Array.isArray(data) ? data : []);
+      if (response.ok) {
+        const list = Array.isArray(data) ? data : [];
+        list.sort((a: any, b: any) => {
+          const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+          const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+          return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+        });
+        setStudentsBalanceList(list);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -863,7 +871,7 @@ export default function BalanceSection({
 
         const filteredStudentsBalanceList = studentsBalanceList.filter((st) => {
           if (!q) return true;
-          const fullName = `${st.first_name || ""} ${st.last_name || ""} ${st.middle_name || ""}`.toLowerCase();
+          const fullName = `${st.last_name || ""} ${st.first_name || ""} ${st.middle_name || ""}`.toLowerCase();
           const className = (st.class_name || "").toLowerCase();
           const ina = (st.ina || "").toLowerCase();
           return fullName.includes(q) || className.includes(q) || ina.includes(q);
@@ -1000,7 +1008,7 @@ export default function BalanceSection({
                             {currentPaginatedStudents.map((st) => (
                               <tr key={st.id} className="hover:bg-slate-50/80 transition">
                                 <td className="px-6 py-4 font-bold text-[#1D1E26]">
-                                  {st.first_name} {st.last_name} {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
+                                  {st.last_name} {st.first_name} {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
                                 </td>
                                 <td className="px-6 py-4 font-mono font-bold text-slate-500">
                                   {st.class_name ? `${st.class_name} (Level ${st.class_level ?? '-'})` : "-"}

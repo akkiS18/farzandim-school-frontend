@@ -89,7 +89,7 @@ export default function ParentsListModal({
             <p className="text-xs text-slate-500 font-sans mt-0.5">
               O'quvchi:{" "}
               <strong className="text-slate-800">
-                {selectedStudent?.first_name} {selectedStudent?.last_name}
+                {selectedStudent?.last_name} {selectedStudent?.first_name}
               </strong>
             </p>
           </div>

@@ -245,12 +245,18 @@ export default function OverviewSection({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  const filteredStudents = (stats?.students || []).filter((st) => {
-    const fullName = `${st.first_name} ${st.last_name} ${st.middle_name || ""}`.toLowerCase();
-    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || st.class_name.toLowerCase().includes(searchQuery.toLowerCase());
-    if (statusFilter === "all") return matchesSearch;
-    return matchesSearch && st.status === statusFilter;
-  });
+  const filteredStudents = (stats?.students || [])
+    .filter((st) => {
+      const fullName = `${st.last_name} ${st.first_name} ${st.middle_name || ""}`.toLowerCase();
+      const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || st.class_name.toLowerCase().includes(searchQuery.toLowerCase());
+      if (statusFilter === "all") return matchesSearch;
+      return matchesSearch && st.status === statusFilter;
+    })
+    .sort((a, b) => {
+      const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+      const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+      return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+    });
 
   useEffect(() => {
     setCurrentPage(1);

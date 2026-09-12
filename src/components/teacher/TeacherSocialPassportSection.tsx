@@ -183,6 +183,9 @@ const TableRow = memo(function TableRow({
         }
 
         const isDocMissing = isDocField && (!val.trim() || val.trim() === "-" || val.trim().toLowerCase() === "yo'q");
+        const isParentDocMissing = 
+          (f.key === "fatherDocumentNo" && row.fatherFullName && (!val.trim() || val.trim() === "-" || val.trim().toLowerCase() === "yo'q")) ||
+          (f.key === "motherDocumentNo" && row.motherFullName && (!val.trim() || val.trim() === "-" || val.trim().toLowerCase() === "yo'q"));
 
         return (
           <td
@@ -205,6 +208,8 @@ const TableRow = memo(function TableRow({
                   ? `Ushbu pasportlik ota-ona (${conflictParentInfo.first_name} ${conflictParentInfo.last_name}) bazada bor, lekin ismi/telefonida tafovut bor! Ikki marta bosing.`
                   : isDocMissing
                   ? "O'quvchining I-NA yoki pasport seriya raqami kiritilishi shart!"
+                  : isParentDocMissing
+                  ? "Pasport seriyasi kiritilmagan. Pasport seriyasisiz ota-ona bazaga qo'shilmaydi!"
                   : undefined
               }
               className={`w-full text-xs rounded-none px-2.5 py-1.5 transition flex items-center justify-between min-h-[32px] truncate ${
@@ -212,6 +217,8 @@ const TableRow = memo(function TableRow({
                   ? "bg-rose-600 text-white font-extrabold shadow-sm border border-rose-700 hover:bg-rose-700 animate-pulse"
                   : isDocMissing
                   ? "bg-amber-50 border border-amber-300 text-amber-900 font-semibold"
+                  : isParentDocMissing
+                  ? "bg-zinc-100/90 border border-dashed border-zinc-300 text-zinc-500 italic"
                   : isSelected
                   ? "bg-[#1E2B42] text-white font-extrabold ring-2 ring-indigo-500 shadow-sm"
                   : val
@@ -223,6 +230,11 @@ const TableRow = memo(function TableRow({
               {isDocMissing && (
                 <span className="ml-1 text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded-none font-mono font-bold shrink-0">
                   I-NA YO'Q
+                </span>
+              )}
+              {isParentDocMissing && (
+                <span className="ml-1 text-[8px] bg-zinc-200 text-zinc-600 px-1 py-0.5 rounded-none font-mono font-semibold shrink-0" title="Pasportsiz qo'shilmaydi">
+                  PASPORTSIZ
                 </span>
               )}
               {(hasExistingMatch || hasParentConflict) && (

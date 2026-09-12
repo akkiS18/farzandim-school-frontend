@@ -108,7 +108,7 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
                 <option value="">-- O'quvchini tanlang --</option>
                 {studentsTabList.map((st) => (
                   <option key={st.id || st.student_id} value={st.id || st.student_id}>
-                    {st.first_name} {st.last_name} ({st.phone || "Telefon kiritilmagan"})
+                    {st.last_name} {st.first_name} ({st.phone || "Telefon kiritilmagan"})
                   </option>
                 ))}
               </select>

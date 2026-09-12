@@ -69,7 +69,7 @@ export default function GradeCommentModal({
               <span>Baho bo'yicha izoh / xabar</span>
             </h3>
             <p className="text-xs text-zinc-500 font-medium mt-0.5">
-              {selectedStudent.first_name} {selectedStudent.last_name}
+              {selectedStudent.last_name} {selectedStudent.first_name}
             </p>
           </div>
           <button

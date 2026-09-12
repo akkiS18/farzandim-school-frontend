@@ -225,6 +225,7 @@ export default function ClassesSection({
 
   // Contextual Sub-lists
   const [classStudents, setClassStudents] = useState<TenantUser[]>([]);
+  const [studentSortOrder, setStudentSortOrder] = useState<"asc" | "desc">("asc");
   const [classTeachers, setClassTeachers] = useState<ClassTeacherItem[]>([]);
   const [classParents, setClassParents] = useState<TenantUser[]>([]);
   const [classSchedule, setClassSchedule] = useState<ClassScheduleItem[]>([]);
@@ -414,7 +415,15 @@ export default function ClassesSection({
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
-      if (response.ok) setClassStudents(Array.isArray(data) ? data : []);
+      if (response.ok) {
+        const list = Array.isArray(data) ? data : [];
+        list.sort((a: TenantUser, b: TenantUser) => {
+          const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+          const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+          return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+        });
+        setClassStudents(list);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -1532,7 +1541,18 @@ export default function ClassesSection({
                       <thead className="bg-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-mono">
                         <tr>
                           <th className="px-6 py-4 whitespace-nowrap">T/R</th>
-                          <th className="px-6 py-4 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap">F.I.SH</th>
+                          <th
+                            onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                            className="px-6 py-4 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                            title="Familiya bo'yicha saralash (A-Z / Z-A)"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span>F.I.SH</span>
+                              <span className="text-[9px] font-bold text-slate-500 font-mono">
+                                {studentSortOrder === "asc" ? "▲ A-Z" : "▼ Z-A"}
+                              </span>
+                            </div>
+                          </th>
                           <th className="px-6 py-4 whitespace-nowrap">Maktabga kirish sanasi</th>
                           <th className="px-6 py-4 whitespace-nowrap">Manzil</th>
                           <th className="px-6 py-4 whitespace-nowrap">Tug'ilgan sana</th>
@@ -1543,9 +1563,15 @@ export default function ClassesSection({
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700 bg-white">
                         {(() => {
+                          const sortedStudents = [...classStudents].sort((a, b) => {
+                            const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+                            const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+                            const cmp = nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+                            return studentSortOrder === "asc" ? cmp : -cmp;
+                          });
                           const perPage = classStudentsPerPage;
                           const startIndex = (classStudentsPage - 1) * perPage;
-                          const paginatedList = classStudents.slice(startIndex, startIndex + perPage);
+                          const paginatedList = sortedStudents.slice(startIndex, startIndex + perPage);
 
                           return paginatedList.map((student, i) => (
                             <tr key={student.id} className="group hover:bg-slate-50/80 transition">
@@ -2776,7 +2802,7 @@ export default function ClassesSection({
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">
-                  Vasiylarni Boshqarish ({selectedStudentForParents.first_name} {selectedStudentForParents.last_name})
+                  Vasiylarni Boshqarish ({selectedStudentForParents.last_name} {selectedStudentForParents.first_name})
                 </h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
                   Ushbu o'quvchiga biriktirilgan vasiylar ro'yxati · Qo'shilgan sana: <span className="font-mono text-slate-700 font-bold">{formatUzbekDate(selectedStudentForParents.created_at)}</span>

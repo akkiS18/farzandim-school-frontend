@@ -1214,7 +1214,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                             className="rounded text-[#1D1E26] focus:ring-[#1D1E26] cursor-pointer w-4 h-4"
                           />
                           <span>
-                            {s.first_name} {s.last_name} ({s.class_name || "Sinf"})
+                            {s.last_name} {s.first_name} ({s.class_name || "Sinf"})
                           </span>
                         </label>
                       );

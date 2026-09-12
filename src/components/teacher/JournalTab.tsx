@@ -154,13 +154,17 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   }, [selectedClassId]);
 
   const sortedStudents = useMemo(() => {
-    if (studentSortDirection === "default") return students;
-    return [...students].sort((a, b) => {
-      const nameA = `${a.first_name || ""} ${a.last_name || ""} ${a.middle_name || ""}`.trim();
-      const nameB = `${b.first_name || ""} ${b.last_name || ""} ${b.middle_name || ""}`.trim();
-      const cmp = nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
-      return studentSortDirection === "asc" ? cmp : -cmp;
-    });
+    const list = [...students];
+    const compareByLastName = (a: Student, b: Student) => {
+      const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+      const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+      return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+    };
+
+    if (studentSortDirection === "desc") {
+      return list.sort((a, b) => compareByLastName(b, a));
+    }
+    return list.sort(compareByLastName);
   }, [students, studentSortDirection]);
 
   useEffect(() => {
@@ -397,10 +401,10 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                       className={`px-3 py-3 sticky top-0 left-[44px] z-30 border-r border-b border-neutral-200 min-w-[140px] max-w-[170px] sm:min-w-[180px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] cursor-pointer select-none hover:bg-slate-200 transition-colors group ${
                         studentSortDirection !== "default" ? "bg-slate-200/80 text-[#1E2B42] font-black" : "bg-slate-100 text-slate-700"
                       }`}
-                      title="Ism-familiya bo'yicha saralash (A-Z / Z-A)"
+                      title="Familiya bo'yicha saralash (A-Z / Z-A)"
                     >
                       <div className="flex items-center justify-between gap-1.5">
-                        <span>O'quvchi ismi</span>
+                        <span>O'quvchi F.I.SH</span>
                         {studentSortDirection === "asc" ? (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
                             <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> A-Z
@@ -527,7 +531,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                               isHighlighted ? "bg-amber-50 text-amber-950" : "bg-white group-hover:bg-slate-50"
                             }`}
                           >
-                            {st.first_name} {st.last_name}
+                            {st.last_name} {st.first_name}
                           </td>
 
                           {/* Dynamic Grade Columns */}

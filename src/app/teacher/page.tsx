@@ -1721,7 +1721,11 @@ function TeacherDashboardContent() {
         first_name: u.first_name,
         last_name: u.last_name,
         middle_name: u.middle_name,
-      })) : [];
+      })).sort((a: any, b: any) => {
+        const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+        const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+      }) : [];
       setStudents(studentsList);
 
       // Fetch grades
@@ -1867,7 +1871,11 @@ function TeacherDashboardContent() {
         first_name: u.first_name,
         last_name: u.last_name,
         middle_name: u.middle_name,
-      })) : [];
+      })).sort((a: any, b: any) => {
+        const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+        const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+      }) : [];
       setStudents(studentsList);
 
       // 3. All grades for this class
@@ -2123,7 +2131,12 @@ function TeacherDashboardContent() {
       }
 
       const data = await api.get(`/api/schools/users?${params.toString()}`);
-      setStudentsTabList(Array.isArray(data) ? data : []);
+      const sortedData = Array.isArray(data) ? [...data].sort((a: any, b: any) => {
+        const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+        const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+      }) : [];
+      setStudentsTabList(sortedData);
     } catch (e) {
       console.error(e);
     } finally {

@@ -1895,7 +1895,7 @@ export default function TeacherLibrarySection({ token, API_URL }: LibrarySection
                           >
                             <div className="flex items-center gap-2">
                               <input type="checkbox" checked={isSel} readOnly className="w-3.5 h-3.5 rounded text-[#1E2B42]" />
-                              <span>{st.first_name} {st.last_name}</span>
+                              <span>{st.last_name} {st.first_name}</span>
                             </div>
                             <span className="text-[10px] text-slate-400 font-semibold">{st.class_name}</span>
                           </div>

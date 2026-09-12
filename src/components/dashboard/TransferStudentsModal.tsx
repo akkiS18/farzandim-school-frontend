@@ -178,7 +178,13 @@ export default function TransferStudentsModal({
             ? "/api/schools/users?role=STUDENT"
             : `/api/schools/users?role=STUDENT&class_id=${selectedSourceClassId}`;
         const data = await api.get(query);
-        setStudentsList(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        list.sort((a: any, b: any) => {
+          const nameA = `${a.last_name || ""} ${a.first_name || ""} ${a.middle_name || ""}`.trim();
+          const nameB = `${b.last_name || ""} ${b.first_name || ""} ${b.middle_name || ""}`.trim();
+          return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
+        });
+        setStudentsList(list);
       } catch (err) {
         console.error("Failed to fetch class students:", err);
         setStudentsList([]);
@@ -197,7 +203,7 @@ export default function TransferStudentsModal({
         selectedSourceClassId === "all" ||
         Number(student.class_id) === Number(selectedSourceClassId) ||
         !student.class_id;
-      const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
+      const fullName = `${student.last_name} ${student.first_name}`.toLowerCase();
       const matchesSearch = fullName.includes(searchQuery.toLowerCase().trim());
       return matchesClass && matchesSearch;
     });
@@ -502,7 +508,7 @@ export default function TransferStudentsModal({
                       </div>
                       <div>
                         <p className="text-xs font-bold">
-                          {student.first_name} {student.last_name}
+                          {student.last_name} {student.first_name}
                         </p>
                         {student.class_name && (
                           <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">

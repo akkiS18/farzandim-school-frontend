@@ -89,7 +89,7 @@ export const ClubStudentsModal: React.FC<ClubStudentsModalProps> = ({
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-zinc-800">
-                        {st.first_name} {st.last_name}
+                        {st.last_name} {st.first_name}
                       </span>
                       {st.class_name && (
                         <span className="px-2 py-0.5 rounded-none text-[10px] font-extrabold bg-slate-50 text-[#1E2B42] font-mono border border-slate-200">
