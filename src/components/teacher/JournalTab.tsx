@@ -231,6 +231,50 @@ export const JournalTab: React.FC<JournalTabProps> = ({
     ? "Bugun yakshanba, dam olish kuni. Jurnalda darslar va baholash o'tkazilmaydi."
     : "Admin tomonidan ushbu sana dam olish kuni deb belgilangan. Jurnalda darslar va baholash o'tkazilmaydi.";
 
+  // For each student, how many days before the selected journalDate did they last receive a MASTERY/DAILY grade in the selected subject?
+  const lastGradeDaysAgoMap = useMemo(() => {
+    if (!selectedSubjectId || !journalDate || !journalAllGrades || !journalAllGrades.length) {
+      return new Map<number, number>();
+    }
+
+    const targetDateStr = parseDateString(journalDate) || journalDate.split("T")[0];
+    const targetDateObj = new Date(targetDateStr + "T00:00:00");
+    if (isNaN(targetDateObj.getTime())) return new Map<number, number>();
+
+    const map = new Map<number, number>();
+
+    students.forEach((st) => {
+      let latestPriorDateStr: string | null = null;
+      for (const g of journalAllGrades) {
+        if (Number(g.student_id) !== Number(st.id)) continue;
+        if (Number(g.subject_id) !== Number(selectedSubjectId)) continue;
+        const gType = g.grade_type || "";
+        if (gType !== "MASTERY" && gType !== "DAILY") continue;
+        if (!g.value || String(g.value).trim() === "") continue;
+
+        const gDateStr = parseDateString(g.grade_date) || (g.grade_date ? String(g.grade_date).split("T")[0] : "");
+        if (!gDateStr) continue;
+
+        if (gDateStr < targetDateStr) {
+          if (!latestPriorDateStr || gDateStr > latestPriorDateStr) {
+            latestPriorDateStr = gDateStr;
+          }
+        }
+      }
+
+      if (latestPriorDateStr) {
+        const priorDateObj = new Date(latestPriorDateStr + "T00:00:00");
+        const diffMs = targetDateObj.getTime() - priorDateObj.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          map.set(st.id, diffDays);
+        }
+      }
+    });
+
+    return map;
+  }, [journalAllGrades, selectedSubjectId, journalDate, students]);
+
   return (
     <div className="space-y-0 sm:space-y-3 font-sans">
       {/* CLASS PICKER */}
@@ -527,11 +571,39 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 
                           {/* Student Name Sticky Pinned Left */}
                           <td
-                            className={`px-3 py-2.5 font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap sticky left-[44px] z-10 border-r border-b border-neutral-200 min-w-[140px] max-w-[170px] sm:min-w-[180px] truncate shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] ${
+                            className={`px-3 py-1.5 font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap sticky left-[44px] z-10 border-r border-b border-neutral-200 min-w-[140px] max-w-[180px] sm:min-w-[190px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] ${
                               isHighlighted ? "bg-amber-50 text-amber-950" : "bg-white group-hover:bg-slate-50"
                             }`}
                           >
-                            {st.last_name} {st.first_name}
+                            <div className="flex flex-col justify-center">
+                              <span className="truncate leading-tight">{st.last_name} {st.first_name}</span>
+                              <div className="mt-0.5">
+                                {(() => {
+                                  const daysAgo = lastGradeDaysAgoMap.get(st.id);
+                                  if (daysAgo !== undefined) {
+                                    let badgeStyle = "bg-amber-50 text-amber-800 border-amber-300";
+                                    if (daysAgo <= 7) {
+                                      badgeStyle = "bg-amber-50 text-amber-800 border-amber-300";
+                                    } else if (daysAgo <= 14) {
+                                      badgeStyle = "bg-blue-50 text-blue-800 border-blue-200";
+                                    } else {
+                                      badgeStyle = "bg-slate-100 text-slate-600 border-slate-200";
+                                    }
+                                    return (
+                                      <span className={`inline-flex items-center px-1.5 py-0.2 text-[9px] font-semibold rounded-sm border ${badgeStyle}`}>
+                                        {daysAgo} kun oldin
+                                      </span>
+                                    );
+                                  } else {
+                                    return (
+                                      <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-normal rounded-sm border bg-slate-50 text-slate-400 border-slate-200">
+                                        baho yo'q
+                                      </span>
+                                    );
+                                  }
+                                })()}
+                              </div>
+                            </div>
                           </td>
 
                           {/* Dynamic Grade Columns */}
