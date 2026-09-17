@@ -64,6 +64,7 @@ interface GradeItem {
   id: number;
   student_id: number;
   student_name?: string;
+  subject_id?: number;
   subject_name: string;
   teacher_name: string;
   value: string;
@@ -74,6 +75,7 @@ interface GradeItem {
   grade_type?: string;
   grade_category?: string;
   grading_system_id?: number;
+  lesson_number?: number;
 }
 
 interface Announcement {
@@ -1289,15 +1291,14 @@ export default function ParentDashboard() {
   // Filter selected child's grades to avoid mixing data
   const selectedChildGrades = grades.filter((g) => {
     if (!selectedChild) return false;
-    const childFullName = `${selectedChild.first_name} ${selectedChild.last_name}`.toLowerCase().trim();
-    return g.student_name ? g.student_name.toLowerCase().trim() === childFullName : true;
+    return Number(g.student_id) === Number(selectedChild.id);
   });
 
   // Check if Saturday (dayIdx 5, day_of_week 6) has any schedule lessons or grades
   const hasSaturdayContent = (() => {
     const satSchedule = schedule.filter((item: any) => item.day_of_week === 6);
     const satDateStr = getDayDate(currentWeekStart, 5);
-    const satGrades = selectedChildGrades.filter((g) => g.grade_date.split("T")[0] === satDateStr);
+    const satGrades = selectedChildGrades.filter((g) => g.grade_date && g.grade_date.split("T")[0] === satDateStr);
     return satSchedule.length > 0 || satGrades.length > 0;
   })();
 
@@ -1332,41 +1333,59 @@ export default function ParentDashboard() {
         return null;
       }
 
-      // 1. Get schedule for this day from backend
-      const daySchedule = schedule.filter((item: any) => item.day_of_week === dayIdx + 1);
+      // 1. Get schedule for this day from backend, sorted chronologically by lesson_number
+      const daySchedule = schedule
+        .filter((item: any) => item.day_of_week === dayIdx + 1)
+        .sort((a: any, b: any) => (a.lesson_number || 0) - (b.lesson_number || 0));
 
       // 2. Get child's grades for this calendar day
       const dayGrades = selectedChildGrades.filter(
-        (g) => g.grade_date.split("T")[0] === dayDateStr
+        (g) => g.grade_date && g.grade_date.split("T")[0] === dayDateStr
       );
 
-      // 3. Resolve subjects for this day (hide ghost schedule items when grades exist on that day)
-      let subjects: string[] = [];
-      if (dayGrades.length > 0) {
-        const gradedSubjectNames = Array.from(new Set(dayGrades.map((g) => g.subject_name)));
-        daySchedule.forEach((sch: any) => {
-          if (gradedSubjectNames.includes(sch.subject_name) && !subjects.includes(sch.subject_name)) {
-            subjects.push(sch.subject_name);
-          }
-        });
-        gradedSubjectNames.forEach((subj) => {
-          if (!subjects.includes(subj)) {
-            subjects.push(subj);
-          }
-        });
-      } else {
-        subjects = daySchedule.map((item: any) => item.subject_name);
-      }
+      // 3. Map schedule lessons to rows, matching corresponding grades
+      const matchedGradeIds = new Set<number>();
+      const rows = daySchedule.map((sch: any) => {
+        // Priority 1: Match by lesson_number and subject
+        let matchingGrades = dayGrades.filter(
+          (g) => !matchedGradeIds.has(g.id) &&
+                 g.lesson_number === sch.lesson_number &&
+                 (g.subject_id === sch.subject_id || g.subject_name?.trim().toLowerCase() === sch.subject_name?.trim().toLowerCase())
+        );
 
-      // 4. Map to DiaryDayCard row format
-      const rows = subjects.map((subject) => {
-        const allSubjectGrades = dayGrades.filter((g) => g.subject_name === subject);
+        // Priority 2: Fallback to match by subject only
+        if (matchingGrades.length === 0) {
+          matchingGrades = dayGrades.filter(
+            (g) => !matchedGradeIds.has(g.id) &&
+                   (g.subject_id === sch.subject_id || g.subject_name?.trim().toLowerCase() === sch.subject_name?.trim().toLowerCase())
+          );
+        }
+
+        matchingGrades.forEach((g) => matchedGradeIds.add(g.id));
+
         return {
-          subjectName: subject,
-          grade: allSubjectGrades[0],
-          grades: allSubjectGrades,
+          subjectName: sch.subject_name,
+          grade: matchingGrades[0],
+          grades: matchingGrades,
         };
       });
+
+      // Fallback: If no schedule has been configured yet for this day/class, show rows based on received grades
+      if (rows.length === 0 && dayGrades.length > 0) {
+        const bySubject = new Map<string, GradeItem[]>();
+        dayGrades.forEach((g) => {
+          const sName = g.subject_name || "Noma'lum fan";
+          if (!bySubject.has(sName)) bySubject.set(sName, []);
+          bySubject.get(sName)!.push(g);
+        });
+        bySubject.forEach((subjGrades, subjName) => {
+          rows.push({
+            subjectName: subjName,
+            grade: subjGrades[0],
+            grades: subjGrades,
+          });
+        });
+      }
 
       return {
         dayLabel,

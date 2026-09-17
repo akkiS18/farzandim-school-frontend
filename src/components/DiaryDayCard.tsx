@@ -4,6 +4,7 @@ export interface GradeItem {
   id: number;
   student_id: number;
   student_name?: string;
+  subject_id?: number;
   subject_name: string;
   teacher_name: string;
   value: string;
@@ -12,6 +13,7 @@ export interface GradeItem {
   status: string;
   approved_by_parent: boolean;
   grade_type?: string;
+  lesson_number?: number;
 }
 
 export interface DiarySubjectRow {
