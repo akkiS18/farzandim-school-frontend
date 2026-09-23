@@ -174,44 +174,7 @@ export default function ClassesSection({
     if (sub.target_levels && sub.target_levels.length > 0) {
       return sub.target_levels;
     }
-    const name = sub.name.toLowerCase().trim();
-
-    // 7-11 sinflar
-    if (name.includes("algebra") || name.includes("geometriya") || name.includes("kimyo")) {
-      return [7, 8, 9, 10, 11];
-    }
-    if (name.includes("fizika")) {
-      return [6, 7, 8, 9, 10, 11];
-    }
-    // 5-11 sinflar
-    if (
-      name.includes("tarix") || 
-      name.includes("adabiyot") || 
-      name.includes("biologiya") || 
-      name.includes("geografiya") || 
-      name.includes("botanika") || 
-      name.includes("zoologiya") || 
-      name.includes("anatomiya")
-    ) {
-      return [5, 6, 7, 8, 9, 10, 11];
-    }
-    // 8-11 sinflar
-    if (name.includes("huquq") || name.includes("iqtisod")) {
-      return [8, 9, 10, 11];
-    }
-    // 10-11 sinflar
-    if (name.includes("chqbt") || name.includes("harbiy") || name.includes("astronomiya")) {
-      return [10, 11];
-    }
-    // 1-4 sinflar
-    if (name.includes("savodxonlik") || name.includes("o'qish") || name.includes("atrofimizdagi olam")) {
-      return [1, 2, 3, 4];
-    }
-    if (name === "matematika") {
-      return [1, 2, 3, 4, 5, 6];
-    }
-
-    // Umumiy fanlar (Ona tili, Ingliz tili, Rus tili, Jismoniy tarbiya, Tarbiya, Musiqa, Tasviriy san'at, Texnologiya, Informatika va h.k.)
+    // Agar fanga maxsus level belgilanmagan bo'lsa, barcha sinflar (1-11) uchun ruxsat beriladi
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   };
 
