@@ -276,14 +276,13 @@ export default function Sidebar({
         <div className="p-6 pb-4 shrink-0">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-none bg-[#D4F562] text-[#1D1E26] flex items-center justify-center font-black text-sm shrink-0">
-                <svg className="w-5 h-5 text-[#1D1E26]" fill="currentColor" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="3" />
-                  <circle cx="12" cy="12" r="4" fill="currentColor" />
-                </svg>
-              </div>
+              <img
+                src="/logo_round.webp"
+                alt="Farzandim-edu Logo"
+                className="w-9 h-9 rounded-xl object-contain bg-white p-0.5 shadow-sm shrink-0"
+              />
               <span className="font-black text-white text-xl tracking-tight">
-                Farzandim
+                Farzandim-edu
               </span>
             </div>
 

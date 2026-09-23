@@ -4022,20 +4022,22 @@ export default function ParentDashboard() {
                       width: "36px",
                       height: "36px",
                       borderRadius: "12px",
-                      background: "linear-gradient(135deg, #00A389 0%, #0F766E 100%)",
+                      backgroundColor: "white",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "white",
-                      fontWeight: 900,
-                      fontSize: "16px",
-                      boxShadow: "0 4px 10px rgba(0,163,137,0.3)",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      padding: "2px",
                     }}
                   >
-                    ✦
+                    <img
+                      src="/logo_round.webp"
+                      alt="Farzandim-edu"
+                      style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "10px" }}
+                    />
                   </div>
                   <div>
-                    <div style={{ fontSize: "14px", fontWeight: 800, color: "#1E293B" }}>Online Jurnal</div>
+                    <div style={{ fontSize: "14px", fontWeight: 800, color: "#1E293B" }}>Farzandim-edu</div>
                     <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Ota-ona Portali</div>
                   </div>
                 </div>

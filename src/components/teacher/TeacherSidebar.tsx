@@ -184,11 +184,13 @@ export default function TeacherSidebar({
           {/* Mobile Fullscreen Header */}
           <div className="h-16 px-5 flex items-center justify-between border-b border-slate-700/60 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-none bg-[#A51C30] flex items-center justify-center text-white shrink-0">
-                <GraduationCap className="w-5 h-5" />
-              </div>
+              <img
+                src="/logo_round.webp"
+                alt="Farzandim-edu Logo"
+                className="w-9 h-9 rounded-xl object-contain bg-white p-0.5 shadow-sm shrink-0"
+              />
               <div>
-                <h1 className="font-serif text-sm font-bold tracking-wider text-white uppercase">FARZANDIM</h1>
+                <h1 className="font-serif text-sm font-bold tracking-wider text-white uppercase">FARZANDIM-EDU</h1>
                 <p className="text-[10px] text-slate-400 font-sans uppercase tracking-widest font-semibold">
                   O'qituvchi Portali
                 </p>
@@ -351,11 +353,13 @@ export default function TeacherSidebar({
             ) : (
               <>
                 <div className="flex items-center space-x-2.5 overflow-hidden">
-                  <div className="w-8 h-8 rounded-none bg-[#A51C30] flex items-center justify-center text-white shrink-0">
-                    <GraduationCap className="w-4.5 h-4.5" />
-                  </div>
+                  <img
+                    src="/logo_round.webp"
+                    alt="Farzandim-edu Logo"
+                    className="w-8 h-8 rounded-xl object-contain bg-white p-0.5 shadow-sm shrink-0"
+                  />
                   <div>
-                    <h1 className="font-serif text-xs font-bold tracking-wider text-white uppercase">FARZANDIM</h1>
+                    <h1 className="font-serif text-xs font-bold tracking-wider text-white uppercase">FARZANDIM-EDU</h1>
                     <p className="text-[9px] text-slate-400 font-sans uppercase tracking-widest font-semibold">
                       O'qituvchi Portali
                     </p>

@@ -14,9 +14,18 @@ export default function Header({
   setMobileOpen,
 }: HeaderProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
+
+  const handleLogout = () => {
+    localStorage.removeItem("school_token");
+    localStorage.removeItem("school_refresh_token");
+    localStorage.removeItem("school_user");
+    localStorage.removeItem("school_id");
+    router.replace("/login");
+  };
 
   const getTabTitle = () => {
     const titles: Record<string, string> = {
@@ -105,9 +114,9 @@ export default function Header({
               <button
                 onClick={() => {
                   setShowProfileMenu(false);
-                  router.push("?tab=settings");
+                  setShowLogoutModal(true);
                 }}
-                className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center space-x-2.5"
+                className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center space-x-2.5 cursor-pointer"
               >
                 <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -120,6 +129,43 @@ export default function Header({
           )}
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 animate-scaleUp">
+            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-slate-900 text-center mb-1">
+              Tizimdan chiqish
+            </h3>
+            <p className="text-xs text-slate-500 text-center mb-6">
+              Haqiqatan ham hisobingizdan chiqmoqchimisiz?
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
+              >
+                Ha, chiqish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

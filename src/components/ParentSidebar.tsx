@@ -153,11 +153,13 @@ export default function ParentSidebar({
           setActiveTab("home");
           setActiveSubTab("diary");
         }}
-        title="Online Jurnal"
+        title="Farzandim-edu"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.2L12 16.6l-6.3 4.6 2.3-7.2-6-4.6h7.6z" />
-        </svg>
+        <img
+          src="/logo_round.webp"
+          alt="Farzandim-edu"
+          style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "14px", padding: "2px" }}
+        />
       </div>
 
       {/* 2. Middle Scrollable Nav Items Container */}

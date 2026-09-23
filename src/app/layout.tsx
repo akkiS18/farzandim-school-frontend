@@ -20,8 +20,13 @@ const merriweather = Merriweather({
 });
 
 export const metadata: Metadata = {
-  title: "Online Jurnal — Maktab Portali",
-  description: "Online Jurnal ota-onalar va o'qituvchilar tizimi maktab portali",
+  title: "Farzandim-edu — Maktab Portali",
+  description: "Farzandim-edu maktab boshqaruvi va ta'lim portali",
+  icons: {
+    icon: "/logo_round.webp",
+    shortcut: "/logo_round.webp",
+    apple: "/logo_round.webp",
+  },
 };
 
 export default function RootLayout({

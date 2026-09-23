@@ -4,7 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Phone, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import { Phone, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 
 export default function TenantLoginPage() {
   const router = useRouter();
@@ -16,9 +16,28 @@ export default function TenantLoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [schools, setSchools] = useState<Array<{ id: string; name: string; subdomain: string }>>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>("");
+  const [showSchoolModal, setShowSchoolModal] = useState(false);
 
   useEffect(() => {
-    // Redirect if already logged in
+    // 1. Fetch available schools for tenant routing
+    fetch(`${API_URL}/api/public/schools`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSchools(data);
+          const savedSchoolId = localStorage.getItem("school_id");
+          if (savedSchoolId && data.some((s) => s.id === savedSchoolId)) {
+            setSelectedSchoolId(savedSchoolId);
+          } else if (data.length > 0) {
+            setSelectedSchoolId(data[0].id);
+          }
+        }
+      })
+      .catch((err) => console.warn("Could not load schools:", err));
+
+    // 2. Redirect if already logged in
     const token = localStorage.getItem("school_token");
     const userStr = localStorage.getItem("school_user");
     if (token && userStr) {
@@ -49,6 +68,50 @@ export default function TenantLoginPage() {
     setIsCheckingAuth(false);
   }, [router]);
 
+  const formatPhoneNumber = (value: string) => {
+    const raw = value.replace(/\D/g, "");
+    let digits = raw;
+    if (digits.startsWith("998")) {
+      digits = digits.slice(3);
+    }
+    digits = digits.slice(0, 9); // Max 9 digits for local number
+
+    if (!digits) {
+      return raw.startsWith("+") || raw.length > 0 ? "+998 " : "";
+    }
+
+    let formatted = "+998 ";
+    if (digits.length > 0) {
+      formatted += digits.substring(0, 2);
+    }
+    if (digits.length >= 2) {
+      formatted += " " + digits.substring(2, 5);
+    }
+    if (digits.length >= 5) {
+      formatted += " " + digits.substring(5, 7);
+    }
+    if (digits.length >= 7) {
+      formatted += " " + digits.substring(7, 9);
+    }
+    return formatted;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let inputVal = e.target.value;
+    // Foydalanuvchi bo'shliqdan keyin Backspace bosganda, oldingi raqamni ham o'chirish
+    if (phone.endsWith(" ") && inputVal.length === phone.length - 1) {
+      inputVal = inputVal.trimEnd().slice(0, -1);
+    }
+    // +998 prefiksini o'chirganda to'liq tozalash
+    const digits = inputVal.replace(/\D/g, "");
+    if (digits.length <= 3 && inputVal.length < phone.length) {
+      setPhone("");
+      return;
+    }
+    const formatted = formatPhoneNumber(inputVal);
+    setPhone(formatted);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -63,14 +126,23 @@ export default function TenantLoginPage() {
         }
         payload.document_no = cleanPass;
       } else {
-        payload.phone = phone.trim();
+        const cleanPhone = phone.replace(/[^\d+]/g, "");
+        if (!cleanPhone || cleanPhone.length < 9) {
+          throw new Error("Iltimos, to'liq telefon raqamingizni kiriting");
+        }
+        payload.phone = cleanPhone;
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (selectedSchoolId) {
+        headers["X-School-ID"] = selectedSchoolId;
       }
 
       const response = await fetch(`${API_URL}/api/schools/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -129,35 +201,39 @@ export default function TenantLoginPage() {
       <div className="w-full max-w-[420px] relative">
         {/* Brand mark */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-[16px] bg-gradient-to-b from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25 mb-5">
-            <GraduationCap className="w-7 h-7 text-white" strokeWidth={1.75} />
+          <div className="w-16 h-16 rounded-[20px] bg-white p-2 shadow-lg shadow-black/[0.06] border border-black/[0.06] flex items-center justify-center mb-4 transition-transform hover:scale-105">
+            <img
+              src="/logo_round.webp"
+              alt="Farzandim Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em] text-[#1d1d1f]">
-            Online Jurnal
+          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.02em] text-[#1E2B42]">
+            Farzandim-edu
           </h1>
-          <p className="text-[15px] text-[#6e6e73] mt-1.5 tracking-[-0.01em]">
-            Tizimga kirish portali
+          <p className="text-[14px] text-[#6e6e73] mt-1 tracking-[-0.01em]">
+            Maktab boshqaruvi va ta'lim portali
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/80 backdrop-blur-xl border border-black/[0.06] rounded-[24px] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.06),0_12px_40px_-12px_rgba(0,0,0,0.08)]">
+        <div className="bg-white/85 backdrop-blur-xl border border-black/[0.06] rounded-[24px] p-8 shadow-[0_2px_20px_-4px_rgba(0,0,0,0.06),0_12px_40px_-12px_rgba(0,0,0,0.08)]">
           {/* Mode Switcher Tabs */}
           <div className="flex bg-[#e8e8ed] p-1 rounded-2xl mb-6 font-medium text-xs">
             <button
               type="button"
               onClick={() => { setLoginMode("phone"); setError(""); }}
               className={`flex-1 py-2.5 rounded-xl transition-all ${
-                loginMode === "phone" ? "bg-white text-zinc-900 shadow-sm font-bold" : "text-zinc-500 hover:text-zinc-900"
+                loginMode === "phone" ? "bg-white text-[#A51C30] shadow-sm font-bold" : "text-zinc-500 hover:text-zinc-900"
               }`}
             >
-              Xodimlar / Adminlar
+              Xodimlar / O'qituvchilar
             </button>
             <button
               type="button"
               onClick={() => { setLoginMode("passport"); setError(""); }}
               className={`flex-1 py-2.5 rounded-xl transition-all ${
-                loginMode === "passport" ? "bg-white text-indigo-700 shadow-sm font-bold" : "text-zinc-500 hover:text-zinc-900"
+                loginMode === "passport" ? "bg-white text-[#1E2B42] shadow-sm font-bold" : "text-zinc-500 hover:text-zinc-900"
               }`}
             >
               Ota-onalar (Pasport)
@@ -184,12 +260,12 @@ export default function TenantLoginPage() {
                   <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#a1a1a6]" strokeWidth={1.75} />
                   <input
                     id="phone-input"
-                    type="text"
+                    type="tel"
                     required
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={handlePhoneChange}
                     placeholder="+998 90 123 45 67"
-                    className="w-full bg-[#f5f5f7] border border-transparent focus:border-blue-500/40 focus:bg-white focus:ring-4 focus:ring-blue-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-4 py-3.5 text-[15px] transition-all duration-200 outline-none"
+                    className="w-full bg-[#f5f5f7] border border-transparent focus:border-[#A51C30]/50 focus:bg-white focus:ring-4 focus:ring-[#A51C30]/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-4 py-3.5 text-[15px] font-medium tracking-wide transition-all duration-200 outline-none"
                   />
                 </div>
               </div>
@@ -197,12 +273,12 @@ export default function TenantLoginPage() {
               <div>
                 <label
                   htmlFor="passport-input"
-                  className="block text-[13px] font-bold text-indigo-900 mb-2 tracking-[-0.01em]"
+                  className="block text-[13px] font-bold text-[#1E2B42] mb-2 tracking-[-0.01em]"
                 >
                   Pasport Seriyasi va Raqami
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-xs text-[#1E2B42] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                     ID
                   </span>
                   <input
@@ -212,7 +288,7 @@ export default function TenantLoginPage() {
                     value={passportNo}
                     onChange={(e) => setPassportNo(e.target.value.toUpperCase())}
                     placeholder="AD1234567"
-                    className="w-full bg-[#f5f5f7] border border-transparent focus:border-indigo-500/40 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-12 pr-4 py-3.5 text-[15px] font-mono tracking-wider transition-all duration-200 outline-none uppercase"
+                    className="w-full bg-[#f5f5f7] border border-transparent focus:border-[#1E2B42]/50 focus:bg-white focus:ring-4 focus:ring-[#1E2B42]/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-12 pr-4 py-3.5 text-[15px] font-mono tracking-wider transition-all duration-200 outline-none uppercase"
                   />
                 </div>
               </div>
@@ -236,7 +312,7 @@ export default function TenantLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-[#f5f5f7] border border-transparent focus:border-blue-500/40 focus:bg-white focus:ring-4 focus:ring-blue-500/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-11 py-3.5 text-[15px] transition-all duration-200 outline-none"
+                  className="w-full bg-[#f5f5f7] border border-transparent focus:border-[#A51C30]/50 focus:bg-white focus:ring-4 focus:ring-[#A51C30]/10 text-[#1d1d1f] placeholder:text-[#a1a1a6] rounded-[14px] pl-10 pr-11 py-3.5 text-[15px] transition-all duration-200 outline-none"
                 />
                 <button
                   type="button"
@@ -253,7 +329,7 @@ export default function TenantLoginPage() {
               id="login-submit-btn"
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-medium text-[15px] py-3.5 px-4 rounded-[14px] transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_-2px_rgba(37,99,235,0.35)] outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 mt-2 tracking-[-0.01em]"
+              className="w-full bg-[#A51C30] hover:bg-[#821424] active:scale-[0.98] text-white font-semibold text-[15px] py-3.5 px-4 rounded-[14px] transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_14px_-2px_rgba(165,28,48,0.4)] outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 mt-2 tracking-[-0.01em]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -265,6 +341,34 @@ export default function TenantLoginPage() {
               )}
             </button>
           </form>
+
+          {/* School Selector Widget */}
+          {schools.length > 0 && (
+            <div className="mt-5 pt-4 border-t border-black/[0.06] flex items-center justify-between">
+              <span className="text-[12px] text-[#6e6e73] font-medium flex items-center gap-1.5">
+                <span>🏫</span> Maktab:
+              </span>
+              <div className="relative max-w-[220px]">
+                <select
+                  value={selectedSchoolId}
+                  onChange={(e) => {
+                    setSelectedSchoolId(e.target.value);
+                    localStorage.setItem("school_id", e.target.value);
+                  }}
+                  className="w-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1E2B42] text-[12px] font-semibold py-1.5 pl-3 pr-7 rounded-xl outline-none border border-black/[0.06] cursor-pointer appearance-none truncate transition-colors"
+                >
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name} ({school.subdomain})
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-[#6e6e73]">
+                  ▼
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-[12.5px] text-[#a1a1a6] mt-6 tracking-[-0.01em]">
