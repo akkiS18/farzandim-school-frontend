@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Jurnal - Ota-onalar Uchun Mobil Video Qo'llanma</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4F46E5;
+      --teal: #00A389;
+      --teal-dark: #0F766E;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background: #090e17;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 16px 40px;
+    }
+
+    header {
+      text-align: center;
+      max-width: 800px;
+      margin-bottom: 18px;
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      background: rgba(0, 163, 137, 0.15);
+      border: 1px solid rgba(0, 163, 137, 0.35);
+      border-radius: 9999px;
+      color: #2dd4bf;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+      color: #FFFFFF;
+    }
+
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 13.5px;
+    }
+
+    /* Main Layout Grid */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: 360px 460px;
+      gap: 32px;
+      max-width: 920px;
+      width: 100%;
+      align-items: center;
+    }
+
+    @media (max-width: 880px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+    }
+
+    /* Phone Device Frame (iPhone 15 Pro) */
+    .phone-mockup {
+      width: 356px;
+      height: 720px;
+      background: #000;
+      border-radius: 50px;
+      border: 11px solid #27272a;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255,255,255,0.1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-notch {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 112px;
+      height: 26px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+    }
+
+    .notch-camera {
+      width: 10px;
+      height: 10px;
+      background: #18181b;
+      border-radius: 50%;
+    }
+
+    .phone-screen {
+      flex: 1;
+      background: #EEF3F0; /* Authentic subtle grey-greenish dashboard background */
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      position: relative;
+      padding-top: 36px;
+      scroll-behavior: smooth;
+    }
+
+    /* Virtual Tap Cursor */
+    .virtual-cursor {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background: rgba(79, 70, 229, 0.45);
+      border: 2px solid #4F46E5;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%) scale(1);
+      transition: top 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .virtual-cursor.tap {
+      transform: translate(-50%, -50%) scale(0.72);
+      background: rgba(79, 70, 229, 0.95);
+    }
+
+    /* REAL TOP HEADER */
+    .user-top-bar {
+      padding: 10px 14px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(238, 243, 240, 0.94);
+      backdrop-filter: blur(6px);
+    }
+
+    .teal-menu-btn {
+      width: 44px;
+      height: 36px;
+      border-radius: 14px;
+      background: #00A389;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      gap: 4px;
+      box-shadow: 0 4px 10px rgba(0, 163, 137, 0.35);
+      cursor: pointer;
+      border: none;
+    }
+
+    .user-profile-pill {
+      background: #FFFFFF;
+      border-radius: 999px;
+      padding: 4px 12px 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      border: 1px solid rgba(0,0,0,0.04);
+      cursor: pointer;
+    }
+
+    .avatar-circle-green {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #00A389;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    /* ================= MOBILE SIDE DRAWER (YONDAGI MENYU) ================= */
+    .mobile-drawer-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(3px);
+      z-index: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+      border-radius: 40px;
+      overflow: hidden;
+    }
+
+    .mobile-drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-drawer-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 255px;
+      background: #FFFFFF;
+      box-shadow: 6px 0 25px rgba(0, 0, 0, 0.18);
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      padding: 46px 14px 20px;
+      z-index: 610;
+      overflow-y: auto;
+    }
+
+    .mobile-drawer-backdrop.open .mobile-drawer-panel {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #F1F5F9;
+      margin-bottom: 10px;
+    }
+
+    .drawer-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #00A389 0%, #0F766E 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      box-shadow: 0 4px 10px rgba(0,163,137,0.3);
+    }
+
+    .drawer-close-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid #E2E8F0;
+      background: #F8FAFC;
+      color: #64748B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .drawer-nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .drawer-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 9px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #475569;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+
+    .drawer-nav-item:hover, .drawer-nav-item.active {
+      background: #E6F6F4;
+      color: #00A389;
+    }
+
+    .drawer-nav-item.item-tapped {
+      background: #00A389 !important;
+      color: #FFFFFF !important;
+    }
+
+    .drawer-nav-item .drawer-item-icon {
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+    }
+
+    .drawer-footer {
+      border-top: 1px solid #F1F5F9;
+      padding-top: 10px;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .ai-dot-badge {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10B981;
+      margin-left: auto;
+      box-shadow: 0 0 6px #10B981;
+    }
+
+    /* Views */
+    .screen-view {
+      display: none;
+      flex: 1;
+      padding: 8px 14px 24px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .screen-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ================= VIEW 1: LOGIN ================= */
+    .login-container-real {
+      background: #f5f5f7;
+      min-height: 100%;
+      padding: 24px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .login-cap-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: linear-gradient(to bottom, #3b82f6, #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+      margin-bottom: 12px;
+      color: white;
+    }
+
+    .login-card-real {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 22px;
+      padding: 20px 16px;
+      width: 100%;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    }
+
+    .mode-tabs {
+      display: flex;
+      background: #e8e8ed;
+      padding: 3px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 7px 4px;
+      text-align: center;
+      border-radius: 9px;
+      color: #64748b;
+    }
+
+    .mode-tab.active-parent {
+      background: #ffffff;
+      color: #4338ca;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      font-weight: 700;
+    }
+
+    .real-input {
+      width: 100%;
+      background: #f5f5f7;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px 12px 10px 38px;
+      font-size: 13px;
+      color: #1d1d1f;
+      margin-top: 4px;
+      outline: none;
+    }
+
+    .input-id-badge {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 800;
+      color: #4f46e5;
+      background: #eef2ff;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #c7d2fe;
+    }
+
+    .btn-login-blue {
+      width: 100%;
+      background: #2563eb;
+      color: white;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      padding: 11px;
+      margin-top: 14px;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+
+    /* ================= VIEW 2: KUNDALIK ================= */
+    .child-card-real {
+      background: #FFFFFF;
+      border: 1.5px solid #818CF8;
+      border-radius: 18px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08);
+      flex-shrink: 0;
+    }
+
+    .child-avatar-square {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: #EEF2FF;
+      color: #4F46E5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .subtab-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #1E293B;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .subtabs-scroll-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      scrollbar-width: none;
+      flex-shrink: 0;
+    }
+
+    .subtab-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: #FFFFFF;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      border: 1px solid rgba(0,0,0,0.04);
+      cursor: pointer;
+    }
+
+    .subtab-pill.active {
+      background: #00A389;
+      color: #FFFFFF;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0, 163, 137, 0.25);
+    }
+
+    .smart-calendar-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+
+    .btn-cal-arrow {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: #64748B;
+    }
+
+    .btn-cal-center {
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 8px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1E293B;
+    }
+
+    .real-day-card {
+      background: #FFFFFF;
+      border-radius: 20px;
+      border: 1px solid #E2E8F0;
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      flex-shrink: 0;
+    }
+
+    .day-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #F1F5F9;
+    }
+
+    .day-lesson-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid #F8FAFC;
+      min-height: 48px;
+    }
+
+    .lesson-circle-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #EEF2FF;
+      color: #4F46E5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .dash-grade-circle {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      border: 1px dashed #CBD5E1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94A3B8;
+      font-size: 12px;
+    }
+
+    .grade-badge-real-5 {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #DCFCE7;
+      color: #15803D;
+      border: 1px solid #86EFAC;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .grade-badge-real-4 {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #DBEAFE;
+      color: #1D4ED8;
+      border: 1px solid #93C5FD;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .btn-kordim-real {
+      background: #00A389;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(0, 163, 137, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .badge-approved-double {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #ECFDF5;
+      color: #059669;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .signature-card-real {
+      background: #FCFBF7;
+      border: 1px solid #D8D3C9;
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 20px;
+      flex-shrink: 0;
+    }
+
+    /* ================= VIEW 3: AI REPORT ================= */
+    .ai-report-card-real {
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 18px;
+      border: 2px solid #6366F1;
+      box-shadow: 0 8px 24px rgba(99,102,241,0.12);
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .ai-accent-top {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #6366F1 0%, #8B5CF6 100%);
+    }
+
+    /* ================= VIEW 4: TIZIM SOZLAMALARI & MODAL (MATCHES USER SCREENSHOTS 1 & 2) ================= */
+    .settings-main-card {
+      background: #FFFFFF;
+      border-radius: 24px;
+      padding: 18px 16px;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      margin-bottom: 12px;
+    }
+
+    .setting-profile-tile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      background: #F8FAFC;
+      border-radius: 14px;
+      border: 1px solid #E2E8F0;
+      margin-bottom: 10px;
+    }
+
+    .tile-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .btn-tahrirlash-purple {
+      width: 100%;
+      padding: 12px 14px;
+      background: #4F46E5;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.28);
+      margin-top: 4px;
+      margin-bottom: 14px;
+    }
+
+    .telegram-info-box {
+      background: #F0FDFA;
+      border: 1px solid #CCFBF1;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 11px;
+      color: #0F766E;
+      line-height: 1.5;
+    }
+
+    /* EXACT REAL MODAL OVERLAY (MATCHES SCREENSHOT 2) */
+    .modal-overlay-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+
+    .modal-dialog-white {
+      background: #FFFFFF;
+      border-radius: 24px;
+      padding: 20px 18px;
+      width: 100%;
+      max-width: 326px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      animation: popIn 0.25s ease;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-field-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748B;
+      margin-bottom: 3px;
+      display: block;
+    }
+
+    .modal-field-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      font-size: 12.5px;
+      color: #1E293B;
+      background: #FFFFFF;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .input-password-active {
+      border: 2px solid #F59E0B !important; /* Gold/Amber border matching screenshot 2 */
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+      letter-spacing: 2px;
+      font-weight: 800;
+    }
+
+    .btn-modal-cancel {
+      flex: 1;
+      padding: 11px;
+      background: #F3F4F6;
+      border: none;
+      border-radius: 12px;
+      color: #374151;
+      font-weight: 750;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+
+    .btn-modal-save {
+      flex: 1;
+      padding: 11px;
+      background: #4F46E5;
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-weight: 800;
+      font-size: 12.5px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    /* Right Control & Narration Panel */
+    .guide-panel {
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+
+    .step-indicator {
+      display: flex;
+      gap: 6px;
+    }
+
+    .step-dot {
+      flex: 1;
+      height: 4px;
+      background: #334155;
+      border-radius: 999px;
+      transition: background 0.3s;
+    }
+
+    .step-dot.active {
+      background: #00A389;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #00A389;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .uzbek-voice {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      border-left: 4px solid #00A389;
+    }
+
+    .voice-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #2dd4bf;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .voice-text {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+
+    .bullet-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+      color: #94A3B8;
+    }
+
+    .bullet-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .bullet-points li span.icon {
+      color: #00A389;
+      font-weight: bold;
+    }
+
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .btn-ctrl {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: #00A389;
+      color: white;
+      flex: 1;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 163, 137, 0.4);
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #CBD5E1;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-pill">
+      <span>✦</span>
+      <span>Online Jurnal — 100% Haqiqiy UI Mobil Qo'llanma</span>
+    </div>
+    <h1>Ota-onalar Uchun Mobil Video Qo'llanma</h1>
+    <p class="subtitle">Login, Kundalik (Dushanba-Juma to'liq scroll va 'Ko'rdim' tasdiqlash), Yondagi menyu orqali bo'limlarga o'tish hamda Parol yangilash</p>
+  </header>
+
+  <div class="showcase-grid">
+    <!-- Virtual Phone Frame (iPhone) -->
+    <div class="phone-mockup">
+      <div class="phone-notch">
+        <div class="notch-camera"></div>
+        <div style="width: 8px; height: 8px; background: #00A389; border-radius: 50%;"></div>
+      </div>
+
+      <div class="phone-screen" id="phoneScreen">
+        <!-- Virtual Touch Pointer -->
+        <div class="virtual-cursor" id="virtualCursor" style="top: 375px; left: 175px;"></div>
+
+        <!-- Mobile Side Drawer (Yondagi Menyu) -->
+        <div class="mobile-drawer-backdrop" id="mobileDrawerBackdrop" onclick="closeSideMenu()">
+          <div class="mobile-drawer-panel" id="mobileDrawerPanel" onclick="event.stopPropagation()">
+            <!-- Drawer Header -->
+            <div class="drawer-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="drawer-logo-icon">✦</div>
+                <div>
+                  <div style="font-size: 13.5px; font-weight: 800; color: #1E293B; line-height: 1.2;">Online Jurnal</div>
+                  <div style="font-size: 9.5px; font-weight: 700; color: #00A389;">Ota-onalar Portali</div>
+                </div>
+              </div>
+              <button class="drawer-close-btn" onclick="closeSideMenu()" title="Yopish">✕</button>
+            </div>
+
+            <!-- Drawer Navigation Items -->
+            <div class="drawer-nav-list">
+              <button class="drawer-nav-item active" id="drawerNavKundalik" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">📖</span>
+                <span class="drawer-item-label">Kundalik</span>
+              </button>
+
+              <button class="drawer-nav-item" id="drawerNavDinamika" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">📈</span>
+                <span class="drawer-item-label">Dinamika</span>
+              </button>
+
+              <button class="drawer-nav-item" id="drawerNavAI" onclick="selectDrawerTab(2)">
+                <span class="drawer-item-icon">🤖</span>
+                <span class="drawer-item-label">AI Hisobot</span>
+                <span class="ai-dot-badge"></span>
+              </button>
+
+              <button class="drawer-nav-item" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">🔔</span>
+                <span class="drawer-item-label">E'lonlar</span>
+              </button>
+
+              <button class="drawer-nav-item" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">🍽</span>
+                <span class="drawer-item-label">Taomnoma</span>
+              </button>
+
+              <button class="drawer-nav-item" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">💳</span>
+                <span class="drawer-item-label">Balans</span>
+              </button>
+
+              <button class="drawer-nav-item" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">💬</span>
+                <span class="drawer-item-label">Murojaatlar</span>
+              </button>
+
+              <button class="drawer-nav-item" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">🎨</span>
+                <span class="drawer-item-label">To'garaklar</span>
+              </button>
+
+              <button class="drawer-nav-item" onclick="selectDrawerTab(1)">
+                <span class="drawer-item-icon">📚</span>
+                <span class="drawer-item-label">Kitobxonlik</span>
+              </button>
+            </div>
+
+            <!-- Drawer Footer -->
+            <div class="drawer-footer">
+              <button class="drawer-nav-item" id="drawerNavSettings" onclick="selectDrawerTab(3)">
+                <span class="drawer-item-icon">⚙️</span>
+                <span class="drawer-item-label">Tizim Sozlamalari</span>
+              </button>
+              <button class="drawer-nav-item" style="color: #EF4444;" onclick="goToStep(0); closeSideMenu();">
+                <span class="drawer-item-icon">🚪</span>
+                <span class="drawer-item-label">Chiqish</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Real Header (Shown on dashboard views) -->
+        <div class="user-top-bar" id="userTopBar" style="display: none;">
+          <button class="teal-menu-btn" id="tealMenuBtn" onclick="toggleSideMenu()" title="Menyu">
+            <span style="font-size: 13px;">✦</span>
+            <span style="font-size: 13px;">☰</span>
+          </button>
+
+          <div class="user-profile-pill" onclick="goToStep(3)" title="Profil sozlamalari">
+            <span style="font-size: 13px; color: #64748B;">🔔</span>
+            <div class="avatar-circle-green">O</div>
+            <div>
+              <div style="font-size: 11px; font-weight: 800; color: #1E293B; line-height: 1.1;">Orif Abdullayev</div>
+              <div style="font-size: 9px; font-weight: 700; color: #00A389;">Ota-ona</div>
+            </div>
+            <span style="font-size: 9px; color: #94A3B8;">▼</span>
+          </div>
+        </div>
+
+        <!-- ================= VIEW 1: LOGIN ================= -->
+        <div class="screen-view active" id="view-login" style="padding: 0;">
+          <div class="login-container-real">
+            <div class="login-cap-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            </div>
+            <h2 style="font-size: 21px; font-weight: 700; color: #1d1d1f; letter-spacing: -0.02em;">Online Jurnal</h2>
+            <p style="font-size: 12px; color: #6e6e73; margin-bottom: 16px;">Tizimga kirish portali</p>
+
+            <div class="login-card-real">
+              <div class="mode-tabs">
+                <div class="mode-tab">Xodimlar / Adminlar</div>
+                <div class="mode-tab active-parent">Ota-onalar (Pasport)</div>
+              </div>
+
+              <div style="margin-bottom: 12px;">
+                <label style="font-size: 11px; font-weight: 700; color: #312e81; display: block; margin-bottom: 2px;">Pasport Seriyasi va Raqami</label>
+                <div style="position: relative;">
+                  <span class="input-id-badge">ID</span>
+                  <input type="text" class="real-input" value="AE 3289484" readonly style="font-family: monospace; font-weight: 700; color: #1e1b4b;">
+                </div>
+              </div>
+
+              <div style="margin-bottom: 14px;">
+                <label style="font-size: 11px; font-weight: 600; color: #1d1d1f; display: block; margin-bottom: 2px;">Parol</label>
+                <div style="position: relative;">
+                  <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #94a3b8;">🔒</span>
+                  <input type="password" class="real-input" value="••••••••" readonly>
+                </div>
+              </div>
+
+              <button class="btn-login-blue" id="loginBtnAction">Kirish</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= VIEW 2: KUNDALIK (DUSHANBA - JUMA SCROLLABLE) ================= -->
+        <div class="screen-view" id="view-kundalik">
+          <!-- Child Card -->
+          <div class="child-card-real">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="child-avatar-square">A</div>
+              <div>
+                <div style="font-size: 13px; font-weight: 800; color: #4338CA;">Abdulahad Abdulhamidov</div>
+                <div style="font-size: 10px; color: #64748B; font-weight: 600;">3-A 2026/2027 sinfi</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; font-weight: 900; color: #059669;">0so'm</div>
+              <span style="font-size: 9px; font-weight: 800; background: #DCFCE7; color: #15803D; padding: 2px 7px; border-radius: 999px;">Faol</span>
+            </div>
+          </div>
+
+          <!-- Subtab Heading -->
+          <div class="subtab-indicator">
+            <span style="color: #00A389; font-size: 16px;">📖</span>
+            <span>Kundalik</span>
+          </div>
+
+          <!-- Horizontal Pills -->
+          <div class="subtabs-scroll-row">
+            <div class="subtab-pill active">
+              <span>📖</span> <span>Kundalik</span>
+            </div>
+            <div class="subtab-pill" onclick="goToStep(2)">
+              <span>📈</span> <span>Dinamika</span>
+            </div>
+            <div class="subtab-pill" onclick="goToStep(2)">
+              <span>🤖</span> <span>AI Hisobot</span>
+            </div>
+            <div class="subtab-pill">
+              <span>🔔</span> <span>E'lonlar</span>
+            </div>
+          </div>
+
+          <!-- Week Selector -->
+          <div class="smart-calendar-row">
+            <div class="btn-cal-arrow">‹</div>
+            <div class="btn-cal-center">
+              <span>📅</span>
+              <span>7 Sentabr — 13 Sentabr</span>
+            </div>
+            <div class="btn-cal-arrow">›</div>
+          </div>
+
+          <!-- 1. DUSHANBA, 7 SENTABR -->
+          <div class="real-day-card" id="cardDushanba">
+            <div class="day-card-header">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #00A389;"></div>
+                <span style="font-size: 12px; font-weight: 900; color: #1E293B;">DUSHANBA, 7 SENTABR</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; color: #64748B; background: #F1F5F9; padding: 2px 8px; border-radius: 999px;">5 dars</span>
+            </div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">1</span><span style="font-size: 12px; font-weight: 750;">Matematika</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">2</span><span style="font-size: 12px; font-weight: 750;">Rus tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">3</span><span style="font-size: 12px; font-weight: 750;">Ingliz tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">4</span><span style="font-size: 12px; font-weight: 750;">O'qish</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">5</span><span style="font-size: 12px; font-weight: 750;">Ona tili</span></div><div class="dash-grade-circle">-</div></div>
+          </div>
+
+          <!-- 2. SESHANBA, 8 SENTABR -->
+          <div class="real-day-card" id="cardSeshanba">
+            <div class="day-card-header">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #00A389;"></div>
+                <span style="font-size: 12px; font-weight: 900; color: #1E293B;">SESHANBA, 8 SENTABR</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; color: #64748B; background: #F1F5F9; padding: 2px 8px; border-radius: 999px;">5 dars</span>
+            </div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">1</span><span style="font-size: 12px; font-weight: 750;">Ona tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">2</span><span style="font-size: 12px; font-weight: 750;">Matematika</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">3</span><span style="font-size: 12px; font-weight: 750;">Tarbiya</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">4</span><span style="font-size: 12px; font-weight: 750;">Ingliz tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">5</span><span style="font-size: 12px; font-weight: 750;">Jismoniy tarbiya</span></div><div class="dash-grade-circle">-</div></div>
+          </div>
+
+          <!-- 3. CHORSHANBA, 9 SENTABR (Baho bor va 'Ko'rdim' tasdiqlanadi) -->
+          <div class="real-day-card" id="cardChorshanba" style="border: 1.5px solid #00A389;">
+            <div class="day-card-header" style="background: #E6F6F4;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #00A389;"></div>
+                <span style="font-size: 12px; font-weight: 900; color: #0F766E;">CHORSHANBA, 9 SENTABR</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 800; color: #00A389; background: #FFFFFF; padding: 2px 8px; border-radius: 999px;">Baholangan</span>
+            </div>
+            <div class="day-lesson-row" style="background: #F0FDF4;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="lesson-circle-num" style="background: #DCFCE7; color: #15803D;">1</span>
+                <span style="font-size: 12.5px; font-weight: 800; color: #1E293B;">Matematika</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="grade-badge-real-5">5</div>
+                <button class="btn-kordim-real" id="kordimActionBtn">
+                  <span>✓</span> <span>Ko'rdim</span>
+                </button>
+              </div>
+            </div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">2</span><span style="font-size: 12px; font-weight: 750;">Rus tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">3</span><span style="font-size: 12px; font-weight: 750;">Tabiatshunoslik</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">4</span><span style="font-size: 12px; font-weight: 750;">O'qish</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">5</span><span style="font-size: 12px; font-weight: 750;">Texnologiya</span></div><div class="dash-grade-circle">-</div></div>
+          </div>
+
+          <!-- 4. PAYSHANBA, 10 SENTABR -->
+          <div class="real-day-card" id="cardPayshanba">
+            <div class="day-card-header">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #00A389;"></div>
+                <span style="font-size: 12px; font-weight: 900; color: #1E293B;">PAYSHANBA, 10 SENTABR</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; color: #64748B; background: #F1F5F9; padding: 2px 8px; border-radius: 999px;">5 dars</span>
+            </div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">1</span><span style="font-size: 12px; font-weight: 750;">Ona tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;">
+              <div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">2</span><span style="font-size: 12px; font-weight: 750;">Matematika</span></div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="grade-badge-real-4">4</div>
+                <span class="badge-approved-double" title="Tasdiqlangan">✓✓</span>
+              </div>
+            </div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">3</span><span style="font-size: 12px; font-weight: 750;">Ingliz tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">4</span><span style="font-size: 12px; font-weight: 750;">Tasviriy san'at</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">5</span><span style="font-size: 12px; font-weight: 750;">Musiqa</span></div><div class="dash-grade-circle">-</div></div>
+          </div>
+
+          <!-- 5. JUMA, 11 SENTABR -->
+          <div class="real-day-card" id="cardJuma">
+            <div class="day-card-header">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #00A389;"></div>
+                <span style="font-size: 12px; font-weight: 900; color: #1E293B;">JUMA, 11 SENTABR</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; color: #64748B; background: #F1F5F9; padding: 2px 8px; border-radius: 999px;">5 dars</span>
+            </div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">1</span><span style="font-size: 12px; font-weight: 750;">O'qish</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;">
+              <div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">2</span><span style="font-size: 12px; font-weight: 750;">Matematika</span></div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="grade-badge-real-5">5</div>
+                <span class="badge-approved-double">✓✓</span>
+              </div>
+            </div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">3</span><span style="font-size: 12px; font-weight: 750;">Rus tili</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row" style="background: #FAFBFD;"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">4</span><span style="font-size: 12px; font-weight: 750;">Jismoniy tarbiya</span></div><div class="dash-grade-circle">-</div></div>
+            <div class="day-lesson-row"><div style="display: flex; align-items: center; gap: 10px;"><span class="lesson-circle-num">5</span><span style="font-size: 12px; font-weight: 750;">Sinf soati</span></div><div class="dash-grade-circle">-</div></div>
+          </div>
+
+          <!-- Haftalik Imzo Bloki -->
+          <div class="signature-card-real" id="signatureBlock">
+            <div style="font-size: 11px; font-weight: 800; color: #4A3E3D; border-bottom: 1.5px solid #EAE5DB; padding-bottom: 6px; margin-bottom: 10px; text-transform: uppercase;">
+              ✍ Kundalikni tasdiqlash (Ota-ona imzosi)
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11.5px;">
+              <div>
+                <span style="color: #64748B; display: block; font-size: 10px;">Sinf rahbari:</span>
+                <span style="color: #10B981; font-weight: 700; font-family: monospace;">✓ Imzolangan</span>
+              </div>
+              <div style="text-align: right;">
+                <span style="color: #64748B; display: block; font-size: 10px;">Ota-ona imzosi:</span>
+                <span style="color: #00A389; font-weight: 700; font-family: monospace;" id="parentSigStatus">✓ Imzolandi</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= VIEW 3: AI HISOBOT ================= -->
+        <div class="screen-view" id="view-ai">
+          <div class="subtab-indicator">
+            <span style="color: #4F46E5; font-size: 16px;">🤖</span>
+            <span>AI Hisobot</span>
+          </div>
+
+          <div class="ai-report-card-real">
+            <div class="ai-accent-top"></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 11px; color: #64748B; font-weight: 600;">1-Sentabr — 7-Sentabr</span>
+              <span style="background: #EEF2FF; color: #4F46E5; font-size: 9px; font-weight: 900; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; border: 1px solid #C7D2FE;">
+                Oxirgi
+              </span>
+            </div>
+
+            <div>
+              <div style="font-size: 17px; font-weight: 900; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-flex; align-items: center; gap: 6px;">
+                <span>✨</span> AI Hisobot
+              </div>
+              <p style="font-size: 12px; color: #475569; margin-top: 6px; line-height: 1.5; font-weight: 500;">
+                Abdulahadning bu haftadagi fanlar bo'yicha faolligi 100% yuqori. Ayniqsa Matematika darsida barcha mavzularni a'lo o'zlashtirmoqda.
+              </p>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #F1F5F9; margin-top: 10px;">
+              <span style="font-size: 11px; color: #94A3B8; font-weight: 700; background: #F8FAFC; padding: 3px 8px; border-radius: 6px;">
+                2026-yil / 36-hafta
+              </span>
+              <div style="display: flex; align-items: center; gap: 4px; background: #EEF2FF; color: #4F46E5; padding: 5px 12px; border-radius: 999px; font-weight: 800; font-size: 11px;">
+                Ko'rish ▶
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= VIEW 4: TIZIM SOZLAMALARI (EXACT USER SCREENSHOT 1) ================= -->
+        <div class="screen-view" id="view-settings">
+          <div style="font-size: 17px; font-weight: 800; color: #1E293B; margin-bottom: 12px;">
+            Tizim Sozlamalari
+          </div>
+
+          <!-- Exact FOYDALANUVCHI PROFILI Card -->
+          <div class="settings-main-card">
+            <span style="font-size: 10.5px; font-weight: 800; color: #00A389; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 10px;">
+              FOYDALANUVCHI PROFILI
+            </span>
+
+            <!-- F.I.SH -->
+            <div class="setting-profile-tile">
+              <div class="tile-icon-box" style="background: #ECFDF5; color: #00A389;">👤</div>
+              <div>
+                <div style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase;">F.I.SH.</div>
+                <div style="font-size: 12.5px; font-weight: 750; color: #1E293B;">Orif Abdullayev</div>
+              </div>
+            </div>
+
+            <!-- TELEFON RAQAM -->
+            <div class="setting-profile-tile">
+              <div class="tile-icon-box" style="background: #EFF6FF; color: #2563EB;">📞</div>
+              <div>
+                <div style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase;">TELEFON RAQAM</div>
+                <div style="font-size: 12.5px; font-weight: 750; color: #1E293B; font-family: monospace;">958880110132</div>
+              </div>
+            </div>
+
+            <!-- PASPORT SERIYA -->
+            <div class="setting-profile-tile">
+              <div class="tile-icon-box" style="background: #FEF3C7; color: #D97706;">🪪</div>
+              <div>
+                <div style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase;">PASPORT SERIYA</div>
+                <div style="font-size: 12.5px; font-weight: 750; color: #1E293B; font-family: monospace;">AE3289484</div>
+              </div>
+            </div>
+
+            <!-- ROLI -->
+            <div class="setting-profile-tile">
+              <div class="tile-icon-box" style="background: #F5F3FF; color: #7C3AED;">👥</div>
+              <div>
+                <div style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase;">ROLI</div>
+                <div style="font-size: 12.5px; font-weight: 750; color: #1E293B;">Vasiy (Ota-ona)</div>
+              </div>
+            </div>
+
+            <!-- TELEGRAM XABARNOMA -->
+            <div class="setting-profile-tile">
+              <div class="tile-icon-box" style="background: #FEF2F2; color: #DC2626;">🔁</div>
+              <div>
+                <div style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase;">TELEGRAM XABARNOMA</div>
+                <div style="font-size: 12px; font-weight: 750; color: #DC2626;">● Ulanmagan</div>
+              </div>
+            </div>
+
+            <!-- Exact Purple Button with Pen Icon -->
+            <button class="btn-tahrirlash-purple" id="btnTahrirlashTrigger" onclick="openExactModal()">
+              <span>🖊</span>
+              <span>Profil va Shaxsiy Ma'lumotlarni Tahrirlash</span>
+            </button>
+
+            <!-- Exact Telegram Box -->
+            <div class="telegram-info-box">
+              <b style="color: #0F766E; display: block; margin-bottom: 4px;">Telegram Bildirishnomalari:</b>
+              Maktab ma'muriyati shaxsiy Telegram botni hali sozlamagan. Sozlangandan so'ng, bu yerda bot havolasi ko'rinadi.
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= EXACT REAL MODAL (MATCHES USER SCREENSHOT 2) ================= -->
+        <div class="modal-overlay-backdrop" id="modalOverlayReal">
+          <div class="modal-dialog-white">
+            <h3 style="font-size: 15px; font-weight: 800; color: #1E293B; margin-bottom: 14px;">
+              Shaxsiy Profil Ma'lumotlarini Yangilash
+            </h3>
+
+            <!-- 2-column: Ism & Familiya -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div>
+                <label class="modal-field-label">Ism *</label>
+                <input type="text" class="modal-field-input" value="Orif" readonly>
+              </div>
+              <div>
+                <label class="modal-field-label">Familiya *</label>
+                <input type="text" class="modal-field-input" value="Abdullayev" readonly>
+              </div>
+            </div>
+
+            <!-- Otangizning ismi -->
+            <div style="margin-bottom: 8px;">
+              <label class="modal-field-label">Otangizning ismi (Sharif)</label>
+              <input type="text" class="modal-field-input" value="Abdulhamidovich" readonly>
+            </div>
+
+            <!-- 2-column: Telefon & Pasport -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <label class="modal-field-label">Telefon raqami</label>
+                <input type="text" class="modal-field-input" value="958880110132" readonly style="font-family: monospace;">
+              </div>
+              <div>
+                <label class="modal-field-label">Pasport seriyasi</label>
+                <input type="text" class="modal-field-input" value="AE3289484" readonly style="font-family: monospace;">
+              </div>
+            </div>
+
+            <!-- Yangi Parol (ixtiyoriy) - Highlighted with gold border like screenshot 2 -->
+            <div style="margin-bottom: 16px;">
+              <label class="modal-field-label">Yangi Parol (ixtiyoriy)</label>
+              <div style="position: relative;">
+                <input type="password" class="modal-field-input input-password-active" id="modalPassInput" value="••••••••" readonly>
+                <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: #94A3B8;">🔑</span>
+              </div>
+            </div>
+
+            <!-- Buttons: Bekor qilish & Saqlash -->
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-modal-cancel" onclick="closeExactModal()">Bekor qilish</button>
+              <button class="btn-modal-save" id="btnModalSaveAction" onclick="saveExactPassword()">Saqlash</button>
+            </div>
+
+            <div id="saveNotification" style="display: none; text-align: center; margin-top: 10px; font-size: 11px; font-weight: 700; color: #16A34A;">
+              ✓ Parol muvaffaqiyatli saqlandi!
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right Control Panel & Voiceover Script -->
+    <div class="guide-panel">
+      <div class="step-indicator">
+        <div class="step-dot active" id="dot0"></div>
+        <div class="step-dot" id="dot1"></div>
+        <div class="step-dot" id="dot2"></div>
+        <div class="step-dot" id="dot3"></div>
+      </div>
+
+      <div class="step-header">
+        <div class="step-number" id="stepNum">1</div>
+        <div>
+          <div class="step-title" id="stepTitle">Tizimga kirish (Pasport orqali)</div>
+          <div style="font-size: 12px; color: #2dd4bf;" id="stepTime">00:00 - 00:25</div>
+        </div>
+      </div>
+
+      <!-- Uzbek Voiceover Script Box -->
+      <div class="uzbek-voice">
+        <div class="voice-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.08"/></svg>
+          Ovozli matn (Uzbek Voiceover)
+        </div>
+        <div class="voice-text" id="voiceText">
+          "Hurmatli ota-onalar! Online Jurnal tizimiga telefoningiz orqali kirish uchun 'Ota-onalar (Pasport)' bo'limini tanlang. Pasport seriya raqamingiz hamda parolni kiritib, 'Kirish' tugmasini bosing."
+        </div>
+      </div>
+
+      <!-- Key Action Bullets -->
+      <ul class="bullet-points" id="stepBullets">
+        <li><span class="icon">✓</span> Tizimga kirish sahifasida <b>"Ota-onalar (Pasport)"</b> yorlig'ini tanlash</li>
+        <li><span class="icon">✓</span> Pasport seriyasi va raqami (masalan <b>AE3289484</b>) hamda parolni kiritish</li>
+        <li><span class="icon">✓</span> <b>"Kirish"</b> tugmasini bosib shaxsiy kabinetga o'tish</li>
+      </ul>
+
+      <!-- Playback Controls -->
+      <div class="controls-bar">
+        <button class="btn-ctrl btn-secondary" onclick="prevStep()">◀ Oldingi</button>
+        <button class="btn-ctrl btn-primary" id="playBtn" onclick="togglePlay()">
+          <span id="playIcon">▶</span> <span id="playText">Video Namoyish</span>
+        </button>
+        <button class="btn-ctrl btn-secondary" onclick="nextStep()">Keyingi ▶</button>
+      </div>
+
+      <!-- Quick Video Recording Button -->
+      <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+        <button class="btn-ctrl" id="recordScreenBtn" onclick="toggleScreenRecording()" style="width: 100%; background: #DC2626; color: white; justify-content: center; box-shadow: 0 4px 14px rgba(220,38,38,0.35);">
+          <span>🎥</span> <span id="recordText">Brauzerda Video Yozish (Yuklab olish)</span>
+        </button>
+        <div style="font-size: 11px; color: #94A3B8; text-align: center; line-height: 1.4;">
+          💡 Eng osoni: klaviaturada <b>Win + Alt + R</b> tugmalarini bosib, to'g'ridan-to'g'ri <b>.MP4</b> qilib oling!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const steps = [
+      {
+        num: 1,
+        title: "Tizimga kirish (Pasport orqali)",
+        time: "00:00 - 00:25",
+        viewId: "view-login",
+        showTopBar: false,
+        cursor: { top: "375px", left: "175px" },
+        voice: "Hurmatli ota-onalar! Online Jurnal tizimiga telefoningiz orqali kirish uchun 'Ota-onalar (Pasport)' bo'limini tanlang. Pasport seriya raqamingiz hamda parolni kiritib, 'Kirish' tugmasini bosing.",
+        bullets: [
+          "Tizimga kirish sahifasida 'Ota-onalar (Pasport)' yorlig'ini tanlash",
+          "Pasport seriyasi va raqami (masalan AE3289484) hamda parolni kiritish",
+          "'Kirish' tugmasini bosib shaxsiy kabinetga o'tish"
+        ]
+      },
+      {
+        num: 2,
+        title: "Kundalik: Dushanbadan Jumagacha & Bahoni 'Ko'rdim' tasdiqlash",
+        time: "00:25 - 01:05",
+        viewId: "view-kundalik",
+        showTopBar: true,
+        cursor: { top: "540px", left: "285px" },
+        voice: "Asosiy oynada farzandingizning sinfi va hisob balansi chiqadi. 'Kundalik' bo'limida Dushanbadan Jumagacha barcha kunlik darslar jadvali joylashgan. Chorshanba kunidagi Matematika bahosi yonidagi yashil 'Ko'rdim' tugmasini bosish orqali elektron kundalikka ota-ona imzosi qo'yiladi.",
+        bullets: [
+          "Haftalik kalendar orqali istalgan haftaga o'tish",
+          "Dushanbadan Jumagacha darslar jadvalini pastga scroll qilib ko'rish",
+          "Baholangan fan qarshisidagi 'Ko'rdim' tugmasini bosib tasdiqlash (✓✓)"
+        ]
+      },
+      {
+        num: 3,
+        title: "Yondagi Menyu orqali 'AI Hisobot'ga o'tish",
+        time: "01:05 - 01:45",
+        viewId: "view-ai",
+        showTopBar: true,
+        cursor: { top: "66px", left: "42px" },
+        voice: "Bo'limlar o'rtasida o'tish uchun yuqori chap burchakdagi yashil Menyu tugmasiga (✦ ☰) bosing. Ochilgan yon menyudan 'AI Hisobot' bandini tanlasangiz, sun'iy intellekt farzandingizning haftalik baholarini tahlil qilib, uning o'sish dinamikasi va tavsiyalarini taqdim etadi.",
+        bullets: [
+          "Yuqori chap burchakdagi '✦ ☰' menyu tugmasi orqali yondagi menyuni ochish",
+          "Yon menyudan 'AI Hisobot' bandini tanlash",
+          "Sun'iy intellekt xulosasi va o'quvchining haftalik faolligini ko'rish"
+        ]
+      },
+      {
+        num: 4,
+        title: "Yondagi Menyu orqali 'Sozlamalar' & Yangi Parol O'rnatish",
+        time: "01:45 - 02:30",
+        viewId: "view-settings",
+        showTopBar: true,
+        cursor: { top: "66px", left: "42px" },
+        voice: "Parolingizni yangilash uchun yana yondagi menyuni ochib, 'Tizim Sozlamalari' bo'limini tanlang. So'ng 'Profil va Shaxsiy Ma'lumotlarni Tahrirlash' tugmasini bosing. Ochilgan oynada 'Yangi Parol' maydoniga yangi parolingizni yozib, 'Saqlash' tugmasini bosing!",
+        bullets: [
+          "Yondagi menyuni ochib 'Tizim Sozlamalari' bandini tanlash",
+          "Binafsha rangli 'Profil va Shaxsiy Ma'lumotlarni Tahrirlash' tugmasini bosish",
+          "Ochilgan oynada 'Yangi Parol (ixtiyoriy)' qatoriga yangi parolni kiritib 'Saqlash'ni bosish"
+        ]
+      }
+    ];
+
+    let currentStep = 0;
+    let isPlaying = false;
+    let playInterval = null;
+    let stepTimers = [];
+    let mediaRecorder = null;
+    let recordedChunks = [];
+
+    async function toggleScreenRecording() {
+      const recBtn = document.getElementById("recordScreenBtn");
+      const recText = document.getElementById("recordText");
+
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        recText.innerText = "Brauzerda Video Yozish (Yuklab olish)";
+        recBtn.style.background = "#DC2626";
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { displaySurface: "browser" },
+          audio: false
+        });
+
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'parents_mobile_guide.webm';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          }, 1000);
+
+          stream.getTracks().forEach(track => track.stop());
+          recText.innerText = "Brauzerda Video Yozish (Yuklab olish)";
+          recBtn.style.background = "#DC2626";
+        };
+
+        mediaRecorder.start();
+        recText.innerText = "⏹ Yozishni to'xtatish va Yuklash";
+        recBtn.style.background = "#B91C1C";
+
+        // Start animation from beginning if not playing
+        renderStep(0);
+        if (!isPlaying) togglePlay();
+
+      } catch (err) {
+        console.warn("Screen recording cancelled or not supported:", err);
+      }
+    }
+
+    function clearStepTimers() {
+      stepTimers.forEach(t => clearTimeout(t));
+      stepTimers = [];
+    }
+
+    function openSideMenu() {
+      const backdrop = document.getElementById("mobileDrawerBackdrop");
+      if (backdrop) backdrop.classList.add("open");
+    }
+
+    function closeSideMenu() {
+      const backdrop = document.getElementById("mobileDrawerBackdrop");
+      if (backdrop) backdrop.classList.remove("open");
+    }
+
+    function toggleSideMenu() {
+      const backdrop = document.getElementById("mobileDrawerBackdrop");
+      if (backdrop) {
+        if (backdrop.classList.contains("open")) {
+          closeSideMenu();
+        } else {
+          openSideMenu();
+        }
+      }
+    }
+
+    function selectDrawerTab(stepIdx) {
+      document.querySelectorAll(".drawer-nav-item").forEach(el => el.classList.remove("item-tapped"));
+      if (stepIdx === 1) document.getElementById("drawerNavKundalik")?.classList.add("item-tapped");
+      if (stepIdx === 2) document.getElementById("drawerNavAI")?.classList.add("item-tapped");
+      if (stepIdx === 3) document.getElementById("drawerNavSettings")?.classList.add("item-tapped");
+
+      setTimeout(() => {
+        closeSideMenu();
+        renderStep(stepIdx);
+      }, 280);
+    }
+
+    function renderStep(index) {
+      clearStepTimers();
+      currentStep = index;
+      const step = steps[index];
+
+      // Header & texts
+      document.getElementById("stepNum").innerText = step.num;
+      document.getElementById("stepTitle").innerText = step.title;
+      document.getElementById("stepTime").innerText = step.time;
+      document.getElementById("voiceText").innerText = `"${step.voice}"`;
+
+      // Indicator dots
+      for (let i = 0; i < steps.length; i++) {
+        const dot = document.getElementById(`dot${i}`);
+        if (dot) dot.className = (i === index) ? "step-dot active" : "step-dot";
+      }
+
+      // Bullets
+      document.getElementById("stepBullets").innerHTML = step.bullets
+        .map(b => `<li><span class="icon">✓</span> ${b}</li>`).join("");
+
+      // Top bar visibility
+      const topBar = document.getElementById("userTopBar");
+      topBar.style.display = step.showTopBar ? "flex" : "none";
+
+      // Reset modals & drawer
+      closeExactModal();
+      closeSideMenu();
+      document.querySelectorAll(".drawer-nav-item").forEach(el => el.classList.remove("item-tapped"));
+
+      // Phone screen scroll reset
+      const phoneScreen = document.getElementById("phoneScreen");
+      phoneScreen.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Virtual cursor
+      const cursor = document.getElementById("virtualCursor");
+      cursor.classList.remove("tap");
+      cursor.style.top = step.cursor.top;
+      cursor.style.left = step.cursor.left;
+
+      // ================= STEP 1: LOGIN =================
+      if (step.num === 1) {
+        document.querySelectorAll(".screen-view").forEach(el => el.classList.remove("active"));
+        document.getElementById("view-login")?.classList.add("active");
+
+        stepTimers.push(setTimeout(() => {
+          cursor.classList.add("tap");
+          stepTimers.push(setTimeout(() => cursor.classList.remove("tap"), 300));
+        }, 800));
+      }
+
+      // ================= STEP 2: KUNDALIK (DUSHANBA - JUMA SCROLL & KO'RDIM) =================
+      if (step.num === 2) {
+        document.querySelectorAll(".screen-view").forEach(el => el.classList.remove("active"));
+        document.getElementById("view-kundalik")?.classList.add("active");
+
+        const kordimBtn = document.getElementById("kordimActionBtn");
+        if (kordimBtn) {
+          kordimBtn.innerHTML = "<span>✓</span> <span>Ko'rdim</span>";
+          kordimBtn.style.background = "#00A389";
+        }
+        const sigStatus = document.getElementById("parentSigStatus");
+        if (sigStatus) {
+          sigStatus.innerText = "Kutilmoqda...";
+          sigStatus.style.color = "#D97706";
+        }
+
+        // Scroll down to Wednesday
+        stepTimers.push(setTimeout(() => {
+          const chorshanbaCard = document.getElementById("cardChorshanba");
+          if (chorshanbaCard) chorshanbaCard.scrollIntoView({ behavior: "smooth", block: "center" });
+
+          // Move cursor and tap "Ko'rdim"
+          stepTimers.push(setTimeout(() => {
+            const btn = document.getElementById("kordimActionBtn");
+            if (btn) {
+              const rect = btn.getBoundingClientRect();
+              const screenRect = phoneScreen.getBoundingClientRect();
+              cursor.style.top = `${rect.top - screenRect.top + 16}px`;
+              cursor.style.left = `${rect.left - screenRect.left + 24}px`;
+              cursor.classList.add("tap");
+
+              stepTimers.push(setTimeout(() => {
+                btn.outerHTML = '<span class="badge-approved-double" id="kordimActionBtn">✓✓</span>';
+                cursor.classList.remove("tap");
+                if (sigStatus) {
+                  sigStatus.innerText = "✓ Imzolandi";
+                  sigStatus.style.color = "#00A389";
+                }
+
+                // Scroll to Friday & signature
+                stepTimers.push(setTimeout(() => {
+                  const jumaCard = document.getElementById("cardJuma");
+                  if (jumaCard) jumaCard.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 1200));
+              }, 350));
+            }
+          }, 700));
+        }, 1200));
+      }
+
+      // ================= STEP 3: YONDAGI MENYU ORQALI 'AI HISOBOT'GA O'TISH =================
+      if (step.num === 3) {
+        // Keep kundalik initially visible so we see menu open from previous tab
+        document.querySelectorAll(".screen-view").forEach(el => el.classList.remove("active"));
+        document.getElementById("view-kundalik")?.classList.add("active");
+
+        // 1. Move cursor to side menu button (✦ ☰)
+        cursor.style.top = "66px";
+        cursor.style.left = "42px";
+
+        // 2. Tap menu button
+        stepTimers.push(setTimeout(() => {
+          cursor.classList.add("tap");
+
+          stepTimers.push(setTimeout(() => {
+            cursor.classList.remove("tap");
+            openSideMenu();
+
+            // 3. Move cursor down to "AI Hisobot" in drawer
+            stepTimers.push(setTimeout(() => {
+              const aiNavItem = document.getElementById("drawerNavAI");
+              if (aiNavItem) {
+                const navRect = aiNavItem.getBoundingClientRect();
+                const screenRect = phoneScreen.getBoundingClientRect();
+                cursor.style.top = `${navRect.top - screenRect.top + 16}px`;
+                cursor.style.left = `${navRect.left - screenRect.left + 110}px`;
+              } else {
+                cursor.style.top = "195px";
+                cursor.style.left = "110px";
+              }
+
+              // 4. Tap "AI Hisobot"
+              stepTimers.push(setTimeout(() => {
+                cursor.classList.add("tap");
+                document.getElementById("drawerNavAI")?.classList.add("item-tapped");
+
+                stepTimers.push(setTimeout(() => {
+                  cursor.classList.remove("tap");
+                  closeSideMenu();
+
+                  // 5. Switch view to AI Report
+                  document.querySelectorAll(".screen-view").forEach(el => el.classList.remove("active"));
+                  document.getElementById("view-ai")?.classList.add("active");
+
+                  // Move cursor to AI card
+                  stepTimers.push(setTimeout(() => {
+                    cursor.style.top = "260px";
+                    cursor.style.left = "180px";
+                  }, 400));
+                }, 350));
+              }, 400));
+            }, 650));
+          }, 300));
+        }, 500));
+      }
+
+      // ================= STEP 4: YONDAGI MENYU ORQALI 'SOZLAMALAR' & YANGI PAROL =================
+      if (step.num === 4) {
+        // Keep AI report initially visible so we see menu open
+        document.querySelectorAll(".screen-view").forEach(el => el.classList.remove("active"));
+        document.getElementById("view-ai")?.classList.add("active");
+
+        // 1. Move cursor to side menu button (✦ ☰)
+        cursor.style.top = "66px";
+        cursor.style.left = "42px";
+
+        // 2. Tap menu button
+        stepTimers.push(setTimeout(() => {
+          cursor.classList.add("tap");
+
+          stepTimers.push(setTimeout(() => {
+            cursor.classList.remove("tap");
+            openSideMenu();
+
+            // 3. Move cursor down to "Tizim Sozlamalari" in drawer footer
+            stepTimers.push(setTimeout(() => {
+              const setNavItem = document.getElementById("drawerNavSettings");
+              if (setNavItem) {
+                const setRect = setNavItem.getBoundingClientRect();
+                const screenRect = phoneScreen.getBoundingClientRect();
+                cursor.style.top = `${setRect.top - screenRect.top + 16}px`;
+                cursor.style.left = `${setRect.left - screenRect.left + 110}px`;
+              } else {
+                cursor.style.top = "490px";
+                cursor.style.left = "110px";
+              }
+
+              // 4. Tap "Tizim Sozlamalari"
+              stepTimers.push(setTimeout(() => {
+                cursor.classList.add("tap");
+                document.getElementById("drawerNavSettings")?.classList.add("item-tapped");
+
+                stepTimers.push(setTimeout(() => {
+                  cursor.classList.remove("tap");
+                  closeSideMenu();
+
+                  // 5. Switch view to Tizim Sozlamalari
+                  document.querySelectorAll(".screen-view").forEach(el => el.classList.remove("active"));
+                  document.getElementById("view-settings")?.classList.add("active");
+
+                  // 6. Move cursor to "Profil va Shaxsiy Ma'lumotlarni Tahrirlash" purple button
+                  stepTimers.push(setTimeout(() => {
+                    const btnEdit = document.getElementById("btnTahrirlashTrigger");
+                    if (btnEdit) {
+                      const rect = btnEdit.getBoundingClientRect();
+                      const screenRect = phoneScreen.getBoundingClientRect();
+                      cursor.style.top = `${rect.top - screenRect.top + 20}px`;
+                      cursor.style.left = `${rect.left - screenRect.left + rect.width / 2}px`;
+                    } else {
+                      cursor.style.top = "410px";
+                      cursor.style.left = "175px";
+                    }
+
+                    // 7. Tap Edit button
+                    stepTimers.push(setTimeout(() => {
+                      cursor.classList.add("tap");
+
+                      stepTimers.push(setTimeout(() => {
+                        cursor.classList.remove("tap");
+                        openExactModal();
+
+                        // 8. Move cursor to "Saqlash" button inside modal
+                        stepTimers.push(setTimeout(() => {
+                          const btnSave = document.getElementById("btnModalSaveAction");
+                          if (btnSave) {
+                            const saveRect = btnSave.getBoundingClientRect();
+                            const screenRect = phoneScreen.getBoundingClientRect();
+                            cursor.style.top = `${saveRect.top - screenRect.top + 18}px`;
+                            cursor.style.left = `${saveRect.left - screenRect.left + saveRect.width / 2}px`;
+                          } else {
+                            cursor.style.top = "480px";
+                            cursor.style.left = "240px";
+                          }
+
+                          // 9. Tap "Saqlash"
+                          stepTimers.push(setTimeout(() => {
+                            cursor.classList.add("tap");
+
+                            stepTimers.push(setTimeout(() => {
+                              cursor.classList.remove("tap");
+                              saveExactPassword();
+                            }, 350));
+                          }, 450));
+                        }, 900));
+                      }, 300));
+                    }, 400));
+                  }, 500));
+                }, 350));
+              }, 400));
+            }, 650));
+          }, 300));
+        }, 500));
+      }
+    }
+
+    function openExactModal() {
+      document.getElementById("modalOverlayReal").style.display = "flex";
+      document.getElementById("saveNotification").style.display = "none";
+    }
+
+    function closeExactModal() {
+      const modal = document.getElementById("modalOverlayReal");
+      if (modal) modal.style.display = "none";
+    }
+
+    function saveExactPassword() {
+      document.getElementById("saveNotification").style.display = "block";
+      setTimeout(() => {
+        closeExactModal();
+      }, 1600);
+    }
+
+    function nextStep() {
+      if (currentStep < steps.length - 1) {
+        renderStep(currentStep + 1);
+      } else {
+        renderStep(0);
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        renderStep(currentStep - 1);
+      }
+    }
+
+    function goToStep(idx) {
+      renderStep(idx);
+    }
+
+    function togglePlay() {
+      if (isPlaying) {
+        clearInterval(playInterval);
+        isPlaying = false;
+        document.getElementById("playIcon").innerText = "▶";
+        document.getElementById("playText").innerText = "Video Namoyish";
+      } else {
+        isPlaying = true;
+        document.getElementById("playIcon").innerText = "⏸";
+        document.getElementById("playText").innerText = "To'xtatish";
+        playInterval = setInterval(() => {
+          nextStep();
+        }, 8200);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderStep(0);
+    });
+  </script>
+</body>
+</html>
