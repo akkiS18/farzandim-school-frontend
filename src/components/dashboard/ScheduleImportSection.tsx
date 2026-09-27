@@ -331,6 +331,55 @@ export default function ScheduleImportSection({
     return str;
   };
 
+  const normalizeExcelDate = (val: any): string => {
+    if (val === null || val === undefined || val === "") return "";
+
+    // If it's already a JS Date object (emitted by XLSX with cellDates: true)
+    if (val instanceof Date && !isNaN(val.getTime())) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, "0");
+      const d = String(val.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    let str = String(val).trim();
+    if (str.endsWith(".0")) {
+      str = str.substring(0, str.length - 2);
+    }
+
+    // If it's a numeric Excel serial string (e.g. "46266")
+    const num = Number(str);
+    if (!isNaN(num) && num > 20000 && num < 100000) {
+      const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+      if (!isNaN(date.getTime())) {
+        const y = date.getUTCFullYear();
+        const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(date.getUTCDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+    }
+
+    // If it's DD.MM.YYYY, DD/MM/YYYY, or DD-MM-YYYY
+    const partsDmy = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (partsDmy) {
+      const d = partsDmy[1].padStart(2, "0");
+      const m = partsDmy[2].padStart(2, "0");
+      const y = partsDmy[3];
+      return `${y}-${m}-${d}`;
+    }
+
+    // If it's YYYY.MM.DD or YYYY/MM/DD
+    const partsYmd = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+    if (partsYmd) {
+      const y = partsYmd[1];
+      const m = partsYmd[2].padStart(2, "0");
+      const d = partsYmd[3].padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    return str;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -341,7 +390,7 @@ export default function ScheduleImportSection({
     reader.onload = (event) => {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -403,8 +452,8 @@ export default function ScheduleImportSection({
 
           const dayOfWeek = parseInt(dayStr.replace(/[^\d]/g, ""), 10) || 1;
           const lessonNumber = parseInt(lessonStr.replace(/[^\d]/g, ""), 10) || 1;
-          const startDate = cleanCellValue(rowData[idxStart]) || "2026-09-01";
-          const endDate = cleanCellValue(rowData[idxEnd]) || "2026-10-30";
+          const startDate = normalizeExcelDate(rowData[idxStart]) || "2026-09-01";
+          const endDate = normalizeExcelDate(rowData[idxEnd]) || "2026-10-30";
 
           rows.push({
             id: `sched_row_${r}_${Date.now()}`,
@@ -436,10 +485,14 @@ export default function ScheduleImportSection({
   };
 
   const handleUpdateValue = useCallback((id: string, field: keyof SmartScheduleRowData, val: any) => {
+    let cleanVal = val;
+    if (field === "startDate" || field === "endDate") {
+      cleanVal = normalizeExcelDate(val);
+    }
     setParsedRows((prev) =>
       prev.map((r) => {
         if (r.id === id) {
-          return { ...r, [field]: val };
+          return { ...r, [field]: cleanVal };
         }
         return r;
       })

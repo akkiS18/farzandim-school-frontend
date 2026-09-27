@@ -2308,7 +2308,78 @@ function TeacherDashboardContent() {
         try {
           await api.delete(`/api/schools/students/${studentId}/parents/${parentId}`);
           showToast("success", "Ota-ona muvaffaqiyatli ajratildi");
-          fetchClassParents();
+          fetchClassParents(selectedParentFilterClassId);
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleDeleteParentPermanent = (parentId: number) => {
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Ota-onani butunlay o'chirish (Hard Delete)",
+      message: "Haqiqatan ham ushbu ota-onani butunlay bazadan o'chirmoqchimisiz? Bu ota-ona barcha bog'langan farzandlaridan va tizimdan butunlay (hard delete) o'chiriladi. Ushbu amalni ortga qaytarib bo'lmaydi!",
+      confirmText: "Ha, butunlay o'chirish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        try {
+          await api.delete(`/api/schools/parents/${parentId}`);
+          showToast("success", "Ota-ona bazadan butunlay o'chirildi");
+          fetchClassParents(selectedParentFilterClassId);
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleBatchUnlinkParents = (items: { student_id: number; parent_id: number }[]) => {
+    if (!items || items.length === 0) return;
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Tanlangan ota-onalarni ajratish",
+      message: `Haqiqatan ham tanlangan ${items.length} ta ota-onani o'quvchilardan ajratmoqchimisiz?`,
+      confirmText: "Ha, ajratish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        try {
+          const res = await api.post("/api/schools/parents/batch-unlink", { items });
+          showToast("success", res.message || `${items.length} ta ota-ona muvaffaqiyatli ajratildi`);
+          fetchClassParents(selectedParentFilterClassId);
+        } catch (err: any) {
+          showToast("error", err.message);
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleBatchDeleteParents = (parentIds: number[]) => {
+    if (!parentIds || parentIds.length === 0) return;
+    setTeacherDialog({
+      isOpen: true,
+      type: "danger",
+      title: "Tanlangan ota-onalarni butunlay o'chirish",
+      message: `DIQQAT! Tanlangan ${parentIds.length} ta ota-onani bazadan BUTUNLAY (hard delete) o'chirmoqchimisiz? Ushbu amal barcha bog'liqliklarni uzadi va uni ortga qaytarib bo'lmaydi!`,
+      confirmText: "Ha, butunlay o'chirish",
+      onConfirm: async () => {
+        setTeacherDialog((prev) => ({ ...prev, isOpen: false }));
+        setActionLoading(true);
+        try {
+          const res = await api.post("/api/schools/parents/batch-delete", { parent_ids: parentIds });
+          showToast("success", res.message || `${parentIds.length} ta ota-ona bazadan butunlay o'chirildi`);
+          fetchClassParents(selectedParentFilterClassId);
         } catch (err: any) {
           showToast("error", err.message);
         } finally {
@@ -4358,6 +4429,9 @@ function TeacherDashboardContent() {
                   setShowAddParentModal(true);
                 }}
                 onUnlinkParentFromStudent={handleUnlinkParentFromStudent}
+                onDeleteParentPermanent={handleDeleteParentPermanent}
+                onBatchUnlinkParents={handleBatchUnlinkParents}
+                onBatchDeleteParents={handleBatchDeleteParents}
               />
             )}
 

@@ -13,6 +13,8 @@ import {
   ArrowDown,
   RotateCcw,
   Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
 import EditParentModal from "@/components/dashboard/EditParentModal";
 
@@ -43,6 +45,9 @@ interface ParentsTabProps {
   onOpenImportParentsModal: () => void;
   onOpenAddParentModal: () => void;
   onUnlinkParentFromStudent: (studentId: any, parentId: any) => void;
+  onDeleteParentPermanent?: (parentId: number) => void;
+  onBatchUnlinkParents?: (items: { student_id: number; parent_id: number }[]) => void;
+  onBatchDeleteParents?: (parentIds: number[]) => void;
   mainClasses?: { id: number; name: string }[];
   selectedFilterClassId?: string | number;
   onSelectFilterClass?: (val: string | number) => void;
@@ -65,6 +70,9 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
   onOpenImportParentsModal,
   onOpenAddParentModal,
   onUnlinkParentFromStudent,
+  onDeleteParentPermanent,
+  onBatchUnlinkParents,
+  onBatchDeleteParents,
   mainClasses,
   selectedFilterClassId,
   onSelectFilterClass,
@@ -137,6 +145,84 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
     (currentPage - 1) * parentsPageSize,
     currentPage * parentsPageSize
   );
+
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
+  const isAllCurrentSelected =
+    paginatedParents.length > 0 &&
+    paginatedParents.every((pt) => {
+      const pId = pt.id || pt.user_id;
+      return selectedKeys.has(`${pt.student_id || 0}_${pId}`);
+    });
+
+  const handleToggleSelectAll = () => {
+    if (isAllCurrentSelected) {
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        paginatedParents.forEach((pt) => {
+          const pId = pt.id || pt.user_id;
+          next.delete(`${pt.student_id || 0}_${pId}`);
+        });
+        return next;
+      });
+    } else {
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        paginatedParents.forEach((pt) => {
+          const pId = pt.id || pt.user_id;
+          next.add(`${pt.student_id || 0}_${pId}`);
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleToggleRow = (studentId: number | undefined, pId: number | undefined) => {
+    const key = `${studentId || 0}_${pId}`;
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleBatchUnlink = () => {
+    if (!onBatchUnlinkParents || selectedKeys.size === 0) return;
+    const items: { student_id: number; parent_id: number }[] = [];
+    selectedKeys.forEach((key) => {
+      const [sIdStr, pIdStr] = key.split("_");
+      const sId = Number(sIdStr);
+      const pId = Number(pIdStr);
+      if (sId && pId) {
+        items.push({ student_id: sId, parent_id: pId });
+      }
+    });
+    if (items.length === 0) {
+      alert("Tanlangan qatorlarda o'quvchi biriktirilmagan!");
+      return;
+    }
+    onBatchUnlinkParents(items);
+    setSelectedKeys(new Set());
+  };
+
+  const handleBatchDelete = () => {
+    if (!onBatchDeleteParents || selectedKeys.size === 0) return;
+    const parentIds = new Set<number>();
+    selectedKeys.forEach((key) => {
+      const [, pIdStr] = key.split("_");
+      const pId = Number(pIdStr);
+      if (pId) {
+        parentIds.add(pId);
+      }
+    });
+    if (parentIds.size === 0) return;
+    onBatchDeleteParents(Array.from(parentIds));
+    setSelectedKeys(new Set());
+  };
 
   const handleSort = (field: SortField) => {
     if (field === "default") {
@@ -296,17 +382,27 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
               const globalIndex = (currentPage - 1) * parentsPageSize + idx + 1;
               const pId = pt.id || pt.user_id;
 
+              const isSelected = selectedKeys.has(`${pt.student_id || 0}_${pId}`);
+
               return (
-                <div key={`${pId}-${idx}`} className="p-4 flex flex-col gap-3 bg-white">
+                <div key={`${pId}-${idx}`} className={`p-4 flex flex-col gap-3 transition-colors ${isSelected ? "bg-slate-100/80" : "bg-white"}`}>
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-bold text-slate-400 font-mono mb-1">#{globalIndex}</div>
-                      <div className="text-sm font-bold text-[#1E2B42] font-serif">
-                        {pt.first_name} {pt.last_name}
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleRow(pt.student_id, pId)}
+                        className="w-4 h-4 rounded-none border-neutral-300 text-[#1E2B42] focus:ring-[#1E2B42] cursor-pointer mt-1"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-slate-400 font-mono mb-1">#{globalIndex}</div>
+                        <div className="text-sm font-bold text-[#1E2B42] font-serif">
+                          {pt.first_name} {pt.last_name}
+                        </div>
+                        {pt.middle_name && (
+                          <div className="text-xs text-slate-500 font-sans">{pt.middle_name}</div>
+                        )}
                       </div>
-                      {pt.middle_name && (
-                        <div className="text-xs text-slate-500 font-sans">{pt.middle_name}</div>
-                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
@@ -331,10 +427,20 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
                         type="button"
                         title="Farzanddan ajratish"
                         onClick={() => onUnlinkParentFromStudent(pt.student_id, pId)}
-                        className="p-2 border border-neutral-200 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
+                        className="p-2 border border-neutral-200 text-amber-700 hover:bg-amber-50 transition cursor-pointer"
                       >
                         <UserMinus className="w-4 h-4" />
                       </button>
+                      {onDeleteParentPermanent && (
+                        <button
+                          type="button"
+                          title="Butunlay bazadan o'chirish (Hard Delete)"
+                          onClick={() => pId && onDeleteParentPermanent(pId)}
+                          className="p-2 border border-neutral-200 text-[#A51C30] hover:bg-red-50 hover:text-red-700 transition cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -365,6 +471,17 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-neutral-200 font-sans">
                 <tr>
+                  {/* Select All Checkbox Header */}
+                  <th className="px-3 py-3 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={isAllCurrentSelected}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded-none border-neutral-300 text-[#1E2B42] focus:ring-[#1E2B42] cursor-pointer"
+                      title="Barchasini tanlash"
+                    />
+                  </th>
+
                   {/* T/R Header */}
                   <th
                     onClick={() => handleSort("default")}
@@ -440,8 +557,20 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
                 {paginatedParents.map((pt, idx) => {
                   const globalIndex = (currentPage - 1) * parentsPageSize + idx + 1;
                   const pId = pt.id || pt.user_id;
+                  const isChecked = selectedKeys.has(`${pt.student_id || 0}_${pId}`);
                   return (
-                    <tr key={`${pId}-${idx}`} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={`${pId}-${idx}`}
+                      className={`hover:bg-slate-50 transition-colors ${isChecked ? "bg-amber-50/50" : ""}`}
+                    >
+                      <td className="px-3 py-3 text-center w-10">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleRow(pt.student_id, pId)}
+                          className="w-4 h-4 rounded-none border-neutral-300 text-[#1E2B42] focus:ring-[#1E2B42] cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-center text-slate-400">
                         {globalIndex}
                       </td>
@@ -485,10 +614,20 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
                             type="button"
                             title="Farzanddan ajratish"
                             onClick={() => onUnlinkParentFromStudent(pt.student_id, pId)}
-                            className="p-1.5 text-[#A51C30] hover:bg-red-50 transition cursor-pointer"
+                            className="p-1.5 text-amber-700 hover:bg-amber-50 transition cursor-pointer"
                           >
                             <UserMinus className="w-4 h-4" />
                           </button>
+                          {onDeleteParentPermanent && (
+                            <button
+                              type="button"
+                              title="Butunlay bazadan o'chirish (Hard Delete)"
+                              onClick={() => pId && onDeleteParentPermanent(pId)}
+                              className="p-1.5 text-[#A51C30] hover:bg-red-50 hover:text-red-700 transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -548,6 +687,51 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* FLOATING BATCH ACTION BAR */}
+      {selectedKeys.size > 0 && (
+        <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 bg-[#1E2B42] text-white px-5 py-3 shadow-2xl border border-slate-700 flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-600">
+            <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-900 font-bold text-xs flex items-center justify-center">
+              {selectedKeys.size}
+            </span>
+            <span className="text-xs font-semibold whitespace-nowrap">ta tanlandi</span>
+          </div>
+
+          {onBatchUnlinkParents && (
+            <button
+              type="button"
+              onClick={handleBatchUnlink}
+              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="Tanlanganlarni farzandlaridan ajratish"
+            >
+              <UserMinus className="w-3.5 h-3.5" />
+              <span>Ajratish</span>
+            </button>
+          )}
+
+          {onBatchDeleteParents && (
+            <button
+              type="button"
+              onClick={handleBatchDelete}
+              className="px-3 py-1.5 bg-[#A51C30] hover:bg-[#8a1526] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="Tanlanganlarni bazadan butunlay o'chirish"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Butunlay o'chirish</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setSelectedKeys(new Set())}
+            className="p-1 text-slate-400 hover:text-white transition ml-1 cursor-pointer"
+            title="Tanlovni bekor qilish"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
