@@ -334,11 +334,13 @@ export default function ScheduleImportSection({
   const normalizeExcelDate = (val: any): string => {
     if (val === null || val === undefined || val === "") return "";
 
-    // If it's already a JS Date object (emitted by XLSX with cellDates: true)
+    // 1. If it's already a JS Date object (e.g. from any external source or fallback)
+    // Add 12 hours (midday shift) to prevent historical timezone / leap second drift from crossing midnight backwards
     if (val instanceof Date && !isNaN(val.getTime())) {
-      const y = val.getFullYear();
-      const m = String(val.getMonth() + 1).padStart(2, "0");
-      const d = String(val.getDate()).padStart(2, "0");
+      const midday = new Date(val.getTime() + 12 * 60 * 60 * 1000);
+      const y = midday.getFullYear();
+      const m = String(midday.getMonth() + 1).padStart(2, "0");
+      const d = String(midday.getDate()).padStart(2, "0");
       return `${y}-${m}-${d}`;
     }
 
@@ -347,9 +349,18 @@ export default function ScheduleImportSection({
       str = str.substring(0, str.length - 2);
     }
 
-    // If it's a numeric Excel serial string (e.g. "46266")
+    // 2. If it's a numeric Excel serial string or number (e.g. 46279 for 14.09.2026)
     const num = Number(str);
     if (!isNaN(num) && num > 20000 && num < 100000) {
+      if (XLSX.SSF && typeof XLSX.SSF.parse_date_code === "function") {
+        const parsed = XLSX.SSF.parse_date_code(num);
+        if (parsed && parsed.y && parsed.m && parsed.d) {
+          const y = parsed.y;
+          const m = String(parsed.m).padStart(2, "0");
+          const d = String(parsed.d).padStart(2, "0");
+          return `${y}-${m}-${d}`;
+        }
+      }
       const date = new Date(Math.round((num - 25569) * 86400 * 1000));
       if (!isNaN(date.getTime())) {
         const y = date.getUTCFullYear();
@@ -359,7 +370,7 @@ export default function ScheduleImportSection({
       }
     }
 
-    // If it's DD.MM.YYYY, DD/MM/YYYY, or DD-MM-YYYY
+    // 3. If it's DD.MM.YYYY, DD/MM/YYYY, or DD-MM-YYYY
     const partsDmy = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
     if (partsDmy) {
       const d = partsDmy[1].padStart(2, "0");
@@ -368,8 +379,8 @@ export default function ScheduleImportSection({
       return `${y}-${m}-${d}`;
     }
 
-    // If it's YYYY.MM.DD or YYYY/MM/DD
-    const partsYmd = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+    // 4. If it's YYYY.MM.DD, YYYY/MM/DD, or YYYY-MM-DD
+    const partsYmd = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
     if (partsYmd) {
       const y = partsYmd[1];
       const m = partsYmd[2].padStart(2, "0");
@@ -390,7 +401,7 @@ export default function ScheduleImportSection({
     reader.onload = (event) => {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array", cellDates: true });
+        const workbook = XLSX.read(data, { type: "array", cellDates: false });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
