@@ -2,6 +2,7 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 
+import { AnnouncementImages } from "@/components/AnnouncementImages";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -79,6 +80,7 @@ interface GradeItem {
 }
 
 interface Announcement {
+ image_urls?: string[];
   id: number;
   title: string;
   content: string;
@@ -2690,6 +2692,7 @@ export default function ParentDashboard() {
                           <div style={{ fontSize: "11px", color: "#4B5563", lineHeight: 1.5, marginBottom: "8px" }}>
                             {ann.content}
                           </div>
+                          <AnnouncementImages urls={ann.image_urls} />
 
                           {/* Interactive Poll options for Parents */}
                           {ann.is_poll && ann.poll_options && ann.poll_options.length > 0 && (

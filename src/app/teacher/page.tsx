@@ -97,6 +97,7 @@ interface UserInfo {
 }
 
 interface ClassItem {
+  level?: number;
   id: number;
   name: string;
   subject_id?: number;
@@ -858,6 +859,27 @@ function TeacherDashboardContent() {
   const [journalLoading, setJournalLoading] = useState(false);
   const [cellInputs, setCellInputs] = useState<{ [key: string]: string }>({});
   const [cellSaving, setCellSaving] = useState<string | null>(null);
+  const pendingCellSaves = useRef(0);
+  const journalRequest = useRef(0);
+  const [lessonNavigationBusy, setLessonNavigationBusy] = useState(false);
+  const [lessonNavigationMessage, setLessonNavigationMessage] = useState("");
+  const navigateJournalLesson = async (direction: "previous" | "next") => {
+    if (!selectedClassId || !selectedSubjectId || !selectedLessonNumber || lessonNavigationBusy) return;
+    if (pendingCellSaves.current > 0) { setLessonNavigationMessage("Baho saqlanishini kuting."); return; }
+    setLessonNavigationBusy(true); setLessonNavigationMessage("");
+    const request = ++journalRequest.current;
+    try {
+      const params = new URLSearchParams({ subject_id: String(selectedSubjectId), lesson_number: String(selectedLessonNumber), date: journalDate, direction });
+      const data = await api.get(`/api/schools/classes/${selectedClassId}/journal-adjacent?${params}`);
+      if (request !== journalRequest.current) return;
+      if (!data.lesson) { setLessonNavigationMessage("Shu fan uchun bir yil oralig‘ida boshqa dars topilmadi."); return; }
+      if (pendingCellSaves.current > 0) { setLessonNavigationMessage("Baho saqlanishini kuting."); return; }
+      setSelectedGradeIds(new Set());
+      setSelectedLessonNumber(data.lesson.lesson_number);
+      setJournalDate(data.lesson.date);
+    } catch (e) { setLessonNavigationMessage(e instanceof Error ? e.message : "Darsni yuklab bo‘lmadi"); }
+    finally { setLessonNavigationBusy(false); }
+  };
   const [selectedGradingSystems, setSelectedGradingSystems] = useState<{ [subjectId: number]: number }>({});
   const [journalColumns, setJournalColumns] = useState<{ id: string; name: string; defaultVal: string }[]>([]);
   const [columnGradingSystems, setColumnGradingSystems] = useState<{ [colId: string]: number }>({});
@@ -1761,6 +1783,7 @@ function TeacherDashboardContent() {
     if (!selectedClassId || !token) return;
     setSelectedGradeIds(new Set());
     const targetDate = date || journalDate;
+    const request = ++journalRequest.current;
     setJournalLoading(true);
     try {
       // 1. Fetch latest subjects, class teachers, holidays, and schedule in parallel
@@ -1771,6 +1794,7 @@ function TeacherDashboardContent() {
         api.get("/api/schools/holidays").catch(() => [])
       ]);
 
+      if (request !== journalRequest.current) return;
       if (Array.isArray(subData)) {
         setSubjects(subData);
       }
@@ -1788,10 +1812,10 @@ function TeacherDashboardContent() {
       const isTargetHoliday = (Array.isArray(holidayData) ? holidayData : []).some((h: any) => {
         const hDate = h.holiday_date ? new Date(h.holiday_date).toISOString().split('T')[0] : '';
         if (hDate !== targetDate) return false;
-        if (h.target_classes && Array.isArray(h.target_classes) && h.target_classes.length > 0) {
-          if (!selectedClassId || !h.target_classes.includes(selectedClassId)) return false;
-        }
-        return true;
+        const targetClasses = Array.isArray(h.target_classes) ? h.target_classes : [];
+        const targetLevels = Array.isArray(h.target_levels) ? h.target_levels : [];
+        const level = classes.find(cls => cls.id === Number(selectedClassId))?.level;
+        return (!targetClasses.length && !targetLevels.length) || targetClasses.includes(Number(selectedClassId)) || targetLevels.includes(level);
       });
 
       const d = new Date(targetDate + 'T00:00:00');
@@ -1801,7 +1825,8 @@ function TeacherDashboardContent() {
       const lessonsListToday: JournalLessonItem[] = [];
       if (!isTargetHoliday) {
         (Array.isArray(schedData) ? schedData : []).forEach((item: any) => {
-          if (item.day_of_week === dow && item.subject_id > 0 && item.subject_name) {
+          if (item.day_of_week === dow && item.subject_id > 0 && item.subject_name &&
+            (userInfo?.role === "ADMIN" || latestClassTeachers.some(ct => Number(ct.teacher_id) === Number(userInfo?.id) && Number(ct.subject_id) === Number(item.subject_id)))) {
             lessonsListToday.push({
               subject_id: item.subject_id,
               subject_name: item.subject_name,
@@ -1823,16 +1848,7 @@ function TeacherDashboardContent() {
         }
       });
 
-      const isMainTeacher = userInfo?.role === "ADMIN" || latestClassTeachers.some((ct: any) => ct.teacher_id === userInfo?.id && ct.is_main_teacher);
-
-      // Filter subjects: if SUBJECT_TEACHER (and not advisor/admin), only show their assigned subjects
-      let filteredSubjects = subjectsListToday;
-      if (userInfo && userInfo.role !== "ADMIN" && !isMainTeacher) {
-        filteredSubjects = subjectsListToday.filter(sub => 
-          latestClassTeachers.some(ct => ct.teacher_id === userInfo.id && ct.subject_id === sub.id)
-        );
-      }
-      setJournalSubjectsToday(filteredSubjects);
+      setJournalSubjectsToday(subjectsListToday);
 
       // Pre-select first lesson of the day if current selection is invalid
       let activeLesson = lessonsListToday.find(
@@ -1865,6 +1881,7 @@ function TeacherDashboardContent() {
       const studData = await api.get(
         `/api/schools/users?role=STUDENT&class_id=${selectedClassId}&date=${targetDate}`
       ).catch(() => []);
+      if (request !== journalRequest.current) return;
       const studentsList = Array.isArray(studData) ? studData.map((u: any) => ({
         id: u.student_id || u.id,
         user_id: u.id,
@@ -1882,6 +1899,7 @@ function TeacherDashboardContent() {
       const gradesData = await api.get(
         `/api/schools/grades?class_id=${selectedClassId}`
       ).catch(() => []);
+      if (request !== journalRequest.current) return;
       const gradesList = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.lesson_number && g.lesson_number > 0) : [];
       setJournalAllGrades(gradesList);
 
@@ -1960,7 +1978,7 @@ function TeacherDashboardContent() {
     } catch (e) {
       console.error(e);
     } finally {
-      setJournalLoading(false);
+      if (request === journalRequest.current) setJournalLoading(false);
     }
   };
 
@@ -1999,6 +2017,7 @@ function TeacherDashboardContent() {
       return;
     }
 
+    pendingCellSaves.current += 1;
     setCellSaving(key);
     try {
       if (value === '') {
@@ -2067,6 +2086,7 @@ function TeacherDashboardContent() {
       showToast('error', e.message);
       setCellInputs(prev => ({ ...prev, [key]: oldValue }));
     } finally {
+      pendingCellSaves.current -= 1;
       setCellSaving(null);
     }
   };
@@ -3459,30 +3479,24 @@ function TeacherDashboardContent() {
           const isJournalHoliday = (holidays || []).some((h: any) => {
             const hDate = h.holiday_date ? (typeof h.holiday_date === "string" ? h.holiday_date.split("T")[0] : "") : "";
             if (hDate !== journalDate) return false;
-            if (h.target_classes && Array.isArray(h.target_classes) && h.target_classes.length > 0) {
-              if (!selectedClassId || !h.target_classes.includes(Number(selectedClassId))) return false;
-            }
-            return true;
+            const targetClasses = Array.isArray(h.target_classes) ? h.target_classes : [];
+            const targetLevels = Array.isArray(h.target_levels) ? h.target_levels : [];
+            return (!targetClasses.length && !targetLevels.length) || targetClasses.includes(Number(selectedClassId)) || targetLevels.includes(qaCls?.level);
           });
           const isJournalDayOff = isJournalSunday || isJournalHoliday;
-          const qaShortDate = (() => {
-            try {
-              const d = new Date(journalDate + "T00:00:00");
-              const m = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-              return `${d.getDate()}-${m[d.getMonth()]}`;
-            } catch { return journalDate; }
-          })();
           const qaLongDate = (() => {
             try {
               const d = new Date(journalDate + "T00:00:00");
               const mNames = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
-              const days = ["Yak","Dush","Sesh","Chor","Pay","Jum","Shan"];
-              return `${d.getDate()}-${mNames[d.getMonth()]}, ${days[d.getDay()]}`;
+              const days = ["Yakshanba","Dushanba","Seshanba","Chorshanba","Payshanba","Juma","Shanba"];
+              return `${days[d.getDay()]}, ${d.getDate()}-${mNames[d.getMonth()]} ${d.getFullYear()}`;
             } catch { return journalDate; }
           })();
+          const dayColors = ["bg-slate-100 text-slate-800", "bg-blue-100 text-blue-900", "bg-violet-100 text-violet-900", "bg-emerald-100 text-emerald-900", "bg-orange-100 text-orange-900", "bg-cyan-100 text-cyan-900", "bg-pink-100 text-pink-900"];
+          const dayColor = dayColors[new Date(journalDate + "T00:00:00").getDay()] || dayColors[0];
           return (
-            <div className="bg-white border-b border-neutral-200 px-3 py-2.5 sm:px-4 sm:py-3 z-30 flex items-center justify-between gap-1.5 sm:gap-2.5 shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+            <div className="bg-white border-b border-neutral-200 px-3 py-2.5 sm:px-4 sm:py-3 z-30 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                 {/* Class Dropdown */}
                 <div className="relative shrink-0">
                   <button
@@ -3512,14 +3526,14 @@ function TeacherDashboardContent() {
 
                 {/* Subject Dropdown */}
                 {selectedClassId && (
-                  <div className="relative shrink-0 min-w-0 max-w-[130px] sm:max-w-none">
+                  <div className="relative min-w-0 max-w-full">
                     <button
                       type="button"
                       onClick={() => setQaSubjectOpen(!qaSubjectOpen)}
-                      className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer truncate h-10 sm:h-11"
+                      className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer min-h-10 text-left"
                     >
                       <span className="hidden sm:inline text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Fan:</span>
-                      <span className="font-bold text-slate-900 truncate max-w-[80px] sm:max-w-none">
+                      <span className="font-bold text-slate-900 whitespace-normal">
                         {selectedSubjectId ? (selectedLessonNumber ? `${selectedLessonNumber}-soat: ${qaSubjName}` : qaSubjName) : "Fan"}
                       </span>
                       <svg className="w-4 h-4 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -3544,7 +3558,7 @@ function TeacherDashboardContent() {
                             Bugun dam olish kuni. Darslar mavjud emas.
                           </div>
                         ) : (
-                          subjects.map((sub) => {
+                          subjects.filter(sub => userInfo?.role === "ADMIN" || classTeachers.some(ct => Number(ct.teacher_id) === Number(userInfo?.id) && Number(ct.subject_id) === sub.id)).map((sub) => {
                             const isSel = selectedSubjectId === sub.id;
                             return (
                               <button key={sub.id} type="button"
@@ -3564,11 +3578,10 @@ function TeacherDashboardContent() {
                 {/* Date Button */}
                 <button type="button"
                   onClick={() => { setTeacherCalendarTarget("journal"); setIsTeacherCalendarOpen(true); }}
-                  className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-neutral-200 px-3 py-2 sm:px-3.5 rounded-none text-xs sm:text-sm font-bold text-slate-800 transition cursor-pointer shrink-0 h-10 sm:h-11"
+                  className={`flex items-center gap-2 border border-neutral-200 px-3 py-2 text-xs sm:text-sm font-bold cursor-pointer rounded-md ${dayColor}`}
                 >
                   <svg className="w-4 h-4 text-[#A51C30]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <span className="sm:hidden">{qaShortDate}</span>
-                  <span className="hidden sm:inline">{qaLongDate}</span>
+                  <span>{qaLongDate}</span>
                 </button>
               </div>
 
@@ -3598,23 +3611,22 @@ function TeacherDashboardContent() {
                   </button>
                 </div>
               )}
+              <div className="w-full flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+                <button type="button" disabled={!selectedSubjectId || !selectedLessonNumber || lessonNavigationBusy || journalLoading || !!cellSaving || approveLoading}
+                  onClick={() => navigateJournalLesson("previous")} className="px-3 py-2 border rounded-md text-xs font-bold disabled:opacity-40">← Oldingi dars</button>
+                <button type="button" disabled={!selectedSubjectId || !selectedLessonNumber || lessonNavigationBusy || journalLoading || !!cellSaving || approveLoading}
+                  onClick={() => navigateJournalLesson("next")} className="px-3 py-2 border rounded-md text-xs font-bold disabled:opacity-40">Keyingi dars →</button>
+                <span role="status" className="text-xs text-slate-600">{lessonNavigationBusy ? "Dars qidirilmoqda…" : lessonNavigationMessage}</span>
+              </div>
             </div>
           );
         })()}
 
         {/* ── FAN/MAVZU CARD (outside scroll → never scrolls horizontally) ── */}
         {teacherTab === "journal" && selectedClassId && selectedSubjectId && (() => {
-          const fmCls = classes.find((c) => c.id === selectedClassId);
-          const fmSubj = subjects.find((s) => s.id === selectedSubjectId);
-          const fmClsName = fmCls?.name || "";
-          const fmSubjName = fmSubj?.name || "";
           return (
             <div className="bg-white border-b border-neutral-200 px-3.5 py-2.5 sm:px-4 sm:py-3 text-slate-900 space-y-1 shrink-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-serif font-bold text-slate-900 text-sm sm:text-lg tracking-tight">
-                  {fmClsName} • <span className="text-[#A51C30]">{fmSubjName}</span>{" "}
-                  {selectedLessonNumber ? `(${selectedLessonNumber}-soat)` : ""}
-                </h3>
                 <div className="flex items-center gap-2 text-[10px] font-bold font-sans text-slate-500 uppercase tracking-wider">
                   <span>{students.length} TA O'QUVCHI</span>
                   <span>•</span>

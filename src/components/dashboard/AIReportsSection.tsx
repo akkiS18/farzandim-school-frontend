@@ -1,3 +1,4 @@
+import ReportSourceBadge from "@/components/ReportSourceBadge";
 import React, { useState, useEffect, useRef } from "react";
 import { ClassItem } from "./types";
 import { TargetPresets } from "@/components/TargetPresets";
@@ -22,6 +23,9 @@ interface AdminStudentReportItem {
   end_date: string;
   report_text: string;
   summary_json?: {
+ generation_source?: string;
+ generation_model?: string;
+ generation_reason?: string;
     average_grade?: number;
     prev_average_grade?: number;
     grade_trend?: string;
@@ -956,7 +960,8 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       <th className="px-5 py-3">O'quvchi</th>
                       <th className="px-5 py-3">Sinf</th>
                       <th className="px-5 py-3">O'rtacha Baho</th>
-                      <th className="px-5 py-3">Dinamika</th>
+                      <th className="px-5 py-3">Manba</th>
+<th className="px-5 py-3">Dinamika</th>
                       <th className="px-5 py-3">O'qilgan Kitoblar</th>
                       <th className="px-5 py-3 text-right">Amallar</th>
                     </tr>
@@ -981,6 +986,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           <td className="px-5 py-3.5 font-mono font-black text-[#1D1E26]">
                             {avg > 0 ? avg.toFixed(1) : "—"}
                           </td>
+<td className="px-5 py-3.5"><ReportSourceBadge summary={rep.summary_json} /></td>
                           <td className="px-5 py-3.5">
                             {trend === "UP" && <span className="text-emerald-600 font-extrabold">O'sdi</span>}
                             {trend === "DOWN" && <span className="text-rose-500 font-extrabold">Pasaydi</span>}
@@ -1424,7 +1430,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                         {previewReport.student_name.slice(0, 2).toUpperCase()}
                       </div>
                       <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
-                        {previewReport.student_name}
+                        {previewReport.student_name} <ReportSourceBadge summary={previewReport.summary_json} />
                       </h2>
                       <div className="flex items-center gap-2 pt-1">
                         <span className="px-3 py-0.5 rounded-none bg-white/15 text-xs font-extrabold border border-white/20">

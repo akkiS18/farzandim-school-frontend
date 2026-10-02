@@ -3265,7 +3265,11 @@ export default function ClassesSection({
                 <select
                   required
                   value={assignTeacherId}
-                  onChange={(e) => setAssignTeacherId(e.target.value)}
+                  onChange={(e) => {
+ setAssignTeacherId(e.target.value);
+ const teacher = teachers.find(t => t.id === Number(e.target.value));
+ setAssignSubjectId(teacher?.primary_subject_id ? String(teacher.primary_subject_id) : "");
+ }}
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   <option value="">O'qituvchini tanlang...</option>
@@ -3286,8 +3290,8 @@ export default function ClassesSection({
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-bold cursor-pointer"
                 >
                   <option value="">Tanlanmagan / Kirmaydi</option>
-                  {filteredSubjectsForClass.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}{teachers.find(t => t.id === Number(assignTeacherId))?.primary_subject_id === s.id ? " — asosiy fan (tavsiya)" : ""}</option>
                   ))}
                 </select>
               </div>

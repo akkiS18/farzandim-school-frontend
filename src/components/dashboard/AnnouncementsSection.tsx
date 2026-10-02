@@ -1,5 +1,6 @@
 "use client";
 
+import { AnnouncementImages, AnnouncementImagePicker } from "@/components/AnnouncementImages";
 import React, { useState, useEffect } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
@@ -77,6 +78,8 @@ export default function AnnouncementsSection({
   // Form States
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+ const [imageURLs, setImageURLs] = useState<string[]>([]);
+ const [imagesBusy, setImagesBusy] = useState(false);
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
   const [selectedLevelIds, setSelectedLevelIds] = useState<number[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
@@ -207,6 +210,7 @@ export default function AnnouncementsSection({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (imagesBusy) return;
     if (!title.trim() || !content.trim()) {
       setFormError("Sarlavha va e'lon matni to'ldirilishi shart");
       return;
@@ -238,6 +242,7 @@ export default function AnnouncementsSection({
         body: JSON.stringify({
           title: title.trim(),
           content: content.trim(),
+ image_urls: imageURLs,
           class_ids: classIds,
           level_ids: levelIds,
           student_ids: studentIds,
@@ -251,6 +256,7 @@ export default function AnnouncementsSection({
         setFormSuccess("E'lon chop etildi va Telegram bot orqali bildirishnomalar yuborildi!");
         setTitle("");
         setContent("");
+ setImageURLs([]);
         setIsPoll(false);
         setPollOptions(["", ""]);
         setSelectedClassIds([]);
@@ -566,6 +572,7 @@ export default function AnnouncementsSection({
                   </div>
                 </div>
 
+<AnnouncementImages urls={ann.image_urls} />
                 {/* Content */}
                 <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed font-medium whitespace-pre-wrap">{ann.content}</p>
 
@@ -749,6 +756,7 @@ export default function AnnouncementsSection({
                   />
                 </div>
 
+<AnnouncementImagePicker urls={imageURLs} onChange={setImageURLs} onBusyChange={setImagesBusy} disabled={submitLoading} />
                 {/* Poll Options section */}
                 {isPoll && (
                   <div className="p-4 bg-zinc-50/80 border border-zinc-200/80 rounded-none space-y-3 animate-fadeIn">
@@ -928,7 +936,7 @@ export default function AnnouncementsSection({
                   </button>
                   <button
                     type="submit"
-                    disabled={submitLoading}
+                    disabled={submitLoading || imagesBusy}
                     className="px-6 py-2.5 bg-[#1D1E26] text-[#D4F562] hover:bg-slate-800 rounded-none text-xs font-black disabled:opacity-50 flex items-center space-x-2 cursor-pointer transition"
                   >
                     {submitLoading ? (

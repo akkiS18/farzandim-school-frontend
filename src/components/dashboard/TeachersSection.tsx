@@ -4,6 +4,7 @@ import CustomDialogModal from "../CustomDialogModal";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { TenantUser, UserInfo, ImportResult } from "./types";
 
+import api from "@/lib/api";
 import PasswordInput from "@/components/common/PasswordInput";
 
 interface TeachersSectionProps {
@@ -21,7 +22,11 @@ export default function TeachersSection({
   userInfo,
   setTeachers,
 }: TeachersSectionProps) {
-  const [teacherSearch, setTeacherSearch] = useState("");
+  const [primarySubjectId, setPrimarySubjectId] = useState("");
+ const [editPrimarySubjectId, setEditPrimarySubjectId] = useState("");
+ const [subjects, setSubjects] = useState<{id:number;name:string}[]>([]);
+ useEffect(() => { api.get("/api/schools/subjects").then(data => setSubjects(Array.isArray(data) ? data : [])).catch(() => setSubjects([])); }, []);
+ const [teacherSearch, setTeacherSearch] = useState("");
   const { dialogState, showAlert, showConfirm } = useDialog();
 
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
@@ -97,6 +102,7 @@ export default function TeachersSection({
           middle_name: teacherMiddleName.trim() || undefined,
           phone: teacherPhone.trim(),
           role: teacherRole,
+ primary_subject_id: Number(primarySubjectId),
           password: teacherPassword,
         }),
       });
@@ -119,6 +125,7 @@ export default function TeachersSection({
       setTeacherMiddleName("");
       setTeacherPhone("");
       setTeacherRole("SUBJECT_TEACHER");
+ setPrimarySubjectId("");
       setTeacherPassword("password123");
     } catch (err: any) {
       setActionError(err.message);
@@ -147,6 +154,7 @@ export default function TeachersSection({
         middle_name: editTeacherMiddleName.trim() || undefined,
         phone: editTeacherPhone.trim(),
         role: editTeacherRole,
+ primary_subject_id: Number(editPrimarySubjectId),
       };
       if (editTeacherPassword.trim()) {
         payload.password = editTeacherPassword.trim();
@@ -341,6 +349,7 @@ export default function TeachersSection({
                 <th className="px-6 py-4">T/R</th>
                 <th className="px-6 py-4">Ism Familiya</th>
                 <th className="px-6 py-4">Telefon</th>
+                <th className="px-6 py-4">Asosiy fan</th>
                 <th className="px-6 py-4">Rol</th>
                 <th className="px-6 py-4">Qo'shilgan sana</th>
                 {userInfo?.role === "ADMIN" && <th className="px-6 py-4 text-right">Amallar</th>}
@@ -354,6 +363,7 @@ export default function TeachersSection({
                     {t.first_name} {t.last_name} {t.middle_name && <span className="text-slate-400 font-normal">({t.middle_name})</span>}
                   </td>
                   <td className="px-6 py-4 font-mono text-slate-500 font-bold">{t.phone}</td>
+                  <td className="px-6 py-4 font-bold">{t.primary_subject_name || "Tanlanmagan"}</td>
                   <td className="px-6 py-4">
                     {t.role_name === "MAIN_TEACHER" ? (
                       <span className="bg-[#1D1E26] text-[#D4F562] font-extrabold text-[11px] px-2.5 py-1">
@@ -376,6 +386,7 @@ export default function TeachersSection({
                           setEditTeacherMiddleName(t.middle_name || "");
                           setEditTeacherPhone(t.phone || "");
                           setEditTeacherRole(t.role_name || "SUBJECT_TEACHER");
+ setEditPrimarySubjectId(String(t.primary_subject_id || ""));
                           setEditTeacherPassword("");
                           setShowEditTeacherModal(true);
                         }}
@@ -414,6 +425,7 @@ export default function TeachersSection({
               setTeacherMiddleName("");
               setTeacherPhone("");
               setTeacherRole("SUBJECT_TEACHER");
+ setPrimarySubjectId("");
               setTeacherPassword("password123");
               setActionError("");
             }
@@ -437,6 +449,7 @@ export default function TeachersSection({
                   setTeacherMiddleName("");
                   setTeacherPhone("");
                   setTeacherRole("SUBJECT_TEACHER");
+ setPrimarySubjectId("");
                   setTeacherPassword("password123");
                   setActionError("");
                 }}
@@ -451,6 +464,10 @@ export default function TeachersSection({
             )}
 
             <form onSubmit={handleAddTeacher} className="space-y-4">
+<div><label className="block text-xs font-bold mb-2">Asosiy fan *</label>
+ <select required value={primarySubjectId} onChange={e => setPrimarySubjectId(e.target.value)} className="w-full border border-slate-200 bg-slate-50 p-3 text-sm">
+ <option value="">Fanni tanlang</option>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+ </select>{subjects.length === 0 && <p className="text-xs text-amber-700 mt-1">Fanlar ro‘yxatini tekshiring yoki avval fan qo‘shing.</p>}</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
@@ -530,6 +547,7 @@ export default function TeachersSection({
                     setTeacherMiddleName("");
                     setTeacherPhone("");
                     setTeacherRole("SUBJECT_TEACHER");
+ setPrimarySubjectId("");
                     setTeacherPassword("password123");
                     setActionError("");
                   }}
@@ -716,6 +734,10 @@ export default function TeachersSection({
             )}
 
             <form onSubmit={handleEditTeacher} className="space-y-4">
+<div><label className="block text-xs font-bold mb-2">Asosiy fan *</label>
+ <select required value={editPrimarySubjectId} onChange={e => setEditPrimarySubjectId(e.target.value)} className="w-full border border-slate-200 bg-slate-50 p-3 text-sm">
+ <option value="">Fanni tanlang</option>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+ </select>{subjects.length === 0 && <p className="text-xs text-amber-700 mt-1">Fanlar ro‘yxatini tekshiring yoki avval fan qo‘shing.</p>}</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>

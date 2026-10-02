@@ -13,6 +13,8 @@ export interface UserInfo {
 }
 
 export interface TenantUser {
+ primary_subject_id?: number | null;
+ primary_subject_name?: string;
   id: number;
   email?: string;
   phone?: string;
@@ -117,6 +119,7 @@ export interface DailyAttendanceStat {
 }
 
 export interface AnnouncementItem {
+ image_urls?: string[];
   id: number;
   title: string;
   content: string;
