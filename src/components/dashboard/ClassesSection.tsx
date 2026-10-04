@@ -3291,7 +3291,7 @@ export default function ClassesSection({
                 >
                   <option value="">Tanlanmagan / Kirmaydi</option>
                   {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}{teachers.find(t => t.id === Number(assignTeacherId))?.primary_subject_id === s.id ? " — asosiy fan (tavsiya)" : ""}</option>
+                    <option key={s.id} value={s.id}>{s.name}{teachers.find(t => t.id === Number(assignTeacherId))?.primary_subject_id === s.id ? " (asosiy fan - tavsiya)" : ""}</option>
                   ))}
                 </select>
               </div>

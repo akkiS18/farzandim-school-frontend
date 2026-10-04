@@ -840,6 +840,7 @@ export default function ParentDashboard() {
           id: item.id,
           title: item.title,
           content: item.content,
+          image_urls: item.image_urls || [],
           is_poll: item.is_poll,
           poll_options: item.poll_options,
           date: new Date(item.created_at).toLocaleDateString("uz-UZ", {
@@ -1041,8 +1042,12 @@ export default function ParentDashboard() {
   const fetchClassSchedule = async (classId: number, dateStr: string) => {
     setScheduleLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${classId}/schedule?date=${dateStr}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      if (sId) headers["X-School-ID"] = sId;
+
+      const response = await fetch(`${API_URL}/api/schools/classes/${classId}/schedule?date=${dateStr}&ignore_holiday=true`, {
+        headers,
       });
       const data = await response.json();
       if (response.ok && Array.isArray(data)) {
@@ -1366,9 +1371,7 @@ export default function ParentDashboard() {
         matchingGrades.forEach((g) => matchedGradeIds.add(g.id));
 
         return {
-          subjectName: sch.subject_name,
-          grade: matchingGrades[0],
-          grades: matchingGrades,
+          subjectName: sch.subject_name, homework: sch.homework, grade: matchingGrades[0], grades: matchingGrades,
         };
       });
 
@@ -1383,6 +1386,7 @@ export default function ParentDashboard() {
         bySubject.forEach((subjGrades, subjName) => {
           rows.push({
             subjectName: subjName,
+            homework: "",
             grade: subjGrades[0],
             grades: subjGrades,
           });
@@ -4742,3 +4746,4 @@ export default function ParentDashboard() {
     </div>
   );
 }
+

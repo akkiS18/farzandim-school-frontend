@@ -1440,6 +1440,17 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           {previewReport.start_date} — {previewReport.end_date}
                         </span>
                       </div>
+                      {previewReport.summary_json?.generation_source === "ai" ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-medium mt-1">
+                          <span>✨</span>
+                          <span>Haqiqiy sun'iy intellekt ({previewReport.summary_json.generation_model || "Gemini"}) tomonidan tahlil qilingan</span>
+                        </div>
+                      ) : previewReport.summary_json?.generation_source === "template" ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-500/20 border border-amber-400/30 text-amber-200 text-xs font-medium mt-1">
+                          <span>⚡</span>
+                          <span>AI xizmatiga ulanib bo'lmagani sababli dinamik shablon orqali tuzilgan</span>
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Key Metrics Horizon Cards */}

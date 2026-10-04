@@ -18,6 +18,7 @@ export interface GradeItem {
 
 export interface DiarySubjectRow {
   subjectName: string;
+  homework?: string;
   grade?: GradeItem;
   grades?: GradeItem[];
   masteryGrade?: GradeItem;
@@ -191,18 +192,25 @@ export default function DiaryDayCard({
                   {idx + 1}
                 </span>
 
-                <span
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: row.subjectName ? 650 : 400,
-                    color: row.subjectName ? "#1E293B" : "#CBD5E1",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {row.subjectName || "—"}
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflow: "hidden" }}>
+                  <span style={{ fontSize: "13px", fontWeight: row.subjectName ? 650 : 400, color: row.subjectName ? "#1E293B" : "#CBD5E1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {row.subjectName || "—"}
+                  </span>
+                  {row.homework && row.homework.trim() && (
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "#475569",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={`Uyga vazifa: ${row.homework.trim()}`}
+                    >
+                      <strong style={{ color: "#4F46E5", fontWeight: 700 }}>Vazifa:</strong> {row.homework.trim()}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Right Column: 3 Grade Badges & Approval Action */}
@@ -399,3 +407,4 @@ export default function DiaryDayCard({
     </div>
   );
 }
+

@@ -100,8 +100,11 @@ export default function LessonPlansSection({
 
   // Topics Array - 1-to-1 matching with fixedSlots index! (Only this array is edited, dragged, merged, inserted, or deleted!)
   const [topicList, setTopicList] = useState<string[]>([]);
+  const [homeworkList, setHomeworkList] = useState<string[]>([]);
   const [pasteText, setPasteText] = useState("");
+  const [homeworkPasteText, setHomeworkPasteText] = useState("");
   const [formulaValue, setFormulaValue] = useState("");
+  const [formulaHomework, setFormulaHomework] = useState("");
   const [activeCellIndex, setActiveCellIndex] = useState<number | null>(null);
 
   // Drag & Drop topic state
@@ -243,16 +246,21 @@ export default function LessonPlansSection({
       }));
 
       const topics = slots.map((s: any) => s.topic_name || "");
+      const homeworks = slots.map((s: any) => s.homework || "");
 
       setFixedSlots(mappedSlots);
       setTopicList(topics);
-      // Pre-fill the top textarea box so user can edit/view/paste topics immediately!
+      setHomeworkList(homeworks);
+      
       setPasteText(topics.join("\n"));
+      setHomeworkPasteText(homeworks.join("\n"));
     } catch (err: any) {
       showToast(err.message || "Ish rejasini yuklashda xatolik", "error");
       setFixedSlots([]);
       setTopicList([]);
+      setHomeworkList([]);
       setPasteText("");
+      setHomeworkPasteText("");
     } finally {
       setEditorLoading(false);
     }
@@ -275,6 +283,18 @@ export default function LessonPlansSection({
     }
   };
 
+  const handleHomeworkChange = (index: number, val: string) => {
+    setHomeworkList((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      setHomeworkPasteText(copy.join("\n"));
+      return copy;
+    });
+    if (activeCellIndex === index) {
+      setFormulaHomework(val);
+    }
+  };
+
   // Formula bar change
   const handleFormulaChange = (val: string) => {
     setFormulaValue(val);
@@ -283,6 +303,18 @@ export default function LessonPlansSection({
         const copy = [...prev];
         copy[activeCellIndex] = val;
         setPasteText(copy.join("\n"));
+        return copy;
+      });
+    }
+  };
+
+  const handleHomeworkFormulaChange = (val: string) => {
+    setFormulaHomework(val);
+    if (activeCellIndex !== null && activeCellIndex < homeworkList.length) {
+      setHomeworkList((prev) => {
+        const copy = [...prev];
+        copy[activeCellIndex] = val;
+        setHomeworkPasteText(copy.join("\n"));
         return copy;
       });
     }
@@ -299,6 +331,17 @@ export default function LessonPlansSection({
     });
     const count = lines.filter((l) => l.length > 0).length;
     showToast(`${count} ta mavzu joylashtirildi!`, "success");
+  };
+
+  const handlePasteHomeworks = () => {
+    if (!homeworkPasteText.trim() && homeworkList.length === 0) return;
+    const lines = homeworkPasteText.split(/\r?\n/).map((l) => l.trim());
+    setHomeworkList((prev) => {
+      const updated = prev.map((t, idx) => (lines[idx] !== undefined ? lines[idx] : t));
+      return updated;
+    });
+    const count = lines.filter((l) => l.length > 0).length;
+    showToast(`${count} ta uyga vazifa joylashtirildi!`, "success");
   };
 
   // 1-Click Button Topic Merge
@@ -356,12 +399,20 @@ export default function LessonPlansSection({
     setTopicList((prev) => {
       const copy = [...prev];
       copy.splice(index + 1, 0, "");
-      copy.pop(); // keep array length equal to fixedSlots
+      copy.pop();
       setPasteText(copy.join("\n"));
+      return copy;
+    });
+    setHomeworkList((prev) => {
+      const copy = [...prev];
+      copy.splice(index + 1, 0, "");
+      copy.pop();
+      setHomeworkPasteText(copy.join("\n"));
       return copy;
     });
     setActiveCellIndex(index + 1);
     setFormulaValue("");
+    setFormulaHomework("");
     showToast("Yangi mavzu joyi ajratildi", "success");
   };
 
@@ -374,9 +425,17 @@ export default function LessonPlansSection({
       setPasteText(copy.join("\n"));
       return copy;
     });
+    setHomeworkList((prev) => {
+      const copy = [...prev];
+      copy.splice(index, 1);
+      copy.push("");
+      setHomeworkPasteText(copy.join("\n"));
+      return copy;
+    });
     if (activeCellIndex === index) {
       setActiveCellIndex(null);
       setFormulaValue("");
+      setFormulaHomework("");
     }
   };
 
@@ -391,9 +450,7 @@ export default function LessonPlansSection({
       .map((slot, idx) => ({
         start_date: slot.date,
         day_of_week: slot.dayOfWeek,
-        lesson_number: slot.lessonNumber,
-        topic_name: (topicList[idx] || "").trim(),
-        notes: "",
+        lesson_number: slot.lessonNumber, topic_name: (topicList[idx] || "").trim(), homework: (homeworkList[idx] || "").trim(), notes: "",
       }))
       .filter((item) => item.topic_name.length > 0);
 
@@ -723,27 +780,33 @@ export default function LessonPlansSection({
           ) : (
             <div className="space-y-4">
               {/* Excel Copy-Paste Box */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 bg-slate-50 p-4 rounded-none border border-neutral-200">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 font-mono flex items-center gap-2">
                     <ClipboardPaste className="w-4 h-4 text-slate-500" />
-                    <span>Excel'dan mavzular ustunini (Ctrl+V) nusxalab tashlang:</span>
+                    <span>Mavzular ustunini nusxalab tashlang:</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={handlePasteTopics}
-                    className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[11px] rounded-none cursor-pointer transition border border-neutral-300"
-                  >
-                    Mavzularni Joylashtirish
+                  <button type="button" onClick={handlePasteTopics} className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[11px] rounded-none cursor-pointer transition border border-neutral-300">
+                    Joylashtirish
                   </button>
                 </div>
-                <textarea
-                  rows={3}
-                  value={pasteText}
-                  onChange={(e) => setPasteText(e.target.value)}
-                  placeholder="Excel'dan mavzular ustunini nusxalab shu yerga yuboring (Ctrl+V)..."
-                  className="w-full p-3 bg-white border border-neutral-300 rounded-none text-xs font-mono text-slate-900 placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-[#1E2B42] transition leading-relaxed"
-                />
+                <textarea rows={3} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder="Excel'dan mavzularni nusxalab yuboring..." className="w-full p-3 bg-white border border-neutral-300 rounded-none text-xs font-mono text-slate-900 placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-[#1E2B42] transition leading-relaxed" />
+              </div>
+              <div className="space-y-2 bg-slate-50 p-4 rounded-none border border-neutral-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 font-mono flex items-center gap-2">
+                    <ClipboardPaste className="w-4 h-4 text-slate-500" />
+                    <span>Uyga vazifalar ustunini nusxalab tashlang:</span>
+                  </label>
+                  <button type="button" onClick={handlePasteHomeworks} className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[11px] rounded-none cursor-pointer transition border border-neutral-300">
+                    Joylashtirish
+                  </button>
+                </div>
+                <textarea rows={3} value={homeworkPasteText} onChange={(e) => setHomeworkPasteText(e.target.value)} placeholder="Excel'dan uyga vazifalarni nusxalab yuboring..." className="w-full p-3 bg-white border border-neutral-300 rounded-none text-xs font-mono text-slate-900 placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-[#1E2B42] transition leading-relaxed" />
+              </div>
+
+
               </div>
 
               {/* Quick Edit Bar */}
@@ -772,8 +835,8 @@ export default function LessonPlansSection({
                     }
                   }}
                   placeholder="Tanlangan qatordagi mavzu nomini shu yerda tezkor tahrirlashingiz mumkin..."
-                  className="flex-1 px-3.5 py-2 bg-white border border-neutral-300 rounded-none text-xs font-semibold text-slate-900 outline-none focus:ring-1 focus:ring-[#1E2B42] transition"
-                />
+                  className="flex-1 px-3.5 py-2 bg-white border border-neutral-300 rounded-none text-xs font-semibold text-slate-900 outline-none focus:ring-1 focus:ring-[#1E2B42] transition" />
+<input type="text" value={formulaHomework} onChange={(e) => handleHomeworkFormulaChange(e.target.value)} placeholder="Uyga vazifa (tezkor tahrirlash)..." className="flex-1 px-3.5 py-2 bg-white border border-neutral-300 rounded-none text-xs font-semibold text-slate-900 outline-none focus:ring-1 focus:ring-[#1E2B42] transition" />
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[11px] font-mono font-bold text-slate-500">
                     Jami: {fixedSlots.length} ta dars kuni
@@ -790,7 +853,7 @@ export default function LessonPlansSection({
                       <th className="px-3 py-3 w-28 sticky left-0 z-30 bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Sana</th>
                       <th className="px-3 py-3 w-12 sm:w-16 text-center bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Kun</th>
                       <th className="px-3 py-3 w-12 sm:w-20 text-center bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Soat</th>
-                      <th className="px-3 py-3 min-w-[200px] sm:min-w-auto bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Dars Mavzusi</th>
+                      <th className="px-3 py-3 min-w-[200px] sm:min-w-auto bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Dars Mavzusi</th><th className="px-3 py-3 min-w-[150px] sm:min-w-auto bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Uyga vazifa</th>
                       <th className="px-3 py-3 w-28 text-right bg-slate-100 outline outline-1 outline-neutral-200 border-b border-neutral-300">Amallar</th>
                     </tr>
                   </thead>
@@ -895,15 +958,7 @@ export default function LessonPlansSection({
                                     }
                                   }
                                 }}
-                                placeholder="Dars mavzusini kiriting..."
-                                className={`w-full py-1 text-xs outline-none transition font-medium ${
-                                  isActive
-                                    ? "font-bold text-[#1E2B42] border-b-2 border-[#1E2B42] bg-transparent"
-                                    : "bg-transparent border-b border-transparent focus:border-slate-400 text-slate-800"
-                                }`}
-                              />
-                            </div>
-                          </td>
+                                placeholder="Dars mavzusini kiriting..." className={`w-full py-1 text-xs outline-none transition font-medium ${isActive ? "font-bold text-[#1E2B42] border-b-2 border-[#1E2B42] bg-transparent" : "bg-transparent border-b border-transparent focus:border-slate-400 text-slate-800"}`} /></div></td><td className="px-3 py-2 border-b border-neutral-200 border-r border-neutral-100"><input type="text" value={homeworkList[idx] || ""} onFocus={() => { setActiveCellIndex(idx); setFormulaHomework(homeworkList[idx] || ""); setFormulaValue(topicList[idx] || ""); }} onChange={(e) => handleHomeworkChange(idx, e.target.value)} placeholder="Uyga vazifa..." className="w-full py-1 text-xs outline-none bg-transparent border-b border-transparent focus:border-slate-400 text-slate-800 transition font-medium" /></td>
 
                           {/* Actions */}
                           <td className="px-3 py-2 text-right whitespace-nowrap border-b border-neutral-200">
@@ -958,3 +1013,17 @@ export default function LessonPlansSection({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

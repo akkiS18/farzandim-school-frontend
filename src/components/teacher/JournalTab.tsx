@@ -64,7 +64,7 @@ interface JournalTabProps {
   selectedSubjectId: string | number | null;
   selectedLessonNumber: number | string | null;
   journalDate: string;
-  currentJournalTopic: string;
+  currentJournalTopic: string; currentJournalHomework: string;
   currentJournalTopicLoading: boolean;
   selectedGradeCategory: string;
   setSelectedGradeCategory: (cat: string) => void;
@@ -115,7 +115,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   selectedSubjectId,
   selectedLessonNumber,
   journalDate,
-  currentJournalTopic,
+  currentJournalTopic, currentJournalHomework,
   currentJournalTopicLoading,
   selectedGradeCategory,
   setSelectedGradeCategory,
@@ -953,6 +953,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 };
 
 export default JournalTab;
+
+
 
 
 

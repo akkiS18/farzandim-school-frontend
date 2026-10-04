@@ -467,7 +467,7 @@ export default function TeachersSection({
 <div><label className="block text-xs font-bold mb-2">Asosiy fan *</label>
  <select required value={primarySubjectId} onChange={e => setPrimarySubjectId(e.target.value)} className="w-full border border-slate-200 bg-slate-50 p-3 text-sm">
  <option value="">Fanni tanlang</option>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
- </select>{subjects.length === 0 && <p className="text-xs text-amber-700 mt-1">Fanlar ro‘yxatini tekshiring yoki avval fan qo‘shing.</p>}</div>
+ </select>{subjects.length === 0 && <p className="text-xs text-amber-700 mt-1">Fanlar ro'yxatini tekshiring yoki avval fan qo'shing.</p>}</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>
@@ -737,7 +737,7 @@ export default function TeachersSection({
 <div><label className="block text-xs font-bold mb-2">Asosiy fan *</label>
  <select required value={editPrimarySubjectId} onChange={e => setEditPrimarySubjectId(e.target.value)} className="w-full border border-slate-200 bg-slate-50 p-3 text-sm">
  <option value="">Fanni tanlang</option>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
- </select>{subjects.length === 0 && <p className="text-xs text-amber-700 mt-1">Fanlar ro‘yxatini tekshiring yoki avval fan qo‘shing.</p>}</div>
+ </select>{subjects.length === 0 && <p className="text-xs text-amber-700 mt-1">Fanlar ro'yxatini tekshiring yoki avval fan qo'shing.</p>}</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Ismi *</label>

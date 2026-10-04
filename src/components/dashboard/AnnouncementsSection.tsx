@@ -907,13 +907,14 @@ export default function AnnouncementsSection({
                       />
                       <div className="max-h-36 overflow-y-auto space-y-1.5">
                         {filteredStudentsForSelect.map((s) => {
-                          const isSelected = selectedStudentIds.includes(s.id);
+                          const sid = s.student_id || s.id;
+                          const isSelected = selectedStudentIds.includes(sid);
                           return (
-                            <label key={s.id} className="flex items-center space-x-2 text-xs font-semibold text-zinc-700 cursor-pointer hover:bg-white p-1.5 rounded-none transition">
+                            <label key={sid} className="flex items-center space-x-2 text-xs font-semibold text-zinc-700 cursor-pointer hover:bg-white p-1.5 rounded-none transition">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => handleStudentCheckboxChange(s.id)}
+                                onChange={() => handleStudentCheckboxChange(sid)}
                                 className="w-4 h-4 rounded border-zinc-300 text-white focus:ring-[#1D1E26]"
                               />
                               <span className="font-bold text-zinc-800">{s.last_name} {s.first_name}</span>
