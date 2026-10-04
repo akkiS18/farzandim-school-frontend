@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft, Plus } from "lucide-react";
+import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft, Plus, Copy } from "lucide-react";
 import TransferStudentsModal from "./TransferStudentsModal";
 import DateRangePresets from "../DateRangePresets";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
@@ -847,6 +847,27 @@ export default function ClassesSection({
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleCopyInvitation = (pt: TenantUser) => {
+    const text = `Hurmatli ota-ona (${pt.first_name} ${pt.last_name}),
+
+"Farzandim" onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${pt.student_name || "o'quvchi"})ning maktabdagi baholari va davomatini kuzatib borish uchun quyidagi ma'lumotlar orqali tizimga kiring.
+
+📱 Telegram bot: @farzandim_uzbot
+🌐 Veb-sayt: https://farzandim.uz
+
+🔹 Login (Telefon raqamingiz): ${pt.phone || "Kiritilmagan"}
+🔹 Parol: 123456 (Agar ishlamasa, pasport seriyangizni probelsiz kiriting)
+
+Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingizni so'raymiz.`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      showAlert("Taklifnoma nusxalandi! Endi uni Telegram orqali yuborishingiz mumkin.");
+    }).catch(err => {
+      console.error("Nusxalashda xatolik:", err);
+      showAlert("Nusxalashda xatolik yuz berdi.");
+    });
   };
 
   const handleEditStudent = async (e: React.FormEvent) => {
@@ -1829,6 +1850,13 @@ export default function ClassesSection({
                           {userInfo?.role === "ADMIN" && (
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => handleCopyInvitation(parent)}
+                                  title="Taklifnomadan nusxa olish"
+                                  className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 transition shadow-2xs cursor-pointer inline-flex items-center justify-center"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
                                 <button
                                   onClick={() => {
                                     setEditingParent(parent);

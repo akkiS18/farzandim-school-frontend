@@ -15,6 +15,7 @@ import {
   Pencil,
   Trash2,
   X,
+  Copy,
 } from "lucide-react";
 import EditParentModal from "@/components/dashboard/EditParentModal";
 
@@ -89,6 +90,27 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
     passport?: string;
   } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  const handleCopyInvitation = (pt: ParentItem) => {
+    const text = `Hurmatli ota-ona (${pt.first_name} ${pt.last_name}),
+
+"Farzandim" onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${pt.student_name || "o'quvchi"})ning maktabdagi baholari va davomatini kuzatib borish uchun quyidagi ma'lumotlar orqali tizimga kiring.
+
+📱 Telegram bot: @farzandim_uzbot
+🌐 Veb-sayt: https://farzandim.uz
+
+🔹 Login (Telefon raqamingiz): ${pt.phone || "Kiritilmagan"}
+🔹 Parol: 123456 (Agar ishlamasa, pasport seriyangizni probelsiz kiriting)
+
+Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingizni so'raymiz.`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Taklifnoma nusxalandi! Endi uni Telegram orqali yuborishingiz mumkin.");
+    }).catch(err => {
+      console.error("Nusxalashda xatolik:", err);
+      alert("Nusxalashda xatolik yuz berdi.");
+    });
+  };
 
   const filteredParents = useMemo(() => {
     let list = classParents;
@@ -407,6 +429,14 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
+                        title="Taklifnomadan nusxa olish"
+                        onClick={() => handleCopyInvitation(pt)}
+                        className="p-2 border border-neutral-200 text-[#2AA9E0] hover:bg-blue-50 transition cursor-pointer"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
                         title="Tahrirlash"
                         onClick={() => {
                           setEditingParent({
@@ -592,6 +622,14 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
                       </td>
                       <td className="px-6 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            title="Taklifnomadan nusxa olish"
+                            onClick={() => handleCopyInvitation(pt)}
+                            className="p-1.5 text-[#2AA9E0] hover:bg-blue-50 transition cursor-pointer"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
                           <button
                             type="button"
                             title="Tahrirlash"

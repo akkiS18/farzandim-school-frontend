@@ -23,6 +23,7 @@ import ScheduleOverviewSection from "@/components/dashboard/ScheduleOverviewSect
 import BooksSection from "@/components/dashboard/BooksSection";
 import LibrarySection from "@/components/dashboard/LibrarySection";
 import AIReportsSection from "@/components/dashboard/AIReportsSection";
+import ReportsSection from "@/components/dashboard/ReportsSection";
 import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 
@@ -461,6 +462,15 @@ function TenantDashboardContent() {
               onSuccess={() => {
                 if (token) fetchClassesData(token);
               }}
+            />
+          )}
+
+          {activeMenu === "reports" && (
+            <ReportsSection
+              token={token}
+              API_URL={API_URL}
+              userInfo={userInfo}
+              classes={classes}
             />
           )}
 
