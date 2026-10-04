@@ -515,14 +515,14 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
           </div>
 
           {/* DESKTOP TABLE VIEW */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-separate border-spacing-0 text-xs font-sans">
+          <div className="overflow-auto max-h-[calc(100vh-270px)] border-b border-neutral-200">
+            <table className="w-full text-left border-separate border-spacing-0 text-xs font-sans min-w-[780px]">
               <thead className="text-[10px] font-bold uppercase tracking-wider font-mono">
                 <tr>
                   {/* T/R Header */}
                   <th
                     onClick={() => handleSort("default")}
-                    className="px-4 py-3.5 text-center w-12 sticky top-0 left-0 z-30 bg-slate-50 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] cursor-pointer select-none hover:bg-slate-100 transition-colors text-slate-500"
+                    className="px-3 sm:px-4 py-3.5 text-center w-10 sm:w-12 sticky top-0 z-20 bg-slate-50 border-b border-r border-neutral-200 cursor-pointer select-none hover:bg-slate-100 transition-colors text-slate-500 font-mono"
                     title="Asl tartib (T/R)"
                   >
                     T/R
@@ -531,7 +531,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                   {/* ISM FAMILIYA Header */}
                   <th
                     onClick={() => handleSort("name")}
-                    className={`px-6 py-3.5 sticky top-0 left-12 z-30 border-b border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[190px] cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
+                    className={`px-3 sm:px-6 py-3.5 sticky top-0 left-0 z-30 border-b border-r border-neutral-200 shadow-[2px_0_5px_rgba(0,0,0,0.06)] min-w-[130px] max-w-[160px] sm:min-w-[200px] sm:max-w-none cursor-pointer select-none transition-colors group hover:bg-slate-100 ${
                       sortField === "name" ? "bg-slate-100 text-[#1E2B42] font-black" : "bg-slate-50 text-slate-600"
                     }`}
                     title="Ism-familiya bo'yicha saralash"
@@ -631,18 +631,22 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                     <tr
                       key={stId || idx}
                       className={`group transition ${
-                        isArchivedTab ? "bg-red-50/20 hover:bg-red-50/50" : "hover:bg-slate-50"
+                        isArchivedTab ? "bg-red-50 hover:bg-red-100" : "bg-white hover:bg-slate-50"
                       }`}
                     >
-                      <td className={`px-4 py-3.5 text-center font-mono text-slate-500 sticky left-0 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] ${borderBottomClass}`}>
+                      <td className={`px-3 sm:px-4 py-3.5 text-center font-mono text-slate-500 border-r border-neutral-200 ${borderBottomClass}`}>
                         {globalIndex}
                       </td>
-                      <td className={`px-6 py-3.5 font-bold text-[#1E2B42] sticky left-12 z-10 bg-inherit border-r border-neutral-200 shadow-[1px_0_0_0_#e5e5e5] min-w-[190px] whitespace-nowrap ${borderBottomClass}`}>
-                        <div className="flex items-center gap-2">
+                      <td className={`px-3 sm:px-6 py-3.5 font-bold text-[#1E2B42] sticky left-0 z-10 bg-inherit border-r border-neutral-200 shadow-[2px_0_5px_rgba(0,0,0,0.06)] min-w-[130px] max-w-[160px] sm:min-w-[200px] sm:max-w-none ${borderBottomClass}`}>
+                        <div className="truncate" title={`${st.last_name || ""} ${st.first_name || ""} ${st.middle_name ? `(${st.middle_name})` : ""}`}>
                           <span>
-                            {st.last_name} {st.first_name}{" "}
-                            {st.middle_name && <span className="text-slate-400 font-normal">({st.middle_name})</span>}
+                            {st.last_name} {st.first_name}
                           </span>
+                          {st.middle_name && (
+                            <span className="text-slate-400 font-normal text-[11px] block sm:inline sm:ml-1 truncate">
+                              ({st.middle_name})
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className={`px-6 py-3.5 font-mono whitespace-nowrap ${borderBottomClass}`}>
