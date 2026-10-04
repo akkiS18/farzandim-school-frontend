@@ -21,6 +21,33 @@ export default function TenantLoginPage() {
   const [showSchoolModal, setShowSchoolModal] = useState(false);
 
   useEffect(() => {
+    // 0. Check URL parameters for auto-selecting login mode and pre-filling passport/phone
+    let urlPassportParam: string | null = null;
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const modeParam = searchParams.get("mode") || (searchParams.get("role") === "parent" ? "passport" : null);
+      urlPassportParam = searchParams.get("passport") || searchParams.get("login") || searchParams.get("doc");
+      const phoneParam = searchParams.get("phone");
+      const schoolParam = searchParams.get("school_id");
+
+      if (modeParam === "passport" || urlPassportParam) {
+        setLoginMode("passport");
+      } else if (modeParam === "phone") {
+        setLoginMode("phone");
+      }
+
+      if (urlPassportParam) {
+        setPassportNo(urlPassportParam.toUpperCase().trim());
+      }
+      if (phoneParam) {
+        setPhone(formatPhoneNumber(phoneParam));
+      }
+      if (schoolParam) {
+        setSelectedSchoolId(schoolParam);
+        localStorage.setItem("school_id", schoolParam);
+      }
+    }
+
     // 1. Fetch available schools for tenant routing
     fetch(`${API_URL}/api/public/schools`)
       .then((res) => res.json())
@@ -43,7 +70,12 @@ export default function TenantLoginPage() {
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
+        // If an invite link was opened for a different passport, clear previous session so new login can proceed
+        if (urlPassportParam && user.passport && user.passport.toUpperCase() !== urlPassportParam.toUpperCase().trim()) {
+          localStorage.removeItem("school_token");
+          localStorage.removeItem("school_refresh_token");
+          localStorage.removeItem("school_user");
+        } else if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
           router.replace("/dashboard");
           return;
         } else if (user.role === "MAIN_TEACHER" || user.role === "SUBJECT_TEACHER") {

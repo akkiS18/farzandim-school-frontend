@@ -850,17 +850,41 @@ export default function ClassesSection({
   };
 
   const handleCopyInvitation = (pt: TenantUser) => {
-    const text = `Hurmatli ota-ona (${pt.first_name} ${pt.last_name}),
+    const parentName = `${pt.first_name || ""} ${pt.last_name || ""}`.trim() || "Hurmatli ota-ona";
+    const studentFullName = pt.student_name || "o'quvchi";
 
-"Farzandim" onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${pt.student_name || "o'quvchi"})ning maktabdagi baholari va davomatini kuzatib borish uchun quyidagi ma'lumotlar orqali tizimga kiring.
+    // DB-dagi haqiqiy login: ota-onaning pasporti yoki telefoni
+    const actualLogin = (pt.passport || pt.phone || "").trim().toUpperCase();
+    const loginDisplay = pt.passport
+      ? pt.passport.trim().toUpperCase()
+      : (pt.phone || "Kiritilmagan");
 
-📱 Telegram bot: @farzandim_uzbot
-🌐 Veb-sayt: https://farzandim.uz
+    const baseUrl = typeof window !== "undefined" 
+      ? window.location.origin 
+      : "https://farzandim.uz";
 
-🔹 Login (Telefon raqamingiz): ${pt.phone || "Kiritilmagan"}
-🔹 Parol: 123456 (Agar ishlamasa, pasport seriyangizni probelsiz kiriting)
+    const autoLoginUrl = actualLogin
+      ? `${baseUrl}/login?mode=passport&passport=${encodeURIComponent(actualLogin)}`
+      : `${baseUrl}/login?mode=passport`;
 
-Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingizni so'raymiz.`;
+    const text = `Hurmatli ota-ona (${parentName}),
+
+"Farzandim" maktab boshqaruvi va onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${studentFullName})ning maktabdagi baholari, dars jadvali va davomatini muntazam kuzatib borish uchun tizimga taklif qilamiz.
+
+🔗 Tizimga avtomatik kirish havolasi:
+${autoLoginUrl}
+
+(Yuqoridagi havola ustiga bossangiz, ota-onalar bo'limi avtomatik ochiladi)
+
+🔑 Tizimga kirish ma'lumotlaringiz:
+🔹 Login: ${loginDisplay}
+🔹 Parol: ||123456||
+(Parol ustiga bossangiz ko'rinadi. Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingiz mumkin)
+
+🌐 Veb-sayt: ${baseUrl}
+
+ℹ️ Eslatma:
+Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingizda texnik noaniqliklar bo'lsa, dasturchilar guruhi nomidan uzr so'raymiz. Tizimga kirishda qiyinchilikka duch kelsangiz yoki ma'lumotlarda xatolik sezsangiz, iltimos, farzandingizning sinf rahbariga xabar bering — mutaxassislarimiz barchasini zudlik bilan to'g'rilab berishadi.`;
 
     navigator.clipboard.writeText(text).then(() => {
       showAlert("Taklifnoma nusxalandi! Endi uni Telegram orqali yuborishingiz mumkin.");
