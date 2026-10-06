@@ -1403,37 +1403,43 @@ function TeacherDashboardContent() {
 
   // 2. Fetch students & grades when class and subject are selected
   useEffect(() => {
-    if (selectedClassId && selectedSubjectId) {
+    if (selectedClassId && selectedSubjectId && teacherTab !== 'journal') {
       fetchClassData();
-    } else {
-      setStudents([]);
-      setExistingGrades([]);
-      setGradeInputs({});
+    } else if (!selectedClassId || !selectedSubjectId) {
+      if (teacherTab !== 'journal') {
+        setStudents([]);
+        setExistingGrades([]);
+        setGradeInputs({});
+      }
     }
-  }, [selectedClassId, selectedSubjectId]);
+  }, [selectedClassId, selectedSubjectId, teacherTab]);
 
   // Contextual Class details fetch (for schedules and exceptions)
   useEffect(() => {
     if (selectedClassId && token) {
-      setClassSchedule([]); // Reset schedule list immediately to prevent stale checks
-      fetchClassTeachers();
-      fetchClassSchedule();
+      if (teacherTab !== 'journal') {
+        setClassSchedule([]); // Reset schedule list immediately to prevent stale checks
+        fetchClassTeachers();
+        fetchClassSchedule();
+      }
       fetchScheduleExceptions();
       fetchSchedulePeriods();
     } else {
-      setClassTeachers([]);
-      setClassSchedule([]);
+      if (teacherTab !== 'journal') {
+        setClassTeachers([]);
+        setClassSchedule([]);
+      }
       setScheduleExceptions([]);
       setSchedulePeriods([]);
     }
-  }, [selectedClassId, token]);
+  }, [selectedClassId, token, teacherTab]);
 
-  // Journal data: reload when class, subject, lesson, date, or active tab changes to "journal"
+  // Journal data: reload when class, date, or active tab changes to "journal"
   useEffect(() => {
     if (selectedClassId && token && teacherTab === 'journal') {
       fetchJournalData(journalDate);
     }
-  }, [selectedClassId, selectedSubjectId, selectedLessonNumber, journalDate, token, teacherTab, userInfo]);
+  }, [selectedClassId, journalDate, token, teacherTab]);
 
   // Students tab data load: reload when class or active tab changes to "students"
   useEffect(() => {
@@ -1907,17 +1913,21 @@ function TeacherDashboardContent() {
     const request = ++journalRequest.current;
     setJournalLoading(true);
     try {
-      // 1. Fetch latest subjects, class teachers, holidays, and schedule in parallel
+      // 1. Fetch latest schedule and teachers in parallel; reuse subjects and holidays if already present
       const [schedData, subData, teacherData, holidayData] = await Promise.all([
         api.get(`/api/schools/classes/${selectedClassId}/schedule?date=${targetDate}`).catch(() => []),
-        api.get("/api/schools/subjects").catch(() => []),
+        subjects.length > 0 ? Promise.resolve(subjects) : api.get("/api/schools/subjects").catch(() => []),
         api.get(`/api/schools/classes/${selectedClassId}/teachers`).catch(() => []),
-        api.get("/api/schools/holidays").catch(() => [])
+        holidays.length > 0 ? Promise.resolve(holidays) : api.get("/api/schools/holidays").catch(() => [])
       ]);
 
       if (request !== journalRequest.current) return;
       if (Array.isArray(subData)) {
         setSubjects(subData);
+      }
+
+      if (Array.isArray(schedData)) {
+        setClassSchedule(schedData);
       }
 
       let latestClassTeachers = classTeachers;
@@ -1943,11 +1953,14 @@ function TeacherDashboardContent() {
       if (isNaN(d.getTime())) return;
       const dow = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon...7=Sun
       
+      const currentClass = classes.find((cls: any) => Number(cls.id) === Number(selectedClassId));
+      const isMainTeacher = Boolean(currentClass?.is_main_teacher || userInfo?.role === "ADMIN");
+
       const lessonsListToday: JournalLessonItem[] = [];
       if (!isTargetHoliday) {
         (Array.isArray(schedData) ? schedData : []).forEach((item: any) => {
           if (item.day_of_week === dow && item.subject_id > 0 && item.subject_name &&
-            (userInfo?.role === "ADMIN" || latestClassTeachers.some(ct => Number(ct.teacher_id) === Number(userInfo?.id) && Number(ct.subject_id) === Number(item.subject_id)))) {
+            (isMainTeacher || latestClassTeachers.some(ct => Number(ct.teacher_id) === Number(userInfo?.id) && Number(ct.subject_id) === Number(item.subject_id)))) {
             lessonsListToday.push({
               subject_id: item.subject_id,
               subject_name: item.subject_name,

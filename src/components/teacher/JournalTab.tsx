@@ -377,12 +377,29 @@ export const JournalTab: React.FC<JournalTabProps> = ({
               }
 
               if (journalLessonsToday.length === 0) {
+                const targetDow = (() => {
+                  try {
+                    const d = parseLocalDate(journalDate);
+                    return d.getDay() === 0 ? 7 : d.getDay();
+                  } catch {
+                    return 0;
+                  }
+                })();
+                const hasClassLessonsToday = targetDow > 0 && classSchedule.some(
+                  (item) => item.day_of_week === targetDow && item.subject_id > 0
+                );
                 return (
                   <div className="text-center py-12 bg-white border-y sm:border border-neutral-200 rounded-none p-6 space-y-2">
                     <Clock className="w-8 h-8 text-slate-400 mx-auto" />
-                    <h4 className="font-serif text-base font-bold text-slate-900">Bugungi kunda darslar mavjud emas</h4>
+                    <h4 className="font-serif text-base font-bold text-slate-900">
+                      {hasClassLessonsToday
+                        ? "Bugun sizning darsingiz mavjud emas"
+                        : "Bugungi kunda darslar mavjud emas"}
+                    </h4>
                     <p className="text-xs text-slate-600 font-normal max-w-sm mx-auto">
-                      Tanlangan sanada ({formattedUzbekDate}) ushbu sinf uchun dars jadvali belgilanmagan.
+                      {hasClassLessonsToday
+                        ? "Ushbu sinfda bugun darslar mavjud, biroq siz dars beradigan fandan dars belgilanmagan."
+                        : `Tanlangan sanada (${formattedUzbekDate}) ushbu sinf uchun dars jadvali belgilanmagan.`}
                     </p>
                   </div>
                 );
