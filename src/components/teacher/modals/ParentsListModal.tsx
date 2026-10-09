@@ -115,13 +115,13 @@ ${autoLoginUrl}
 
 🔑 Tizimga kirish ma'lumotlaringiz:
 🔹 Login: ${loginDisplay}
-🔹 Parol: ||123456||
+🔹 Parol: ||123||
 (Parol ustiga bossangiz ko'rinadi. Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingiz mumkin)
 
 🌐 Veb-sayt: ${baseUrl}
 
 ℹ️ Eslatma:
-Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingizda texnik noaniqliklar bo'lsa, dasturchilar guruhi nomidan uzr so'raymiz. Tizimga kirishda qiyinchilikka duch kelsangiz yoki ma'lumotlarda xatolik sezsangiz, iltimos, farzandingizning sinf rahbariga xabar bering — mutaxassislarimiz barchasini zudlik bilan to'g'rilab berishadi.`;
+Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingizda texnik noaniqliklar bo'lsa, dasturchilar guruhi nomidan uzr so'raymiz. Tizimga kirishda qiyinchilikka duch kelsangiz yoki ma'lumotlarda xatolik sezsangiz, iltimos, farzandingizning sinf rahbariga xabar bering. Shuningdek, veb-sayt ishlashida kamchiliklar kuzatilayotgan bo'lsa, texnik yordam uchun @farzandim_edu_bot Telegram botiga yozishingiz mumkin — mutaxassislarimiz barchasini zudlik bilan to'g'rilab berishadi.`;
   };
 
   const handleCopyInvite = (parent: LinkedParent, e?: React.MouseEvent) => {
@@ -487,7 +487,7 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
                     Standart parol
                   </span>
                   <span className="font-mono font-bold text-slate-800">
-                    123456 <span className="text-[10px] text-slate-400 font-sans font-normal">(yoki pasport)</span>
+                    123 <span className="text-[10px] text-slate-400 font-sans font-normal">(yoki pasport)</span>
                   </span>
                 </div>
 
