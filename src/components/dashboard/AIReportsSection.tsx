@@ -425,8 +425,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     }
   };
 
+  let pollTick = 0;
   const startPolling = (jobId: string) => {
     stopPolling();
+    pollTick = 0;
     pollingRef.current = setInterval(async () => {
       try {
         const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/jobs/${jobId}`, {
@@ -439,6 +441,11 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           const data = await res.json();
           if (data.job) {
             setActiveJob(data.job);
+            pollTick++;
+            // Har 2 ta tickda (~4 soniyada) ro'yxatni jonli yangilab boramiz
+            if (pollTick % 2 === 0 && selectedWeek) {
+              fetchReportsByWeek();
+            }
             if (data.job.status === "FINISHED") {
               stopPolling();
               setToastMessage(`Generatsiya muvaffaqiyatli yakunlandi! Jami: ${data.job.generated_count} ta hisobot yaratildi.`);
@@ -449,10 +456,12 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               stopPolling();
               setToastMessage(`Xatolik yuz berdi: ${data.job.error_message || "Generatsiya to'xtatildi"}`);
               setTimeout(() => setToastMessage(null), 6000);
+              if (selectedWeek) fetchReportsByWeek();
             } else if (data.job.status === "CANCELLED") {
               stopPolling();
-              setToastMessage("Generatsiya jarayoni bekor qilindi");
+              setToastMessage("Generatsiya jarayoni to'xtatildi");
               setTimeout(() => setToastMessage(null), 4000);
+              if (selectedWeek) fetchReportsByWeek();
             }
           }
         }
