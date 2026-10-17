@@ -18,6 +18,7 @@ import {
   Copy,
 } from "lucide-react";
 import EditParentModal from "@/components/dashboard/EditParentModal";
+import { generateParentInviteText } from "@/lib/invite";
 
 interface ParentItem {
   id?: number;
@@ -92,41 +93,7 @@ const ParentsTab: React.FC<ParentsTabProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
 
   const handleCopyInvitation = (pt: ParentItem) => {
-    const parentName = `${pt.first_name || ""} ${pt.last_name || ""}`.trim() || "Hurmatli ota-ona";
-    const studentFullName = pt.student_name || "o'quvchi";
-
-    // DB-dagi haqiqiy login: ota-onaning pasporti yoki telefoni
-    const actualLogin = (pt.passport || pt.phone || "").trim().toUpperCase();
-    const loginDisplay = pt.passport
-      ? pt.passport.trim().toUpperCase()
-      : (pt.phone || "Kiritilmagan");
-
-    const baseUrl = typeof window !== "undefined" 
-      ? window.location.origin 
-      : "https://farzandim.uz";
-
-    const autoLoginUrl = actualLogin
-      ? `${baseUrl}/login?mode=passport&passport=${encodeURIComponent(actualLogin)}`
-      : `${baseUrl}/login?mode=passport`;
-
-    const text = `Hurmatli ota-ona (${parentName}),
-
-"Farzandim" maktab boshqaruvi va onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${studentFullName})ning maktabdagi baholari, dars jadvali va davomatini muntazam kuzatib borish uchun tizimga taklif qilamiz.
-
-🔗 Tizimga avtomatik kirish havolasi:
-${autoLoginUrl}
-
-(Yuqoridagi havola ustiga bossangiz, ota-onalar bo'limi avtomatik ochiladi)
-
-🔑 Tizimga kirish ma'lumotlaringiz:
-🔹 Login: ${loginDisplay}
-🔹 Parol: ||123456||
-(Parol ustiga bossangiz ko'rinadi. Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingiz mumkin)
-
-🌐 Veb-sayt: ${baseUrl}
-
-ℹ️ Eslatma:
-Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingizda texnik noaniqliklar bo'lsa, dasturchilar guruhi nomidan uzr so'raymiz. Tizimga kirishda qiyinchilikka duch kelsangiz yoki ma'lumotlarda xatolik sezsangiz, iltimos, farzandingizning sinf rahbariga xabar bering — mutaxassislarimiz barchasini zudlik bilan to'g'rilab berishadi.`;
+    const text = generateParentInviteText(pt);
 
     navigator.clipboard.writeText(text).then(() => {
       alert("Taklifnoma nusxalandi! Endi uni Telegram orqali yuborishingiz mumkin.");

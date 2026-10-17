@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { X, Copy, Check, Send, User } from "lucide-react";
 import PasswordInput from "@/components/common/PasswordInput";
+import { generateParentInviteText } from "@/lib/invite";
 
 interface LinkedParent {
   id?: number;
@@ -88,40 +89,7 @@ export default function ParentsListModal({
 
   const generateInviteText = (parent: LinkedParent) => {
     const studentFullName = `${selectedStudent?.first_name || ""} ${selectedStudent?.last_name || ""}`.trim() || "o'quvchi";
-    const parentName = `${parent.first_name || ""} ${parent.last_name || ""}`.trim() || "Hurmatli ota-ona";
-    
-    // DB-dagi haqiqiy login: ota-onaning pasporti yoki telefoni
-    const actualLogin = (parent.passport || parent.phone || "").trim().toUpperCase();
-    const loginDisplay = parent.passport
-      ? parent.passport.trim().toUpperCase()
-      : (parent.phone || "Kiritilmagan");
-
-    const baseUrl = typeof window !== "undefined" 
-      ? window.location.origin 
-      : "https://farzandim.uz";
-
-    const autoLoginUrl = actualLogin
-      ? `${baseUrl}/login?mode=passport&passport=${encodeURIComponent(actualLogin)}`
-      : `${baseUrl}/login?mode=passport`;
-
-    return `Hurmatli ota-ona (${parentName}),
-
-"Farzandim" maktab boshqaruvi va onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${studentFullName})ning maktabdagi baholari, dars jadvali va davomatini muntazam kuzatib borish uchun tizimga taklif qilamiz.
-
-🔗 Tizimga avtomatik kirish havolasi:
-${autoLoginUrl}
-
-(Yuqoridagi havola ustiga bossangiz, ota-onalar bo'limi avtomatik ochiladi)
-
-🔑 Tizimga kirish ma'lumotlaringiz:
-🔹 Login: ${loginDisplay}
-🔹 Parol: ||123||
-(Parol ustiga bossangiz ko'rinadi. Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingiz mumkin)
-
-🌐 Veb-sayt: ${baseUrl}
-
-ℹ️ Eslatma:
-Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingizda texnik noaniqliklar bo'lsa, dasturchilar guruhi nomidan uzr so'raymiz. Tizimga kirishda qiyinchilikka duch kelsangiz yoki ma'lumotlarda xatolik sezsangiz, iltimos, farzandingizning sinf rahbariga xabar bering. Shuningdek, veb-sayt ishlashida kamchiliklar kuzatilayotgan bo'lsa, texnik yordam uchun @farzandim_edu_bot Telegram botiga yozishingiz mumkin — mutaxassislarimiz barchasini zudlik bilan to'g'rilab berishadi.`;
+    return generateParentInviteText(parent, studentFullName);
   };
 
   const handleCopyInvite = (parent: LinkedParent, e?: React.MouseEvent) => {
@@ -340,16 +308,15 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
                 </div>
                 <div>
                   <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
-                    Telefon *
+                    Telefon
                   </label>
                   <input
                     type="text"
-                    required
                     autoComplete="new-password" name="off"
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
                     className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
-                    placeholder="Masalan: +998901234567"
+                    placeholder="Masalan: +998901234567 (ixtiyoriy)"
                   />
                 </div>
               </div>
@@ -357,10 +324,11 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
-                    Pasport
+                    Pasport *
                   </label>
                   <input
                     type="text"
+                    required
                     autoComplete="new-password" name="off"
                     value={parentPassport}
                     onChange={(e) => setParentPassport(e.target.value)}

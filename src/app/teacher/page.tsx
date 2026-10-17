@@ -2416,8 +2416,8 @@ function TeacherDashboardContent() {
       showToast("error", "O'quvchini tanlang");
       return;
     }
-    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
-      showToast("error", "Majburiy maydonlarni to'ldiring");
+    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPassport.trim() || !parentPassword.trim()) {
+      showToast("error", "Majburiy maydonlarni to'ldiring (Ism, Familiya, Pasport, Parol)");
       return;
     }
 
@@ -2546,8 +2546,8 @@ function TeacherDashboardContent() {
   const handleLinkParent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudentForParents) return;
-    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
-      showToast("error", "Majburiy maydonlarni to'ldiring");
+    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPassport.trim() || !parentPassword.trim()) {
+      showToast("error", "Majburiy maydonlarni to'ldiring (Ism, Familiya, Pasport, Parol)");
       return;
     }
 
