@@ -123,10 +123,22 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
   const [activeJob, setActiveJob] = useState<AIGenerationJob | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Single report regeneration sequential queue states
-  const [regenQueue, setRegenQueue] = useState<{ id: string; studentName: string }[]>([]);
+  // Single report regeneration sequential queue states (persisted in localStorage)
+  const [regenQueue, setRegenQueue] = useState<{ id: string; studentName: string }[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("farzandim_regen_queue");
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [activeRegenId, setActiveRegenId] = useState<string | null>(null);
   const [activeRegenStudentName, setActiveRegenStudentName] = useState<string | null>(null);
+  const [templateCount, setTemplateCount] = useState<number>(0);
+  const [regenTemplatesLoading, setRegenTemplatesLoading] = useState<boolean>(false);
 
   const storyScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -358,6 +370,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         setReports(data.reports || []);
         setTotalPages(data.total_pages || 1);
         setTotalCount(data.total_count || 0);
+        setTemplateCount(data.template_count || 0);
       }
     } catch (err) {
       console.error("Error fetching reports by week:", err);
@@ -571,6 +584,75 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
       isMounted = false;
     };
   }, [activeRegenId, regenQueue, API_URL, token]);
+
+  // Sync regeneration queue to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("farzandim_regen_queue", JSON.stringify(regenQueue));
+      } catch (err) {
+        console.error("Failed to sync regenQueue to localStorage:", err);
+      }
+    }
+  }, [regenQueue]);
+
+  // Prevent accidental tab close/refresh while single queue is active
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (activeRegenId !== null || regenQueue.length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [activeRegenId, regenQueue]);
+
+  // Batch Regenerate all dynamic templates for the selected week
+  const handleRegenerateAllTemplates = async () => {
+    if (!selectedWeek) return;
+
+    const countText = templateCount > 0 ? `${templateCount} ta` : "barcha";
+    if (
+      !window.confirm(
+        `${selectedWeek.year}-yil ${selectedWeek.week_number}-haftadagi ${countText} dinamik hisobotni AI orqali to'liq qayta generatsiya qilmoqchimisiz?\n\nJarayon serverda fon rejimida amalga oshiriladi. Sahifani bemalol yangilashingiz yoki yopishingiz mumkin.`
+      )
+    ) {
+      return;
+    }
+
+    setRegenTemplatesLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/regenerate-templates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+        body: JSON.stringify({
+          year: selectedWeek.year,
+          week_number: selectedWeek.week_number,
+          class_id: selectedClassId ? Number(selectedClassId) : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setToastMessage(`🚀 ${data.message || "Generatsiya boshlandi!"}`);
+        setTimeout(() => setToastMessage(null), 5000);
+        fetchActiveJob();
+      } else {
+        setToastMessage(`Xatolik: ${data.error || "Generatsiyani boshlab bo'lmadi"}`);
+        setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch (err: any) {
+      setToastMessage(`Serverga ulanishda xatolik: ${err.message || err}`);
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setRegenTemplatesLoading(false);
+    }
+  };
 
   // Handle Admin Batch Generate
   const handleBatchGenerate = async () => {
@@ -1019,6 +1101,24 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 </option>
               ))}
             </select>
+
+            {/* Batch Regenerate Dynamic Reports Button */}
+            {templateCount > 0 && (
+              <button
+                type="button"
+                onClick={handleRegenerateAllTemplates}
+                disabled={regenTemplatesLoading || (activeJob !== null && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS"))}
+                className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center gap-2 rounded-none shadow-xs disabled:opacity-50 shrink-0"
+                title="Tanlangan haftadagi barcha Dinamik shablonlarni fonda AI orqali qayta generatsiya qilish"
+              >
+                {regenTemplatesLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>Barcha dinamikni yangilash ({templateCount})</span>
+              </button>
+            )}
           </div>
 
           {/* Active Sequential Regeneration Queue Banner */}
