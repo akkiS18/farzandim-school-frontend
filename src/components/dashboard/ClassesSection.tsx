@@ -5,6 +5,7 @@ import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft, Plus, Copy } from "lu
 import TransferStudentsModal from "./TransferStudentsModal";
 import DateRangePresets from "../DateRangePresets";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
+import { generateParentInviteText } from "@/lib/invite";
 
 interface SearchableSingleSelectProps {
   value: number;
@@ -495,8 +496,8 @@ export default function ClassesSection({
   const handleLinkParent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudentForParents) return;
-    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
-      showAlert("Majburiy maydonlarni to'ldiring");
+    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPassport.trim() || !parentPassword.trim()) {
+      showAlert("Majburiy maydonlarni to'ldiring (Ism, Familiya, Pasport, Parol)");
       return;
     }
 
@@ -548,8 +549,8 @@ export default function ClassesSection({
       showAlert("Iltimos, o'quvchini tanlang");
       return;
     }
-    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPhone.trim() || !parentPassword.trim()) {
-      showAlert("Majburiy maydonlarni to'ldiring");
+    if (!parentFirstName.trim() || !parentLastName.trim() || !parentPassport.trim() || !parentPassword.trim()) {
+      showAlert("Majburiy maydonlarni to'ldiring (Ism, Familiya, Pasport, Parol)");
       return;
     }
 
@@ -850,41 +851,7 @@ export default function ClassesSection({
   };
 
   const handleCopyInvitation = (pt: TenantUser) => {
-    const parentName = `${pt.first_name || ""} ${pt.last_name || ""}`.trim() || "Hurmatli ota-ona";
-    const studentFullName = pt.student_name || "o'quvchi";
-
-    // DB-dagi haqiqiy login: ota-onaning pasporti yoki telefoni
-    const actualLogin = (pt.passport || pt.phone || "").trim().toUpperCase();
-    const loginDisplay = pt.passport
-      ? pt.passport.trim().toUpperCase()
-      : (pt.phone || "Kiritilmagan");
-
-    const baseUrl = typeof window !== "undefined" 
-      ? window.location.origin 
-      : "https://farzandim.uz";
-
-    const autoLoginUrl = actualLogin
-      ? `${baseUrl}/login?mode=passport&passport=${encodeURIComponent(actualLogin)}`
-      : `${baseUrl}/login?mode=passport`;
-
-    const text = `Hurmatli ota-ona (${parentName}),
-
-"Farzandim" maktab boshqaruvi va onlayn kundalik tizimiga xush kelibsiz! Farzandingiz (${studentFullName})ning maktabdagi baholari, dars jadvali va davomatini muntazam kuzatib borish uchun tizimga taklif qilamiz.
-
-🔗 Tizimga avtomatik kirish havolasi:
-${autoLoginUrl}
-
-(Yuqoridagi havola ustiga bossangiz, ota-onalar bo'limi avtomatik ochiladi)
-
-🔑 Tizimga kirish ma'lumotlaringiz:
-🔹 Login: ${loginDisplay}
-🔹 Parol: ||123456||
-(Parol ustiga bossangiz ko'rinadi. Tizimga kirgach, xavfsizlik uchun parolingizni o'zgartirishingiz mumkin)
-
-🌐 Veb-sayt: ${baseUrl}
-
-ℹ️ Eslatma:
-Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingizda texnik noaniqliklar bo'lsa, dasturchilar guruhi nomidan uzr so'raymiz. Tizimga kirishda qiyinchilikka duch kelsangiz yoki ma'lumotlarda xatolik sezsangiz, iltimos, farzandingizning sinf rahbariga xabar bering — mutaxassislarimiz barchasini zudlik bilan to'g'rilab berishadi.`;
+    const text = generateParentInviteText(pt);
 
     navigator.clipboard.writeText(text).then(() => {
       showAlert("Taklifnoma nusxalandi! Endi uni Telegram orqali yuborishingiz mumkin.");
@@ -2919,11 +2886,10 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami *</label>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami (ixtiyoriy)</label>
                         <input
                           type="text"
-                          required
-                          placeholder="+998901234567"
+                          placeholder="+998901234567 (ixtiyoriy)"
                           value={parentPhone}
                           onChange={(e) => setParentPhone(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
@@ -2933,9 +2899,10 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport</label>
+                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport *</label>
                         <input
                           type="text"
+                          required
                           name="parent_passport_serial_no_no_autofill"
                           autoComplete="off"
                           autoCapitalize="off"
@@ -3087,11 +3054,10 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami *</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Telefon raqami (ixtiyoriy)</label>
                   <input
                     type="text"
-                    required
-                    placeholder="+998901234567"
+                    placeholder="+998901234567 (ixtiyoriy)"
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800  px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#D4F562] transition font-mono font-bold"
@@ -3100,9 +3066,10 @@ Hurmatli ota-ona, agar tizimdagi ism-familiyangiz yoki pasport seriya raqamingiz
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport</label>
+                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase font-mono mb-1.5">Pasport *</label>
                     <input
                       type="text"
+                      required
                       placeholder="AB1234567"
                       value={parentPassport}
                       onChange={(e) => setParentPassport(e.target.value)}

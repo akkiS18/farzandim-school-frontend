@@ -4,7 +4,7 @@ import { ClassItem } from "./types";
 import { TargetPresets } from "@/components/TargetPresets";
 import SmartCalendarModal, { getMondayOfDate, formatDateISO, formatWeekRangeLabel } from "@/components/SmartCalendarModal";
 import CustomDialogModal from "@/components/CustomDialogModal";
-import { Sparkles, Calendar, X, Search, Check, Trash2, ArrowLeft, ArrowRight, Eye, UserCheck, ShieldAlert, CheckCircle2, ChevronRight, Sliders, History, RotateCcw, Save, Bot, FileText, SlidersHorizontal, Layers, Cpu } from "lucide-react";
+import { Sparkles, Calendar, X, Search, Check, Trash2, ArrowLeft, ArrowRight, Eye, UserCheck, ShieldAlert, CheckCircle2, ChevronRight, Sliders, History, RotateCcw, Save, Bot, FileText, SlidersHorizontal, Layers, Cpu, Loader2, RefreshCw, Clock } from "lucide-react";
 
 interface GroupedWeekItem {
   year: number;
@@ -122,6 +122,23 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
   // Active background job states
   const [activeJob, setActiveJob] = useState<AIGenerationJob | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Single report regeneration sequential queue states (persisted in localStorage)
+  const [regenQueue, setRegenQueue] = useState<{ id: string; studentName: string }[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("farzandim_regen_queue");
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [activeRegenId, setActiveRegenId] = useState<string | null>(null);
+  const [activeRegenStudentName, setActiveRegenStudentName] = useState<string | null>(null);
+  const [templateCount, setTemplateCount] = useState<number>(0);
+  const [regenTemplatesLoading, setRegenTemplatesLoading] = useState<boolean>(false);
 
   const storyScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -353,6 +370,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
         setReports(data.reports || []);
         setTotalPages(data.total_pages || 1);
         setTotalCount(data.total_count || 0);
+        setTemplateCount(data.template_count || 0);
       }
     } catch (err) {
       console.error("Error fetching reports by week:", err);
@@ -407,8 +425,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     }
   };
 
+  let pollTick = 0;
   const startPolling = (jobId: string) => {
     stopPolling();
+    pollTick = 0;
     pollingRef.current = setInterval(async () => {
       try {
         const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/jobs/${jobId}`, {
@@ -421,6 +441,11 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
           const data = await res.json();
           if (data.job) {
             setActiveJob(data.job);
+            pollTick++;
+            // Har 2 ta tickda (~4 soniyada) ro'yxatni jonli yangilab boramiz
+            if (pollTick % 2 === 0 && selectedWeek) {
+              fetchReportsByWeek();
+            }
             if (data.job.status === "FINISHED") {
               stopPolling();
               setToastMessage(`Generatsiya muvaffaqiyatli yakunlandi! Jami: ${data.job.generated_count} ta hisobot yaratildi.`);
@@ -431,10 +456,12 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
               stopPolling();
               setToastMessage(`Xatolik yuz berdi: ${data.job.error_message || "Generatsiya to'xtatildi"}`);
               setTimeout(() => setToastMessage(null), 6000);
+              if (selectedWeek) fetchReportsByWeek();
             } else if (data.job.status === "CANCELLED") {
               stopPolling();
-              setToastMessage("Generatsiya jarayoni bekor qilindi");
+              setToastMessage("Generatsiya jarayoni to'xtatildi");
               setTimeout(() => setToastMessage(null), 4000);
+              if (selectedWeek) fetchReportsByWeek();
             }
           }
         }
@@ -491,6 +518,150 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
     fetchActiveJob();
     return () => stopPolling();
   }, [token, API_URL]);
+
+  // Add individual student report to regeneration queue
+  const handleAddToRegenQueue = (id: string, studentName: string) => {
+    if (activeRegenId === id || regenQueue.some((item) => item.id === id)) {
+      return;
+    }
+    setRegenQueue((prev) => [...prev, { id, studentName }]);
+    setToastMessage(`"${studentName}" qayta generatsiya navbatiga qo'shildi`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Process regeneration queue sequentially (one student at a time)
+  useEffect(() => {
+    if (activeRegenId !== null || regenQueue.length === 0) {
+      return;
+    }
+
+    const nextItem = regenQueue[0];
+    setActiveRegenId(nextItem.id);
+    setActiveRegenStudentName(nextItem.studentName);
+    setRegenQueue((prev) => prev.slice(1));
+
+    let isMounted = true;
+
+    const runSingleRegeneration = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/${nextItem.id}/regenerate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "X-School-ID": localStorage.getItem("school_id") || "",
+          },
+        });
+
+        const text = await res.text();
+        let data: any = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          throw new Error(`Server xatoligi (${res.status}): ${text || "Bo'sh javob"}`);
+        }
+
+        if (res.ok && data.report) {
+          // Update the report in the list
+          setReports((prev) =>
+            prev.map((r) => (r.id === nextItem.id ? { ...r, ...data.report } : r))
+          );
+          // If preview modal is currently open with this report, update it too
+          setPreviewReport((prev) =>
+            prev && prev.id === nextItem.id ? { ...prev, ...data.report } : prev
+          );
+          setToastMessage(`✨ ${nextItem.studentName} hisoboti AI orqali muvaffaqiyatli yangilandi!`);
+          setTimeout(() => setToastMessage(null), 4000);
+        } else {
+          setToastMessage(`Qayta generatsiyada xatolik (${nextItem.studentName}): ${data.error || "Noma'lum xato"}`);
+          setTimeout(() => setToastMessage(null), 5000);
+        }
+      } catch (err: any) {
+        setToastMessage(`Tarmoq xatosi (${nextItem.studentName}): ${err.message || "Ulanishda xato"}`);
+        setTimeout(() => setToastMessage(null), 5000);
+      } finally {
+        if (isMounted) {
+          setActiveRegenId(null);
+          setActiveRegenStudentName(null);
+        }
+      }
+    };
+
+    runSingleRegeneration();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeRegenId, regenQueue, API_URL, token]);
+
+  // Sync regeneration queue to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("farzandim_regen_queue", JSON.stringify(regenQueue));
+      } catch (err) {
+        console.error("Failed to sync regenQueue to localStorage:", err);
+      }
+    }
+  }, [regenQueue]);
+
+  // Prevent accidental tab close/refresh while single queue is active
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (activeRegenId !== null || regenQueue.length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [activeRegenId, regenQueue]);
+
+  // Batch Regenerate all dynamic templates for the selected week
+  const handleRegenerateAllTemplates = async () => {
+    if (!selectedWeek) return;
+
+    const countText = templateCount > 0 ? `${templateCount} ta` : "barcha";
+    if (
+      !window.confirm(
+        `${selectedWeek.year}-yil ${selectedWeek.week_number}-haftadagi ${countText} dinamik hisobotni AI orqali to'liq qayta generatsiya qilmoqchimisiz?\n\nJarayon serverda fon rejimida amalga oshiriladi. Sahifani bemalol yangilashingiz yoki yopishingiz mumkin.`
+      )
+    ) {
+      return;
+    }
+
+    setRegenTemplatesLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/schools/admin/ai-reports/regenerate-templates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-School-ID": localStorage.getItem("school_id") || "",
+        },
+        body: JSON.stringify({
+          year: selectedWeek.year,
+          week_number: selectedWeek.week_number,
+          class_id: selectedClassId ? Number(selectedClassId) : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setToastMessage(`🚀 ${data.message || "Generatsiya boshlandi!"}`);
+        setTimeout(() => setToastMessage(null), 5000);
+        fetchActiveJob();
+      } else {
+        setToastMessage(`Xatolik: ${data.error || "Generatsiyani boshlab bo'lmadi"}`);
+        setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch (err: any) {
+      setToastMessage(`Serverga ulanishda xatolik: ${err.message || err}`);
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setRegenTemplatesLoading(false);
+    }
+  };
 
   // Handle Admin Batch Generate
   const handleBatchGenerate = async () => {
@@ -939,7 +1110,54 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                 </option>
               ))}
             </select>
+
+            {/* Batch Regenerate Dynamic Reports Button */}
+            {templateCount > 0 && (
+              <button
+                type="button"
+                onClick={handleRegenerateAllTemplates}
+                disabled={regenTemplatesLoading || (activeJob !== null && (activeJob.status === "STARTED" || activeJob.status === "IN_PROGRESS"))}
+                className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center gap-2 rounded-none shadow-xs disabled:opacity-50 shrink-0"
+                title="Tanlangan haftadagi barcha Dinamik shablonlarni fonda AI orqali qayta generatsiya qilish"
+              >
+                {regenTemplatesLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>Barcha dinamikni yangilash ({templateCount})</span>
+              </button>
+            )}
           </div>
+
+          {/* Active Sequential Regeneration Queue Banner */}
+          {(activeRegenId !== null || regenQueue.length > 0) && (
+            <div className="mb-4 p-3.5 bg-gradient-to-r from-indigo-50/90 via-blue-50/80 to-indigo-50/90 border border-indigo-200 text-indigo-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <Loader2 className="w-4 h-4 text-indigo-600 animate-spin flex-shrink-0" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold">
+                    Hozir AI yaratmoqda:{" "}
+                    <span className="font-black text-indigo-900 bg-white/80 border border-indigo-200/80 px-2 py-0.5 shadow-2xs">
+                      {activeRegenStudentName || "..."}
+                    </span>
+                  </span>
+                  {regenQueue.length > 0 && (
+                    <span className="font-bold text-slate-600 flex items-center gap-1">
+                      <span>•</span>
+                      <span>Navbatda:</span>
+                      <span className="font-black text-amber-800 bg-amber-100/90 border border-amber-200/80 px-2 py-0.5 shadow-2xs">
+                        {regenQueue.length} ta o'quvchi
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className="text-[11px] text-indigo-600 font-medium">
+                Ketma-ket AI orqali qayta generatsiya qilinmoqda
+              </span>
+            </div>
+          )}
 
           {/* Students Table */}
           <div className="bg-white rounded-none border border-slate-200/80 overflow-hidden shadow-sm">
@@ -961,7 +1179,7 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                       <th className="px-5 py-3">Sinf</th>
                       <th className="px-5 py-3">O'rtacha Baho</th>
                       <th className="px-5 py-3">Manba</th>
-<th className="px-5 py-3">Dinamika</th>
+                      <th className="px-5 py-3">Dinamika</th>
                       <th className="px-5 py-3">O'qilgan Kitoblar</th>
                       <th className="px-5 py-3 text-right">Amallar</th>
                     </tr>
@@ -970,6 +1188,10 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                     {reports.map((rep) => {
                       const avg = rep.summary_json?.average_grade || 0;
                       const trend = rep.summary_json?.grade_trend || "STABLE";
+                      const isProcessing = activeRegenId === rep.id;
+                      const queueIndex = regenQueue.findIndex((item) => item.id === rep.id);
+                      const isQueued = queueIndex !== -1;
+                      const isTemplate = rep.summary_json?.generation_source === "template";
 
                       return (
                         <tr
@@ -986,7 +1208,45 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           <td className="px-5 py-3.5 font-mono font-black text-[#1D1E26]">
                             {avg > 0 ? avg.toFixed(1) : "—"}
                           </td>
-<td className="px-5 py-3.5"><ReportSourceBadge summary={rep.summary_json} /></td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {isProcessing ? (
+                                <span
+                                  title="AI hisobotni qayta generatsiya qilmoqda..."
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-300 shadow-xs select-none animate-pulse"
+                                >
+                                  <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
+                                  <span>AI yaratmoqda...</span>
+                                </span>
+                              ) : isQueued ? (
+                                <span
+                                  title={`Navbatda (${queueIndex + 1}-o'rinda). Avvalgisi tugagach avtomatik generatsiya boshlanadi.`}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-xs select-none"
+                                >
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Navbatda ({queueIndex + 1})</span>
+                                </span>
+                              ) : (
+                                <>
+                                  <ReportSourceBadge summary={rep.summary_json} />
+                                  {isTemplate && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddToRegenQueue(rep.id, rep.student_name);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-white hover:bg-indigo-50 text-indigo-700 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 shadow-2xs transition cursor-pointer select-none"
+                                      title="Ushbu dinamik hisobotni haqiqiy AI orqali qayta generatsiya qilish navbatiga qo'yish"
+                                    >
+                                      <Sparkles className="w-3 h-3 text-indigo-600" />
+                                      <span>Qayta generatsiya</span>
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-5 py-3.5">
                             {trend === "UP" && <span className="text-emerald-600 font-extrabold">O'sdi</span>}
                             {trend === "DOWN" && <span className="text-rose-500 font-extrabold">Pasaydi</span>}
@@ -997,6 +1257,36 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                disabled={isProcessing || isQueued}
+                                title={
+                                  isProcessing
+                                    ? "Generatsiya qilinmoqda..."
+                                    : isQueued
+                                    ? `Navbatda (${queueIndex + 1}-o'rinda)`
+                                    : "AI orqali qayta generatsiya qilish navbatiga qo'yish"
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddToRegenQueue(rep.id, rep.student_name);
+                                }}
+                                className={`p-2 rounded-none border transition cursor-pointer ${
+                                  isProcessing
+                                    ? "bg-indigo-50 border-indigo-300 text-indigo-600 cursor-not-allowed"
+                                    : isQueued
+                                    ? "bg-amber-50 border-amber-300 text-amber-700 cursor-not-allowed"
+                                    : "bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700"
+                                }`}
+                              >
+                                {isProcessing ? (
+                                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                                ) : isQueued ? (
+                                  <Clock className="w-4 h-4 text-amber-600" />
+                                ) : (
+                                  <RefreshCw className="w-4 h-4" />
+                                )}
+                              </button>
                               <button
                                 type="button"
                                 title="Hisobotni ko'rish"
@@ -1451,6 +1741,30 @@ export default function AIReportsSection({ token, API_URL, classes }: AIReportsS
                           <span>AI xizmatiga ulanib bo'lmagani sababli dinamik shablon orqali tuzilgan</span>
                         </div>
                       ) : null}
+
+                      {/* Modal Quick Regenerate Action */}
+                      <div className="pt-2">
+                        {activeRegenId === previewReport.id ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 text-white text-xs font-bold border border-white/30 backdrop-blur-md select-none animate-pulse">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>AI orqali yangilash jarayoni ketmoqda...</span>
+                          </div>
+                        ) : regenQueue.some((item) => item.id === previewReport.id) ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/30 text-amber-100 text-xs font-bold border border-amber-400/30 backdrop-blur-md select-none">
+                            <Clock className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Qayta yaratish navbatida kutilmoqda...</span>
+                          </div>
+                        ) : previewReport.summary_json?.generation_source === "template" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleAddToRegenQueue(previewReport.id, previewReport.student_name)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-slate-900 hover:bg-slate-100 text-xs font-black shadow-md transition cursor-pointer select-none"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>AI orqali qayta generatsiya qilish</span>
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
 
                     {/* Key Metrics Horizon Cards */}

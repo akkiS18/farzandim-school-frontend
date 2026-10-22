@@ -158,16 +158,15 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
-                  Telefon *
+                  Telefon
                 </label>
                 <input
                   type="text"
-                  required
                   autoComplete="new-password" name="off"
                   value={parentPhone}
                   onChange={(e) => setParentPhone(e.target.value)}
                   className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
-                  placeholder="Telefon raqamini kiriting"
+                  placeholder="Telefon raqami (ixtiyoriy)"
                 />
               </div>
             </div>
@@ -175,15 +174,16 @@ export const AddParentModal: React.FC<AddParentModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold font-sans text-slate-600 mb-1.5">
-                  Pasport
+                  Pasport *
                 </label>
                 <input
                   type="text"
+                  required
                   autoComplete="new-password" name="off"
                   value={parentPassport}
                   onChange={(e) => setParentPassport(e.target.value)}
                   className="w-full text-xs border border-neutral-300 rounded-none px-3.5 py-2.5 focus:border-[#1E2B42] focus:ring-0 bg-white font-sans text-slate-800 outline-none transition-colors"
-                  placeholder="AA1234567"
+                  placeholder="Masalan: AA1234567"
                 />
               </div>
               <div>
