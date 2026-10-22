@@ -16,9 +16,6 @@ export default function TenantLoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [schools, setSchools] = useState<Array<{ id: string; name: string; subdomain: string }>>([]);
-  const [selectedSchoolId, setSelectedSchoolId] = useState<string>("");
-  const [showSchoolModal, setShowSchoolModal] = useState(false);
 
   useEffect(() => {
     // 0. Check URL parameters for auto-selecting login mode and pre-filling passport/phone
@@ -43,26 +40,9 @@ export default function TenantLoginPage() {
         setPhone(formatPhoneNumber(phoneParam));
       }
       if (schoolParam) {
-        setSelectedSchoolId(schoolParam);
         localStorage.setItem("school_id", schoolParam);
       }
     }
-
-    // 1. Fetch available schools for tenant routing
-    fetch(`${API_URL}/api/public/schools`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setSchools(data);
-          const savedSchoolId = localStorage.getItem("school_id");
-          if (savedSchoolId && data.some((s) => s.id === savedSchoolId)) {
-            setSelectedSchoolId(savedSchoolId);
-          } else if (data.length > 0) {
-            setSelectedSchoolId(data[0].id);
-          }
-        }
-      })
-      .catch((err) => console.warn("Could not load schools:", err));
 
     // 2. Redirect if already logged in
     const token = localStorage.getItem("school_token");
@@ -168,8 +148,9 @@ export default function TenantLoginPage() {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (selectedSchoolId) {
-        headers["X-School-ID"] = selectedSchoolId;
+      const savedSchoolId = typeof window !== "undefined" ? localStorage.getItem("school_id") : null;
+      if (savedSchoolId) {
+        headers["X-School-ID"] = savedSchoolId;
       }
 
       const response = await fetch(`${API_URL}/api/schools/login`, {
@@ -373,34 +354,6 @@ export default function TenantLoginPage() {
               )}
             </button>
           </form>
-
-          {/* School Selector Widget */}
-          {schools.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-black/[0.06] flex items-center justify-between">
-              <span className="text-[12px] text-[#6e6e73] font-medium flex items-center gap-1.5">
-                <span>🏫</span> Maktab:
-              </span>
-              <div className="relative max-w-[220px]">
-                <select
-                  value={selectedSchoolId}
-                  onChange={(e) => {
-                    setSelectedSchoolId(e.target.value);
-                    localStorage.setItem("school_id", e.target.value);
-                  }}
-                  className="w-full bg-[#f5f5f7] hover:bg-[#e8e8ed] text-[#1E2B42] text-[12px] font-semibold py-1.5 pl-3 pr-7 rounded-xl outline-none border border-black/[0.06] cursor-pointer appearance-none truncate transition-colors"
-                >
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name} ({school.subdomain})
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-[#6e6e73]">
-                  ▼
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <p className="text-center text-[12.5px] text-[#a1a1a6] mt-6 tracking-[-0.01em]">
