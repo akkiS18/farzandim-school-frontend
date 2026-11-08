@@ -5,6 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:6560";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import { syncGamesSsoCookie } from "@/lib/gamesSso";
 
 export default function TenantLoginPage() {
   const router = useRouter();
@@ -177,6 +178,7 @@ export default function TenantLoginPage() {
       }
       localStorage.setItem("school_id", data.user.school_id);
       localStorage.setItem("school_user", JSON.stringify(data.user));
+      syncGamesSsoCookie();
 
       if (role === "ADMIN" || role === "SUPER_ADMIN") {
         router.replace("/dashboard");

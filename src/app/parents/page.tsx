@@ -28,6 +28,7 @@ import ParentSidebar, { TabIconAIReport } from "../../components/ParentSidebar";
 import AIReportSection from "../../components/parents/AIReportSection";
 import ParentLibrarySection from "../../components/parents/ParentLibrarySection";
 import { ForcePasswordResetModal } from "../../components/ForcePasswordResetModal";
+import { launchGamesPortal, syncGamesSsoCookie, clearGamesSsoCookie } from "../../lib/gamesSso";
 import dynamic from "next/dynamic";
 const MapPicker = dynamic(() => import("../../components/MapPicker"), { ssr: false });
 
@@ -1010,6 +1011,7 @@ export default function ParentDashboard() {
   /* ── Fetch grades and schedule when child or week changes ── */
   useEffect(() => {
     if (selectedChildId && token) {
+      syncGamesSsoCookie(selectedChildId);
       fetchChildGrades();
       fetchHolidays();
       const child = children.find((c) => c.id === selectedChildId);
@@ -1283,6 +1285,7 @@ export default function ParentDashboard() {
   };
 
   const handleLogout = () => {
+    clearGamesSsoCookie();
     localStorage.removeItem("school_token");
     localStorage.removeItem("school_refresh_token");
     localStorage.removeItem("school_id");
@@ -1697,6 +1700,7 @@ export default function ParentDashboard() {
           activeSubTab={activeSubTab}
           setActiveSubTab={setActiveSubTab}
           setShowLogoutModal={setShowLogoutModal}
+          onLaunchGames={() => launchGamesPortal(selectedChildId)}
         />
 
         {/* ── MAIN CONTENT AREA ── */}
@@ -2132,6 +2136,29 @@ export default function ParentDashboard() {
                 >
                   <TabIconBooks size={15} />
                   Kitobxonlik
+                </button>
+                <button
+                  type="button"
+                  className="sub-tab-btn"
+                  onClick={() => launchGamesPortal(selectedChildId)}
+                  style={{
+                    flexShrink: 0,
+                    paddingLeft: "14px",
+                    paddingRight: "14px",
+                    background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
+                    borderColor: "#4F46E5",
+                    color: "#FFFFFF",
+                    boxShadow: "0 2px 8px rgba(79, 70, 229, 0.25)",
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="6" y1="12" x2="10" y2="12" />
+                    <line x1="8" y1="10" x2="8" y2="14" />
+                    <line x1="15" y1="13" x2="15.01" y2="13" />
+                    <line x1="18" y1="11" x2="18.01" y2="11" />
+                    <rect x="2" y="6" width="20" height="12" rx="2" />
+                  </svg>
+                  O&apos;yinlar
                 </button>
               </div>
 
@@ -4123,6 +4150,41 @@ export default function ParentDashboard() {
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    launchGamesPortal(selectedChildId);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "12px 14px",
+                    borderRadius: "14px",
+                    border: "none",
+                    background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
+                    color: "#FFFFFF",
+                    fontWeight: 800,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)",
+                    transition: "all 0.15s ease",
+                    textAlign: "left",
+                    width: "100%",
+                  }}
+                >
+                  <div style={{ width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="6" y1="12" x2="10" y2="12" />
+                      <line x1="8" y1="10" x2="8" y2="14" />
+                      <line x1="15" y1="13" x2="15.01" y2="13" />
+                      <line x1="18" y1="11" x2="18.01" y2="11" />
+                      <rect x="2" y="6" width="20" height="12" rx="2" />
+                    </svg>
+                  </div>
+                  <span>O&apos;yinlar (Farzandim Games)</span>
+                </button>
               </div>
 
               <div style={{ height: "1px", backgroundColor: "#E2E8F0" }} />
