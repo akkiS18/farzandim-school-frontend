@@ -4483,6 +4483,7 @@ function TeacherDashboardContent() {
               holidays={holidays}
               journalLoading={journalLoading}
               classSchedule={classSchedule}
+              schedulePeriods={schedulePeriods}
               journalAllGrades={journalAllGrades}
               journalColumns={journalColumns}
               columnGradingSystems={columnGradingSystems}

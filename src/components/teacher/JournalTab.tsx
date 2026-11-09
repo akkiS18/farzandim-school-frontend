@@ -16,8 +16,11 @@ import {
   ArrowUp,
   ArrowDown,
   RotateCcw,
+  Calculator,
+  Zap,
 } from "lucide-react";
 import { parseDateString, parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
+import { calculateStudentsQuarterStats } from "@/lib/quarterAverage";
 
 interface Student {
   id: number;
@@ -72,6 +75,7 @@ interface JournalTabProps {
   holidays: HolidayItem[];
   journalLoading: boolean;
   classSchedule: any[];
+  schedulePeriods?: any[];
   journalAllGrades: any[];
   journalColumns: JournalColumn[];
   columnGradingSystems: { [key: string]: any };
@@ -123,6 +127,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   holidays,
   journalLoading,
   classSchedule,
+  schedulePeriods = [],
   journalAllGrades,
   journalColumns,
   columnGradingSystems,
@@ -274,6 +279,95 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 
     return map;
   }, [journalAllGrades, selectedSubjectId, journalDate, students]);
+
+  // Current Quarter calculation
+  const currentQuarter = useMemo(() => {
+    if (!schedulePeriods || schedulePeriods.length === 0) return null;
+    const targetDateStr = parseDateString(journalDate) || (journalDate ? journalDate.split("T")[0] : "");
+    const found = schedulePeriods.find(
+      (p: any) => targetDateStr >= p.start_date && targetDateStr <= p.end_date
+    );
+    if (found) return found;
+    const sorted = [...schedulePeriods]
+      .filter((p: any) => p.start_date <= targetDateStr)
+      .sort((a: any, b: any) => b.start_date.localeCompare(a.start_date));
+    return sorted[0] || schedulePeriods[0] || null;
+  }, [schedulePeriods, journalDate]);
+
+  const currentQuarterName = useMemo(() => {
+    if (!currentQuarter) return "Chorak";
+    const idx = (schedulePeriods || []).findIndex(
+      (p: any) => p.start_date === currentQuarter.start_date
+    );
+    return idx >= 0 ? `${idx + 1}-chorak` : "Joriy chorak";
+  }, [currentQuarter, schedulePeriods]);
+
+  // Primary grade column (e.g. MASTERY or first non-attendance, non-behavior column)
+  const primaryGradeColumn = useMemo(() => {
+    return journalColumns.find((c) => c.id !== "ATTENDANCE" && c.id !== "BEHAVIOR") || journalColumns[0];
+  }, [journalColumns]);
+
+  // Determine if grading system for the column is 100-point or 5-point
+  const isTarget100 = useMemo(() => {
+    if (!primaryGradeColumn) return false;
+    const colGSId = columnGradingSystems[primaryGradeColumn.id];
+    const gs = gradingSystemsList.find((g) => String(g.id) === String(colGSId));
+    if (gs && gs.max_value !== undefined && gs.max_value !== null) {
+      return gs.max_value > 5;
+    }
+    if (gs?.name && (gs.name.includes("100") || gs.name.toLowerCase().includes("foiz"))) {
+      return true;
+    }
+    return false;
+  }, [primaryGradeColumn, columnGradingSystems, gradingSystemsList]);
+
+  // Quarterly statistics map for all students
+  const quarterStatsMap = useMemo(() => {
+    return calculateStudentsQuarterStats(
+      students,
+      selectedSubjectId,
+      journalAllGrades,
+      currentQuarter,
+      journalDate
+    );
+  }, [students, selectedSubjectId, journalAllGrades, currentQuarter, journalDate]);
+
+  const handleApplyAverageToStudent = (studentId: number, val: string | number) => {
+    if (!primaryGradeColumn || !selectedSubjectId || !selectedLessonNumber) return;
+    const key = `${studentId}_${selectedSubjectId}_${selectedLessonNumber}_${primaryGradeColumn.id}`;
+    const strVal = String(val);
+    setCellInputs((prev) => ({ ...prev, [key]: strVal }));
+    onCellSave(
+      studentId,
+      Number(selectedSubjectId),
+      Number(selectedLessonNumber),
+      primaryGradeColumn.id,
+      strVal
+    );
+  };
+
+  const handleAutoFillAllQuarterAverages = () => {
+    if (!primaryGradeColumn || !selectedSubjectId || !selectedLessonNumber) return;
+    const nextInputs: { [k: string]: string } = { ...cellInputs };
+
+    students.forEach((st) => {
+      const stats = quarterStatsMap.get(st.id);
+      if (stats && stats.hasGrades) {
+        const valToSet = isTarget100 ? String(stats.rounded100) : String(stats.rounded5);
+        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${primaryGradeColumn.id}`;
+        nextInputs[key] = valToSet;
+        onCellSave(
+          st.id,
+          Number(selectedSubjectId),
+          Number(selectedLessonNumber),
+          primaryGradeColumn.id,
+          valToSet
+        );
+      }
+    });
+
+    setCellInputs(nextInputs);
+  };
 
   return (
     <div className="space-y-0 sm:space-y-3 font-sans">
@@ -441,6 +535,35 @@ export const JournalTab: React.FC<JournalTabProps> = ({
           ) : (
             /* 4. UNIFIED FULL-BLEED JOURNAL GRADE TABLE */
             <div className="bg-white border-y sm:border border-neutral-200 rounded-none [scrollbar-width:thin]">
+              {selectedGradeCategory === "QUARTERLY_EXAM" && (
+                <div className="bg-gradient-to-r from-amber-50 via-orange-50/50 to-amber-50 border-b border-amber-200 px-3.5 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300">
+                      <Calculator className="w-4 h-4 text-amber-700" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-amber-950 flex items-center gap-2 flex-wrap">
+                        <span>Choraklik baholash rejimi ({currentQuarterName})</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
+                          {isTarget100 ? "100 ballik tizim" : "5 ballik tizim"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-800/90 mt-0.5">
+                        5 ballik kundalik baholar 20 ga ko'paytirilib, shu chorakdagi barcha ballarning aniq o'rtachasi hisoblandi.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoFillAllQuarterAverages}
+                    className="bg-[#A51C30] hover:bg-[#8B1828] active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-none transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                    title="Barcha o'quvchilarning kataklariga hisoblangan choraklik o'rtacha ballni to'ldirish"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Barchaga o'rtachani to'ldirish</span>
+                  </button>
+                </div>
+              )}
               <table className="min-w-full text-left border-separate border-spacing-0">
                 <thead className="bg-slate-100 text-[10px] sm:text-[11px] font-bold font-sans text-slate-700 uppercase tracking-wider sticky top-0 z-20 shadow-xs">
                   <tr>
@@ -479,6 +602,19 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                         )}
                       </div>
                     </th>
+                    {selectedGradeCategory === "QUARTERLY_EXAM" && (
+                      <th className="px-2 py-3 text-center border-b border-r border-amber-300 min-w-[95px] max-w-[115px] sticky top-0 z-20 bg-amber-100/90 text-amber-950 shadow-2xs">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="flex items-center gap-1 font-black text-[10px] uppercase tracking-wider text-amber-950">
+                            <Calculator className="w-3.5 h-3.5 text-amber-700" />
+                            <span>O'rtacha</span>
+                          </div>
+                          <span className="text-[9px] font-bold text-amber-700 font-sans mt-0.5">
+                            ({currentQuarterName})
+                          </span>
+                        </div>
+                      </th>
+                    )}
                     {journalColumns.map((col) => (
                       <th
                         key={col.id}
@@ -557,7 +693,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   {sortedStudents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={3 + journalColumns.length}
+                        colSpan={3 + journalColumns.length + (selectedGradeCategory === "QUARTERLY_EXAM" ? 1 : 0)}
                         className="px-6 py-12 text-center text-slate-400 italic font-mono"
                       >
                         Ushbu sinfda o'quvchilar mavjud emas.
@@ -622,6 +758,46 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                               </div>
                             </div>
                           </td>
+
+                          {/* Quarterly Average Cell */}
+                          {selectedGradeCategory === "QUARTERLY_EXAM" && (() => {
+                            const stats = quarterStatsMap.get(st.id);
+                            const targetVal = isTarget100 ? stats?.rounded100 : stats?.rounded5;
+                            const targetKey = primaryGradeColumn
+                              ? `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${primaryGradeColumn.id}`
+                              : "";
+                            const currentInputVal = targetKey ? cellInputs[targetKey] : "";
+                            const isApplied = currentInputVal !== undefined && currentInputVal !== "" && targetVal !== undefined && String(currentInputVal) === String(targetVal);
+
+                            return (
+                              <td className="px-2 py-2 text-center border-b border-r border-amber-200 bg-amber-50/40 min-w-[95px] max-w-[115px]">
+                                {stats && stats.hasGrades ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => targetVal !== undefined && handleApplyAverageToStudent(st.id, targetVal)}
+                                    title={`Chorakdagi baholar: ${stats.totalGradesCount} ta\n100 ballik o'rtacha: ${stats.average100} ball\n5 ballik ekvivalenti: ${stats.average5} (${stats.rounded5})\n\nBosing: Bahoni katakka qo'yish`}
+                                    className={`inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-none border text-xs font-mono font-bold transition cursor-pointer select-none w-full max-w-[90px] mx-auto shadow-2xs hover:scale-102 ${
+                                      isApplied
+                                        ? "bg-emerald-50 text-emerald-900 border-emerald-300 ring-1 ring-emerald-300"
+                                        : "bg-white hover:bg-amber-100 text-amber-950 border-amber-300 hover:border-amber-400"
+                                    }`}
+                                  >
+                                    <span className="text-xs">{isTarget100 ? stats.rounded100 : stats.rounded5}</span>
+                                    <span className="text-[10px] font-normal text-slate-500 font-sans">
+                                      ({stats.totalGradesCount})
+                                    </span>
+                                    {isApplied ? (
+                                      <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    ) : (
+                                      <span className="text-[9px] text-amber-700 font-sans font-bold">➔</span>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic">baho yo'q</span>
+                                )}
+                              </td>
+                            );
+                          })()}
 
                           {/* Dynamic Grade Columns */}
                           {journalColumns.map((col) => {
@@ -763,7 +939,11 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                                           }}
                                           disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
                                           placeholder={`${
-                                            colGS.min_value !== undefined && colGS.max_value !== undefined
+                                            selectedGradeCategory === "QUARTERLY_EXAM" && quarterStatsMap.get(st.id)?.hasGrades
+                                              ? isTarget100
+                                                ? String(quarterStatsMap.get(st.id)!.rounded100)
+                                                : String(quarterStatsMap.get(st.id)!.rounded5)
+                                              : colGS.min_value !== undefined && colGS.max_value !== undefined
                                               ? `${colGS.min_value}-${colGS.max_value}`
                                               : "—"
                                           }`}
@@ -846,7 +1026,13 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                                           );
                                         }}
                                         disabled={isSaving || isApproved || isHoliday || attendanceVal === "-"}
-                                        placeholder="—"
+                                        placeholder={
+                                          selectedGradeCategory === "QUARTERLY_EXAM" && quarterStatsMap.get(st.id)?.hasGrades
+                                            ? isTarget100
+                                              ? String(quarterStatsMap.get(st.id)!.rounded100)
+                                              : String(quarterStatsMap.get(st.id)!.rounded5)
+                                            : "—"
+                                        }
                                         className={`w-13 h-8 rounded-none text-center border font-bold font-mono text-xs outline-none transition ${
                                           isSaving
                                             ? "border-[#A51C30] animate-pulse bg-rose-50/40"
