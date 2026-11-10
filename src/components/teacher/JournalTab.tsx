@@ -307,6 +307,16 @@ export const JournalTab: React.FC<JournalTabProps> = ({
     return journalColumns.find((c) => c.id !== "ATTENDANCE" && c.id !== "BEHAVIOR") || journalColumns[0];
   }, [journalColumns]);
 
+  // Display columns: in quarterly exam mode, place the academic grade column (MASTERY) before attendance/behavior
+  const displayedJournalColumns = useMemo(() => {
+    if (selectedGradeCategory !== "QUARTERLY_EXAM") {
+      return journalColumns;
+    }
+    const academicCols = journalColumns.filter((c) => c.id !== "ATTENDANCE" && c.id !== "BEHAVIOR");
+    const otherCols = journalColumns.filter((c) => c.id === "ATTENDANCE" || c.id === "BEHAVIOR");
+    return [...academicCols, ...otherCols];
+  }, [journalColumns, selectedGradeCategory]);
+
   // Determine if grading system for the column is 100-point or 5-point
   const isTarget100 = useMemo(() => {
     if (!primaryGradeColumn) return false;
@@ -534,7 +544,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
             })()
           ) : (
             /* 4. UNIFIED FULL-BLEED JOURNAL GRADE TABLE */
-            <div className="bg-white border-y sm:border border-neutral-200 rounded-none [scrollbar-width:thin] overflow-x-auto touch-pan-x [-webkit-overflow-scrolling:touch]">
+            <div className="bg-white border-y sm:border border-neutral-200 rounded-none shadow-xs">
               {selectedGradeCategory === "QUARTERLY_EXAM" && (
                 <div className="bg-gradient-to-r from-amber-50 via-orange-50/60 to-amber-50 border-b border-amber-200 p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                   <div className="flex items-start sm:items-center gap-2.5">
@@ -564,12 +574,14 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   </button>
                 </div>
               )}
+              {/* Scrollable table container: banner above remains static at full width */}
+              <div className="[scrollbar-width:thin] overflow-x-auto [-webkit-overflow-scrolling:touch] touch-auto overscroll-x-contain">
               <table className="min-w-full text-left border-separate border-spacing-0">
                 <thead className="bg-slate-100 text-[10px] sm:text-[11px] font-bold font-sans text-slate-700 uppercase tracking-wider sticky top-0 z-20 shadow-xs">
                   <tr>
                     <th
                       onClick={() => setStudentSortDirection("default")}
-                      className="px-1 py-3 w-11 min-w-[44px] max-w-[44px] text-center font-mono sticky top-0 left-0 z-30 bg-slate-100 border-r border-b border-neutral-200 cursor-pointer select-none hover:bg-slate-200 transition-colors text-slate-500"
+                      className="px-0.5 sm:px-1 py-2 sm:py-3 w-8 sm:w-11 min-w-[32px] sm:min-w-[44px] max-w-[32px] sm:max-w-[44px] text-center font-mono sticky top-0 left-0 z-30 bg-slate-100 border-r border-b border-neutral-300 cursor-pointer select-none hover:bg-slate-200 transition-colors text-slate-500 text-[10px] sm:text-[11px]"
                       title="Asl tartib (№)"
                     >
                       №
@@ -582,31 +594,31 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                           return "default";
                         });
                       }}
-                      className={`px-3 py-3 sticky top-0 left-[44px] z-30 border-r border-b border-neutral-200 min-w-[140px] max-w-[170px] sm:min-w-[180px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] cursor-pointer select-none hover:bg-slate-200 transition-colors group ${
-                        studentSortDirection !== "default" ? "bg-slate-200/80 text-[#1E2B42] font-black" : "bg-slate-100 text-slate-700"
+                      className={`px-2 sm:px-3 py-2 sm:py-3 sticky top-0 left-[32px] sm:left-[44px] z-30 border-r border-b border-neutral-300 min-w-[115px] max-w-[130px] sm:min-w-[175px] sm:max-w-[195px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.12)] cursor-pointer select-none hover:bg-slate-200 transition-colors group ${
+                        studentSortDirection !== "default" ? "bg-slate-200 text-[#1E2B42] font-black" : "bg-slate-100 text-slate-700"
                       }`}
                       title="Familiya bo'yicha saralash (A-Z / Z-A)"
                     >
-                      <div className="flex items-center justify-between gap-1.5">
-                        <span>O'quvchi F.I.SH</span>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="truncate">O'quvchi F.I.SH</span>
                         {studentSortDirection === "asc" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowUp className="w-3 h-3 text-[#1E2B42]" /> A-Z
+                          <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42] shrink-0">
+                            <ArrowUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#1E2B42]" /> A-Z
                           </span>
                         ) : studentSortDirection === "desc" ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42]">
-                            <ArrowDown className="w-3 h-3 text-[#1E2B42]" /> Z-A
+                          <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold bg-[#1E2B42]/10 text-[#1E2B42] shrink-0">
+                            <ArrowDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#1E2B42]" /> Z-A
                           </span>
                         ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5 text-[#1E2B42] group-hover:scale-110 transition-transform" />
+                          <ArrowUpDown className="w-3 h-3 text-[#1E2B42] group-hover:scale-110 transition-transform shrink-0" />
                         )}
                       </div>
                     </th>
                     {selectedGradeCategory === "QUARTERLY_EXAM" && (
-                      <th className="px-2 py-3 text-center border-b border-r border-amber-300 min-w-[95px] max-w-[115px] sticky top-0 z-20 bg-amber-100/90 text-amber-950 shadow-2xs">
+                      <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-center border-b border-r border-amber-300 min-w-[72px] sm:min-w-[95px] max-w-[78px] sm:max-w-[115px] sticky top-0 z-20 bg-amber-100 text-amber-950 shadow-2xs">
                         <div className="flex flex-col items-center justify-center">
                           <div className="flex items-center gap-1 font-black text-[10px] uppercase tracking-wider text-amber-950">
-                            <Calculator className="w-3.5 h-3.5 text-amber-700" />
+                            <Calculator className="w-3.5 h-3.5 text-amber-700 hidden sm:inline" />
                             <span>O'rtacha</span>
                           </div>
                           <span className="text-[9px] font-bold text-amber-700 font-sans mt-0.5">
@@ -615,7 +627,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                         </div>
                       </th>
                     )}
-                    {journalColumns.map((col) => (
+                    {displayedJournalColumns.map((col) => (
                       <th
                         key={col.id}
                         className="px-2 py-3 text-center border-b border-neutral-200 min-w-[68px] max-w-[80px] sticky top-0 z-20 bg-slate-100"
@@ -693,7 +705,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   {sortedStudents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={3 + journalColumns.length + (selectedGradeCategory === "QUARTERLY_EXAM" ? 1 : 0)}
+                        colSpan={3 + displayedJournalColumns.length + (selectedGradeCategory === "QUARTERLY_EXAM" ? 1 : 0)}
                         className="px-6 py-12 text-center text-slate-400 italic font-mono"
                       >
                         Ushbu sinfda o'quvchilar mavjud emas.
@@ -715,7 +727,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                         >
                           {/* № Sticky Pinned Left */}
                           <td
-                            className={`px-1 py-2.5 text-center font-mono text-slate-500 text-xs font-semibold sticky left-0 z-10 border-r border-b border-neutral-200 w-11 min-w-[44px] max-w-[44px] ${
+                            className={`px-0.5 sm:px-1 py-2 text-center font-mono text-slate-500 text-[11px] sm:text-xs font-semibold sticky left-0 z-10 border-r border-b border-neutral-200 w-8 sm:w-11 min-w-[32px] sm:min-w-[44px] max-w-[32px] sm:max-w-[44px] ${
                               isHighlighted ? "bg-amber-50 text-amber-950 font-bold" : "bg-white group-hover:bg-slate-50"
                             }`}
                           >
@@ -724,11 +736,11 @@ export const JournalTab: React.FC<JournalTabProps> = ({
 
                           {/* Student Name Sticky Pinned Left */}
                           <td
-                            className={`px-3 py-1.5 font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap sticky left-[44px] z-10 border-r border-b border-neutral-200 min-w-[140px] max-w-[180px] sm:min-w-[190px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)] ${
+                            className={`px-2 sm:px-3 py-1.5 font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap sticky left-[32px] sm:left-[44px] z-10 border-r border-b border-neutral-200 min-w-[115px] max-w-[130px] sm:min-w-[175px] sm:max-w-[195px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.12)] ${
                               isHighlighted ? "bg-amber-50 text-amber-950" : "bg-white group-hover:bg-slate-50"
                             }`}
                           >
-                            <div className="flex flex-col justify-center">
+                            <div className="flex flex-col justify-center min-w-0">
                               <span className="truncate leading-tight">{st.last_name} {st.first_name}</span>
                               <div className="mt-0.5">
                                 {(() => {
@@ -743,13 +755,13 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                                       badgeStyle = "bg-slate-100 text-slate-600 border-slate-200";
                                     }
                                     return (
-                                      <span className={`inline-flex items-center px-1.5 py-0.2 text-[9px] font-semibold rounded-sm border ${badgeStyle}`}>
+                                      <span className={`inline-flex items-center px-1 py-0.2 text-[8px] sm:text-[9px] font-semibold rounded-sm border ${badgeStyle}`}>
                                         {daysAgo} kun oldin
                                       </span>
                                     );
                                   } else {
                                     return (
-                                      <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-normal rounded-sm border bg-slate-50 text-slate-400 border-slate-200">
+                                      <span className="inline-flex items-center px-1 py-0.2 text-[8px] sm:text-[9px] font-normal rounded-sm border bg-slate-50 text-slate-400 border-slate-200">
                                         baho yo'q
                                       </span>
                                     );
@@ -770,20 +782,20 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                             const isApplied = currentInputVal !== undefined && currentInputVal !== "" && targetVal !== undefined && String(currentInputVal) === String(targetVal);
 
                             return (
-                              <td className="px-1.5 sm:px-2 py-2 text-center border-b border-r border-amber-200 bg-amber-50/40 min-w-[95px] max-w-[115px]">
+                              <td className="px-1 sm:px-1.5 py-1.5 sm:py-2 text-center border-b border-r border-amber-200 bg-amber-50 min-w-[72px] sm:min-w-[95px] max-w-[78px] sm:max-w-[115px]">
                                 {stats && stats.hasGrades ? (
                                   <button
                                     type="button"
                                     onClick={() => targetVal !== undefined && handleApplyAverageToStudent(st.id, targetVal)}
                                     title={`Chorakdagi baholar: ${stats.totalGradesCount} ta\n100 ballik o'rtacha: ${stats.average100} ball\n5 ballik ekvivalenti: ${stats.average5} (${stats.rounded5})\n\nBosing: Bahoni katakka qo'yish`}
-                                    className={`inline-flex items-center justify-center gap-1.5 px-2 py-1.5 h-9 rounded-none border text-xs font-mono font-bold transition cursor-pointer select-none w-full max-w-[90px] mx-auto shadow-2xs active:scale-95 touch-manipulation ${
+                                    className={`inline-flex items-center justify-center gap-1 px-1.5 py-1 sm:py-1.5 h-8 sm:h-9 rounded border text-xs font-mono font-bold transition cursor-pointer select-none w-full max-w-[85px] mx-auto shadow-2xs active:scale-95 touch-manipulation ${
                                       isApplied
                                         ? "bg-emerald-50 text-emerald-900 border-emerald-300 ring-1 ring-emerald-300"
                                         : "bg-white hover:bg-amber-100 text-amber-950 border-amber-300 hover:border-amber-400"
                                     }`}
                                   >
                                     <span className="text-xs">{isTarget100 ? stats.rounded100 : stats.rounded5}</span>
-                                    <span className="text-[10px] font-normal text-slate-500 font-sans">
+                                    <span className="text-[9px] font-normal text-slate-500 font-sans">
                                       ({stats.totalGradesCount})
                                     </span>
                                     {isApplied ? (
@@ -800,7 +812,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                           })()}
 
                           {/* Dynamic Grade Columns */}
-                          {journalColumns.map((col) => {
+                          {displayedJournalColumns.map((col) => {
                             const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_${col.id}`;
                             const cellVal = cellInputs[key] || "";
                             const grade = findGradeForDayAndType(
@@ -1121,6 +1133,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   )}
                 </tbody>
               </table>
+              </div>
 
               {/* Table Footer Summary */}
               <div className="px-4 py-2 border-t border-neutral-200 bg-slate-50 flex items-center justify-between text-slate-500 text-[10px] font-sans uppercase tracking-wider">
