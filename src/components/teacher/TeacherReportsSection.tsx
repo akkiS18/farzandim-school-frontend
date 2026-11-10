@@ -50,7 +50,6 @@ export default function TeacherReportsSection({
   // Date range state for journal
   const defaultDates = useMemo(() => {
     if (schedulePeriods && schedulePeriods.length > 0) {
-      // Pick current period or first period
       const today = new Date().toISOString().split("T")[0];
       const active = schedulePeriods.find(
         (p: any) => today >= p.start_date && today <= p.end_date
@@ -153,13 +152,15 @@ export default function TeacherReportsSection({
           text: `${className} sinfining ijtimoiy pasporti muvaffaqiyatli yuklab olindi!`,
         });
       } else {
-        throw new Error("Serverdan yuklab bo'lmadi, mijoz tomonidan yaratilmoqda...");
+        throw new Error("Server ijtimoiy pasport endpointi javob bermadi, mijoz tomonidan yaratilmoqda...");
       }
     } catch (err: any) {
       console.warn("Backend social passport export fallback to client-side:", err);
       // Client-side fallback if backend endpoint fails
       try {
-        const studentsData = await api.get(`/api/schools/classes/${reportClassId}/students?status=all`);
+        const studentsData = await api.get(
+          `/api/schools/users?role=STUDENT&class_id=${reportClassId}&status=all`
+        );
         const studentsList = Array.isArray(studentsData) ? studentsData : [];
 
         if (studentsList.length === 0) {
@@ -193,7 +194,9 @@ export default function TeacherReportsSection({
         studentsList.forEach((st: any, idx: number) => {
           const bd = st.birthdate ? st.birthdate.split("T")[0] : "";
           const ed = st.enrollment_date ? st.enrollment_date.split("T")[0] : "";
-          const status = st.is_deleted ? `Ketgan (${st.deleted_at?.split("T")[0] || ""})` : "Faol";
+          const isDel = st.student_is_deleted ?? st.is_deleted;
+          const delAt = st.student_deleted_at || st.deleted_at;
+          const status = isDel ? `Ketgan (${delAt ? delAt.split("T")[0] : ""})` : "Faol";
 
           sheetData.push([
             idx + 1,
@@ -263,9 +266,24 @@ export default function TeacherReportsSection({
     const subjectName = selectedSubject?.name || (reportSubjectId === "all" ? "Barcha_fanlar" : "Fan");
 
     try {
-      // 1. Fetch all students in class (including archived/transferred)
-      const studentsData = await api.get(`/api/schools/classes/${reportClassId}/students?status=all`);
-      const rawStudents = Array.isArray(studentsData) ? studentsData : [];
+      // 1. Fetch all students in class (including archived/transferred) via standard /api/schools/users
+      const studentsData = await api.get(
+        `/api/schools/users?role=STUDENT&class_id=${reportClassId}&status=all`
+      );
+      const rawStudents = Array.isArray(studentsData) ? studentsData.map((u: any) => ({
+        id: u.student_id || u.id,
+        student_id: u.student_id || u.id,
+        user_id: u.id,
+        first_name: u.first_name,
+        last_name: u.last_name,
+        middle_name: u.middle_name,
+        enrollment_date: u.enrollment_date,
+        is_deleted: u.student_is_deleted ?? u.is_deleted ?? false,
+        deleted_at: u.student_deleted_at || u.deleted_at || null,
+        ina: u.ina,
+        address: u.address,
+        birthdate: u.birthdate,
+      })) : [];
 
       if (rawStudents.length === 0) {
         setExportMessage({ type: "error", text: "Ushbu sinfda o'quvchilar topilmadi." });
@@ -273,11 +291,11 @@ export default function TeacherReportsSection({
         return;
       }
 
-      // Sort alphabetically
+      // Sort alphabetically by last name, first name
       const sortedStudents = [...rawStudents].sort((a, b) => {
         const nameA = `${a.last_name || ""} ${a.first_name || ""}`.trim().toLowerCase();
         const nameB = `${b.last_name || ""} ${b.first_name || ""}`.trim().toLowerCase();
-        return nameA.localeCompare(nameB);
+        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
       });
 
       // 2. Fetch all grades in this date range
@@ -323,8 +341,7 @@ export default function TeacherReportsSection({
       sheetData.push([titleText]);
       sheetData.push([]); // blank row
 
-      // Row 3: Table Column Headers
-      // Format dates cleanly (e.g. "02.09", "15.10")
+      // Row 3: Table Column Headers (e.g. "02.09", "15.10")
       const formattedDateHeaders = sortedDates.map((d) => {
         const parts = d.split("-");
         if (parts.length === 3) {
@@ -345,20 +362,19 @@ export default function TeacherReportsSection({
       sheetData.push(headerRow);
 
       // Pre-index grades by `studentId_date`
-      const gradeMap = new Map<string, { attendance?: any; academic?: any }>();
+      const gradeMap = new Map<string, { attendance?: any; academic: any[] }>();
       relevantGrades.forEach((g: any) => {
         const dStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
         if (!dStr) return;
         const key = `${g.student_id}_${dStr}`;
         if (!gradeMap.has(key)) {
-          gradeMap.set(key, {});
+          gradeMap.set(key, { academic: [] });
         }
         const item = gradeMap.get(key)!;
         if (g.grade_type === "ATTENDANCE") {
           item.attendance = g;
         } else {
-          // academic grade (MASTERY, EXAM, etc.)
-          item.academic = g;
+          item.academic.push(g);
         }
       });
 
@@ -391,9 +407,13 @@ export default function TeacherReportsSection({
           }
 
           // Check records for this student and date
-          const entry = gradeMap.get(`${st.id}_${dateStr}`);
+          const entry =
+            gradeMap.get(`${st.id}_${dateStr}`) ||
+            gradeMap.get(`${st.student_id}_${dateStr}`) ||
+            gradeMap.get(`${st.user_id}_${dateStr}`);
+
           const attVal = entry?.attendance?.value;
-          const academicGrade = entry?.academic;
+          const academicList = entry?.academic || [];
 
           if (attVal === "-") {
             totalAbsences++;
@@ -401,14 +421,16 @@ export default function TeacherReportsSection({
             return;
           }
 
-          if (academicGrade && academicGrade.value !== undefined && academicGrade.value !== "") {
-            const rawVal = academicGrade.value;
-            const numVal = Number(academicGrade.numeric_value || rawVal);
-            if (!isNaN(numVal) && numVal > 0) {
-              academicSum += numVal;
-              academicCount++;
-            }
-            rowValues.push(rawVal);
+          if (academicList.length > 0) {
+            academicList.forEach((ac) => {
+              const numVal = Number(ac.numeric_value || ac.value);
+              if (!isNaN(numVal) && numVal > 0) {
+                academicSum += numVal;
+                academicCount++;
+              }
+            });
+            const gradeStrings = academicList.map((ac) => ac.value).join(", ");
+            rowValues.push(gradeStrings);
             return;
           }
 
@@ -458,7 +480,7 @@ export default function TeacherReportsSection({
       const colWidths = [
         { wch: 5 }, // T/r
         { wch: 28 }, // F.I.SH
-        ...sortedDates.map(() => ({ wch: 8 })), // Dates
+        ...sortedDates.map(() => ({ wch: 9 })), // Dates
         { wch: 14 }, // O'rtacha ball
         { wch: 14 }, // Jami baholar
         { wch: 16 }, // Qoldirilgan
