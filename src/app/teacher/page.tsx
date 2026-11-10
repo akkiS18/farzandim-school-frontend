@@ -40,6 +40,7 @@ import { ForcePasswordResetModal } from "@/components/ForcePasswordResetModal";
 import {
   LayoutDashboard,
   Calculator,
+  Copy,
   BookOpen,
   BookMarked,
   Calendar,
@@ -753,6 +754,8 @@ function TeacherDashboardContent() {
   const [schedulePeriods, setSchedulePeriods] = useState<any[]>([]);
   const [schedulePeriodsLoading, setSchedulePeriodsLoading] = useState(false);
   const [showPeriodsModal, setShowPeriodsModal] = useState(false);
+  const [copySchedulePeriodDate, setCopySchedulePeriodDate] = useState<string>("");
+  const [isCopyingScheduleLoading, setIsCopyingScheduleLoading] = useState<boolean>(false);
 
   // Daily Schedule Exception States
   const [scheduleViewDate, setScheduleViewDate] = useState(getInitialDate());
@@ -1781,6 +1784,53 @@ function TeacherDashboardContent() {
     setShowEditScheduleModal(true);
   };
 
+  const handleCopyScheduleFromPeriod = async (targetStartDate: string) => {
+    if (!selectedClassId || !targetStartDate) return;
+    setIsCopyingScheduleLoading(true);
+    try {
+      const data = await api.get(
+        `/api/schools/classes/${selectedClassId}/schedule?date=${targetStartDate}&ignore_holiday=true&raw=true`
+      );
+      if (Array.isArray(data)) {
+        const nextFormState: { [key: string]: number } = {};
+        for (let d = 1; d <= 6; d++) {
+          for (let l = 1; l <= 8; l++) {
+            nextFormState[`${d}-${l}`] = 0;
+          }
+        }
+        let filledCount = 0;
+        data.forEach((item: any) => {
+          if (item.subject_id > 0) {
+            nextFormState[`${item.day_of_week}-${item.lesson_number}`] = item.subject_id;
+            filledCount++;
+          }
+        });
+        setScheduleFormState(nextFormState);
+        if (filledCount > 0) {
+          showToast("success", `${filledCount} ta dars fani tanlangan davrdan muvaffaqiyatli ko'chirildi!`);
+        } else {
+          showToast("error", "Tanlangan davrda biriktirilgan darslar topilmadi.");
+        }
+      }
+    } catch (e: any) {
+      console.error(e);
+      showToast("error", e.message || "Dars jadvalini ko'chirishda xatolik yuz berdi");
+    } finally {
+      setIsCopyingScheduleLoading(false);
+    }
+  };
+
+  const handleClearScheduleForm = () => {
+    const clearedState: { [key: string]: number } = {};
+    for (let d = 1; d <= 6; d++) {
+      for (let l = 1; l <= 8; l++) {
+        clearedState[`${d}-${l}`] = 0;
+      }
+    }
+    setScheduleFormState(clearedState);
+    showToast("success", "Jadval kataklari tozalandi.");
+  };
+
   const handleOpenNewPeriodModal = () => {
     const initialFormState: { [key: string]: number } = {};
     for (let d = 1; d <= 6; d++) {
@@ -1795,6 +1845,7 @@ function TeacherDashboardContent() {
     if (schedulePeriods.length > 0) {
       const sorted = [...schedulePeriods].sort((a, b) => a.end_date.localeCompare(b.end_date));
       const lastPeriod = sorted[sorted.length - 1];
+      setCopySchedulePeriodDate(lastPeriod?.start_date || schedulePeriods[0]?.start_date || "");
       if (lastPeriod && lastPeriod.end_date) {
         const nextStart = new Date(lastPeriod.end_date + "T00:00:00");
         nextStart.setDate(nextStart.getDate() + 1);
@@ -2940,6 +2991,85 @@ function TeacherDashboardContent() {
               category="schedule"
               theme="indigo"
             />
+
+            {/* Eski davrdan nusxa olish / Fanlar qismini bittada to'ldirish */}
+            {schedulePeriods.length > 0 && (
+              <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-slate-50 border border-blue-200 p-3.5 sm:p-4 rounded-none flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-8 h-8 rounded-none bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Copy className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                      <span>Oldingi davr jadvalidan nusxa olish</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                        Tezkor to'ldirish
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                      Oldingi chorakdagi fanlarni bir bosishda yangi davr kataklariga ko'chiring.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+                  <select
+                    value={copySchedulePeriodDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCopySchedulePeriodDate(val);
+                      if (val) {
+                        handleCopyScheduleFromPeriod(val);
+                      }
+                    }}
+                    className="flex-1 sm:flex-none bg-white border border-neutral-300 text-slate-800 px-3 py-1.5 text-xs font-bold rounded-none outline-none focus:border-[#1E2B42] cursor-pointer h-9.5 min-w-[190px]"
+                  >
+                    <option value="">Davrni tanlang...</option>
+                    {schedulePeriods.map((period: any, pIdx: number) => {
+                      const shortStart = (() => {
+                        try {
+                          const d = new Date(period.start_date + "T00:00:00");
+                          const m = ["Yan", "Fev", "Mar", "Apr", "May", "Iyn", "Iyl", "Avg", "Sen", "Okt", "Noy", "Dek"];
+                          return `${d.getDate()}-${m[d.getMonth()]}`;
+                        } catch { return period.start_date; }
+                      })();
+                      const shortEnd = (() => {
+                        try {
+                          const d = new Date(period.end_date + "T00:00:00");
+                          const m = ["Yan", "Fev", "Mar", "Apr", "May", "Iyn", "Iyl", "Avg", "Sen", "Okt", "Noy", "Dek"];
+                          return `${d.getDate()}-${m[d.getMonth()]}`;
+                        } catch { return period.end_date; }
+                      })();
+                      return (
+                        <option key={pIdx} value={period.start_date}>
+                          {pIdx + 1}-chorak ({shortStart} - {shortEnd})
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => copySchedulePeriodDate && handleCopyScheduleFromPeriod(copySchedulePeriodDate)}
+                    disabled={!copySchedulePeriodDate || isCopyingScheduleLoading}
+                    className="bg-[#1E2B42] hover:bg-slate-700 active:scale-98 text-white text-xs font-bold px-3 py-2 rounded-none transition flex items-center justify-center gap-1.5 h-9.5 cursor-pointer shadow-xs disabled:opacity-50"
+                    title="Tanlangan davrdagi barcha fanlarni jadval kataklariga to'ldirish"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{isCopyingScheduleLoading ? "Ko'chirilmoqda..." : "Fanlarni to'ldirish"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleClearScheduleForm}
+                    className="bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-neutral-300 text-xs font-bold px-2.5 py-2 rounded-none transition h-9.5 cursor-pointer"
+                    title="Barcha kataklarni tozalash"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="overflow-x-auto rounded-none border border-neutral-200 bg-white">
               <table className="min-w-full divide-y divide-neutral-200 text-center table-fixed">
