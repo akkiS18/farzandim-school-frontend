@@ -18,6 +18,7 @@ import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 import TeacherHeader from "@/components/teacher/TeacherHeader";
 import FeedbackTab from "@/components/teacher/FeedbackTab";
 import TeacherSettingsTab from "@/components/teacher/TeacherSettingsTab";
+import TeacherReportsSection from "@/components/teacher/TeacherReportsSection";
 import JournalTab from "@/components/teacher/JournalTab";
 import ScheduleTab from "@/components/teacher/ScheduleTab";
 import StudentsTab from "@/components/teacher/StudentsTab";
@@ -41,6 +42,7 @@ import {
   LayoutDashboard,
   Calculator,
   Copy,
+  Download,
   BookOpen,
   BookMarked,
   Calendar,
@@ -164,6 +166,7 @@ type TeacherTabType =
   | "clubs"
   | "books"
   | "social-passport"
+  | "reports"
   | "settings";
 
 function TeacherDashboardContent() {
@@ -195,6 +198,7 @@ function TeacherDashboardContent() {
     "clubs",
     "books",
     "social-passport",
+    "reports",
     "settings",
   ];
   const teacherTab: TeacherTabType =
@@ -4376,6 +4380,15 @@ function TeacherDashboardContent() {
                   <span className="font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded text-[11px] sm:text-xs uppercase tracking-wide">
                     {students.length} ta o'quvchi
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setTeacherTab("reports")}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-[#A51C30] hover:bg-slate-100 border border-neutral-300 rounded transition cursor-pointer"
+                    title="Jurnalni Excel formatida yuklab olish"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Jurnalni yuklab olish</span>
+                  </button>
                 </div>
 
                 {/* Grade Category Switcher Pills for Mobile & Desktop */}
@@ -5099,6 +5112,21 @@ function TeacherDashboardContent() {
                   fetchClassesList();
                   if (token) fetchAllStudents(token);
                 }}
+              />
+            )}
+
+            {/* TAB CONTENT: Hisobotlar (Reports) */}
+            {teacherTab === "reports" && (
+              <TeacherReportsSection
+                key={`reports-${tabResetKeys["reports"] || 0}`}
+                token={token}
+                API_URL={API_URL}
+                classes={classes}
+                subjects={subjects}
+                selectedClassId={selectedClassId}
+                onSelectClass={(clsId) => setSelectedClassId(Number(clsId))}
+                schedulePeriods={schedulePeriods}
+                userInfo={userInfo}
               />
             )}
 

@@ -130,6 +130,12 @@ export default function TeacherSidebar({
     },
     {
       type: "single",
+      id: "reports",
+      label: "Hisobotlar",
+      icon: FileSpreadsheet,
+    },
+    {
+      type: "single",
       id: "settings",
       label: "Sozlamalar",
       icon: Settings,
