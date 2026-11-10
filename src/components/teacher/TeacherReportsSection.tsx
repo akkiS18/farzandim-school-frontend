@@ -16,6 +16,8 @@ import {
   ArrowRight,
   UserX,
   GraduationCap,
+  Layers,
+  Check,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -44,8 +46,8 @@ export default function TeacherReportsSection({
   const initialClassId = selectedClassId || (classes.length > 0 ? classes[0].id : "");
   const [reportClassId, setReportClassId] = useState<number | string>(initialClassId);
 
-  // Subject selection for journal
-  const [reportSubjectId, setReportSubjectId] = useState<string>("all");
+  // Subject selection for journal: "all" or array of subject IDs
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>(["all"]);
 
   // Date range state for journal
   const defaultDates = useMemo(() => {
@@ -53,10 +55,14 @@ export default function TeacherReportsSection({
       const today = new Date().toISOString().split("T")[0];
       const active = schedulePeriods.find(
         (p: any) => today >= p.start_date && today <= p.end_date
-      ) || schedulePeriods[schedulePeriods.length - 1];
+      );
       if (active) {
         return { start: active.start_date, end: active.end_date };
       }
+      return {
+        start: schedulePeriods[0].start_date,
+        end: schedulePeriods[0].end_date,
+      };
     }
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -78,10 +84,56 @@ export default function TeacherReportsSection({
     return classes.find((c) => String(c.id) === String(reportClassId));
   }, [classes, reportClassId]);
 
-  const selectedSubject = useMemo(() => {
-    if (reportSubjectId === "all") return null;
-    return subjects.find((s) => String(s.id) === String(reportSubjectId));
-  }, [subjects, reportSubjectId]);
+  // Subject multi-select helpers
+  const isAllSubjectsSelected =
+    selectedSubjectIds.includes("all") ||
+    (subjects.length > 0 && selectedSubjectIds.length === subjects.length);
+
+  const handleSelectAllSubjects = () => {
+    setSelectedSubjectIds(["all"]);
+    setExportMessage(null);
+  };
+
+  const handleClearSubjects = () => {
+    if (subjects.length > 0) {
+      setSelectedSubjectIds([String(subjects[0].id)]);
+    } else {
+      setSelectedSubjectIds([]);
+    }
+    setExportMessage(null);
+  };
+
+  const handleToggleAllSubjects = () => {
+    if (isAllSubjectsSelected) {
+      setSelectedSubjectIds(subjects.length > 0 ? [String(subjects[0].id)] : []);
+    } else {
+      setSelectedSubjectIds(["all"]);
+    }
+    setExportMessage(null);
+  };
+
+  const handleToggleSubject = (subId: string) => {
+    setExportMessage(null);
+    if (isAllSubjectsSelected) {
+      const remaining = subjects
+        .map((s: any) => String(s.id))
+        .filter((id: string) => id !== subId);
+      setSelectedSubjectIds(remaining);
+      return;
+    }
+
+    if (selectedSubjectIds.includes(subId)) {
+      if (selectedSubjectIds.length === 1) return; // Keep at least one selected
+      setSelectedSubjectIds(selectedSubjectIds.filter((id) => id !== subId));
+    } else {
+      const updated = [...selectedSubjectIds, subId];
+      if (subjects.length > 0 && updated.length >= subjects.length) {
+        setSelectedSubjectIds(["all"]);
+      } else {
+        setSelectedSubjectIds(updated);
+      }
+    }
+  };
 
   // Handle Quick Quarter Presets
   const handleSelectPeriod = (period: any) => {
@@ -163,7 +215,20 @@ export default function TeacherReportsSection({
         );
         const studentsList = Array.isArray(studentsData) ? studentsData : [];
 
-        if (studentsList.length === 0) {
+        // Filter out students created and immediately deleted by mistake
+        const cleanStudents = studentsList.filter((st: any) => {
+          const isDel = st.student_is_deleted ?? st.is_deleted ?? false;
+          const stDeleted = st.student_deleted_at || st.deleted_at;
+          const stEnrollment = st.enrollment_date;
+          if (isDel && stDeleted && stEnrollment) {
+            const d1 = stDeleted.split("T")[0];
+            const d2 = stEnrollment.split("T")[0];
+            if (d1 <= d2) return false;
+          }
+          return true;
+        });
+
+        if (cleanStudents.length === 0) {
           setExportMessage({ type: "error", text: "Ushbu sinfda o'quvchilar mavjud emas." });
           setIsExportingPassport(false);
           return;
@@ -191,7 +256,7 @@ export default function TeacherReportsSection({
         ];
         sheetData.push(headers);
 
-        studentsList.forEach((st: any, idx: number) => {
+        cleanStudents.forEach((st: any, idx: number) => {
           const bd = st.birthdate ? st.birthdate.split("T")[0] : "";
           const ed = st.enrollment_date ? st.enrollment_date.split("T")[0] : "";
           const isDel = st.student_is_deleted ?? st.is_deleted;
@@ -244,7 +309,7 @@ export default function TeacherReportsSection({
     }
   };
 
-  // 2. EXPORT JOURNAL (Jurnal yuklab olish)
+  // 2. EXPORT JOURNAL (Jurnal yuklab olish — har bir fan alohida sheetda)
   const handleExportJournal = async () => {
     if (!reportClassId) {
       setExportMessage({ type: "error", text: "Iltimos, avval sinfni tanlang." });
@@ -263,27 +328,28 @@ export default function TeacherReportsSection({
     setExportMessage(null);
 
     const className = selectedClass?.name || `sinf_${reportClassId}`;
-    const subjectName = selectedSubject?.name || (reportSubjectId === "all" ? "Barcha_fanlar" : "Fan");
 
     try {
-      // 1. Fetch all students in class (including archived/transferred) via standard /api/schools/users
+      // 1. Fetch all students in class (including transferred/archived) via standard /api/schools/users
       const studentsData = await api.get(
         `/api/schools/users?role=STUDENT&class_id=${reportClassId}&status=all`
       );
-      const rawStudents = Array.isArray(studentsData) ? studentsData.map((u: any) => ({
-        id: u.student_id || u.id,
-        student_id: u.student_id || u.id,
-        user_id: u.id,
-        first_name: u.first_name,
-        last_name: u.last_name,
-        middle_name: u.middle_name,
-        enrollment_date: u.enrollment_date,
-        is_deleted: u.student_is_deleted ?? u.is_deleted ?? false,
-        deleted_at: u.student_deleted_at || u.deleted_at || null,
-        ina: u.ina,
-        address: u.address,
-        birthdate: u.birthdate,
-      })) : [];
+      const rawStudents = Array.isArray(studentsData)
+        ? studentsData.map((u: any) => ({
+            id: u.student_id || u.id,
+            student_id: u.student_id || u.id,
+            user_id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            middle_name: u.middle_name,
+            enrollment_date: u.enrollment_date,
+            is_deleted: u.student_is_deleted ?? u.is_deleted ?? false,
+            deleted_at: u.student_deleted_at || u.deleted_at || null,
+            ina: u.ina,
+            address: u.address,
+            birthdate: u.birthdate,
+          }))
+        : [];
 
       if (rawStudents.length === 0) {
         setExportMessage({ type: "error", text: "Ushbu sinfda o'quvchilar topilmadi." });
@@ -291,17 +357,10 @@ export default function TeacherReportsSection({
         return;
       }
 
-      // Sort alphabetically by last name, first name
-      const sortedStudents = [...rawStudents].sort((a, b) => {
-        const nameA = `${a.last_name || ""} ${a.first_name || ""}`.trim().toLowerCase();
-        const nameB = `${b.last_name || ""} ${b.first_name || ""}`.trim().toLowerCase();
-        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
-      });
-
-      // 2. Fetch all grades in this date range
+      // 2. Fetch grades for this class and date interval
       let gradeUrl = `/api/schools/grades?class_id=${reportClassId}&start_date=${startDate}&end_date=${endDate}`;
-      if (reportSubjectId && reportSubjectId !== "all") {
-        gradeUrl += `&subject_id=${reportSubjectId}`;
+      if (!isAllSubjectsSelected && selectedSubjectIds.length === 1) {
+        gradeUrl += `&subject_id=${selectedSubjectIds[0]}`;
       }
 
       const gradesData = await api.get(gradeUrl);
@@ -310,195 +369,325 @@ export default function TeacherReportsSection({
       // Exclude behavior grades ("xulqi kerak emas")
       const relevantGrades = rawGrades.filter((g: any) => g.grade_type !== "BEHAVIOR");
 
-      // 3. Extract all unique lesson dates in this interval
-      const datesSet = new Set<string>();
-      relevantGrades.forEach((g: any) => {
-        if (g.grade_date) {
-          const dStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
-          if (dStr && dStr >= startDate && dStr <= endDate) {
-            datesSet.add(dStr);
+      // 3. Filter out phantom/immediately-deleted students ("umuman o'qimagan yani yaratilib birdaniga o'chirib yuborilgan o'quvchilar chiqmasligi kerak edi")
+      const studentHasActivity = (stId: any, uId: any) => {
+        return relevantGrades.some(
+          (g: any) =>
+            String(g.student_id) === String(stId) ||
+            String(g.student_id) === String(uId) ||
+            String(g.user_id) === String(uId)
+        );
+      };
+
+      const legitimateStudents = rawStudents.filter((st: any) => {
+        const stEnrollment = st.enrollment_date ? st.enrollment_date.split("T")[0] : "";
+        const stDeleted = st.is_deleted && st.deleted_at ? st.deleted_at.split("T")[0] : "";
+
+        // If enrolled after the report end date, they weren't in school in this period yet
+        if (stEnrollment && stEnrollment > endDate) {
+          return false;
+        }
+
+        // If student was deleted / left:
+        if (st.is_deleted) {
+          // If left before the report start date, they didn't study in this period
+          if (stDeleted && stDeleted < startDate) {
+            return false;
+          }
+          // If deleted_at is <= enrollment_date (created and deleted immediately by mistake)
+          if (stDeleted && stEnrollment && stDeleted <= stEnrollment) {
+            return false;
+          }
+          // If student has no grades or attendance marks at all during this period
+          if (!studentHasActivity(st.id, st.user_id)) {
+            return false;
           }
         }
+
+        return true;
       });
 
-      const sortedDates = Array.from(datesSet).sort();
-
-      if (sortedDates.length === 0) {
+      if (legitimateStudents.length === 0) {
         setExportMessage({
           type: "error",
-          text: `Tanlangan oraliqda (${startDate} dan ${endDate} gacha) hech qanday dars yoki baholar topilmadi.`,
+          text: "Ushbu oraliqda sinfda faol o'quvchilar topilmadi.",
         });
         setIsExportingJournal(false);
         return;
       }
 
-      // 4. Build Excel Sheet
-      const wb = XLSX.utils.book_new();
-      const sheetData: any[][] = [];
-
-      // Row 1: Main Title
-      const titleText = `${className} sinfi — ${subjectName} fani jurnali (${startDate} dan ${endDate} gacha)`;
-      sheetData.push([titleText]);
-      sheetData.push([]); // blank row
-
-      // Row 3: Table Column Headers (e.g. "02.09", "15.10")
-      const formattedDateHeaders = sortedDates.map((d) => {
-        const parts = d.split("-");
-        if (parts.length === 3) {
-          return `${parts[2]}.${parts[1]}`;
-        }
-        return d;
+      // Sort alphabetically by last name, first name
+      const sortedStudents = [...legitimateStudents].sort((a, b) => {
+        const nameA = `${a.last_name || ""} ${a.first_name || ""}`.trim().toLowerCase();
+        const nameB = `${b.last_name || ""} ${b.first_name || ""}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, "uz", { numeric: true, sensitivity: "base" });
       });
 
-      const headerRow = [
-        "T/r",
-        "O'quvchi F.I.SH",
-        ...formattedDateHeaders,
-        "O'rtacha ball",
-        "Jami baholar",
-        "Qoldirilgan (NB)",
-        "O'quvchi holati",
-      ];
-      sheetData.push(headerRow);
+      // 4. Determine target subjects for sheets
+      let targetSubjects: { id: string | number; name: string }[] = [];
 
-      // Pre-index grades by `studentId_date`
-      const gradeMap = new Map<string, { attendance?: any; academic: any[] }>();
-      relevantGrades.forEach((g: any) => {
-        const dStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
-        if (!dStr) return;
-        const key = `${g.student_id}_${dStr}`;
-        if (!gradeMap.has(key)) {
-          gradeMap.set(key, { academic: [] });
-        }
-        const item = gradeMap.get(key)!;
-        if (g.grade_type === "ATTENDANCE") {
-          item.attendance = g;
-        } else {
-          item.academic.push(g);
-        }
-      });
+      if (isAllSubjectsSelected) {
+        // Find subjects that have grades in this period
+        const subjectIdsInGrades = new Set(
+          relevantGrades.map((g: any) => String(g.subject_id))
+        );
 
-      // Rows for each student
-      sortedStudents.forEach((st: any, idx: number) => {
-        const stEnrollment = st.enrollment_date ? st.enrollment_date.split("T")[0] : "";
-        const stDeleted = st.is_deleted && st.deleted_at ? st.deleted_at.split("T")[0] : "";
+        // First add from subjects prop
+        targetSubjects = subjects
+          .filter((s: any) => subjectIdsInGrades.has(String(s.id)))
+          .map((s: any) => ({ id: String(s.id), name: s.name }));
 
-        let academicSum = 0;
-        let academicCount = 0;
-        let totalAbsences = 0;
-
-        const rowValues: any[] = [
-          idx + 1,
-          `${st.last_name || ""} ${st.first_name || ""} ${st.middle_name || ""}`.trim(),
-        ];
-
-        sortedDates.forEach((dateStr) => {
-          // CHECK IF STUDENT WAS NOT ENROLLED IN SCHOOL AT THIS TIME
-          const isBeforeEnrollment = !!stEnrollment && dateStr < stEnrollment;
-          const isAfterLeaving = !!stDeleted && dateStr > stDeleted;
-
-          if (isBeforeEnrollment) {
-            rowValues.push("O'qimagan");
-            return;
+        // Add any subjects found in grades that might not be in the subjects prop
+        relevantGrades.forEach((g: any) => {
+          const sId = String(g.subject_id);
+          if (sId && !targetSubjects.some((ts) => String(ts.id) === sId)) {
+            targetSubjects.push({ id: sId, name: g.subject_name || `Fan_${sId}` });
           }
-          if (isAfterLeaving) {
-            rowValues.push("Ketgan");
-            return;
-          }
-
-          // Check records for this student and date
-          const entry =
-            gradeMap.get(`${st.id}_${dateStr}`) ||
-            gradeMap.get(`${st.student_id}_${dateStr}`) ||
-            gradeMap.get(`${st.user_id}_${dateStr}`);
-
-          const attVal = entry?.attendance?.value;
-          const academicList = entry?.academic || [];
-
-          if (attVal === "-") {
-            totalAbsences++;
-            rowValues.push("-"); // Absent / NB
-            return;
-          }
-
-          if (academicList.length > 0) {
-            academicList.forEach((ac) => {
-              const numVal = Number(ac.numeric_value || ac.value);
-              if (!isNaN(numVal) && numVal > 0) {
-                academicSum += numVal;
-                academicCount++;
-              }
-            });
-            const gradeStrings = academicList.map((ac) => ac.value).join(", ");
-            rowValues.push(gradeStrings);
-            return;
-          }
-
-          if (attVal === "+") {
-            rowValues.push("+"); // Present, no grade
-            return;
-          }
-
-          // No mark on this day
-          rowValues.push("");
         });
 
-        // Summary columns
-        const avg = academicCount > 0 ? (academicSum / academicCount).toFixed(1) : "—";
-        rowValues.push(avg);
-        rowValues.push(academicCount > 0 ? `${academicCount} ta` : "0");
-        rowValues.push(totalAbsences > 0 ? `${totalAbsences} ta` : "0");
-
-        // Status description
-        let statusText = "Faol";
-        if (st.is_deleted) {
-          statusText = `Ketgan (${stDeleted || ""})`;
-        } else if (stEnrollment && stEnrollment > startDate) {
-          statusText = `Keyin kelgan (${stEnrollment})`;
+        // If no subjects had grades, fallback to all class subjects
+        if (targetSubjects.length === 0) {
+          targetSubjects = subjects.map((s: any) => ({ id: String(s.id), name: s.name }));
         }
-        rowValues.push(statusText);
+      } else {
+        targetSubjects = selectedSubjectIds.map((sId) => {
+          const found = subjects.find((s: any) => String(s.id) === String(sId));
+          return { id: String(sId), name: found?.name || `Fan_${sId}` };
+        });
+      }
 
-        sheetData.push(rowValues);
-      });
+      if (targetSubjects.length === 0) {
+        setExportMessage({ type: "error", text: "Eksport qilish uchun kamida bitta fan tanlang." });
+        setIsExportingJournal(false);
+        return;
+      }
 
-      // Bottom Summary Statistics Rows
-      sheetData.push([]);
-      sheetData.push([
-        "",
-        "JAMI O'QUVCHILAR:",
-        `${sortedStudents.length} nafar`,
-      ]);
-      sheetData.push([
-        "",
-        "DARSLAR BO'LGAN KUNLAR:",
-        `${sortedDates.length} kun`,
-      ]);
+      // 5. Create Workbook and add each subject as a separate Worksheet
+      const wb = XLSX.utils.book_new();
+      let totalSheetsAdded = 0;
 
-      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      for (const sub of targetSubjects) {
+        const subGrades = relevantGrades.filter(
+          (g: any) => String(g.subject_id) === String(sub.id)
+        );
 
-      // Set column widths
-      const colWidths = [
-        { wch: 5 }, // T/r
-        { wch: 28 }, // F.I.SH
-        ...sortedDates.map(() => ({ wch: 9 })), // Dates
-        { wch: 14 }, // O'rtacha ball
-        { wch: 14 }, // Jami baholar
-        { wch: 16 }, // Qoldirilgan
-        { wch: 22 }, // Holati
-      ];
-      ws["!cols"] = colWidths;
+        // Find unique lesson dates for THIS subject
+        const datesSet = new Set<string>();
+        subGrades.forEach((g: any) => {
+          if (g.grade_date) {
+            const dStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
+            if (dStr && dStr >= startDate && dStr <= endDate) {
+              datesSet.add(dStr);
+            }
+          }
+        });
+        const sortedDates = Array.from(datesSet).sort();
 
-      XLSX.utils.book_append_sheet(wb, ws, "Sinf Jurnali");
+        // If all subjects were chosen, skip subjects with zero lessons to keep file clean
+        if (isAllSubjectsSelected && sortedDates.length === 0) {
+          continue;
+        }
 
-      const sanitizedClass = className.replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, "_");
-      const sanitizedSubject = subjectName.replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, "_");
-      const filename = `jurnal_${sanitizedClass}_${sanitizedSubject}_${startDate}_${endDate}.xlsx`;
+        const sheetData: any[][] = [];
 
-      XLSX.writeFile(wb, filename);
+        // Row 1: Title
+        const titleText = `${className} sinfi — ${sub.name} fani jurnali (${startDate} dan ${endDate} gacha)`;
+        sheetData.push([titleText]);
+        sheetData.push([]); // blank row
+
+        // Handle case where explicitly selected subject had no lessons in this period
+        if (sortedDates.length === 0) {
+          sheetData.push(["Ushbu oraliqda mazkur fandan darslar yoki baholar o'tilmagan."]);
+          sheetData.push([]);
+          const ws = XLSX.utils.aoa_to_sheet(sheetData);
+          let safeName = sub.name.replace(/[:\\/?*\[\]]/g, "_").trim().slice(0, 31) || `Fan_${sub.id}`;
+          let finalName = safeName;
+          let c = 1;
+          while (wb.SheetNames.includes(finalName)) {
+            finalName = `${safeName.slice(0, 27)} (${c++})`;
+          }
+          XLSX.utils.book_append_sheet(wb, ws, finalName);
+          totalSheetsAdded++;
+          continue;
+        }
+
+        // Format Date Headers (e.g. "02.09", "15.10")
+        const formattedDateHeaders = sortedDates.map((d) => {
+          const parts = d.split("-");
+          if (parts.length === 3) {
+            return `${parts[2]}.${parts[1]}`;
+          }
+          return d;
+        });
+
+        const headerRow = [
+          "T/r",
+          "O'quvchi F.I.SH",
+          ...formattedDateHeaders,
+          "O'rtacha ball",
+          "Jami baholar",
+          "Qoldirilgan (NB)",
+          "O'quvchi holati",
+        ];
+        sheetData.push(headerRow);
+
+        // Pre-index grades for this subject
+        const gradeMap = new Map<string, { attendance?: any; academic: any[] }>();
+        subGrades.forEach((g: any) => {
+          const dStr = typeof g.grade_date === "string" ? g.grade_date.split("T")[0] : "";
+          if (!dStr) return;
+          const key = `${g.student_id}_${dStr}`;
+          if (!gradeMap.has(key)) {
+            gradeMap.set(key, { academic: [] });
+          }
+          const item = gradeMap.get(key)!;
+          if (g.grade_type === "ATTENDANCE") {
+            item.attendance = g;
+          } else {
+            item.academic.push(g);
+          }
+        });
+
+        // Rows for each legitimate student
+        sortedStudents.forEach((st: any, idx: number) => {
+          const stEnrollment = st.enrollment_date ? st.enrollment_date.split("T")[0] : "";
+          const stDeleted = st.is_deleted && st.deleted_at ? st.deleted_at.split("T")[0] : "";
+
+          let academicSum = 0;
+          let academicCount = 0;
+          let totalAbsences = 0;
+
+          const rowValues: any[] = [
+            idx + 1,
+            `${st.last_name || ""} ${st.first_name || ""} ${st.middle_name || ""}`.trim(),
+          ];
+
+          sortedDates.forEach((dateStr) => {
+            const isBeforeEnrollment = !!stEnrollment && dateStr < stEnrollment;
+            const isAfterLeaving = !!stDeleted && dateStr > stDeleted;
+
+            if (isBeforeEnrollment) {
+              rowValues.push("O'qimagan");
+              return;
+            }
+            if (isAfterLeaving) {
+              rowValues.push("Ketgan");
+              return;
+            }
+
+            const entry =
+              gradeMap.get(`${st.id}_${dateStr}`) ||
+              gradeMap.get(`${st.student_id}_${dateStr}`) ||
+              gradeMap.get(`${st.user_id}_${dateStr}`);
+
+            const attVal = entry?.attendance?.value;
+            const academicList = entry?.academic || [];
+
+            if (attVal === "-") {
+              totalAbsences++;
+              rowValues.push("-"); // Absent / NB
+              return;
+            }
+
+            if (academicList.length > 0) {
+              academicList.forEach((ac) => {
+                const numVal = Number(ac.numeric_value || ac.value);
+                if (!isNaN(numVal) && numVal > 0) {
+                  academicSum += numVal;
+                  academicCount++;
+                }
+              });
+              const gradeStrings = academicList.map((ac) => ac.value).join(", ");
+              rowValues.push(gradeStrings);
+              return;
+            }
+
+            if (attVal === "+") {
+              rowValues.push("+"); // Present, no grade
+              return;
+            }
+
+            rowValues.push("");
+          });
+
+          // Summary columns
+          const avg = academicCount > 0 ? (academicSum / academicCount).toFixed(1) : "—";
+          rowValues.push(avg);
+          rowValues.push(academicCount > 0 ? `${academicCount} ta` : "0");
+          rowValues.push(totalAbsences > 0 ? `${totalAbsences} ta` : "0");
+
+          // Status description
+          let statusText = "Faol";
+          if (st.is_deleted) {
+            statusText = `Ketgan (${stDeleted || ""})`;
+          } else if (stEnrollment && stEnrollment > startDate) {
+            statusText = `Keyin kelgan (${stEnrollment})`;
+          }
+          rowValues.push(statusText);
+
+          sheetData.push(rowValues);
+        });
+
+        // Bottom Summary Statistics Rows
+        sheetData.push([]);
+        sheetData.push([
+          "",
+          "JAMI O'QUVCHILAR:",
+          `${sortedStudents.length} nafar`,
+        ]);
+        sheetData.push([
+          "",
+          "DARSLAR BO'LGAN KUNLAR:",
+          `${sortedDates.length} kun`,
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        const colWidths = [
+          { wch: 5 }, // T/r
+          { wch: 28 }, // F.I.SH
+          ...sortedDates.map(() => ({ wch: 9 })), // Dates
+          { wch: 14 }, // O'rtacha ball
+          { wch: 14 }, // Jami baholar
+          { wch: 16 }, // Qoldirilgan
+          { wch: 18 }, // Holati
+        ];
+        ws["!cols"] = colWidths;
+
+        let safeName = sub.name.replace(/[:\\/?*\[\]]/g, "_").trim().slice(0, 31) || `Fan_${sub.id}`;
+        let finalName = safeName;
+        let c = 1;
+        while (wb.SheetNames.includes(finalName)) {
+          finalName = `${safeName.slice(0, 27)} (${c++})`;
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, finalName);
+        totalSheetsAdded++;
+      }
+
+      if (totalSheetsAdded === 0) {
+        setExportMessage({
+          type: "error",
+          text: `Tanlangan oraliqda (${startDate} dan ${endDate} gacha) darslar yoki baholar topilmadi.`,
+        });
+        setIsExportingJournal(false);
+        return;
+      }
+
+      // Generate filename and trigger download
+      const dateRangeStr = `${startDate}_${endDate}`;
+      let downloadFileName = "";
+      if (totalSheetsAdded === 1) {
+        const singleSheetName = wb.SheetNames[0].replace(/\s+/g, "_");
+        downloadFileName = `Jurnal_${className}_${singleSheetName}_(${dateRangeStr}).xlsx`;
+      } else {
+        downloadFileName = `Jurnal_${className}_(${totalSheetsAdded}_ta_fan)_(${dateRangeStr}).xlsx`;
+      }
+
+      XLSX.writeFile(wb, downloadFileName);
 
       setExportMessage({
         type: "success",
-        text: `${className} sinfining ${subjectName} jurnali muvaffaqiyatli yuklab olindi! (${sortedDates.length} ta dars kuni)`,
+        text: `${className} sinfining ${totalSheetsAdded} ta fan bo'yicha jurnali (${sortedStudents.length} nafar o'quvchi) muvaffaqiyatli yuklab olindi!`,
       });
     } catch (err: any) {
       console.error(err);
@@ -678,26 +867,74 @@ export default function TeacherReportsSection({
               </div>
             </div>
 
-            {/* Subject Selector */}
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                2. Fanni tanlang:
-              </label>
-              <select
-                value={reportSubjectId}
-                onChange={(e) => {
-                  setReportSubjectId(e.target.value);
-                  setExportMessage(null);
-                }}
-                className="w-full bg-slate-50 border border-neutral-300 px-3 py-2.5 text-xs sm:text-sm font-bold text-slate-900 rounded-none outline-none focus:border-[#1E2B42] cursor-pointer"
-              >
-                <option value="all">Barcha fanlar (Umumiy jurnal)</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+            {/* Subject Selector (Multiple Sheets Support) */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#1E2B42]" />
+                  <span>2. Fanlarni tanlang:</span>
+                  <span className="text-[11px] font-normal text-slate-500">
+                    ({isAllSubjectsSelected ? "Barcha fanlar" : `${selectedSubjectIds.length} ta fan`})
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllSubjects}
+                    className="text-[#1E2B42] hover:underline font-semibold cursor-pointer"
+                  >
+                    Barchasini tanlash
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={handleClearSubjects}
+                    className="text-slate-500 hover:text-slate-800 hover:underline font-semibold cursor-pointer"
+                  >
+                    Tozalash
+                  </button>
+                </div>
+              </div>
+
+              {/* Subject interactive selector chips */}
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-neutral-300">
+                <button
+                  type="button"
+                  onClick={handleToggleAllSubjects}
+                  className={`px-2.5 py-1 text-xs font-bold transition rounded-none cursor-pointer border flex items-center gap-1 ${
+                    isAllSubjectsSelected
+                      ? "bg-[#1E2B42] text-white border-[#1E2B42] shadow-2xs"
+                      : "bg-white text-slate-700 border-neutral-300 hover:bg-slate-100"
+                  }`}
+                >
+                  {isAllSubjectsSelected && <Check className="w-3 h-3" />}
+                  <span>Barcha fanlar</span>
+                </button>
+
+                {subjects.map((sub: any) => {
+                  const isSelected = isAllSubjectsSelected || selectedSubjectIds.includes(String(sub.id));
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => handleToggleSubject(String(sub.id))}
+                      className={`px-2.5 py-1 text-xs font-medium transition rounded-none cursor-pointer border flex items-center gap-1 ${
+                        isSelected
+                          ? "bg-[#A51C30] text-white border-[#A51C30] font-bold shadow-2xs"
+                          : "bg-white text-slate-700 border-neutral-300 hover:bg-slate-100"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3" />}
+                      <span>{sub.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-tight">
+                💡 <b>Har bir fan alohida sheetda:</b> Bir nechta yoki barcha fanlar tanlansa, har bir fan Excel fayli ichida alohida varaq (sheet) sifatida saqlanadi.
+              </p>
             </div>
 
             {/* Special Feature Notice */}
@@ -710,6 +947,7 @@ export default function TeacherReportsSection({
                 <li>Maktabga keyinroq qabul qilingan o'quvchilarning oldingi sanalari <b>"O'qimagan"</b> deb belgilanadi.</li>
                 <li>Maktabdan ketgan o'quvchilar uchun ketgan sanasidan keyingi kunlar <b>"Ketgan"</b> deb ajratiladi.</li>
                 <li>Dars qoldirganlar <b>"-" (NB)</b> bilan, baho olganlar aniq ballari bilan ko'rsatiladi.</li>
+                <li>Umuman o'qimagan (yaratilib o'chirilgan) test yozuvlari hisobotdan avtomatik chetlatiladi.</li>
               </ul>
             </div>
           </div>
@@ -721,7 +959,15 @@ export default function TeacherReportsSection({
             className="w-full mt-4 h-11 bg-[#A51C30] hover:bg-[#8B1828] active:scale-98 text-white font-bold text-xs sm:text-sm px-4 rounded-none transition flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>{isExportingJournal ? "Jurnal tayyorlanmoqda..." : "Jurnalni Excelda yuklab olish (.xlsx)"}</span>
+            <span>
+              {isExportingJournal
+                ? "Jurnal tayyorlanmoqda..."
+                : isAllSubjectsSelected
+                ? "Barcha fanlar jurnalini yuklab olish (.xlsx)"
+                : selectedSubjectIds.length > 1
+                ? `${selectedSubjectIds.length} ta fan jurnalini yuklab olish (.xlsx)`
+                : "Jurnalni Excelda yuklab olish (.xlsx)"}
+            </span>
           </button>
         </div>
 
