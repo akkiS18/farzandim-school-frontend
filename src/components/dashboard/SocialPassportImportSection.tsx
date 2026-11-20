@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import * as XLSX from "xlsx";
 import { Upload, FileSpreadsheet, Trash2, CheckCircle2, UserPlus, FileText, X, AlertCircle, Save, RefreshCw, Edit3, ArrowRightLeft, Database, UserX } from "lucide-react";
 import { UserInfo } from "./types";
+import { formatExcelDateCell, formatLocalDate } from "@/lib/dateUtils";
 
 interface SocialPassportImportSectionProps {
   token: string;
@@ -708,6 +709,7 @@ export default function SocialPassportImportSection({
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: "binary" });
+        const isDate1904 = Boolean(workbook.Workbook?.WBProps?.date1904);
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
@@ -794,7 +796,7 @@ export default function SocialPassportImportSection({
 
         const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
         const rows: SmartStudentRowData[] = [];
-        const todayDateStr = new Date().toISOString().split("T")[0];
+        const todayDateStr = formatLocalDate();
 
         for (let r = startRow; r < rawData.length; r++) {
           const rowData = rawData[r];
@@ -815,7 +817,7 @@ export default function SocialPassportImportSection({
             ? parsedClass 
             : (titleDetectedClass || "1-A");
 
-          let parsedEnrollmentDate = idxEnrollmentDate !== -1 && rowData[idxEnrollmentDate] !== undefined ? cleanCellValue(rowData[idxEnrollmentDate]) : "";
+          let parsedEnrollmentDate = idxEnrollmentDate !== -1 && rowData[idxEnrollmentDate] !== undefined ? formatExcelDateCell(rowData[idxEnrollmentDate], isDate1904) : "";
           if (!parsedEnrollmentDate || parsedEnrollmentDate === "-") {
             parsedEnrollmentDate = todayDateStr;
           }
@@ -826,7 +828,7 @@ export default function SocialPassportImportSection({
             studentLastName: lastName,
             studentFirstName: firstName,
             studentMiddleName: middleName,
-            studentBirthdate: cleanCellValue(rowData[idxBirthdate]),
+            studentBirthdate: formatExcelDateCell(rowData[idxBirthdate], isDate1904),
             studentDocumentNo: normalizeDocumentNo(cleanCellValue(rowData[idxStudentDoc])),
             address: cleanCellValue(rowData[idxAddress]),
             fatherFullName: cleanCellValue(rowData[idxFatherFIO]),
@@ -923,7 +925,7 @@ export default function SocialPassportImportSection({
           student_middle_name: r.studentMiddleName,
           student_birthdate: r.studentBirthdate,
           student_document_no: r.studentDocumentNo,
-          enrollment_date: r.enrollmentDate || new Date().toISOString().split("T")[0],
+          enrollment_date: r.enrollmentDate || formatLocalDate(),
           address: r.address,
           father_full_name: r.fatherFullName,
           father_document_no: r.fatherDocumentNo,
