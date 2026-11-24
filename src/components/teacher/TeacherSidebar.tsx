@@ -14,6 +14,7 @@ import {
   Megaphone,
   Sparkles,
   BookMarked,
+  Images,
   Settings,
   GraduationCap,
   ChevronLeft,
@@ -127,6 +128,12 @@ export default function TeacherSidebar({
         { id: "clubs", label: "To'garaklar", icon: Sparkles },
         { id: "books", label: "Kitobxonlik", icon: BookMarked },
       ],
+    },
+    {
+      type: "single",
+      id: "photo-roster",
+      label: "Tabel rasm",
+      icon: Images,
     },
     {
       type: "single",

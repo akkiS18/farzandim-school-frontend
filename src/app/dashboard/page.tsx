@@ -25,6 +25,7 @@ import LibrarySection from "@/components/dashboard/LibrarySection";
 import AIReportsSection from "@/components/dashboard/AIReportsSection";
 import ReportsSection from "@/components/dashboard/ReportsSection";
 import SocialPassportImportSection from "@/components/dashboard/SocialPassportImportSection";
+import QorovulSection from "@/components/dashboard/QorovulSection";
 import useSwipeMobileMenu from "@/hooks/useSwipeMobileMenu";
 
 // Types
@@ -470,6 +471,14 @@ function TenantDashboardContent() {
               token={token}
               API_URL={API_URL}
               userInfo={userInfo}
+              classes={classes}
+            />
+          )}
+
+          {activeMenu === "qorovul" && (
+            <QorovulSection
+              token={token}
+              API_URL={API_URL}
               classes={classes}
             />
           )}

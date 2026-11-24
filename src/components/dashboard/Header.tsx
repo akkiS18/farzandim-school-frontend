@@ -45,6 +45,7 @@ export default function Header({
       "telegram": "Telegram Bot",
       "ai-reports": "AI Hisobotlar",
       "social-passport": "Ijtimoiy pasport",
+      "qorovul": "Qorovul (Face ID)",
       "settings": "Sozlamalar"
     };
     return titles[activeTab] || "Dashboard";

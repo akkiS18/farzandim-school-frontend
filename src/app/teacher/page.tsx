@@ -19,6 +19,7 @@ import TeacherHeader from "@/components/teacher/TeacherHeader";
 import FeedbackTab from "@/components/teacher/FeedbackTab";
 import TeacherSettingsTab from "@/components/teacher/TeacherSettingsTab";
 import TeacherReportsSection from "@/components/teacher/TeacherReportsSection";
+import PhotoRosterTab from "@/components/teacher/PhotoRosterTab";
 import JournalTab from "@/components/teacher/JournalTab";
 import ScheduleTab from "@/components/teacher/ScheduleTab";
 import StudentsTab from "@/components/teacher/StudentsTab";
@@ -166,6 +167,7 @@ type TeacherTabType =
   | "clubs"
   | "books"
   | "social-passport"
+  | "photo-roster"
   | "reports"
   | "settings";
 
@@ -198,6 +200,7 @@ function TeacherDashboardContent() {
     "clubs",
     "books",
     "social-passport",
+    "photo-roster",
     "reports",
     "settings",
   ];
@@ -5112,6 +5115,16 @@ function TeacherDashboardContent() {
                   fetchClassesList();
                   if (token) fetchAllStudents(token);
                 }}
+              />
+            )}
+
+            {/* TAB CONTENT: Tabel rasm (Student Photo Roster) */}
+            {teacherTab === "photo-roster" && (
+              <PhotoRosterTab
+                key={`photo-roster-${tabResetKeys["photo-roster"] || 0}`}
+                classes={classes}
+                selectedClassId={selectedClassId}
+                onSelectClass={(clsId) => setSelectedClassId(Number(clsId))}
               />
             )}
 

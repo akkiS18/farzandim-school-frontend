@@ -183,6 +183,14 @@ export default function Sidebar({
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         );
+      case "qorovul":
+        return (
+          <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" />
+            <circle cx="12" cy="10" r="3" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 17a5 5 0 019 0" />
+          </svg>
+        );
       case "settings":
         return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -261,6 +269,7 @@ export default function Sidebar({
         { id: "ai-reports", label: "AI Hisobotlar", badge: "New" },
         { id: "reports", label: "Hisobotlar (Eksport)", badge: null },
         { id: "social-passport", label: "Ijtimoiy pasport (Import)", badge: null },
+        { id: "qorovul", label: "Qorovul (Face ID)", badge: "New" },
       ]
     },
     { type: "single", id: "settings", label: "Sozlamalar", badge: null },
