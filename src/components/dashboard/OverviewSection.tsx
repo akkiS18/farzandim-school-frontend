@@ -59,6 +59,7 @@ export default function OverviewSection({
   const [isOverviewCalendarOpen, setIsOverviewCalendarOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
+  const [attendanceSource, setAttendanceSource] = useState<"journal" | "qorovul">("journal");
 
   const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
@@ -92,6 +93,7 @@ export default function OverviewSection({
       try {
         const params = new URLSearchParams();
         params.append("date", targetDate);
+        params.append("source", attendanceSource);
         if (selectedClassId) params.append("class_id", selectedClassId);
         if (selectedLevel) params.append("level", selectedLevel);
 
@@ -169,6 +171,7 @@ export default function OverviewSection({
     try {
       const params = new URLSearchParams();
       if (selectedDate) params.append("date", selectedDate);
+      params.append("source", attendanceSource);
       if (selectedClassId) params.append("class_id", selectedClassId);
       if (selectedLevel) params.append("level", selectedLevel);
 
@@ -213,7 +216,7 @@ export default function OverviewSection({
     } finally {
       setLoading(false);
     }
-  }, [API_URL, token, selectedDate, selectedClassId, selectedLevel]);
+  }, [API_URL, token, selectedDate, selectedClassId, selectedLevel, attendanceSource]);
 
   useEffect(() => {
     if (token) {
@@ -449,11 +452,37 @@ export default function OverviewSection({
               <div>
                 <h3 className="text-base font-black text-[#1D1E26]">Davomat Dinamikasi</h3>
                 <p className="text-xs text-emerald-600 font-bold flex items-center gap-1 mt-0.5 font-mono">
-                  <span>↗</span> {attendanceRate}% darsga qatnashuv ko'rsatkichi
+                  <span>↗</span> {attendanceRate}% {attendanceSource === "qorovul" ? "Qorovul.uz turniket qatnashuv ko'rsatkichi" : "darsga qatnashuv ko'rsatkichi"}
                 </p>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Source Switcher: Jurnal vs Qorovul.uz */}
+                <div className="inline-flex bg-slate-100 border border-slate-200 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceSource("journal")}
+                    className={`px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                      attendanceSource === "journal"
+                        ? "bg-[#1D1E26] text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Jurnal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceSource("qorovul")}
+                    className={`px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                      attendanceSource === "qorovul"
+                        ? "bg-[#1D1E26] text-[#D4F562] shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Qorovul.uz
+                  </button>
+                </div>
+
                 <select
                   value={selectedClassId}
                   onChange={(e) => setSelectedClassId(e.target.value)}
