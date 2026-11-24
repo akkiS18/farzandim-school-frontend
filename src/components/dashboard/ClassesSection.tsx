@@ -279,6 +279,9 @@ export default function ClassesSection({
   const [classTeacherHistory, setClassTeacherHistory] = useState<ClassTeacherHistoryItem[]>([]);
   const [classTeacherHistoryLoading, setClassTeacherHistoryLoading] = useState(false);
 
+  // Student Photo Lightbox Preview
+  const [previewPhotoStudent, setPreviewPhotoStudent] = useState<TenantUser | null>(null);
+
   // Edit Parent modal
   const [showEditParentModal, setShowEditParentModal] = useState(false);
   const [editParentFirstName, setEditParentFirstName] = useState("");
@@ -1551,8 +1554,29 @@ export default function ClassesSection({
                           return paginatedList.map((student, i) => (
                             <tr key={student.id} className="group hover:bg-slate-50/80 transition">
                               <td className="px-6 py-4 text-slate-400 font-mono">{startIndex + i + 1}</td>
-                              <td className="px-6 py-4 font-bold text-[#1D1E26] sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] min-w-[200px]">
-                                {student.last_name} {student.first_name} {student.middle_name}
+                              <td className="px-6 py-4 font-bold text-[#1D1E26] sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] min-w-[220px]">
+                                <div className="flex items-center gap-2.5">
+                                  {student.photo_url ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewPhotoStudent(student)}
+                                      title="Rasmni kattalashtirib ko'rish"
+                                      className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 hover:border-indigo-400 hover:scale-105 transition shrink-0 cursor-pointer"
+                                    >
+                                      <img
+                                        src={student.photo_url}
+                                        alt={`${student.last_name} ${student.first_name}`}
+                                        loading="lazy"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center text-[11px] font-bold shrink-0">
+                                      {`${(student.last_name || "").charAt(0)}${(student.first_name || "").charAt(0)}`.toUpperCase() || "?"}
+                                    </div>
+                                  )}
+                                  <span>{student.last_name} {student.first_name} {student.middle_name}</span>
+                                </div>
                               </td>
                               <td className="px-6 py-4 text-slate-600 font-mono font-bold whitespace-nowrap">
                                 <span className="bg-slate-100 text-slate-700 px-2.5 py-1 text-[11px]">
@@ -4286,6 +4310,45 @@ export default function ClassesSection({
           fetchClassStudents();
         }}
       />
+
+      {/* Student Photo Lightbox Preview Modal */}
+      {previewPhotoStudent && previewPhotoStudent.photo_url && (
+        <div
+          onClick={() => setPreviewPhotoStudent(null)}
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white max-w-sm w-full border border-slate-200 shadow-2xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+              <div className="font-bold text-sm text-[#1D1E26] truncate pr-2">
+                {previewPhotoStudent.last_name} {previewPhotoStudent.first_name}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoStudent(null)}
+                className="text-slate-400 hover:text-slate-800 font-bold text-lg leading-none cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <img
+              src={previewPhotoStudent.photo_url}
+              alt={`${previewPhotoStudent.last_name} ${previewPhotoStudent.first_name}`}
+              className="w-full max-h-[70vh] object-contain bg-slate-950"
+            />
+            <div className="p-4 text-center">
+              <div className="font-bold text-base text-[#1D1E26]">
+                {previewPhotoStudent.last_name} {previewPhotoStudent.first_name} {previewPhotoStudent.middle_name || ""}
+              </div>
+              <div className="text-xs text-slate-500 mt-1 font-mono">
+                {selectedClass?.name || ""} {previewPhotoStudent.ina ? `• ${previewPhotoStudent.ina}` : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

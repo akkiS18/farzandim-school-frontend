@@ -32,6 +32,7 @@ export interface TenantUser {
   birthdate?: string;
   enrollment_date?: string;
   ina?: string;
+  photo_url?: string | null;
   balance?: number;
   created_at: string;
 }
