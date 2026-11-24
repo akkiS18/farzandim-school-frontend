@@ -23,6 +23,7 @@ import BottomNavigation from "../../components/BottomNavigation";
 import DiaryDayCard from "../../components/DiaryDayCard";
 import SmartCalendarModal, { SmartCalendarTrigger } from "../../components/SmartCalendarModal";
 import CustomDialogModal from "../../components/CustomDialogModal";
+import ParentGateCard from "@/components/parents/ParentGateCard";
 import useSwipeMobileMenu from "../../hooks/useSwipeMobileMenu";
 import ParentSidebar, { TabIconAIReport } from "../../components/ParentSidebar";
 import AIReportSection from "../../components/parents/AIReportSection";
@@ -2165,6 +2166,11 @@ export default function ParentDashboard() {
               {/* Sub-tab: DIARY (Kundalik) */}
               {activeSubTab === "diary" && (
                 <div>
+                  <ParentGateCard
+                    studentId={selectedChildId ? Number(selectedChildId) : null}
+                    token={token}
+                    API_URL={API_URL}
+                  />
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
                     <SmartCalendarTrigger
                       label={weekLabel(currentWeekStart)}

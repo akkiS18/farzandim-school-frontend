@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { parseDateString, parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 import { calculateStudentsQuarterStats } from "@/lib/quarterAverage";
+import api from "@/lib/api";
 
 interface Student {
   id: number;
@@ -171,6 +172,76 @@ export const JournalTab: React.FC<JournalTabProps> = ({
     }
     return list.sort(compareByLastName);
   }, [students, studentSortDirection]);
+
+  // Qorovul Face ID Gate Attendance state (optional per school)
+  const [gateEnabled, setGateEnabled] = useState(false);
+  const [gateItems, setGateItems] = useState<
+    Record<string, { mapped: boolean; incoming_time?: string | null; outgoing_time?: string | null; late_minutes: number; is_inside: boolean }>
+  >({});
+
+  useEffect(() => {
+    if (!selectedClassId || !journalDate) {
+      setGateEnabled(false);
+      setGateItems({});
+      return;
+    }
+    let cancelled = false;
+    api
+      .get(`/api/schools/qorovul/gate-attendance?class_id=${selectedClassId}&date=${journalDate}`)
+      .then((res: any) => {
+        if (cancelled) return;
+        if (res && res.enabled) {
+          setGateEnabled(true);
+          setGateItems(res.items || {});
+        } else {
+          setGateEnabled(false);
+          setGateItems({});
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGateEnabled(false);
+          setGateItems({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClassId, journalDate]);
+
+  const gateStats = useMemo(() => {
+    let mapped = 0;
+    let present = 0;
+    students.forEach((st) => {
+      const g = gateItems[String(st.id)];
+      if (g?.mapped) {
+        mapped++;
+        if (g.incoming_time) present++;
+      }
+    });
+    return { mapped, present };
+  }, [students, gateItems]);
+
+  const handleFillAttendanceFromGate = () => {
+    if (!selectedSubjectId || !selectedLessonNumber || isDayOff) return;
+    setCellInputs((prev) => {
+      const next = { ...prev };
+      students.forEach((st) => {
+        const g = gateItems[String(st.id)];
+        if (!g || !g.mapped) return;
+        const existing = findGradeForDayAndType(
+          st.id,
+          Number(selectedSubjectId),
+          Number(selectedLessonNumber),
+          "ATTENDANCE"
+        );
+        if (existing?.status === "approved") return;
+        const key = `${st.id}_${selectedSubjectId}_${selectedLessonNumber}_ATTENDANCE`;
+        next[key] = g.incoming_time ? "+" : "-";
+      });
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (highlightStudentId) {
@@ -574,6 +645,28 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                   </button>
                 </div>
               )}
+              {/* Slim Qorovul Turniket bar (only shown when school has Qorovul enabled & mapped students) */}
+              {gateEnabled && gateStats.mapped > 0 && !isDayOff && (
+                <div className="bg-indigo-50/70 border-b border-indigo-200 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px] sm:text-xs">
+                  <div className="flex items-center gap-1.5 text-indigo-950 font-semibold truncate">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    <span>
+                      Turniket: <b>{gateStats.present}/{gateStats.mapped}</b> kelgan
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFillAttendanceFromGate}
+                    className="px-2.5 py-1 bg-[#1E2B42] hover:bg-slate-800 active:scale-98 text-white font-bold text-[10px] sm:text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                    title="Turniketdan o'tganlarga '+', o'tmaganlarga '-' belgilash"
+                  >
+                    <Zap className="w-3 h-3 fill-current" />
+                    <span className="sm:hidden">Turniket</span>
+                    <span className="hidden sm:inline">Turniketdan to&apos;ldirish</span>
+                  </button>
+                </div>
+              )}
+
               {/* Scrollable table container: banner above remains static at full width */}
               <div className="[scrollbar-width:thin] overflow-x-auto [-webkit-overflow-scrolling:touch] touch-auto overscroll-x-contain">
               <table className="min-w-full text-left border-separate border-spacing-0">
@@ -742,7 +835,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                           >
                             <div className="flex flex-col justify-center min-w-0">
                               <span className="truncate leading-tight">{st.last_name} {st.first_name}</span>
-                              <div className="mt-0.5">
+                              <div className="mt-0.5 flex items-center gap-1 flex-wrap">
                                 {(() => {
                                   const daysAgo = lastGradeDaysAgoMap.get(st.id);
                                   if (daysAgo !== undefined) {
@@ -766,6 +859,33 @@ export const JournalTab: React.FC<JournalTabProps> = ({
                                       </span>
                                     );
                                   }
+                                })()}
+                                {gateEnabled && (() => {
+                                  const g = gateItems[String(st.id)];
+                                  if (!g || !g.mapped) return null;
+                                  if (g.incoming_time) {
+                                    const isLate = g.late_minutes > 0;
+                                    return (
+                                      <span
+                                        title={`Turniket: ${g.incoming_time} da kirdi${g.outgoing_time ? `, ${g.outgoing_time} da chiqdi` : ""}${isLate ? ` (+${g.late_minutes} daq kechikish)` : ""}`}
+                                        className={`inline-flex items-center gap-0.5 px-1 py-0.2 text-[8px] sm:text-[9px] font-bold rounded-sm border ${
+                                          isLate
+                                            ? "bg-amber-50 text-amber-800 border-amber-300"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}
+                                      >
+                                        ● {g.incoming_time}
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <span
+                                      title="Bugun turniketdan o'tmagan"
+                                      className="inline-flex items-center gap-0.5 px-1 py-0.2 text-[8px] sm:text-[9px] font-semibold rounded-sm border bg-rose-50 text-rose-600 border-rose-200"
+                                    >
+                                      ● Yo&apos;q
+                                    </span>
+                                  );
                                 })()}
                               </div>
                             </div>
