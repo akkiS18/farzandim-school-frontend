@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDialog } from "../../hooks/useDialog";
 import CustomDialogModal from "../CustomDialogModal";
-import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft, Plus, Copy } from "lucide-react";
+import { Users, Pencil, Trash2, UserMinus, ArrowRightLeft, Plus, Copy, Calendar } from "lucide-react";
 import TransferStudentsModal from "./TransferStudentsModal";
 import DateRangePresets from "../DateRangePresets";
+import ScheduleTimelineBar, { SchedulePeriod } from "./ScheduleTimelineBar";
 import { ClassItem, SubjectItem, TenantUser, ClassTeacherItem, ClassTeacherHistoryItem, ClassScheduleItem, UserInfo, RowError, ImportResult } from "./types";
 import { generateParentInviteText } from "@/lib/invite";
+import { formatLocalDate } from "@/lib/dateUtils";
 
 interface SearchableSingleSelectProps {
   value: number;
@@ -292,17 +294,18 @@ export default function ClassesSection({
 
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [scheduleFormState, setScheduleFormState] = useState<{ [key: string]: number }>({});
-  const [scheduleStartDate, setScheduleStartDate] = useState("2026-09-01");
+  const [scheduleStartDate, setScheduleStartDate] = useState(() => formatLocalDate(new Date()));
   const [scheduleEndDate, setScheduleEndDate] = useState("2027-05-31");
   const [editingScheduleOriginalStartDate, setEditingScheduleOriginalStartDate] = useState<string>("");
-  const [schedulePresets, setSchedulePresets] = useState<{ id: number; name: string; start_date: string; end_date: string }[]>([]);
-  const [selectedPresetId, setSelectedPresetId] = useState<number | "">("");
+  const [schedulePeriods, setSchedulePeriods] = useState<SchedulePeriod[]>([]);
+  const [schedulePeriodsLoading, setSchedulePeriodsLoading] = useState(false);
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>(() => formatLocalDate(new Date()));
 
-  const [scheduleViewDate, setScheduleViewDate] = useState(new Date().toISOString().split("T")[0]);
+  const [scheduleViewDate, setScheduleViewDate] = useState(() => formatLocalDate(new Date()));
   const [scheduleExceptions, setScheduleExceptions] = useState<any[]>([]);
   const [scheduleExceptionsLoading, setScheduleExceptionsLoading] = useState(false);
   const [showAddExceptionModal, setShowAddExceptionModal] = useState(false);
-  const [excDate, setExcDate] = useState(new Date().toISOString().split("T")[0]);
+  const [excDate, setExcDate] = useState(() => formatLocalDate(new Date()));
   const [excLesson, setExcLesson] = useState(1);
   const [excType, setExcType] = useState("replace"); // "replace" or "cancel"
   const [excSubjectId, setExcSubjectId] = useState<number | "">("");
@@ -347,30 +350,41 @@ export default function ClassesSection({
   // Contextual view triggers
   useEffect(() => {
     if (selectedClass && token) {
+      const today = formatLocalDate(new Date());
+      setSelectedScheduleDate(today);
+      setScheduleViewDate(today);
       fetchClassStudents();
       fetchClassTeachers();
       fetchClassParents();
-      fetchClassSchedule();
-      fetchScheduleExceptions();
-      fetchSchedulePresets();
+      fetchSchedulePeriods(selectedClass.id);
+      fetchClassSchedule(today);
+      fetchScheduleExceptions(today);
     }
   }, [selectedClass, token]);
 
-  const fetchSchedulePresets = async () => {
+  const fetchSchedulePeriods = async (classIdOverride?: number) => {
+    const targetClassId = classIdOverride || selectedClass?.id;
+    if (!targetClassId) return;
+    setSchedulePeriodsLoading(true);
     try {
       const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
       const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
       if (sId) headers["X-School-ID"] = sId;
 
-      const res = await fetch(`${API_URL}/api/schools/date-range-presets?category=schedule`, { headers });
+      const res = await fetch(`${API_URL}/api/schools/classes/${targetClassId}/schedule-periods`, { headers });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setSchedulePresets(data);
-        }
+        const list: SchedulePeriod[] = Array.isArray(data) ? data : [];
+        list.sort((a, b) => a.start_date.localeCompare(b.start_date));
+        setSchedulePeriods(list);
+      } else {
+        setSchedulePeriods([]);
       }
     } catch (err) {
-      console.error("Presets fetch error:", err);
+      console.error("Schedule periods fetch error:", err);
+      setSchedulePeriods([]);
+    } finally {
+      setSchedulePeriodsLoading(false);
     }
   };
 
@@ -434,12 +448,12 @@ export default function ClassesSection({
     if (!selectedClass) return;
     setClassScheduleLoading(true);
     try {
-      const targetDate = overrideDate || scheduleStartDate || scheduleViewDate || new Date().toISOString().split("T")[0];
+      const targetDate = overrideDate || selectedScheduleDate || formatLocalDate(new Date());
       const sId = typeof window !== "undefined" ? localStorage.getItem("school_id") || "" : "";
       const headers: Record<string, string> = { "Authorization": `Bearer ${token}` };
       if (sId) headers["X-School-ID"] = sId;
 
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule?date=${targetDate}`, {
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule?date=${targetDate}&raw=true`, {
         headers,
       });
       const data = await response.json();
@@ -454,11 +468,12 @@ export default function ClassesSection({
     }
   };
 
-  const fetchScheduleExceptions = async () => {
+  const fetchScheduleExceptions = async (overrideDate?: string) => {
     if (!selectedClass) return;
     setScheduleExceptionsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions?date=${scheduleViewDate}`, {
+      const targetDate = overrideDate || scheduleViewDate || formatLocalDate(new Date());
+      const response = await fetch(`${API_URL}/api/schools/classes/${selectedClass.id}/schedule-exceptions?date=${targetDate}`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await response.json();
@@ -468,6 +483,14 @@ export default function ClassesSection({
     } finally {
       setScheduleExceptionsLoading(false);
     }
+  };
+
+  const handleSelectScheduleDate = (newDate: string) => {
+    if (!newDate) return;
+    setSelectedScheduleDate(newDate);
+    setScheduleViewDate(newDate);
+    fetchClassSchedule(newDate);
+    fetchScheduleExceptions(newDate);
   };
 
   const isMainTeacherOfClass = () => {
@@ -973,8 +996,14 @@ export default function ClassesSection({
 
       showAlert("Dars jadvali muvaffaqiyatli saqlandi!");
       setShowEditScheduleModal(false);
-      fetchClassSchedule();
-      fetchSchedulePresets();
+      const today = formatLocalDate(new Date());
+      const jumpDate =
+        today >= scheduleStartDate && today <= scheduleEndDate ? today : scheduleStartDate;
+      setSelectedScheduleDate(jumpDate);
+      setScheduleViewDate(jumpDate);
+      fetchSchedulePeriods(selectedClass.id);
+      fetchClassSchedule(jumpDate);
+      fetchScheduleExceptions(jumpDate);
     } catch (err: any) {
       setActionError(err.message);
     } finally {
@@ -1008,8 +1037,8 @@ export default function ClassesSection({
           showAlert("Dars jadvali muvaffaqiyatli o'chirildi!");
           setShowEditScheduleModal(false);
           setClassSchedule([]);
-          fetchClassSchedule();
-          fetchSchedulePresets();
+          fetchSchedulePeriods(selectedClass.id);
+          fetchClassSchedule(selectedScheduleDate);
         } catch (err: any) {
           showAlert(err.message || "Xatolik yuz berdi");
         } finally {
@@ -1922,40 +1951,32 @@ export default function ClassesSection({
                     <p className="text-xs text-slate-400 font-medium mt-0.5">Ushbu sinf uchun dars jadvali va o'qituvchilarning biriktiruvlari.</p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    {/* Compact Quarter Dropdown */}
-                    {schedulePresets.length > 0 && (
-                      <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200  px-3 py-2">
-                        <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono">Chorak:</span>
-                        <select
-                          value={selectedPresetId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (!val) {
-                              setSelectedPresetId("");
-                              return;
-                            }
-                            const pId = Number(val);
-                            setSelectedPresetId(pId);
-                            const found = schedulePresets.find((p) => p.id === pId);
-                            if (found) {
-                              setScheduleStartDate(found.start_date);
-                              setScheduleEndDate(found.end_date);
-                              setScheduleViewDate(found.start_date);
-                              fetchClassSchedule(found.start_date);
-                            }
-                          }}
-                          className="bg-transparent text-xs font-bold text-[#1D1E26] outline-none cursor-pointer"
-                        >
-                          <option value="">-- Chorakni tanlang --</option>
-                          {schedulePresets.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} ({p.start_date} — {p.end_date})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Date Picker + Quick Today Button */}
+                    <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase font-mono">Sana:</span>
+                      <input
+                        type="date"
+                        value={selectedScheduleDate}
+                        onChange={(e) => {
+                          if (e.target.value) handleSelectScheduleDate(e.target.value);
+                        }}
+                        className="bg-transparent text-xs font-bold text-[#1D1E26] outline-none cursor-pointer font-mono"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectScheduleDate(formatLocalDate(new Date()))}
+                      className={`h-9 px-3 text-xs font-extrabold font-mono border transition cursor-pointer ${
+                        selectedScheduleDate === formatLocalDate(new Date())
+                          ? "bg-[#ECFCCA] border-lime-300 text-[#1D1E26]"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                      }`}
+                    >
+                      Bugun
+                    </button>
 
                     {userInfo?.role === "ADMIN" && (
                       <div className="flex items-center gap-2">
@@ -1963,11 +1984,11 @@ export default function ClassesSection({
                           onClick={() => {
                             setScheduleFormState({});
                             setEditingScheduleOriginalStartDate("");
-                            const todayStr = new Date().toISOString().split("T")[0];
-                            setScheduleStartDate(todayStr);
+                            const baseDate = selectedScheduleDate || formatLocalDate(new Date());
+                            setScheduleStartDate(baseDate);
                             const nextYear = new Date();
                             nextYear.setFullYear(nextYear.getFullYear() + 1);
-                            setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                            setScheduleEndDate(formatLocalDate(nextYear));
                             setShowEditScheduleModal(true);
                           }}
                           title="Yangi dars jadvali qo'shish"
@@ -1990,11 +2011,11 @@ export default function ClassesSection({
                               setScheduleEndDate(classSchedule[0].end_date);
                               setEditingScheduleOriginalStartDate(classSchedule[0].start_date);
                             } else {
-                              const todayStr = new Date().toISOString().split("T")[0];
-                              setScheduleStartDate(todayStr);
+                              const baseDate = selectedScheduleDate || formatLocalDate(new Date());
+                              setScheduleStartDate(baseDate);
                               const nextYear = new Date();
                               nextYear.setFullYear(nextYear.getFullYear() + 1);
-                              setScheduleEndDate(nextYear.toISOString().split("T")[0]);
+                              setScheduleEndDate(formatLocalDate(nextYear));
                               setEditingScheduleOriginalStartDate("");
                             }
 
@@ -2020,13 +2041,22 @@ export default function ClassesSection({
                   </div>
                 </div>
 
+                <ScheduleTimelineBar
+                  periods={schedulePeriods}
+                  selectedDate={selectedScheduleDate}
+                  loading={schedulePeriodsLoading}
+                  onSelectDate={handleSelectScheduleDate}
+                />
+
                 {classScheduleLoading ? (
                   <div className="text-center py-10">
                     <div className="w-6 h-6 border-2 border-[#1D1E26] border-t-transparent rounded-full animate-spin mx-auto"></div>
                   </div>
                 ) : classSchedule.length === 0 ? (
                   <div className="text-center py-16 border border-dashed border-slate-200  bg-slate-50/50">
-                    <p className="text-slate-400 text-xs font-medium">Ushbu sinfda dars jadvali hali belgilanmagan.</p>
+                    <p className="text-slate-400 text-xs font-medium">
+                      Tanlangan sana ({selectedScheduleDate}) uchun dars jadvali belgilanmagan.
+                    </p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto  border border-slate-100">
@@ -2086,11 +2116,10 @@ export default function ClassesSection({
                       type="date"
                       value={scheduleViewDate}
                       onChange={(e) => {
-                        setScheduleViewDate(e.target.value);
-                        setTimeout(() => {
-                          fetchClassSchedule();
-                          fetchScheduleExceptions();
-                        }, 50);
+                        const val = e.target.value;
+                        if (val) {
+                          handleSelectScheduleDate(val);
+                        }
                       }}
                       className="bg-slate-50 border border-slate-200 text-[#1D1E26] text-xs font-bold  px-3.5 py-2 outline-none transition font-mono cursor-pointer"
                     />
